@@ -464,11 +464,11 @@
                     <div id="target-monthly-expenses" style="font-size:20px; font-weight:bold; color:#e17055; margin-top:4px;">€ 0.00</div>
                 </div>
                 <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi</small>
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi (calcolato su 26 gg lavorativi)</small>
                     <div id="target-daily-goal" style="font-size:20px; font-weight:bold; color:#6c5ce7; margin-top:4px;">€ 0.00</div>
                 </div>
                 <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Incasso Reale di Oggi</small>
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Incasso di Oggi</small>
                     <div id="target-today-revenue" style="font-size:20px; font-weight:bold; color:#00b894; margin-top:4px;">€ 0.00</div>
                 </div>
             </div>
@@ -2973,151 +2973,127 @@ function toggleInvFields() {
 
 
     async function loadDailyTargetWidget() {
-        const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
-        const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
+    const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+    const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
 
-        try {
-            // 1. Recuperiamo le spese del mese corrente
-            const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
-            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
-            const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    try {
+        // 1. Recuperiamo le spese del mese corrente
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
+        const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-            // 2. Calcolo dei giorni lavorativi del mese (stimati a 25 giorni di apertura standard o calcolati dinamicamente)
-            // Per semplicità e robustezza nel retail beauty, consideriamo 25 giorni lavorativi al mese, oppure i giorni totali escludendo le domeniche
-            const year = parseInt(currentMonthPrefix.split('-')[0]);
-            const month = parseInt(currentMonthPrefix.split('-')[1]);
-            const daysInMonth = new Date(year, month, 0).getDate();
-            
-            let workingDaysInMonth = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dateObj = new Date(year, month - 1, d);
-                if (dateObj.getDay() !== 0) { // Escludiamo la domenica (0) come giorno di chiusura tipico
-                    workingDaysInMonth++;
-                }
+        // 2. Calcolo dei giorni lavorativi del mese
+        const year = parseInt(currentMonthPrefix.split('-')[0]);
+        const month = parseInt(currentMonthPrefix.split('-')[1]);
+        const daysInMonth = new Date(year, month, 0).getDate();
+        
+        let workingDaysInMonth = 0;
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateObj = new Date(year, month - 1, d);
+            if (dateObj.getDay() !== 0) { // Escludiamo la domenica
+                workingDaysInMonth++;
             }
-            if (workingDaysInMonth === 0) workingDaysInMonth = 25; // Fallback di sicurezza
+        }
+        if (workingDaysInMonth === 0) workingDaysInMonth = 25;
 
-            // Target giornaliero per coprire le spese mensili
-            const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
+        // Target giornaliero per coprire le spese mensili
+        const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
 
-            // 3. Calcoliamo l'incasso reale di OGGI (usando la logica di margine pulito già vista)
-            const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-            const todaySales = sales.filter(s => s.date === todayStr);
-            const todaySalesIds = todaySales.map(s => s.id);
+        // 3. Calcoliamo l'INCASSO LORDO di OGGI (Incasso - Sconto, senza decurtare il costo unitario)
+        const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+        const todaySales = sales.filter(s => s.date === todayStr);
+        const todaySalesIds = todaySales.map(s => s.id);
 
-            const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
-            const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-            const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-            const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
+        
+        let todayGrossRevenue = 0;
 
-            let todayRealRevenue = 0;
+        for (let si of saleItems) {
+            if (!todaySalesIds.includes(si.sale_id)) continue;
 
-            for (let si of saleItems) {
-                if (!todaySalesIds.includes(si.sale_id)) continue;
+            const soldPrice = parseFloat(si.price) || 0;
+            const discount = parseFloat(si.discount) || 0;
+            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
 
-                const soldPrice = parseFloat(si.price) || 0;
-                const discount = parseFloat(si.discount) || 0;
-                const finalRev = (soldPrice - discount) * (si.qty || 1);
+            // L'incasso giornaliero per il widget obiettivo è il fatturato lordo transato in cassa
+            todayGrossRevenue += finalItemRev;
+        }
 
-                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-                let totalCostOrPayout = 0;
+        // Fallback se non ci sono sale_items ma ci sono vendite
+        if (saleItems.length === 0 && todaySales.length > 0) {
+            todayGrossRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
+        }
 
-                if (inv) {
-                    const phList = priceHistory.filter(p => p.product_id === inv.id && todayStr >= p.date_from && (todayStr <= p.date_to || !p.date_to));
-                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+        // 4. Aggiorniamo i testi nell'HTML
+        document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
+        document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)}`;
+        document.getElementById('target-today-revenue').innerText = `€ ${todayGrossRevenue.toFixed(2)}`;
 
-                    if (inv.is_consignment) {
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                        }
-                        const unitPayout = (listinoPienoOriginale * totalPct) / 100;
-                        totalCostOrPayout = unitPayout * (si.qty || 1);
-                    } else {
-                        let unitCost = 0;
-                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                        totalCostOrPayout = unitCost * (si.qty || 1);
-                    }
-                }
-                todayRealRevenue += (finalRev - totalCostOrPayout);
-            }
+        const badge = document.getElementById('target-status-badge');
+        if (todayGrossRevenue >= dailyGoal) {
+            badge.style.background = '#00b894';
+            badge.innerText = '🚀 Target Giornaliero Raggiunto!';
+        } else {
+            const diff = dailyGoal - todayGrossRevenue;
+            badge.style.background = '#e17055';
+            badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
+        }
 
-            // 4. Aggiorniamo i testi nell'HTML
-            document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
-            document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)}`;
-            document.getElementById('target-today-revenue').innerText = `€ ${todayRealRevenue.toFixed(2)}`;
+        // 5. Disegniamo il grafico Chart.js dell'obiettivo giornaliero basato sull'incasso lordo
+        const ctx = document.getElementById('dailyTargetChart').getContext('2d');
+        if (window.targetChartInstance) window.targetChartInstance.destroy();
 
-            const badge = document.getElementById('target-status-badge');
-            if (todayRealRevenue >= dailyGoal) {
-                badge.style.background = '#00b894';
-                badge.innerText = '🚀 Target Giornaliero Raggiunto!';
-            } else {
-                const diff = dailyGoal - todayRealRevenue;
-                badge.style.background = '#e17055';
-                badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
-            }
-
-            // 5. Disegniamo il grafico Chart.js (Barra di progresso orizzontale o Gauge a barre)
-            const ctx = document.getElementById('dailyTargetChart').getContext('2d');
-            if (window.targetChartInstance) window.targetChartInstance.destroy();
-
-            const percentage = dailyGoal > 0 ? Math.min(Math.round((todayRealRevenue / dailyGoal) * 100), 100) : 0;
-            const remainder = Math.max(100 - percentage, 0);
-
-            window.targetChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Copertura Spese Oggi'],
-                    datasets: [
-                        {
-                            label: 'Incassato (€)',
-                            data: [todayRealRevenue],
-                            backgroundColor: '#00b894',
-                            borderRadius: 6
-                        },
-                        {
-                            label: 'Mancante a Target (€)',
-                            data: [Math.max(dailyGoal - todayRealRevenue, 0)],
-                            backgroundColor: '#dfe6e9',
-                            borderRadius: 6
-                        }
-                    ]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            stacked: true,
-                            max: Math.max(dailyGoal * 1.2, todayRealRevenue * 1.1, 100), // Scala dinamica
-                            grid: { display: false }
-                        },
-                        y: {
-                            stacked: true,
-                            display: false
-                        }
+        window.targetChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Copertura Spese Oggi'],
+                datasets: [
+                    {
+                        label: 'Incassato (€)',
+                        data: [todayGrossRevenue],
+                        backgroundColor: '#00b894',
+                        borderRadius: 6
                     },
-                    plugins: {
-                        legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': € ' + context.raw.toFixed(2);
-                                }
+                    {
+                        label: 'Mancante a Target (€)',
+                        data: [Math.max(dailyGoal - todayGrossRevenue, 0)],
+                        backgroundColor: '#dfe6e9',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        max: Math.max(dailyGoal * 1.2, todayGrossRevenue * 1.1, 100),
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        display: false
+                    }
+                },
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': € ' + context.raw.toFixed(2);
                             }
                         }
                     }
                 }
-            });
+            }
+        });
 
-        } catch (err) {
-            console.error("Errore nel calcolo del widget obiettivo giornaliero:", err);
-        }
+    } catch (err) {
+        console.error("Errore nel calcolo del widget obiettivo giornaliero:", err);
     }
+}
 
 
 
@@ -5543,66 +5519,44 @@ async function executeStockLoad() {
     }
     function selectClient(n, id, t) { if(t === 'sale') { currentCheckoutCustomer = {id, name: n}; document.getElementById('cart-selected-cust').innerText = n; } else { document.getElementById('f-a-search').value = n; document.getElementById('f-a-cust-id').value = id; } document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); }
             async function updateStats() {
-        document.getElementById('st-c').innerText = allCustomers.length;
-        document.getElementById('st-a').innerText = allAppointments.length;
-        
-        // Contiamo solo i prodotti con stock <= min_stock, i servizi vengono ignorati
-        const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
-        document.getElementById('st-i').innerText = lowStockCount;
-        
-        // --- CALCOLO DEL REALE MARGINE / INCASSO NETTO DEL SALONE ---
-        // Invece di sommare il lordo secco (s.total), calcoliamo il reale valore di competenza 
-        // sottraendo sconti, quote fornitori in conto vendita e costi di acquisto.
-        let totalRealRevenue = 0;
+    document.getElementById('st-c').innerText = allCustomers.length;
+    document.getElementById('st-a').innerText = allAppointments.length;
+    
+    // Contiamo solo i prodotti con stock <= min_stock, i servizi vengono ignorati
+    const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
+    document.getElementById('st-i').innerText = lowStockCount;
+    
+    // --- CALCOLO DELL'INCASSO LORDO REALE (Fatturato di Cassa: Prezzo - Sconto) ---
+    let totalGrossRevenue = 0;
 
-        try {
-            // Recuperiamo gli item di tutte le vendite in memoria o tramite il data service
-            const saleItems = allSales.length > 0 ? await window.api.query({ action: 'GET_ALL', table: 'sale_items' }) || [] : [];
-            const priceHistory = await window.api.query({ action: 'GET_ALL', table: 'price_history' }) || [];
-            const productSuppliers = await window.api.query({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+    try {
+        const saleItems = allSales.length > 0 ? await window.api.query({ action: 'GET_ALL', table: 'sale_items' }) || [] : [];
 
-            for (let si of saleItems) {
-                const sale = allSales.find(s => s.id === si.sale_id);
-                if (!sale) continue;
+        for (let si of saleItems) {
+            const sale = allSales.find(s => s.id === si.sale_id);
+            if (!sale) continue;
 
-                const saleDate = sale.date || new Date().toISOString().split('T')[0];
-                const soldPrice = parseFloat(si.price) || 0;
-                const discount = parseFloat(si.discount) || 0;
-                const finalRev = (soldPrice - discount) * (si.qty || 1);
+            const soldPrice = parseFloat(si.price) || 0;
+            const discount = parseFloat(si.discount) || 0;
+            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
 
-                const inv = allInventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-                let totalCostOrPayout = 0;
-
-                if (inv) {
-                    const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
-                    if (inv.is_consignment) {
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                        }
-                        const unitPayout = (listinoPienoOriginale * totalPct) / 100;
-                        totalCostOrPayout = unitPayout * (si.qty || 1);
-                    } else {
-                        let unitCost = 0;
-                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                        totalCostOrPayout = unitCost * (si.qty || 1);
-                    }
-                }
-
-                totalRealRevenue += (finalRev - totalCostOrPayout);
-            }
-        } catch (err) {
-            console.warn("Impossibile calcolare il margine avanzato per il KPI dashboard, fallback sul totale lordo:", err);
-            totalRealRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
+            // Per tutti i prodotti (di proprietà o conto vendita), l'incasso di cassa è il ricavo lordo (Prezzo - Sconto)
+            totalGrossRevenue += finalItemRev;
         }
 
-        document.getElementById('st-rev').innerText = `€ ${totalRealRevenue.toFixed(2)}`;
+        // Fallback di sicurezza se non ci sono sale_items ma ci sono vendite registrate nella tabella sales
+        if (saleItems.length === 0 && allSales.length > 0) {
+            totalGrossRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
+        }
+
+    } catch (err) {
+        console.warn("Errore calcolo incasso lordo, fallback sul totale sales:", err);
+        totalGrossRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
     }
+
+    // Mostriamo l'incasso puro e semplice
+    document.getElementById('st-rev').innerText = `€ ${totalGrossRevenue.toFixed(2)}`;
+}
             
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
