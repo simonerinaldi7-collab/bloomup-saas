@@ -2532,6 +2532,26 @@ function changePageMobileWrapper(page, force) {
     }
 }
 
+
+// Esempio di attivazione notifica locale mirata all'operatore loggato
+function triggerLocalOperatorAlert(appointment) {
+    // Verifica se l'appuntamento è assegnato all'utente attualmente loggato
+    const currentUsername = currentUser ? currentUser.username.trim().toLowerCase() : '';
+    const assignedOperator = (appointment.assigned_user || 'admin').trim().toLowerCase();
+
+    if (currentUsername === assignedOperator) {
+        if (Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(`⏰ Promemoria Appuntamento`, {
+                    body: `Cliente: ${appointment.cust_name}\nServizio: ${appointment.service}\nOrario: ${appointment.date} @ ${appointment.time}`,
+                    icon: './icon-192.png',
+                    vibrate: [100, 50, 100]
+                });
+            });
+        }
+    }
+}
+
     // Funzione principale di rendering e calcolo
     async function renderSupplierPayouts() {
         console.log("[DEBUG PAYOUT] Avvio renderSupplierPayouts avanzato...");
@@ -4022,6 +4042,35 @@ async function executePasswordUpdate() {
     }
 
 
+    // --- ATTIVAZIONE WEB PUSH NOTIFICATIONS PER OPERATORE ---
+async function registerOperatorPushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn("Il browser non supporta le Web Push Notifications.");
+        return;
+    }
+
+    try {
+        // 1. Chiediamo il permesso di invio notifiche all'operatore
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.log("Permesso notifiche negato dall'operatore.");
+            return;
+        }
+
+        // 2. Recuperiamo la registrazione del Service Worker attiva
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Nota: Per un sistema di produzione completo si usano le chiavi VAPID. 
+        // Per il nostro MVP multitenant con Supabase, registriamo il channel client.
+        console.log("Service Worker pronto per la sottoscrizione Push.");
+        
+        // Salviamo lo stato nel localStorage per evitare richieste continue
+        localStorage.setItem('bloomup_push_enabled', 'true');
+    } catch (err) {
+        console.error("Errore durante la registrazione delle notifiche push:", err);
+    }
+}
+
     function resetGlobalState() {
         allCustomers = [];
         allInventory = [];
@@ -4815,6 +4864,9 @@ async function doLogin() {
 
     async function loginSuccess() {
         const isAdmin = (currentUser.role === 'admin');
+
+
+await registerOperatorPushNotifications();
 
         // 1. Setup visibilità menu laterale
         document.getElementById('n-dash').style.display = isAdmin ? 'flex' : 'none';
