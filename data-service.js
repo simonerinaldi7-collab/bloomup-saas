@@ -579,7 +579,7 @@ async function handleSpecialAction(action, data, id) {
         }
 
         // --- 3. GET_MONTHLY_BALANCE ---
-       // --- 3. GET_MONTHLY_BALANCE (PWA) ---
+// --- 3. GET_MONTHLY_BALANCE (PWA) ---
         if (action === 'GET_MONTHLY_BALANCE') {
             const sales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray() || [];
@@ -590,7 +590,7 @@ async function handleSpecialAction(action, data, id) {
 
             const monthlyMap = {};
 
-            // 1. Calcoliamo i ricavi reali depurati da sconti, costi e payout fornitori
+            // 1. Calcoliamo gli INCASSI LORDI (Prezzo - Sconto) e le eventuali quote conto vendita fornitori
             saleItems.forEach(si => {
                 const sale = sales.find(s => s.id === si.sale_id);
                 if (!sale || !sale.date) return;
@@ -603,37 +603,34 @@ async function handleSpecialAction(action, data, id) {
                 const saleDate = sale.date;
                 const soldPrice = si.price || 0;
                 const discount = si.discount || 0;
-                const finalRev = (soldPrice - discount) * (si.qty || 1);
+                const finalGrossRev = (soldPrice - discount) * (si.qty || 1);
 
+                // L'incasso mensile cresce del fatturato lordo di cassa
+                monthlyMap[mLabel].gross_revenue += finalGrossRev;
+
+                // Nota: Se un prodotto è in conto vendita, la quota parte del fornitore (payout) 
+                // rappresenta un costo operativo/debito che possiamo sommare alle spese o depurare dal netto.
                 const inv = inventory.find(i => i.name.toLowerCase() === si.item_name.toLowerCase());
-                let totalCostOrPayout = 0;
-
-                if (inv) {
+                if (inv && inv.is_consignment) {
                     const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                     const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
-                    if (inv.is_consignment) {
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                        }
-                        const unitPayout = (listinoPienoOriginale * totalPct) / 100;
-                        totalCostOrPayout = unitPayout * (si.qty || 1);
+                    const links = productSuppliers.filter(l => l.product_id === inv.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
                     } else {
-                        let unitCost = 0;
-                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                        totalCostOrPayout = unitCost * (si.qty || 1);
+                        totalPct = parseFloat(inv.consignment_split_pct) || 0;
                     }
-                }
+                    const unitPayout = (listinoPienoOriginale * totalPct) / 100;
+                    const totalConsignmentPayout = unitPayout * (si.qty || 1);
 
-                const itemNetMargin = finalRev - totalCostOrPayout;
-                monthlyMap[mLabel].gross_revenue += itemNetMargin;
+                    // La quota da liquidare al fornitore in conto vendita agisce come spesa automatica del mese
+                    monthlyMap[mLabel].total_expenses += totalConsignmentPayout;
+                }
             });
 
-            // 2. Aggiungiamo le spese mensili
+            // 2. Aggiungiamo le spese vive registrate (spese fisse + carichi merce di proprietà)
             expenses.forEach(e => {
                 if (!e.date) return;
                 const mLabel = e.date.substring(0, 7);
@@ -646,8 +643,8 @@ async function handleSpecialAction(action, data, id) {
             // 3. Restituiamo l'array formattato per il frontend
             return Object.values(monthlyMap).map(m => ({
                 m_label: m.m_label,
-                revenue: m.gross_revenue,
-                total_expenses: m.total_expenses
+                revenue: m.gross_revenue,         // Ora è l'Incasso Lordo di cassa (Prezzo - Sconto)
+                total_expenses: m.total_expenses  // Include spese manuali, carichi merce e payout conto vendita
             })).sort((a, b) => b.m_label.localeCompare(a.m_label));
         }
 
