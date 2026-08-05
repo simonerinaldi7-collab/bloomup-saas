@@ -3512,7 +3512,7 @@
                         <td><span class="badge-alert">DA INV</span></td>
                         <td><b>${a.cust_name}</b></td>
                         <td>${allCustomers.find(c=>c.name===a.cust_name)?.phone || '-'}</td>
-                    td>${formatDateIt(a.date)} @ ${a.time}</td>
+                    <td>${formatDateIt(a.date)} @ ${a.time}</td>
                         <td>
                             <button class="btn btn-w" onclick="sendIndividualRem('${a.id}', 'wa')">WA</button>
                             <button class="btn" style="padding:5px 10px; background:#fff" onclick="sendIndividualRem('${a.id}', 'sms')">SMS</button>
