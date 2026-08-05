@@ -759,6 +759,7 @@
     </div>
     <div id="mod-warning" class="modal"><div class="modal-box" style="text-align:center;"><h3>Sessione in scadenza</h3><button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button></div></div>
         <script>
+            let currentUser = null;
             const GEMINI_KEY = "INSERISCI_CHIAVE_QUI";
             let allCustomers=[], allInventory=[], allAppointments=[], allSales=[], allLogs=[],allUsers=[],  sysSettings={};
             let cart=[], currentCheckoutCustomer=null, currentViewApp=null, calView='week', viewDate=new Date();
