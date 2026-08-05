@@ -3006,14 +3006,17 @@ function toggleInvFields() {
         // Target giornaliero per coprire le spese mensili
         const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
 
-        // 3. Calcoliamo l'INCASSO LORDO di OGGI (Incasso - Sconto, senza decurtare il costo unitario)
+        // 3. Calcoliamo l'INCASSO DI COMPETENZA DEL NEGOZIO di OGGI
         const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
         const todaySales = sales.filter(s => s.date === todayStr);
         const todaySalesIds = todaySales.map(s => s.id);
 
         const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
-        
-        let todayGrossRevenue = 0;
+        const inventory = allInventory || [];
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+
+        let todaySalonRevenue = 0;
 
         for (let si of saleItems) {
             if (!todaySalesIds.includes(si.sale_id)) continue;
@@ -3022,37 +3025,51 @@ function toggleInvFields() {
             const discount = parseFloat(si.discount) || 0;
             const finalItemRev = (soldPrice - discount) * (si.qty || 1);
 
-            // L'incasso giornaliero per il widget obiettivo è il fatturato lordo transato in cassa
-            todayGrossRevenue += finalItemRev;
+            const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+            let salonShare = finalItemRev;
+
+            if (prod && prod.is_consignment) {
+                const phList = priceHistory.filter(ph => ph.product_id === prod.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
+                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+
+                const links = productSuppliers.filter(l => l.product_id === prod.id);
+                let totalPct = 0;
+                if (links.length > 0) {
+                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                } else {
+                    totalPct = parseFloat(prod.consignment_split_pct) || 0;
+                }
+                const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                salonShare = finalItemRev - supplierPayout;
+            }
+
+            todaySalonRevenue += salonShare;
         }
 
-        // Fallback se non ci sono sale_items ma ci sono vendite
         if (saleItems.length === 0 && todaySales.length > 0) {
-            todayGrossRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
+            todaySalonRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
         }
 
         // 4. Aggiorniamo i testi nell'HTML
         document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
         document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)}`;
-        document.getElementById('target-today-revenue').innerText = `€ ${todayGrossRevenue.toFixed(2)}`;
+        document.getElementById('target-today-revenue').innerText = `€ ${todaySalonRevenue.toFixed(2)}`;
 
         const badge = document.getElementById('target-status-badge');
-        if (todayGrossRevenue >= dailyGoal) {
+        if (todaySalonRevenue >= dailyGoal) {
             badge.style.background = '#00b894';
             badge.innerText = '🚀 Target Giornaliero Raggiunto!';
         } else {
-            const diff = dailyGoal - todayGrossRevenue;
+            const diff = dailyGoal - todaySalonRevenue;
             badge.style.background = '#e17055';
             badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
         }
 
-        // 5. Disegniamo il grafico Chart.js dell'obiettivo giornaliero basato sull'incasso lordo
-        // 5. Disegniamo il grafico Chart.js con la scala arrotondata a numeri interi puliti
+        // Disegno del grafico con il valore pulito
         const ctx = document.getElementById('dailyTargetChart').getContext('2d');
         if (window.targetChartInstance) window.targetChartInstance.destroy();
 
-        // Calcoliamo un limite massimo pulito (arrotondato per eccesso all'unità intera o a decine)
-        const rawMax = Math.max(dailyGoal * 1.2, todayGrossRevenue * 1.1, 100);
+        const rawMax = Math.max(dailyGoal * 1.2, todaySalonRevenue * 1.1, 100);
         const cleanMax = Math.ceil(rawMax); 
 
         window.targetChartInstance = new Chart(ctx, {
@@ -3062,13 +3079,13 @@ function toggleInvFields() {
                 datasets: [
                     {
                         label: 'Incassato (€)',
-                        data: [todayGrossRevenue],
+                        data: [todaySalonRevenue],
                         backgroundColor: '#00b894',
                         borderRadius: 6
                     },
                     {
                         label: 'Mancante a Target (€)',
-                        data: [Math.max(dailyGoal - todayGrossRevenue, 0)],
+                        data: [Math.max(dailyGoal - todaySalonRevenue, 0)],
                         backgroundColor: '#dfe6e9',
                         borderRadius: 6
                     }
@@ -3081,11 +3098,11 @@ function toggleInvFields() {
                 scales: {
                     x: {
                         stacked: true,
-                        max: cleanMax, // 👈 Valore intero pulito senza decimali strani
+                        max: cleanMax,
                         grid: { display: false },
                         ticks: {
                             callback: function(value) {
-                                return '€ ' + Math.round(value); // Mostra ticks interi puliti
+                                return '€ ' + Math.round(value);
                             }
                         }
                     },
@@ -5602,44 +5619,67 @@ async function executeStockLoad() {
         r.style.display = f.length ? 'block' : 'none'; 
     }
     function selectClient(n, id, t) { if(t === 'sale') { currentCheckoutCustomer = {id, name: n}; document.getElementById('cart-selected-cust').innerText = n; } else { document.getElementById('f-a-search').value = n; document.getElementById('f-a-cust-id').value = id; } document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); }
-            async function updateStats() {
+           async function updateStats() {
     document.getElementById('st-c').innerText = allCustomers.length;
     document.getElementById('st-a').innerText = allAppointments.length;
     
-    // Contiamo solo i prodotti con stock <= min_stock, i servizi vengono ignorati
     const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
     document.getElementById('st-i').innerText = lowStockCount;
     
-    // --- CALCOLO DELL'INCASSO LORDO REALE (Fatturato di Cassa: Prezzo - Sconto) ---
-    let totalGrossRevenue = 0;
+    // --- CALCOLO DELL'INCASSO DI COMPETENZA DEL NEGOZIO ---
+    let totalSalonRevenue = 0;
 
     try {
         const saleItems = allSales.length > 0 ? await window.api.query({ action: 'GET_ALL', table: 'sale_items' }) || [] : [];
+        const inventory = allInventory || [];
+        const priceHistory = await window.api.query({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
         for (let si of saleItems) {
             const sale = allSales.find(s => s.id === si.sale_id);
             if (!sale) continue;
 
+            const saleDate = sale.date || new Date().toISOString().split('T')[0];
             const soldPrice = parseFloat(si.price) || 0;
             const discount = parseFloat(si.discount) || 0;
             const finalItemRev = (soldPrice - discount) * (si.qty || 1);
 
-            // Per tutti i prodotti (di proprietà o conto vendita), l'incasso di cassa è il ricavo lordo (Prezzo - Sconto)
-            totalGrossRevenue += finalItemRev;
+            const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+            
+            let salonShare = finalItemRev;
+
+            if (prod && prod.is_consignment) {
+                const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+
+                const links = productSuppliers.filter(l => l.product_id === prod.id);
+                let totalPct = 0;
+                if (links.length > 0) {
+                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                } else {
+                    totalPct = parseFloat(prod.consignment_split_pct) || 0;
+                }
+                
+                // Quota spettante al fornitore calcolata sul listino pieno
+                const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                
+                // Il ricavo effettivo del negozio sul conto vendita assorbe lo sconto ed è depurato dal payout fornitore
+                salonShare = finalItemRev - supplierPayout;
+            }
+
+            totalSalonRevenue += salonShare;
         }
 
-        // Fallback di sicurezza se non ci sono sale_items ma ci sono vendite registrate nella tabella sales
         if (saleItems.length === 0 && allSales.length > 0) {
-            totalGrossRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
+            totalSalonRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
         }
 
     } catch (err) {
-        console.warn("Errore calcolo incasso lordo, fallback sul totale sales:", err);
-        totalGrossRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
+        console.warn("Errore calcolo incasso di competenza, fallback sul totale sales:", err);
+        totalSalonRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
     }
 
-    // Mostriamo l'incasso puro e semplice
-    document.getElementById('st-rev').innerText = `€ ${totalGrossRevenue.toFixed(2)}`;
+    document.getElementById('st-rev').innerText = `€ ${totalSalonRevenue.toFixed(2)}`;
 }
             
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)

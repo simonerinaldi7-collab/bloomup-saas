@@ -579,7 +579,6 @@ async function handleSpecialAction(action, data, id) {
         }
 
         // --- 3. GET_MONTHLY_BALANCE ---
-// --- 3. GET_MONTHLY_BALANCE (PWA) ---
         if (action === 'GET_MONTHLY_BALANCE') {
             const sales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray() || [];
@@ -590,14 +589,14 @@ async function handleSpecialAction(action, data, id) {
 
             const monthlyMap = {};
 
-            // 1. Calcoliamo gli INCASSI LORDI (Prezzo - Sconto) e le eventuali quote conto vendita fornitori
+            // 1. Calcoliamo gli INCASSI DI COMPETENZA DEL NEGOZIO (Prezzo - Sconto - Quota Fornitore se in CV)
             saleItems.forEach(si => {
                 const sale = sales.find(s => s.id === si.sale_id);
                 if (!sale || !sale.date) return;
 
                 const mLabel = sale.date.substring(0, 7); // 'YYYY-MM'
                 if (!monthlyMap[mLabel]) {
-                    monthlyMap[mLabel] = { m_label: mLabel, gross_revenue: 0, total_expenses: 0 };
+                    monthlyMap[mLabel] = { m_label: mLabel, salon_revenue: 0, total_expenses: 0 };
                 }
 
                 const saleDate = sale.date;
@@ -605,12 +604,9 @@ async function handleSpecialAction(action, data, id) {
                 const discount = si.discount || 0;
                 const finalGrossRev = (soldPrice - discount) * (si.qty || 1);
 
-                // L'incasso mensile cresce del fatturato lordo di cassa
-                monthlyMap[mLabel].gross_revenue += finalGrossRev;
-
-                // Nota: Se un prodotto è in conto vendita, la quota parte del fornitore (payout) 
-                // rappresenta un costo operativo/debito che possiamo sommare alle spese o depurare dal netto.
                 const inv = inventory.find(i => i.name.toLowerCase() === si.item_name.toLowerCase());
+                let salonShare = finalGrossRev;
+
                 if (inv && inv.is_consignment) {
                     const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                     const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
@@ -625,9 +621,11 @@ async function handleSpecialAction(action, data, id) {
                     const unitPayout = (listinoPienoOriginale * totalPct) / 100;
                     const totalConsignmentPayout = unitPayout * (si.qty || 1);
 
-                    // La quota da liquidare al fornitore in conto vendita agisce come spesa automatica del mese
-                    monthlyMap[mLabel].total_expenses += totalConsignmentPayout;
+                    // Il ricavo di competenza del salone sul conto vendita è il lordo meno la quota fornitore
+                    salonShare = finalGrossRev - totalConsignmentPayout;
                 }
+
+                monthlyMap[mLabel].salon_revenue += salonShare;
             });
 
             // 2. Aggiungiamo le spese vive registrate (spese fisse + carichi merce di proprietà)
@@ -643,8 +641,8 @@ async function handleSpecialAction(action, data, id) {
             // 3. Restituiamo l'array formattato per il frontend
             return Object.values(monthlyMap).map(m => ({
                 m_label: m.m_label,
-                revenue: m.gross_revenue,         // Ora è l'Incasso Lordo di cassa (Prezzo - Sconto)
-                total_expenses: m.total_expenses  // Include spese manuali, carichi merce e payout conto vendita
+                revenue: m.salon_revenue,         // 👈 Incasso netto di competenza del salone
+                total_expenses: m.total_expenses
             })).sort((a, b) => b.m_label.localeCompare(a.m_label));
         }
 
