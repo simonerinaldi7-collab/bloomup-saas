@@ -2,26 +2,79 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>BloomUp</title>
-    <style>
-        :root { --p: #6C5CE7; --s: #00B894; --d: #E17055; --bg: #F4F7FE; --txt: #2D3436; --border: #DFE6E9; --sidebar: #2D3436; --grey: #b2bec3; }
-        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--bg); margin: 0; height: 100vh; overflow: hidden; color: var(--txt); }
-
-        /* FIX FOCUS & CLICKS */<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
     <title>BloomUp - Gestionale Beauty & Retail</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root { --p: #6C5CE7; --s: #00B894; --d: #E17055; --bg: #F4F7FE; --txt: #2D3436; --border: #DFE6E9; --sidebar: #2D3436; --grey: #b2bec3; }
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
         body { background: var(--bg); margin: 0; height: 100vh; overflow: hidden; color: var(--txt); }
-
         /* FIX FOCUS & CLICKS */
         .hidden { display: none !important; }
         #app-shell { display: none; height: 100vh; width: 100vw; flex-direction: row; }
+
+
+
+
+/* --- BANNER INSTALLAZIONE PWA --- */
+#pwa-install-banner {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1e1b4b;
+    color: white;
+    padding: 14px 20px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 30000;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 90%;
+    max-width: 400px;
+}
+
+#pwa-install-banner.show {
+    transform: translateX(-50%) translateY(0);
+}
+
+.pwa-install-info {
+    flex-grow: 1;
+}
+
+.pwa-install-info h4 {
+    margin: 0 0 2px 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.pwa-install-info p {
+    margin: 0;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.pwa-btn-install {
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pwa-btn-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+}
 
         /* --- LOGIN SCREEN PROFESSIONALE SAAS --- */
         #login-screen {
@@ -5588,6 +5641,48 @@ async function loadExpenses() {
     `).join('');
 }
 
+// --- GESTIONE INSTALLAZIONE PWA (PROMPT NATIVO) ---
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Impedisce al browser di mostrare il banner nativo standard
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Mostra il nostro banner personalizzato dopo 2 secondi
+    setTimeout(() => {
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner && !window.matchMedia('(display-mode: standalone)').matches) {
+            banner.classList.add('show');
+        }
+    }, 2000);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const installBtn = document.getElementById('pwa-install-trigger');
+    const closeBtn = document.getElementById('pwa-install-close');
+    const banner = document.getElementById('pwa-install-banner');
+
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            // Mostra il prompt nativo del browser
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`Risposta utente all'installazione PWA: ${outcome}`);
+            deferredPrompt = null;
+            if (banner) banner.classList.remove('show');
+        });
+    }
+
+    if (closeBtn && banner) {
+        closeBtn.addEventListener('click', () => {
+            banner.classList.remove('show');
+        });
+    }
+});
+
+
 // Funzione di supporto per eliminare una spesa (aggiungila anche in main.js)
 async function deleteExpense(id) {
     if(confirm("Eliminare questa spesa?")) {
@@ -5619,5 +5714,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 </script>
+
+<!-- BANNER INSTALLAZIONE RAPIDA PWA -->
+<div id="pwa-install-banner">
+    <div style="font-size: 24px;">📱</div>
+    <div class="pwa-install-info">
+        <h4>Installa BloomUp</h4>
+        <p>Accedi rapidamente dai dispositivi del salone.</p>
+    </div>
+    <button class="pwa-btn-install" id="pwa-install-trigger">Installa</button>
+    <button class="pwa-btn-close" id="pwa-install-close">✕</button>
+</div>
+
 </body>
 </html>
