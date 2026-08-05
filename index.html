@@ -705,10 +705,11 @@
             <option value="consignment">Solo Conto Vendita</option>
         </select>
 
-        <div style="display:flex; gap:8px;">
+       <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('filter-prod-type-sales').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset Filtri</button>
             <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
             <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
-        </div>    
+        </div>
     </div>
     <div class="card" style="padding:0; overflow-x: auto;">
         <table>
@@ -3046,8 +3047,13 @@ function toggleInvFields() {
         }
 
         // 5. Disegniamo il grafico Chart.js dell'obiettivo giornaliero basato sull'incasso lordo
+        // 5. Disegniamo il grafico Chart.js con la scala arrotondata a numeri interi puliti
         const ctx = document.getElementById('dailyTargetChart').getContext('2d');
         if (window.targetChartInstance) window.targetChartInstance.destroy();
+
+        // Calcoliamo un limite massimo pulito (arrotondato per eccesso all'unità intera o a decine)
+        const rawMax = Math.max(dailyGoal * 1.2, todayGrossRevenue * 1.1, 100);
+        const cleanMax = Math.ceil(rawMax); 
 
         window.targetChartInstance = new Chart(ctx, {
             type: 'bar',
@@ -3075,8 +3081,13 @@ function toggleInvFields() {
                 scales: {
                     x: {
                         stacked: true,
-                        max: Math.max(dailyGoal * 1.2, todayGrossRevenue * 1.1, 100),
-                        grid: { display: false }
+                        max: cleanMax, // 👈 Valore intero pulito senza decimali strani
+                        grid: { display: false },
+                        ticks: {
+                            callback: function(value) {
+                                return '€ ' + Math.round(value); // Mostra ticks interi puliti
+                            }
+                        }
                     },
                     y: {
                         stacked: true,
@@ -5029,21 +5040,43 @@ async function doLogin() {
 
     let filtered = allInventory.filter(p => (p.type === 'prodotto' || !p.type));
     
-    // 1. Filtro testuale
+    // Recuperiamo i legami multi-fornitore per poter filtrare/cercare anche lì
+    const allLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+
+    // 1. Filtro testuale avanzato (Cerca su Nome, Modello, Barcode E nei nomi dei fornitori/quote)
     if (f) {
-        filtered = filtered.filter(p => 
-            (p.name && p.name.toLowerCase().includes(f)) || 
-            (p.model && p.model.toLowerCase().includes(f)) || 
-            (p.barcode && p.barcode.toLowerCase().includes(f))
-        );
+        filtered = filtered.filter(p => {
+            const matchBase = (p.name && p.name.toLowerCase().includes(f)) || 
+                              (p.model && p.model.toLowerCase().includes(f)) || 
+                              (p.barcode && p.barcode.toLowerCase().includes(f));
+            
+            if (matchBase) return true;
+
+            // Controlliamo se il testo corrisponde al fornitore principale
+            const mainSupp = allSuppliers.find(s => s.id === p.supplier_id);
+            if (mainSupp && mainSupp.name.toLowerCase().includes(f)) return true;
+
+            // Controlliamo se il testo corrisponde a uno dei fornitori in conto vendita associati
+            const prodLinks = allLinks.filter(l => l.product_id === p.id);
+            const matchSplit = prodLinks.some(l => {
+                const supp = allSuppliers.find(s => s.id === l.supplier_id);
+                return supp && supp.name.toLowerCase().includes(f);
+            });
+
+            return matchSplit;
+        });
     }
 
-    // 2. Filtro per Fornitore
+    // 2. Filtro per Fornitore (Principale o in quota)
     if (supplierFilterVal !== 'all') {
-        filtered = filtered.filter(p => p.supplier_id === supplierFilterVal);
+        filtered = filtered.filter(p => {
+            if (p.supplier_id === supplierFilterVal) return true;
+            const prodLinks = allLinks.filter(l => l.product_id === p.id);
+            return prodLinks.some(l => l.supplier_id === supplierFilterVal);
+        });
     }
 
-    // 3. Filtro per Conto Vendita / Proprietà
+    // 3. Filtro per Tipologia Conto Vendita / Proprietà
     if (typeSalesFilterVal === 'proprieta') {
         filtered = filtered.filter(p => !p.is_consignment);
     } else if (typeSalesFilterVal === 'consignment') {
@@ -5062,10 +5095,28 @@ async function doLogin() {
         const cost = pInfo ? pInfo.cost : 0;
         const isLowStock = item.stock <= item.min_stock;
         
-        const supplier = allSuppliers.find(s => s.id === item.supplier_id);
-        const supplierName = supplier ? supplier.name : '<span style="color:#aaa;">-</span>';
+        // Formattazione del campo Fornitore / Fornitori Multipli
+        let supplierHtml = '-';
+        if (item.is_consignment) {
+            const prodLinks = allLinks.filter(l => l.product_id === item.id);
+            if (prodLinks.length > 0) {
+                let lines = [];
+prodLinks.forEach(l => {
+    const supp = allSuppliers.find(s => s.id === l.supplier_id);
+    const suppName = supp ? supp.name : 'Fornitore';
+    lines.push(`${suppName} (${l.split_pct}%)`);
+});
+supplierHtml = `<div style="font-size:11px; line-height:1.3; color:#d97706;">${lines.join('<br>')}</div>`;} else if (item.supplier_id) {
+                const supp = allSuppliers.find(s => s.id === item.supplier_id);
+                supplierHtml = `<div style="font-size:11px; color:#d97706;">${supp ? supp.name : 'Fornitore'} (${item.consignment_split_pct || 0}%)</div>`;
+            } else {
+                supplierHtml = `<span style="color:#d97706;">Conto Vendita (N/D)</span>`;
+            }
+        } else {
+            const supplier = allSuppliers.find(s => s.id === item.supplier_id);
+            supplierHtml = supplier ? supplier.name : '<span style="color:#aaa;">-</span>';
+        }
 
-        // Badge visivo Conto Vendita vs Proprietà
         const typeBadge = item.is_consignment 
             ? `<span style="background:#fef3c7; color:#d97706; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Conto Vendita</span>`
             : `<span style="background:#e0e7ff; color:#4338ca; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Proprietà</span>`;
@@ -5080,7 +5131,7 @@ async function doLogin() {
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>€ ${parseFloat(cost).toFixed(2)}</td>
             <td><b>${item.stock}</b> <small>${item.unit || 'Pz'}</small></td>
-            <td>${supplierName}</td>
+            <td>${supplierHtml}</td>
             <td style="text-align:right">
                 <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
                     <button class="btn btn-s" style="padding:2px 8px;" onclick="openStockLoadModal('${item.id}')" title="Carico Merce">📦</button>
