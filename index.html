@@ -319,7 +319,45 @@
         <button class="login-btn" onclick="doLogin()">ACCEDI AL SISTEMA</button>
     </div>
 </div>
+<!-- MODALE CARICO MERCE (MAGAZZINO) -->
+<div id="mod-stock-load" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 450px;">
+        <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
+        <h3 style="margin-top: 0; color: var(--p);">📦 Carico Merce da Fornitore</h3>
+        <input type="hidden" id="load-prod-id">
+        
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border);">
+            <div style="font-size: 12px; color: #666;">Prodotto Selezionato:</div>
+            <div id="load-prod-name" style="font-weight: bold; font-size: 16px; color: var(--txt);">Nome Prodotto</div>
+            <div style="font-size: 11px; color: var(--p); margin-top: 4px;" id="load-prod-type-badge">Tipo: Proprietà</div>
+        </div>
 
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+                <label>Quantità in Arrivo (+)</label>
+                <input type="number" id="load-qty" value="1" min="1" oninput="calculateUnitCostFromTotal()">
+            </div>
+            <div>
+                <label>Costo Totale (€)</label>
+                <input type="number" id="load-total-cost" step="0.01" placeholder="Es. 120.00" oninput="calculateUnitCostFromTotal()">
+            </div>
+        </div>
+
+        <!-- Box calcolato automaticamente dal sistema -->
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 10px 14px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: bold; color: #4338ca;">Costo Unitario Calcolato:</span>
+            <span id="load-calculated-unit-cost" style="font-size: 16px; font-weight: bold; color: #4338ca;">€ 0.00</span>
+        </div>
+
+        <label>Data del Carico / DDT</label>
+        <input type="date" id="load-date">
+
+        <label>Note / Riferimento Fattura o DDT</label>
+        <input type="text" id="load-notes" placeholder="Es. Fattura n. 12/A del fornitore">
+
+        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding: 14px;" onclick="executeStockLoad()">CONFERMA E REGISTRA CARICO</button>
+    </div>
+</div>
 
 <!-- MODALE INSERIMENTO NUOVA PASSWORD (POST-LINK EMAIL) -->
 <div id="mod-update-new-pass" class="modal">
@@ -4953,6 +4991,7 @@ async function doLogin() {
                 <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
                 <td style="text-align:right">
                     <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
+                        <button class="btn btn-s" style="padding:2px 8px;" onclick="openStockLoadModal('${item.id}')" title="Carico Merce">📦</button>
                         <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')">Edit</button>
                         <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')">✕</button>
                     </div>
@@ -4961,6 +5000,118 @@ async function doLogin() {
         }
         tbody.innerHTML = html;
     }
+
+
+
+// --- FUNZIONI GESTIONE CARICO MERCE ---
+
+async function openStockLoadModal(productId) {
+    const prod = allInventory.find(p => p.id === productId);
+    if (!prod) return;
+
+    document.getElementById('load-prod-id').value = prod.id;
+    document.getElementById('load-prod-name').innerText = prod.name;
+    
+    const badge = document.getElementById('load-prod-type-badge');
+    if (prod.is_consignment) {
+        badge.innerText = "Modo: Conto Vendita (Nessun costo immediato generato a bilancio)";
+        badge.style.color = "var(--d)";
+    } else {
+        badge.innerText = "Modo: Prodotto di Proprietà (Genera spesa automatica a bilancio)";
+        badge.style.color = "var(--s)";
+    }
+
+    document.getElementById('load-qty').value = "1";
+    document.getElementById('load-total-cost').value = "";
+    document.getElementById('load-calculated-unit-cost').innerText = "€ 0.00";
+    document.getElementById('load-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('load-notes').value = "";
+
+    document.getElementById('mod-stock-load').classList.add('active');
+}
+
+// Calcolo in tempo reale del costo unitario in base a quantità e costo totale inserito
+function calculateUnitCostFromTotal() {
+    const qty = parseFloat(document.getElementById('load-qty').value) || 0;
+    const totalCost = parseFloat(document.getElementById('load-total-cost').value) || 0;
+    
+    const unitCostDisplay = document.getElementById('load-calculated-unit-cost');
+    if (qty > 0 && totalCost > 0) {
+        const unitCost = totalCost / qty;
+        unitCostDisplay.innerText = `€ ${unitCost.toFixed(2)}`;
+    } else {
+        unitCostDisplay.innerText = "€ 0.00";
+    }
+}
+
+// Esecuzione e salvataggio del carico
+async function executeStockLoad() {
+    const productId = document.getElementById('load-prod-id').value;
+    const qty = parseInt(document.getElementById('load-qty').value) || 0;
+    const totalCost = parseFloat(document.getElementById('load-total-cost').value) || 0;
+    const loadDate = document.getElementById('load-date').value;
+    const notes = document.getElementById('load-notes').value.trim();
+
+    const prod = allInventory.find(p => p.id === productId);
+    if (!prod) return alert("Prodotto non trovato.");
+
+    if (qty <= 0) {
+        return alert("Inserisci una quantità valida maggiore di zero.");
+    }
+
+    // Se non è in conto vendita, il costo totale è obbligatorio
+    if (!prod.is_consignment && (isNaN(totalCost) || totalCost <= 0)) {
+        return alert("Per i prodotti di proprietà è necessario inserire il costo totale d'acquisto.");
+    }
+
+    const unitCost = (!prod.is_consignment && qty > 0) ? (totalCost / qty) : 0;
+    const newStock = (parseInt(prod.stock) || 0) + qty;
+
+    try {
+        // 1. Aggiorniamo la giacenza di magazzino
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { stock: newStock },
+            id: prod.id
+        });
+
+        // 2. Se abbiamo un costo unitario valido, aggiorniamo/aggiungiamo lo storico prezzi (price_history)
+        // Recuperiamo il prezzo di listino attuale del prodotto per non perderlo
+        const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
+        const currentListingPrice = currentPriceInfo ? currentPriceInfo.price : 0;
+
+        const historyData = {
+            product_id: prod.id,
+            cost: unitCost,
+            price: currentListingPrice,
+            date_from: loadDate || new Date().toISOString().split('T')[0],
+            date_to: null
+        };
+        await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
+
+        // 3. Se NON è in conto vendita, generiamo AUTOMATICAMENTE la spesa nella sezione Spese
+        if (!prod.is_consignment && totalCost > 0) {
+            const expenseData = {
+                date: loadDate || new Date().toISOString().split('T')[0],
+                description: `Carico Magazzino: ${prod.name} (x${qty}) ${notes ? '- ' + notes : ''}`,
+                amount: totalCost
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'expenses', data: expenseData });
+        }
+
+        alert(`✅ Carico registrato con successo!\n- Nuova giacenza: ${newStock} Pz\n- Costo unitario registrato: €${unitCost.toFixed(2)}`);
+        
+        closeMod();
+        await refreshAllData();
+        if (typeof renderProducts === 'function') renderProducts();
+
+    } catch (err) {
+        console.error("Errore durante l'esecuzione del carico merce:", err);
+        alert("Si è verificato un errore durante la registrazione del carico.");
+    }
+}
+
     async function renderServices() {
         const f = document.getElementById('src-serv').value.toLowerCase();
         const tbody = document.getElementById('list-serv');
