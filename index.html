@@ -320,6 +320,22 @@
     </div>
 </div>
 
+
+<!-- MODALE INSERIMENTO NUOVA PASSWORD (POST-LINK EMAIL) -->
+<div id="mod-update-new-pass" class="modal">
+    <div class="modal-box" style="text-align: left;">
+        <h3 style="margin-top:0; color:var(--p);">Imposta Nuova Password</h3>
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
+            Il token di recupero è valido. Digita la tua nuova password per completare il reset.
+        </p>
+        <label>Nuova Password</label>
+        <input type="password" id="update-pass-1" placeholder="••••••••">
+        <label>Conferma Nuova Password</label>
+        <input type="password" id="update-pass-2" placeholder="••••••••">
+        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:14px;" onclick="executePasswordUpdate()">Aggiorna Password</button>
+    </div>
+</div>
+
 <!-- MODALE RESET PASSWORD AUTONOMO -->
 <div id="mod-forgot-pass" class="modal">
     <div class="modal-box" style="text-align: left;">
@@ -3152,6 +3168,77 @@ async function submitPasswordReset() {
         area.innerHTML = html + '</div>';
     }
 
+
+
+// --- INTERCETTAZIONE FLUSSO DI RECUPERO PASSWORD DA SUPABASE ---
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(async () => {
+        try {
+            const supabaseClient = window.supabase ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key) : null;
+            if (!supabaseClient) return;
+
+            // 1. Controlliamo se nell'URL corrente c'è un hash o un tipo di recupero (es. type=recovery o access_token)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const queryParams = new URLSearchParams(window.location.search);
+            
+            const isRecovery = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery' || window.location.hash.includes('access_token');
+
+            if (isRecovery) {
+                // Mostriamo subito il modale per cambiare la password
+                const modal = document.getElementById('mod-update-new-pass');
+                if (modal) modal.classList.add('active');
+            }
+
+            // 2. Ascoltatore globale degli eventi di autenticazione Supabase v2
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    const modal = document.getElementById('mod-update-new-pass');
+                    if (modal) modal.classList.add('active');
+                }
+            });
+        } catch (e) {
+            console.error("Errore nell'inizializzazione listener recovery:", e);
+        }
+    }, 1000);
+});
+
+// Funzione che esegue l'aggiornamento effettivo della password su Supabase
+async function executePasswordUpdate() {
+    const p1 = document.getElementById('update-pass-1').value;
+    const p2 = document.getElementById('update-pass-2').value;
+
+    if (!p1 || p1.length < 6) {
+        return alert("La password deve contenere almeno 6 caratteri.");
+    }
+    if (p1 !== p2) {
+        return alert("Le password non coincidono.");
+    }
+
+    try {
+        const supabaseClient = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+        
+        // Aggiorniamo la password dell'utente attualmente autenticato tramite il link temporaneo
+        const { data, error } = await supabaseClient.auth.updateUser({ password: p1 });
+
+        if (error) {
+            alert(`Errore durante l'aggiornamento: ${error.message}`);
+        } else {
+            alert("✅ Password aggiornata con successo! Ora puoi effettuare l'accesso con la nuova password.");
+            
+            // Chiudiamo il modale e ripuliamo l'URL dai token sensibili
+            document.getElementById('mod-update-new-pass').classList.remove('active');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Ricarichiamo per pulire lo stato
+            location.reload();
+        }
+    } catch (err) {
+        console.error("Eccezione aggiornamento password:", err);
+        alert("Impossibile aggiornare la password.");
+    }
+}
+
+
     function renderTimeline(area, cols) {
         area.innerHTML = ''; 
         const containerClass = (cols === 7) ? 'time-grid-week' : 'time-grid-day';
@@ -5897,6 +5984,9 @@ async function doLogin() {
         const banner = document.getElementById('pwa-install-banner');
         const savedUser = localStorage.getItem('bloomup_remember_user');
 
+
+
+        
         if (savedUser) {
         const userInput = document.getElementById('l-user');
         const rememberCb = document.getElementById('l-remember');
