@@ -13,46 +13,159 @@
         .hidden { display: none !important; }
         #app-shell { display: none; height: 100vh; width: 100vw; flex-direction: row; }
 
-        /* --- LOGIN SCREEN PROFESSIONALE SAAS --- */
-        #login-screen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            z-index: 20000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .login-card {
-            background: #ffffff;
-            padding: 40px 35px;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            animation: fadeInScale 0.4s ease-out forwards;
-        }
-        @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        .login-card h1 { font-size: 28px; font-weight: 800; color: #1e1b4b; margin-bottom: 8px; letter-spacing: -0.5px; }
-        .login-card p { color: #64748b; font-size: 14px; margin-bottom: 30px; }
-        .login-input-group { text-align: left; margin-bottom: 15px; }
-        .login-card input {
-            width: 100%; padding: 14px 16px; border: 1.5px solid #e2e8f0; border-radius: 12px;
-            font-size: 16px; outline: none; transition: all 0.2s ease; background: #f8fafc; margin-bottom: 15px;
-        }
-        .login-card input:focus { border-color: #6366f1; background: #ffffff; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
-        .login-btn {
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; width: 100%;
-            padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
-            cursor: pointer; transition: transform 0.1s ease, box-shadow 0.2s ease; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); margin-top: 10px;
-        }
-        .login-btn:hover { opacity: 0.95; box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4); }
+        /* --- LOGIN SCREEN PROFESSIONALE & RESPONSIVE --- */
+#login-screen {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
+}
 
+.login-card {
+    background: #ffffff;
+    padding: 35px 28px;
+    border-radius: 24px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: fadeInScale 0.4s ease-out forwards;
+    margin: auto;
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: translateY(15px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.login-icon-badge {
+    width: 48px;
+    height: 48px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin: 0 auto 16px auto;
+}
+
+.login-card h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1e1b4b;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+}
+
+.login-card p {
+    color: #64748b;
+    font-size: 13px;
+    margin-bottom: 25px;
+}
+
+.login-input-group {
+    text-align: left;
+    margin-bottom: 16px;
+}
+
+.login-input-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.login-card input[type="text"],
+.login-card input[type="password"],
+.login-card input[type="email"] {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    font-size: 16px !important; /* Fondamentale per non fare zoom su iOS */
+    outline: none;
+    transition: all 0.2s ease;
+    background: #f8fafc;
+    color: #1e293b;
+    margin: 0;
+}
+
+.login-card input:focus {
+    border-color: #6366f1;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+}
+
+.login-options-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin: 14px 0 22px 0;
+}
+
+.remember-me-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #475569;
+    font-weight: 500;
+    user-select: none;
+}
+
+.remember-me-label input {
+    width: 18px;
+    height: 18px;
+    accent-color: #4f46e5;
+    margin: 0;
+    cursor: pointer;
+}
+
+.forgot-pass-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.forgot-pass-link:hover {
+    color: #3730a3;
+    text-decoration: underline;
+}
+
+.login-btn {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    color: white;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.login-btn:hover {
+    opacity: 0.95;
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+}
+
+.login-btn:active {
+    transform: scale(0.98);
+}
         /* SIDEBAR SCORRIBILE & BURGER MENU UNIFICATO */
         .sidebar {
             position: fixed; top: 0; left: -280px; width: 280px !important; height: 100vh !important;
@@ -175,22 +288,53 @@
 </head>
 <body>
 
-    <!-- SCHERMATA LOGIN SaaS STYLE -->
-    <div id="login-screen">
-        <div class="login-card">
-            <h1>BloomUp 🚀</h1>
-            <p>Gestionale Verticale Retail & Beauty</p>
-            <div class="login-input-group">
-                <label>Username</label>
-                <input type="text" id="l-user" placeholder="Inserisci username" value="admin">
-            </div>
-            <div class="login-input-group">
-                <label>Password</label>
-                <input type="password" id="l-pass" placeholder="Inserisci password" value="admin">
-            </div>
-            <button class="login-btn" onclick="doLogin()">ACCEDI AL SISTEMA</button>
+   <!-- SCHERMATA LOGIN PROFESSIONALE SaaS & MOBILE-FIRST -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="login-logo-container">
+            <div class="login-icon-badge">✨</div>
+            <h1>BloomUp</h1>
+            <p>Gestionale Avanzato Retail & Beauty</p>
         </div>
+
+        <div class="login-input-group">
+            <label>Username o Email</label>
+            <input type="text" id="l-user" placeholder="Inserisci username o email" autocomplete="username">
+        </div>
+
+        <div class="login-input-group">
+            <label>Password</label>
+            <input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <!-- Opzioni extra: Ricordami e Password Dimenticata -->
+        <div class="login-options-row">
+            <label class="remember-me-label">
+                <input type="checkbox" id="l-remember" checked>
+                <span>Ricordami</span>
+            </label>
+            <a href="#" class="forgot-pass-link" onclick="openForgotPasswordModal(event)">Password dimenticata?</a>
+        </div>
+
+        <button class="login-btn" onclick="doLogin()">ACCEDI AL SISTEMA</button>
     </div>
+</div>
+
+<!-- MODALE RESET PASSWORD AUTONOMO -->
+<div id="mod-forgot-pass" class="modal">
+    <div class="modal-box" style="text-align: left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+            <h3 style="margin:0; color:var(--p);">Reset Password</h3>
+            <button onclick="closeForgotPasswordModal()" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px;">
+            Inserisci l'indirizzo email associato al tuo account. Ti invieremo un link sicuro per reimpostare la password in autonomia.
+        </p>
+        <label>Email dell'Account</label>
+        <input type="email" id="reset-email-input" placeholder="tuamail@salone.it">
+        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:14px;" onclick="submitPasswordReset()">Invia Link di Recupero</button>
+    </div>
+</div>
 
     <!-- SHELL PRINCIPALE DELL'APPLICAZIONE -->
     <div id="app-shell">
@@ -1040,6 +1184,53 @@
 
         changePage('products');     // 👈 CORRETTO: la view si chiama 'products', non 'inventory'!
     }
+
+
+// Funzione per aprire/chiudere il modale di recupero password
+function openForgotPasswordModal(e) {
+    if (e) e.preventDefault();
+    const modal = document.getElementById('mod-forgot-pass');
+    if (modal) modal.classList.add('active');
+}
+
+function closeForgotPasswordModal() {
+    const modal = document.getElementById('mod-forgot-pass');
+    if (modal) modal.classList.remove('active');
+}
+
+// Esecuzione del Reset Password tramite Supabase Auth
+async function submitPasswordReset() {
+    const emailInput = document.getElementById('reset-email-input');
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    if (!email || !email.includes('@')) {
+        return alert("Inserisci un indirizzo email valido.");
+    }
+
+    try {
+        // Sfruttiamo il client Supabase globale o le configurazioni esistenti
+        const supabaseClient = window.supabase ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key) : null;
+        
+        if (!supabaseClient) {
+            alert("Errore di inizializzazione client cloud.");
+            return;
+        }
+
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin, // Riporta l'utente direttamente all'app dopo il click sull'email
+        });
+
+        if (error) {
+            alert(`Errore durante l'invio: ${error.message}`);
+        } else {
+            alert("✅ Email di recupero inviata con successo! Controlla la tua casella di posta (inclusi spam/promozioni).");
+            closeForgotPasswordModal();
+        }
+    } catch (err) {
+        console.error("Eccezione reset password:", err);
+        alert("Impossibile completare la richiesta al momento.");
+    }
+}
 
     function clearFiltersVol() {
         document.getElementById('d-start-v').value = "";
@@ -4057,38 +4248,53 @@
     }
 
 
-    let currentUser = null; 
+    // Funzione di Login aggiornata con il flag "Ricordami"
+const originalDoLogin = window.doLogin;
+async function doLogin() {
+    const userField = document.getElementById('l-user');
+    const passField = document.getElementById('l-pass');
+    const rememberCb = document.getElementById('l-remember');
 
-    async function doLogin() {
-        const user = document.getElementById('l-user').value;
-        const pass = document.getElementById('l-pass').value;
+    const user = userField ? userField.value.trim() : '';
+    const pass = passField ? passField.value : '';
+    const remember = rememberCb ? rememberCb.checked : false;
 
-        try {
-            const account = await window.universalQuery({ 
-                action: 'VERIFY_LOGIN', 
-                data: { user: user, pass: pass } 
-            });
-            
-            if (account) {
-                if (typeof resetGlobalState === 'function') resetGlobalState();
-                
-                currentUser = account;
-                console.log("Login riuscito per:", currentUser.username, "Ruolo:", currentUser.role);
-
-                const mustChange = parseInt(account.must_change_password);
-                if (mustChange === 1) {
-                    document.getElementById('mod-change-pass').classList.add('active');
-                } else {
-                    await loginSuccess(); // Ora è una funzione asincrona che attende il setup pulito
-                }
-            } else {
-                alert("Credenziali errate!");
-            }
-        } catch (err) {
-            console.error("Errore durante il login:", err);
-            alert("Errore di connessione o credenziali non valide.");
-        }
+    if (!user || !pass) {
+        return alert("Inserisci username e password.");
     }
+
+    try {
+        const account = await window.universalQuery({ 
+            action: 'VERIFY_LOGIN', 
+            data: { user: user, pass: pass } 
+        });
+        
+        if (account) {
+            if (typeof resetGlobalState === 'function') resetGlobalState();
+            
+            currentUser = account;
+
+            // Gestione spunta "Ricordami"
+            if (remember) {
+                localStorage.setItem('bloomup_remember_user', user);
+            } else {
+                localStorage.removeItem('bloomup_remember_user');
+            }
+
+            const mustChange = parseInt(account.must_change_password);
+            if (mustChange === 1) {
+                document.getElementById('mod-change-pass').classList.add('active');
+            } else {
+                await loginSuccess();
+            }
+        } else {
+            alert("Credenziali errate o utente non trovato!");
+        }
+    } catch (err) {
+        console.error("Errore durante il login:", err);
+        alert("Errore di connessione al server.");
+    }
+}
 
     async function applyNewPassword() {
         const newPass = document.getElementById('new-pass-val').value;
@@ -5687,6 +5893,14 @@
         const installBtn = document.getElementById('pwa-install-trigger');
         const closeBtn = document.getElementById('pwa-install-close');
         const banner = document.getElementById('pwa-install-banner');
+        const savedUser = localStorage.getItem('bloomup_remember_user');
+
+        if (savedUser) {
+        const userInput = document.getElementById('l-user');
+        const rememberCb = document.getElementById('l-remember');
+        if (userInput) userInput.value = savedUser;
+        if (rememberCb) rememberCb.checked = true;
+    }
 
         if (installBtn) {
             installBtn.addEventListener('click', async () => {
