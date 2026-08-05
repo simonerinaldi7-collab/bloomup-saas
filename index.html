@@ -631,7 +631,10 @@
 </div></main></div>
 
     <!-- MODALI DI SISTEMA -->
-    <div id="mod-monthly-expense-reminder" class="modal"><div class="modal-box"><h3>Spese Mensili</h3><div id="suggested-expenses-list"></div><button class="btn btn-p" onclick="confirmSuggestedExpenses()">Conferma</button></div></div>
+    <div id="mod-monthly-expense-reminder" class="modal"><div class="modal-box"><h3>Spese Mensili</h3><div id="suggested-expenses-list"></div><div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="button" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
+    <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Chiudi alert e vai a Spese</button>
+</div></div></div>
     <div id="mod-cust" class="modal"><div class="modal-box"><h3>Cliente</h3><input type="hidden" id="edit-c-id" value="-1"><input type="text" id="f-c-firstname" placeholder="Nome"><input type="text" id="f-c-lastname" placeholder="Cognome"><input type="text" id="f-c-phone" placeholder="Telefono"><button class="btn btn-p" onclick="saveCust()">Salva</button></div></div>
     <div id="mod-cale" class="modal"><div class="modal-box"><h3 id="mod-cale-title">Appuntamento</h3><input type="hidden" id="edit-a-id" value="-1"><select id="f-a-user"></select><input type="text" id="f-a-search" placeholder="Cerca cliente..."><input type="date" id="f-a-date"><input type="time" id="f-a-time"><select id="f-a-item-select" multiple></select><button class="btn btn-p" onclick="saveApp()">Salva</button></div></div>
     <div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
@@ -2220,29 +2223,95 @@ async function renderSupplierPayouts() {
         container.innerHTML = `<div style="color:red; padding:20px;">Errore nel calcolo: ${err.message}</div>`;
     }
 }
-// 1. Controllo all'avvio della Dashboard se mostrare il reminder spese
+// --- LOGICA INTELLIGENTE GESTIONE SPESE MENSILI ---
 async function checkMonthlyExpenseReminder() {
-    // Solo per il profilo admin
     if (!currentUser || currentUser.role !== 'admin') return;
 
     const now = new Date();
-    const day = now.getDate();
+    const day = now.getDate(); // Giorno del mese (1-31)
     const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // es. '2026-08'
     
-    // Per testarlo subito puoi commentare temporaneamente "day >= 1"
-    if (day >= 1) { 
-        const lastDismissedMonth = localStorage.getItem(`expense_reminder_dismissed_${currentUser.salon_id}`);
-        
-        if (lastDismissedMonth !== currentYearMonth) {
-            // Non è ancora stato chiuso per questo mese, preparativo e mostriamolo!
+    const salonId = currentUser.salon_id || 'SALON_001';
+    const storageKeyDismissed = `expense_reminder_dismissed_${salonId}`;
+    const lastDismissedMonth = localStorage.getItem(storageKeyDismissed);
+
+    try {
+        // 1. Verifichiamo se sono già state inserite spese nel mese corrente
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentYearMonth));
+        const hasExpensesThisMonth = monthExpenses.length > 0;
+
+        // CASO A: È il 1° del mese (o successivo) e l'utente non ha ancora gestito il promemoria per questo mese
+        if (day >= 1 && lastDismissedMonth !== currentYearMonth) {
             await prepareExpenseSuggestions(currentYearMonth);
             const modal = document.getElementById('mod-monthly-expense-reminder');
             if (modal) modal.classList.add('active');
+            return; // Esibiamo l'interattivo e stoppiamo i controlli successivi
         }
+
+        // CASO B: Siamo tra il 2 e il 10 del mese, NON ci sono spese inserite e non ha ancora chiuso l'avviso informativo
+        const storageKeyInfo = `expense_warning_info_${salonId}_${currentYearMonth}`;
+        const infoDismissed = localStorage.getItem(storageKeyInfo);
+
+        if (day >= 2 && day <= 10 && !hasExpensesThisMonth && !infoDismissed) {
+            showSoftExpenseWarningBanner(currentYearMonth);
+        }
+
+    } catch (err) {
+        console.error("Errore nel controllo promemoria spese:", err);
     }
 }
 
+// Mostra il secondo alert informativo skippabile (entro il 10 del mese)
+function showSoftExpenseWarningBanner(currentYearMonth) {
+    // Creiamo un banner in-app non invasivo in cima alla dashboard se non esiste già
+    if (document.getElementById('soft-expense-warning')) return;
 
+    const banner = document.createElement('div');
+    banner.id = 'soft-expense-warning';
+    banner.style.cssText = "background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);";
+    
+    banner.innerHTML = `
+        <div>
+            <b>⚠️ Promemoria Contabile:</b> Non risultano ancora registrate le spese fisse per il mese di ${currentYearMonth}. 
+            Ti consigliamo di inserirle per mantenere il bilancio predittivo accurato.
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px;" onclick="changePage('dashboard'); showSheet('sheet-spese', 'btn-spese'); document.getElementById('soft-expense-warning').remove();">Vai alle Spese</button>
+            <button class="btn" style="padding: 6px 10px; font-size: 11px; background: white; border: 1px solid #ffeeba;" onclick="dismissSoftWarning('${currentYearMonth}')">✕ Ignora</button>
+        </div>
+    `;
+
+    const dashboardView = document.getElementById('v-dashboard');
+    if (dashboardView) {
+        dashboardView.insertBefore(banner, dashboardView.firstChild);
+    }
+}
+
+function dismissSoftWarning(currentYearMonth) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    localStorage.setItem(`expense_warning_info_${salonId}_${currentYearMonth}`, 'true');
+    const banner = document.getElementById('soft-expense-warning');
+    if (banner) banner.remove();
+}
+
+// Azione: Chiudi l'alert principale del 1° del mese e vai dritto alla sezione spese
+function dismissExpenseReminderAndGoToExpenses() {
+    markReminderAsDismissed();
+    const modal = document.getElementById('mod-monthly-expense-reminder');
+    if (modal) modal.classList.remove('active');
+    
+    // Sposta l'utente direttamente al tab delle spese
+    changePage('dashboard');
+    showSheet('sheet-spese', 'btn-spese');
+}
+
+function markReminderAsDismissed() {
+    if (!currentUser) return;
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    localStorage.setItem(`expense_reminder_dismissed_${currentUser.salon_id}`, currentYearMonth);
+}
 
 async function prepareExpenseSuggestions(currentYearMonth) {
     const container = document.getElementById('suggested-expenses-list');
