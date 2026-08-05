@@ -405,26 +405,26 @@
     <!-- SHELL PRINCIPALE DELL'APPLICAZIONE -->
     <div id="app-shell">
         <nav class="sidebar">
-            <div class="sidebar-brand">BloomUp 🚀</div>
-            <div class="sidebar-nav-container">
-                <a href="#" class="nav-item active" id="n-dash" onclick="changePageMobileWrapper('dashboard')">🏠 Dashboard</a>
-                <a href="#" class="nav-item" id="n-sale" onclick="changePageMobileWrapper('sales')">🛒 Cassa POS</a>
-                <a href="#" class="nav-item" id="n-cale" onclick="changePageMobileWrapper('calendar')">📅 Agenda Appuntamenti</a>
-                <a href="#" class="nav-item" id="n-cust" onclick="changePageMobileWrapper('customers')">👥 Anagrafica Clienti</a>
-                <a href="#" class="nav-item" id="n-prod" onclick="changePageMobileWrapper('products')">📦 Magazzino Prodotti</a>
-                <a href="#" class="nav-item" id="n-supp" onclick="changePageMobileWrapper('suppliers')">🚚 Gestione Fornitori</a>
-                <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
-                <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
-                <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
-                <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
-                <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
-                <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
-                <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
-            </div>
-            <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
-                <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
-            </div>
-        </nav>
+    <div class="sidebar-brand">BloomUp 🚀</div>
+    <div class="sidebar-nav-container">
+        <a href="#" class="nav-item active" id="n-dash" onclick="changePageMobileWrapper('dashboard')">🏠 Dashboard</a>
+        <a href="#" class="nav-item" id="n-sale" onclick="changePageMobileWrapper('sales')">🛒 Cassa POS</a>
+        <a href="#" class="nav-item" id="n-cale" onclick="changePageMobileWrapper('calendar')">📅 Agenda Appuntamenti</a>
+        <a href="#" class="nav-item" id="n-cust" onclick="changePageMobileWrapper('customers')">👥 Anagrafica Clienti</a>
+        <a href="#" class="nav-item" id="n-prod" onclick="changePageMobileWrapper('products')">📦 Magazzino Prodotti</a>
+        <a href="#" class="nav-item" id="n-supp" onclick="changePageMobileWrapper('suppliers')">🚚 Gestione Fornitori</a>
+        <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
+        <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
+        <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
+        <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
+        <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
+        <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
+        <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
+    </div>
+    <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
+        <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
+    </div>
+</nav>
 
         <main class="main">
             <header class="header">
@@ -2396,27 +2396,36 @@ function toggleInvFields() {
 
 
 
-    function toggleSidebar() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        if (sidebar && overlay) {
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-        }
-    }
+    
 
     // Chiude automaticamente il menu su mobile quando si clicca una voce di navigazione
     const originalChangePage = window.changePage;
     // Sovrascriviamo o integriamo la chiusura all'interno del cambio pagina mobile
-    function changePageMobileWrapper(page, force) {
-        changePage(page, force);
-        if (window.innerWidth <= 1024) {
-            const sidebar = document.querySelector('.sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar) sidebar.classList.remove('active');
-            if (overlay) overlay.classList.remove('active');
-        }
+    function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar && overlay) {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
     }
+}
+
+// Funzione unificata che cambia pagina E chiude sempre la sidebar
+function changePageMobileWrapper(page, force) {
+    // 1. Esegue il cambio pagina standard
+    changePage(page, force);
+    
+    // 2. Forza SEMPRE la chiusura della sidebar e dell'overlay (sia mobile che desktop drawer)
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    if (sidebar) {
+        sidebar.classList.remove('active');
+    }
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
 
     // Funzione principale di rendering e calcolo
     async function renderSupplierPayouts() {
