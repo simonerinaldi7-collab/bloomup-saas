@@ -797,20 +797,100 @@
     <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
     <div id="mod-quick-supp" class="modal"><div class="modal-box"><h3>Nuovo Fornitore Rapido</h3><input type="text" id="q-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveQuickSupplier()">Crea</button></div></div>
     
-    <div id="mod-inv" class="modal">
-        <div class="modal-box">
-            <button onclick="closeMod()" style="float:right; border:none; background:none; font-size:16px; font-weight:bold;">✕</button>
-            <h3 id="mod-inv-title">Scheda Prodotto</h3>
-            <input type="hidden" id="edit-p-id" value="-1"><input type="hidden" id="edit-h-id" value="-1">
-            <label>Tipo</label><select id="f-p-type" onchange="toggleInvFields()"><option value="prodotto">Prodotto</option><option value="servizio">Servizio</option></select>
-            <label>Nome</label><input type="text" id="f-p-name">
-            <div id="fields-prodotto">
-                <label>Giacenza</label><input type="number" id="f-p-stock">
-                <label>Soglia Scorta</label><input type="number" id="f-p-min">
+    
+    
+<div id="mod-inv" class="modal">
+    <div class="modal-box" style="width: 600px;">
+        <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
+        <h3 id="mod-inv-title" style="margin-top: 0; color: var(--p);">📦 Anagrafica Prodotto / Servizio</h3>
+        <input type="hidden" id="edit-p-id" value="-1">
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+                <label>Tipologia</label>
+                <select id="f-p-type" onchange="toggleInvFields()">
+                    <option value="prodotto">Prodotto Fisico</option>
+                    <option value="servizio">Servizio</option>
+                </select>
             </div>
-            <button class="btn btn-p" onclick="saveInv()" style="width:100%; margin-top:15px;">Salva</button>
+            <div>
+                <label>Prezzo di Listino (Vendita al Cliente) *</label>
+                <input type="number" id="f-p-listing-price" step="0.01" placeholder="Es. 25.00" style="margin: 4px 0 10px 0;">
+            </div>
         </div>
+
+        <label>Nome Prodotto / Servizio *</label>
+        <input type="text" id="f-p-name" placeholder="Es. Shampoo Idratante 250ml">
+        
+        <div id="fields-prodotto">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Soglia Alert Scorta Minima</label>
+                    <input type="number" id="f-p-min" placeholder="Es. 5" style="margin: 4px 0 10px 0;">
+                </div>
+                <div>
+                    <label>Codice a Barre / SKU</label>
+                    <input type="text" id="f-p-barcode" placeholder="Es. 80234..." style="margin: 4px 0 10px 0;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Modello / Linea</label>
+                    <input type="text" id="f-p-model" placeholder="Es. Linea Bio" style="margin: 4px 0 10px 0;">
+                </div>
+                <div>
+                    <label>Ubicazione / Scaffale</label>
+                    <input type="text" id="f-p-location" placeholder="Es. Scaffale A2" style="margin: 4px 0 10px 0;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label>Unità di Misura</label>
+                    <select id="f-p-unit" style="margin: 4px 0 10px 0;">
+                        <option value="Pezzi">Pezzi</option>
+                        <option value="ml">ml (Millilitri)</option>
+                        <option value="L">L (Litri)</option>
+                        <option value="g">g (Grammi)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 🤝 SEZIONE CONTO VENDITA MULTI-FORNITORE -->
+            <div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
+                    <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto in Conto Vendita (Multi-Fornitore)</label>
+                </div>
+                
+                <div id="consignment-details" style="display:none; margin-top: 12px;">
+                    <label style="margin-bottom: 6px;">Ripartizione Quote Fornitori (Max 3)</label>
+                    <div id="suppliers-split-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                    <button type="button" class="btn btn-s" style="padding:6px 12px; margin-top:8px; font-size:12px;" onclick="addSupplierSplitRow()">+ Aggiungi Fornitore</button>
+                    <small style="display:block; color:#666; margin-top:6px;">La percentuale indica la quota del prezzo di listino riconosciuta al/ai fornitore/i al momento della vendita.</small>
+                </div>
+            </div>
+
+            <!-- Fornitore Principale (se non in conto vendita multi) -->
+            <div id="standard-supplier-box">
+                <label>Fornitore Principale</label>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom: 10px;">
+                    <select id="f-p-supplier" style="margin:0; flex-grow:1;">
+                        <option value="">-- Nessun fornitore --</option>
+                    </select>
+                    <button type="button" class="btn btn-s" style="padding:12px 14px; margin:0;" onclick="openQuickSupplierModal()" title="Crea nuovo fornitore">+</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="inv-error-msg"></div>
+
+        <button class="btn btn-p" style="width:100%; margin-top:20px; justify-content: center; padding: 14px;" onclick="saveInv()">SALVA ANAGRAFICA PRODOTTO</button>
     </div>
+</div>
+
+
     <div id="mod-warning" class="modal"><div class="modal-box" style="text-align:center;"><h3>Sessione in scadenza</h3><button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button></div></div>
         <script>
             let currentUser = null;
@@ -887,29 +967,17 @@
 
 
     function toggleConsignmentFields() {
-        const isChecked = document.getElementById('f-p-is-consignment').checked;
-        const consignmentDetails = document.getElementById('consignment-details');
-        if (consignmentDetails) {
-            consignmentDetails.style.display = isChecked ? 'block' : 'none';
-        }
+    const isChecked = document.getElementById('f-p-is-consignment').checked;
+    const consignmentDetails = document.getElementById('consignment-details');
+    const standardSuppBox = document.getElementById('standard-supplier-box');
+    
+    if (consignmentDetails) consignmentDetails.style.display = isChecked ? 'block' : 'none';
+    if (standardSuppBox) standardSuppBox.style.display = isChecked ? 'none' : 'block';
 
-        // Se è in conto vendita, il costo iniziale è 0 e il campo viene disabilitato
-        const costInput = document.getElementById('h-cost'); // Campo costo nello storico prezzi del modale
-        if (costInput) {
-            if (isChecked) {
-                costInput.value = "0";
-                costInput.disabled = true;
-                costInput.style.backgroundColor = "#e9ecef";
-            } else {
-                costInput.disabled = false;
-                costInput.style.backgroundColor = "#fff";
-            }
-        }
-
-        if (isChecked && typeof currentProductSuppliers !== 'undefined' && currentProductSuppliers.length === 0) {
-            if (typeof addSupplierSplitRow === 'function') addSupplierSplitRow();
-        }
+    if (isChecked && typeof currentProductSuppliers !== 'undefined' && currentProductSuppliers.length === 0) {
+        if (typeof addSupplierSplitRow === 'function') addSupplierSplitRow();
     }
+}
 
     let currentVolumeData = []; // Variabile globale
 
@@ -2230,6 +2298,18 @@ async function submitPasswordReset() {
         renderSupplierPayouts();
     }
 
+
+
+
+
+
+function toggleInvFields() {
+    const type = document.getElementById('f-p-type').value;
+    const prodFields = document.getElementById('fields-prodotto');
+    if (prodFields) {
+        prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
+    }
+}
 
     // Funzione scattata quando si cambia operatore nel modale
     function onOperatorChange() {
@@ -5153,83 +5233,125 @@ async function executeStockLoad() {
         renderSalesReport();
     }
     async function saveInv() {
-        const id = document.getElementById('edit-p-id').value;
-        const name = document.getElementById('f-p-name').value;
-        const type = document.getElementById('f-p-type').value;
-        const stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-stock').value) || 0;
-        const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
-        
-        const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value : '';
-        const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value : '';
-        const unit = document.getElementById('f-p-unit') ? document.getElementById('f-p-unit').value : 'Pezzi';
-        const location = document.getElementById('f-p-location') ? document.getElementById('f-p-location').value : '';
-        const is_consignment = document.getElementById('f-p-is-consignment') ? document.getElementById('f-p-is-consignment').checked : false;
+    const id = document.getElementById('edit-p-id').value;
+    const name = document.getElementById('f-p-name').value.trim();
+    const type = document.getElementById('f-p-type').value;
+    const listingPrice = parseFloat(document.getElementById('f-p-listing-price').value) || 0;
+    const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
+    
+    const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value.trim() : '';
+    const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value.trim() : '';
+    const unit = document.getElementById('f-p-unit') ? document.getElementById('f-p-unit').value : 'Pezzi';
+    const location = document.getElementById('f-p-location') ? document.getElementById('f-p-location').value.trim() : '';
+    const supplier_id = document.getElementById('f-p-supplier') ? document.getElementById('f-p-supplier').value : '';
+    const is_consignment = document.getElementById('f-p-is-consignment') ? document.getElementById('f-p-is-consignment').checked : false;
 
-        if (!name) return alert("Inserisci il nome del prodotto o servizio!");
+    if (!name) return alert("Inserisci il nome del prodotto o servizio!");
 
-        // 1. Dati base per la tabella inventory
-        let invData = { name, type, stock, min_stock, model, barcode, unit, location, is_consignment };
+    let productId = id;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (id === "-1") {
+        // NUOVO PRODOTTO: stock iniziale a 0 (verrà valorizzato tramite Carico Merce)
+        let invData = { 
+            name, type, stock: 0, min_stock, model, barcode, unit, location, supplier_id, is_consignment 
+        };
         invData = addAuditData(invData);
 
-        let productId = id;
+        const res = await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
+        productId = res.lastInsertRowid;
 
-        if (id === "-1") {
-            const res = await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
-            productId = res.lastInsertRowid;
-        } else {
-            await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: id });
-            
-            // Pulizia dei vecchi legami fornitori per questo prodotto prima di reinserirli aggiornati
-            const oldLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
-            for (let ol of (Array.isArray(oldLinks) ? oldLinks : [])) {
-                if (ol.product_id === productId) {
-                    await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: ol.id });
-                }
-            }
-        }
+        // Inseriamo il primo storico prezzi di listino (con costo 0 iniziale)
+        const historyData = {
+            product_id: productId,
+            cost: 0,
+            price: listingPrice,
+            date_from: todayStr,
+            date_to: null
+        };
+        await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
 
-        // 2. Se è in conto vendita, salviamo le righe dei fornitori multipli
-        if (is_consignment) {
-            const rows = document.querySelectorAll('.supplier-split-row');
-            for (let row of rows) {
-                const suppSelect = row.querySelector('.row-supp-select');
-                const pctInput = row.querySelector('.row-supp-pct');
-                
-                if (suppSelect && pctInput) {
-                    const suppId = suppSelect.value;
-                    const pct = parseFloat(pctInput.value) || 0;
-                    
-                    if (suppId && pct > 0) {
-                        const linkData = {
-                            id: crypto.randomUUID(),
-                            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-                            product_id: productId,
-                            supplier_id: suppId,
-                            split_pct: pct
-                        };
-                        await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
-                    }
-                }
-            }
-        }
-
-        // 3. Gestione Prezzo/Costo (Tabella price_history)
-        const cost = parseFloat(document.getElementById('h-cost').value);
-        const price = parseFloat(document.getElementById('h-price').value);
+    } else {
+        // MODIFICA PRODOTTO ESISTENTE
+        // Recuperiamo il prodotto prima di aggiornarlo per controllare se il prezzo di listino è cambiato
+        const oldProd = allInventory.find(p => p.id === id);
         
-        if (!isNaN(price) && !isNaN(cost)) {
-            const historyData = { 
-                product_id: productId, 
-                cost: cost, 
-                price: price, 
-                date_from: document.getElementById('h-from').value || new Date().toISOString().split('T')[0] 
+        let invData = { 
+            name, type, min_stock, model, barcode, unit, location, supplier_id, is_consignment 
+        };
+        invData = addAuditData(invData);
+
+        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: id });
+
+        // Verifichiamo se il prezzo di listino è cambiato rispetto a quello attuale nello storico
+        const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
+        const oldListingPrice = currentPriceInfo ? currentPriceInfo.price : 0;
+        const oldCostPrice = currentPriceInfo ? currentPriceInfo.cost : 0;
+
+        if (listingPrice !== oldListingPrice) {
+            // Se il listino è cambiato, chiudiamo il vecchio storico e ne apriamo uno nuovo con il nuovo prezzo
+            // 1. Troviamo il record attivo nello storico per aggiornare la data 'date_to' a oggi
+            const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: id });
+            const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= todayStr);
+
+            if (activeHistory) {
+                await window.universalQuery({ 
+                    action: 'UPDATE', 
+                    table: 'price_history', 
+                    data: { date_to: todayStr }, 
+                    id: activeHistory.id 
+                });
+            }
+
+            // 2. Inseriamo il nuovo listino mantenendo il costo unitario precedente
+            const newHistoryData = {
+                product_id: id,
+                cost: oldCostPrice,
+                price: listingPrice,
+                date_from: todayStr,
+                date_to: null
             };
-            await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
+            await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: newHistoryData });
         }
-        
-        refreshAllData(); 
-        closeMod();
+
+        // Pulizia e salvataggio link fornitori in conto vendita
+        const oldLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
+        for (let ol of (Array.isArray(oldLinks) ? oldLinks : [])) {
+            if (ol.product_id === id) {
+                await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: ol.id });
+            }
+        }
     }
+
+    // Salvataggio quote fornitori multipli se in conto vendita
+    if (is_consignment) {
+        const rows = document.querySelectorAll('.supplier-split-row');
+        for (let row of rows) {
+            const suppSelect = row.querySelector('.row-supp-select');
+            const pctInput = row.querySelector('.row-supp-pct');
+            
+            if (suppSelect && pctInput) {
+                const suppId = suppSelect.value;
+                const pct = parseFloat(pctInput.value) || 0;
+                
+                if (suppId && pct > 0) {
+                    const linkData = {
+                        id: crypto.randomUUID(),
+                        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                        product_id: productId,
+                        supplier_id: suppId,
+                        split_pct: pct
+                    };
+                    await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
+                }
+            }
+        }
+    }
+
+    alert("Anagrafica prodotto salvata con successo!");
+    refreshAllData(); 
+    closeMod();
+}
 
 
     function openQuickSupplierModal() {
@@ -5326,82 +5448,42 @@ async function executeStockLoad() {
         }
     }
     async function editInv(id) { 
-        console.log("Edit invocato per ID:", id); 
-        const i = allInventory.find(x => x.id === id); 
-        if(!i) {
-            console.error("Prodotto non trovato con ID:", id);
-            return;
-        }
+    const i = allInventory.find(x => x.id === id); 
+    if(!i) return;
 
-        document.getElementById('edit-p-id').value = id; 
-        document.getElementById('f-p-name').value = i.name; 
-        document.getElementById('f-p-type').value = i.type || 'prodotto';
-        document.getElementById('f-p-stock').value = i.stock; 
-        document.getElementById('f-p-min').value = i.min_stock; 
-        
-        // Campi extra magazzino
-        const modelEl = document.getElementById('f-p-model');
-        if (modelEl) modelEl.value = i.model || '';
+    document.getElementById('edit-p-id').value = id; 
+    document.getElementById('f-p-name').value = i.name; 
+    document.getElementById('f-p-type').value = i.type || 'prodotto';
+    document.getElementById('f-p-min').value = i.min_stock || 0; 
+    
+    // Campi extra
+    if (document.getElementById('f-p-model')) document.getElementById('f-p-model').value = i.model || '';
+    if (document.getElementById('f-p-barcode')) document.getElementById('f-p-barcode').value = i.barcode || '';
+    if (document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = i.unit || 'Pezzi';
+    if (document.getElementById('f-p-location')) document.getElementById('f-p-location').value = i.location || '';
+    if (document.getElementById('f-p-supplier')) document.getElementById('f-p-supplier').value = i.supplier_id || '';
 
-        const barcodeEl = document.getElementById('f-p-barcode');
-        if (barcodeEl) barcodeEl.value = i.barcode || '';
-
-        const unitEl = document.getElementById('f-p-unit');
-        if (unitEl) unitEl.value = i.unit || 'Pezzi';
-
-        const locationEl = document.getElementById('f-p-location');
-        if (locationEl) locationEl.value = i.location || '';
-
-        // 🤝 Gestione Conto Vendita e fornitore/i
-        const consignmentCheckbox = document.getElementById('f-p-is-consignment');
-        if (consignmentCheckbox) {
-            consignmentCheckbox.checked = i.is_consignment ? true : false;
-        }
-        
-        // Chiamiamo la funzione di toggle per attivare/disattivare il campo costo e mostrare i dettagli
-        if (typeof toggleConsignmentFields === 'function') {
-            toggleConsignmentFields();
-        }
-
-        if (typeof loadProductSuppliersForEdit === 'function') {
-            await loadProductSuppliersForEdit(id);
-        }
-        
-        // Reset storico
-        document.getElementById('edit-h-id').value = "-1";
-        document.getElementById('h-from').value = "";
-        document.getElementById('h-to').value = "";
-        document.getElementById('h-cost').value = "";
-        document.getElementById('h-price').value = "";
-        
-        // Carica storico prezzi
-        const history = await window.api.query({ action: 'GET_HISTORY', id: id });
-        const tbody = document.getElementById('history-body');
-        const histArray = history || []; 
-        
-        // Se è in conto vendita, blocchiamo visivamente il costo a 0 nel form dello storico corrente
-        const costInput = document.getElementById('h-cost');
-        if (costInput && i.is_consignment) {
-            costInput.value = "0";
-            costInput.disabled = true;
-            costInput.style.backgroundColor = "#e9ecef";
-        }
-
-        tbody.innerHTML = histArray.length > 0 ? histArray.map(h => `
-            <tr>
-                <td>${h.date_from}</td>
-                <td>${h.date_to || 'Infinito'}</td>
-                <td>€${parseFloat(h.cost).toFixed(2)}</td>
-                <td>€${parseFloat(h.price).toFixed(2)}</td>
-                <td>
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="fillHistoryForm('${h.id}', '${h.date_from}', '${h.date_to || ''}', ${h.cost}, ${h.price})">✎</button>
-                    <button class="btn btn-d" style="padding:2px 8px;" onclick="deletePrice('${h.id}', '${id}')">✕</button>
-                </td>
-            </tr>
-        `).join('') : "<tr><td colspan='5'>Nessuno storico</td></tr>";
-        
-        document.getElementById('mod-inv').classList.add('active'); 
+    // Recuperiamo il prezzo di listino attuale dallo storico o dal record
+    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
+    if (document.getElementById('f-p-listing-price')) {
+        document.getElementById('f-p-listing-price').value = pInfo ? pInfo.price : 0;
     }
+
+    // Conto vendita
+    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
+    if (consignmentCheckbox) {
+        consignmentCheckbox.checked = i.is_consignment ? true : false;
+    }
+    
+    toggleInvFields();
+    toggleConsignmentFields();
+
+    if (typeof loadProductSuppliersForEdit === 'function') {
+        await loadProductSuppliersForEdit(id);
+    }
+    
+    document.getElementById('mod-inv').classList.add('active'); 
+}
 
     function fillHistoryForm(hId, from, to, cost, price) {
         document.getElementById('edit-h-id').value = hId;
