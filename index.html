@@ -736,9 +736,25 @@
     </section>
 
     <section id="v-services" class="view">
-        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;"><button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button></div>
-        <div class="card" style="padding:0"><table><thead><tr><th>Servizio</th><th>Prezzo</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-serv"></tbody></table></div>
-    </section>
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
+        <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;">
+        <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button>
+    </div>
+    <div class="card" style="padding:0; overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome Servizio</th>
+                    <th>Prezzo Listino</th>
+                    <th>Ultimo Aggiornamento</th> <!-- 👈 Etichetta ripristinata -->
+                    <th>Autore</th>
+                    <th style="text-align:right">Azioni</th>
+                </tr>
+            </thead>
+            <tbody id="list-serv"></tbody>
+        </table>
+    </div>
+</section>
 
     <section id="v-sales-report" class="view">
         <div class="card">
@@ -822,8 +838,28 @@
     <div id="mod-cust" class="modal"><div class="modal-box"><h3>Cliente</h3><input type="hidden" id="edit-c-id" value="-1"><input type="text" id="f-c-firstname" placeholder="Nome"><input type="text" id="f-c-lastname" placeholder="Cognome"><input type="text" id="f-c-phone" placeholder="Telefono"><button class="btn btn-p" onclick="saveCust()">Salva</button></div></div>
     <div id="mod-cale" class="modal"><div class="modal-box"><h3 id="mod-cale-title">Appuntamento</h3><input type="hidden" id="edit-a-id" value="-1"><select id="f-a-user"></select><input type="text" id="f-a-search" placeholder="Cerca cliente..."><input type="date" id="f-a-date"><input type="time" id="f-a-time"><select id="f-a-item-select" multiple></select><button class="btn btn-p" onclick="saveApp()">Salva</button></div></div>
     <div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
-    <div id="mod-consumables" class="modal"><div class="modal-box"><h3>Materiali Consumabili</h3><input type="hidden" id="edit-service-id"><select id="f-c-prod-select"></select><input type="number" id="f-c-qty" placeholder="Quantità"><button class="btn btn-p" onclick="saveConsumable()">Aggiungi</button></div></div>
-    <div id="mod-view-app" class="modal"><div class="modal-box"><h3>Dettaglio</h3><div id="v-app-content"></div><button class="btn btn-s" id="btn-to-checkout">Cassa</button><button class="btn btn-d" id="btn-del-app">Elimina</button></div></div>
+    <div id="mod-consumables" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 500px;">
+        <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
+        <h3 style="margin-top:0; color:var(--p);">📦 Associa Materiali al Servizio</h3>
+        <input type="hidden" id="edit-service-id" value="">
+        
+        <label>Cerca Prodotto in Magazzino</label>
+        <input type="text" id="f-c-search-prod" placeholder="Scrivi nome prodotto..." onkeyup="filterProductSelect()">
+
+        <label>Seleziona Prodotto</label>
+        <select id="f-c-prod-select"></select>
+        
+        <label>Quantità necessaria per 1 servizio</label>
+        <input type="number" id="f-c-qty" step="0.01" placeholder="Esempio: 0.5">
+        
+        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:12px;" onclick="saveConsumable()">Associa Materiale</button>
+        
+        <div style="margin-top: 20px; font-weight: bold; font-size: 12px; color: #666; text-transform: uppercase;">Materiali già associati:</div>
+        <div id="consumables-list" style="margin-top:10px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #f8f9fa;"></div>
+    </div>
+</div>
+<div id="mod-view-app" class="modal"><div class="modal-box"><h3>Dettaglio</h3><div id="v-app-content"></div><button class="btn btn-s" id="btn-to-checkout">Cassa</button><button class="btn btn-d" id="btn-del-app">Elimina</button></div></div>
     <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
     <div id="mod-quick-supp" class="modal"><div class="modal-box"><h3>Nuovo Fornitore Rapido</h3><input type="text" id="q-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveQuickSupplier()">Crea</button></div></div>
     
@@ -5283,35 +5319,34 @@ async function executeStockLoad() {
     }
 }
 
-    async function renderServices() {
-        const f = document.getElementById('src-serv').value.toLowerCase();
-        const tbody = document.getElementById('list-serv');
-        if (!tbody) return;
+   async function renderServices() {
+    const f = document.getElementById('src-serv').value.toLowerCase();
+    const tbody = document.getElementById('list-serv');
+    if (!tbody) return;
 
-        // Filtriamo SOLO i servizi
-        let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
+    let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
+    
+    let html = "";
+    for (let item of filtered) {
+        const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
+        const price = pInfo ? pInfo.price : 0;
         
-        let html = "";
-        for (let item of filtered) {
-            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
-            const price = pInfo ? pInfo.price : 0;
-            
-            html += `<tr>
-                <td><b>${item.name}</b></td>
-                <td>€ ${parseFloat(price).toFixed(2)}</td>
-                <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
-                <td>${item.created_by || 'Admin'}</td>
-                <td style="text-align:right">
-                    <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
-                        <button class="btn" style="padding:2px 8px;" onclick="openConsumables('${item.id}')" title="Associa Prodotti Consumabili">📦</button>
-                        <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')">Edit</button>
-                        <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')">✕</button>
-                    </div>
-                </td>
-            </tr>`;
-        }
-        tbody.innerHTML = html;
+        html += `<tr>
+            <td><b>${item.name}</b></td>
+            <td>€ ${parseFloat(price).toFixed(2)}</td>
+            <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
+            <td>${item.created_by || 'Admin'}</td>
+            <td style="text-align:right">
+                <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
+                    <button class="btn btn-s" style="padding:2px 8px;" onclick="openConsumables('${item.id}')" title="Associa Prodotti Consumabili">📦</button>
+                    <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')" title="Modifica">Edit</button>
+                    <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')" title="Elimina">✕</button>
+                </div>
+            </td>
+        </tr>`;
     }
+    tbody.innerHTML = html;
+}
 
     function clearFilters() {
         // 1. Resetta i campi di input
@@ -5476,17 +5511,18 @@ async function executeStockLoad() {
     }
 
     async function openConsumables(serviceId) {
-        document.getElementById('edit-service-id').value = serviceId;
-        document.getElementById('f-c-search-prod').value = ""; // Pulisci ricerca
-        
-        // Inizializza la select con tutti i prodotti
-        filterProductSelect(); 
-        
-        // Mostra la lista attuale
-        renderConsumablesList(serviceId);
-        
-        document.getElementById('mod-consumables').classList.add('active');
-    }
+    const inputId = document.getElementById('edit-service-id');
+    if (inputId) inputId.value = serviceId;
+
+    const searchProd = document.getElementById('f-c-search-prod');
+    if (searchProd) searchProd.value = ""; 
+    
+    filterProductSelect(); 
+    renderConsumablesList(serviceId);
+    
+    const modal = document.getElementById('mod-consumables');
+    if (modal) modal.classList.add('active');
+}
 
     async function saveConsumable() {
         const serviceId = document.getElementById('edit-service-id').value;
