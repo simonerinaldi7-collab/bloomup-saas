@@ -2552,6 +2552,78 @@ function triggerLocalOperatorAlert(appointment) {
     }
 }
 
+
+// --- SISTEMA DI ALERT IMMINENTE OPERATORE (stile Google Calendar) ---
+let notifiedAppointmentsTracker = new Set(); // Evita di inviare la stessa notifica 10 volte nello stesso minuto
+
+function startOperatorImminentAlertChecker() {
+    // Esegue il controllo ogni 60 secondi
+    setInterval(async () => {
+        if (!currentUser || !navigator.onLine) return;
+
+        try {
+            // Recuperiamo gli appuntamenti freschi
+            const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            if (apps.length === 0) return;
+
+            const now = new Date();
+            const currentUsername = currentUser.username.trim().toLowerCase();
+            const MINUTES_BEFORE_ALERT = 15; // ⏱️ Anticipo dell'avviso imminente (es. 15 minuti prima)
+
+            apps.forEach(app => {
+                // Filtriamo solo gli appuntamenti dell'operatore loggato
+                const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
+                if (assigned !== currentUsername) return;
+
+                // Escludiamo le pause pranzo
+                const srv = (app.service || '').toLowerCase();
+                if (srv.includes('pausa') || srv.includes('pranzo')) return;
+
+                // Calcoliamo la data/ora esatta dell'appuntamento
+                const appDateTime = new Date(`${app.date}T${app.time}`);
+                const diffMs = appDateTime - now;
+                const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+                // Se l'appuntamento è esattamente nel range (es. tra 14 e 16 minuti) e non è già stato notificato in questa sessione
+                if (diffMinutes >= 0 && diffMinutes <= MINUTES_BEFORE_ALERT) {
+                    const trackingKey = `${app.id}_${app.date}_${app.time}`;
+                    
+                    if (!notifiedAppointmentsTracker.has(trackingKey)) {
+                        notifiedAppointmentsTracker.add(trackingKey);
+                        
+                        // Mostriamo la notifica nativa di sistema all'operatore
+                        triggerImminentPushNotification(app, diffMinutes);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Errore nel controllo alert imminenti operatore:", e);
+        }
+    }, 60000); // 60 secondi
+}
+
+// Funzione che spara la notifica nativa sul dispositivo
+function triggerImminentPushNotification(app, minutesLeft) {
+    const title = `⏰ Tra ${minutesLeft} minuti in Agenda!`;
+    const body = `Cliente: ${app.cust_name}\nServizio: ${app.service}\nOrario: ${app.time}`;
+
+    // 1. Notifica visiva tramite Browser Notification API (se l'app è in background/aperta)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, {
+                body: body,
+                icon: './icon-192.png',
+                badge: './icon-192.png',
+                vibrate: [300, 100, 300, 100, 300], // Vibrazione forte per richiamare l'attenzione
+                tag: `imminent_${app.id}`
+            });
+        });
+    } else {
+        // Fallback visivo in-app se le notifiche di sistema non sono attive
+        console.log(`[ALERT AGENDA] ${title} - ${body}`);
+    }
+}
+
     // Funzione principale di rendering e calcolo
     async function renderSupplierPayouts() {
         console.log("[DEBUG PAYOUT] Avvio renderSupplierPayouts avanzato...");
@@ -4864,8 +4936,7 @@ async function doLogin() {
 
     async function loginSuccess() {
         const isAdmin = (currentUser.role === 'admin');
-
-
+ 
 await registerOperatorPushNotifications();
 
         // 1. Setup visibilità menu laterale
@@ -4880,6 +4951,7 @@ await registerOperatorPushNotifications();
         if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
             await window.hydrateLocalDatabase(currentUser.salon_id);
         }
+startOperatorImminentAlertChecker();
 
         // 3. Caricamento dati in memoria
         await refreshAllData();
