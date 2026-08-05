@@ -848,8 +848,113 @@
         <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Chiudi alert e vai a Spese</button>
     </div></div></div>
     <div id="mod-cust" class="modal"><div class="modal-box"><h3>Cliente</h3><input type="hidden" id="edit-c-id" value="-1"><input type="text" id="f-c-firstname" placeholder="Nome"><input type="text" id="f-c-lastname" placeholder="Cognome"><input type="text" id="f-c-phone" placeholder="Telefono"><button class="btn btn-p" onclick="saveCust()">Salva</button></div></div>
-    <div id="mod-cale" class="modal"><div class="modal-box"><h3 id="mod-cale-title">Appuntamento</h3><input type="hidden" id="edit-a-id" value="-1"><select id="f-a-user"></select><input type="text" id="f-a-search" placeholder="Cerca cliente..."><input type="date" id="f-a-date"><input type="time" id="f-a-time"><select id="f-a-item-select" multiple></select><button class="btn btn-p" onclick="saveApp()">Salva</button></div></div>
-    <div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
+    <div id="mod-cale" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 550px;">
+        <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
+        <h3 id="mod-cale-title" style="margin-top:0; color:var(--p);">Gestione Appuntamento</h3>
+        <input type="hidden" id="edit-a-id" value="-1">
+        
+        <label>Operatore Assegnato</label>
+        <select id="f-a-user" onchange="checkOperatorScheduleValidity(); if(typeof onOperatorChange === 'function') onOperatorChange()"></select>
+
+        <label>Ricerca Cliente</label>
+        <div style="position:relative">
+            <input type="text" id="f-a-search" placeholder="Scrivi il nome del cliente..." onkeyup="filterClients(this.value, 'app'); checkDuplicateAppointments();" autocomplete="off">
+            <div id="app-search-results" class="search-results"></div>
+            <input type="hidden" id="f-a-cust-id">
+        </div>
+        
+        <!-- ⚠️ BOX ALERT TURNO OPERATORE / SOVRAPPOSIZIONE ORARIA -->
+        <div id="operator-schedule-alert" style="display:none; background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; padding:12px; border-radius:8px; font-size:12px; margin-top:8px; line-height:1.4;">
+            <div style="font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                <span id="operator-schedule-alert-title">⚠️ Attenzione orario</span>
+                <button type="button" class="btn" style="padding:2px 6px; font-size:10px; background:white; color:#721c24; border:1px solid #f5c6cb;" onclick="autoFixNextAvailableSlot()">Corri al 1° slot disponibile 🚀</button>
+            </div>
+            <span id="operator-schedule-alert-text">Lo slot selezionato presenta un'incompatibilità di orario o sovrapposizione.</span>
+        </div>
+
+        <!-- ⚠️ BOX LISTA APPUNTAMENTI FUTURI (PREVENZIONE DUPLICATI) -->
+        <div id="duplicate-app-alert" style="display:none; background:#fff3cd; border:1px solid #ffeeba; padding:12px; border-radius:8px; font-size:12px; margin-top:8px;">
+            <div style="font-weight:bold; color:#856404; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                <span>⚠️ Attenzione: Questo cliente ha già appuntamenti futuri!</span>
+            </div>
+            <div id="duplicate-apps-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top: 10px;">
+            <div style="flex:1"><label>Data</label><input type="date" id="f-a-date" onchange="checkDuplicateAppointments(); checkOperatorScheduleValidity()"></div>
+            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="checkOperatorScheduleValidity();"></div>
+            <div style="flex:1"><label>Fine</label><input type="time" id="f-a-end" onchange="checkOperatorScheduleValidity()"></div>
+        </div>
+        
+        <label>Servizi (CTRL per selezione multipla)</label>
+        <select id="f-a-item-select" multiple style="height: 100px;"></select>
+        
+        <label>Note Trattamento</label>
+        <textarea id="f-a-notes" rows="2"></textarea>
+        
+        <!-- 🧠 BOX SMART REBOOKING (GHOST APPOINTMENT POST-SALVATAGGIO) -->
+        <div id="smart-rebooking-box" style="background: #f8f9fa; border: 2px dashed var(--p); border-radius: 12px; padding: 15px; margin: 15px 0; display: none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--p); text-transform: uppercase;">✨ Pianifica Prossimo Appuntamento (Smart Loop)</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="rebooking-avg-days" style="font-size: 10px; color: #555; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Media: -- gg</span>
+                    <button type="button" class="btn btn-d" style="padding: 2px 6px; font-size: 10px;" onclick="closeSmartRebooking()" title="Salta">✕ Salta</button>
+                </div>
+            </div>
+            
+            <p style="font-size: 11px; color: #666; margin: 0 0 10px 0;">
+                Personalizza i dettagli per il prossimo appuntamento o conferma i dati ereditati:
+            </p>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom: 10px;">
+                <div>
+                    <label style="font-size:9px; margin:0;">Operatore</label>
+                    <select id="ghost-user-select" style="margin:2px 0 0 0; padding:8px; font-size:12px;" onchange="onGhostUserChange()"></select>
+                </div>
+                <div>
+                    <label style="font-size:9px; margin:0;">Servizio/i (CTRL per multi)</label>
+                    <select id="ghost-item-select" multiple style="height: 45px; margin:2px 0 0 0; font-size:11px;" onchange="calculateGhostEndTime()"></select>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom: 10px; background:white; padding:8px; border-radius:8px; border:1px solid var(--border);">
+                <div>
+                    <label style="font-size:9px; margin:0;">Data</label>
+                    <input type="date" id="ghost-manual-date" onchange="onManualGhostDateChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
+                </div>
+                <div>
+                    <label style="font-size:9px; margin:0;">Inizio</label>
+                    <input type="time" id="ghost-manual-time" onchange="onManualGhostTimeChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
+                </div>
+                <div>
+                    <label style="font-size:9px; margin:0;">Fine (Modificabile)</label>
+                    <input type="time" id="ghost-manual-end" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
+                </div>
+            </div>
+
+            <label style="font-size:9px; margin:0;">Note Trattamento Successivo</label>
+            <textarea id="ghost-manual-notes" rows="1" style="margin:2px 0 10px 0; padding:6px; font-size:12px;" placeholder="Eventuali note..."></textarea>
+
+            <div style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 140px; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-size: 11px; font-weight: bold;">
+                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(-1)">◀ Giorno Prec.</button>
+                    <span id="ghost-cal-date-label" style="color: var(--txt); font-size:11px;">--/--/----</span>
+                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(1)">Giorno Succ. ▶</button>
+                </div>
+                <div id="ghost-slots-container" style="display: flex; flex-direction: column; gap: 4px;"></div>
+            </div>
+
+            <button type="button" class="btn btn-p" style="width:100%; margin-top:10px; justify-content:center; padding:10px; font-size:12px;" onclick="confirmAndBookNextApp()">
+                💾 Conferma e Prenota Prossimo Appuntamento
+            </button>
+        </div>
+
+        <!-- TASTO SALVA ORIGINALE -->
+        <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:15px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
+    </div>
+</div>
+<div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
     <div id="mod-consumables" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 500px;">
         <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
