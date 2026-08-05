@@ -691,15 +691,21 @@
     <section id="v-products" class="view">
     <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
         <!-- Barra di ricerca testuale -->
-        <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o barcode..." style="max-width:300px; margin:0;">
+        <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o barcode..." style="max-width:250px; margin:0;">
         
         <!-- Filtro a tendina per Fornitore -->
-        <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:220px; margin:0;">
+        <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:180px; margin:0;">
             <option value="all">Tutti i Fornitori</option>
         </select>
 
-        <div style="display:flex; gap:10px;">
-            <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset</button>
+        <!-- Nuovo Filtro per Tipologia Conto Vendita -->
+        <select id="filter-prod-type-sales" onchange="renderProducts()" style="max-width:180px; margin:0;">
+            <option value="all">Tutti (Proprietà & CV)</option>
+            <option value="proprieta">Solo Proprietà</option>
+            <option value="consignment">Solo Conto Vendita</option>
+        </select>
+
+        <div style="display:flex; gap:8px;">
             <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
             <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
         </div>    
@@ -709,11 +715,11 @@
             <thead>
                 <tr>
                     <th>Prodotto / Linea</th>
+                    <th>Tipo / Gestione</th>
                     <th>Barcode / SKU</th>
                     <th>Prezzo Listino</th>
                     <th>Ultimo Costo</th>
                     <th>Giacenza</th>
-                    <th>Ubicazione</th>
                     <th>Fornitore</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
@@ -5015,6 +5021,7 @@ async function doLogin() {
     async function renderProducts() {
     const f = (document.getElementById('src-prod').value || '').toLowerCase();
     const supplierFilterVal = document.getElementById('filter-prod-supplier')?.value || 'all';
+    const typeSalesFilterVal = document.getElementById('filter-prod-type-sales')?.value || 'all';
     const tbody = document.getElementById('list-prod');
     if (!tbody) return;
 
@@ -5022,6 +5029,7 @@ async function doLogin() {
 
     let filtered = allInventory.filter(p => (p.type === 'prodotto' || !p.type));
     
+    // 1. Filtro testuale
     if (f) {
         filtered = filtered.filter(p => 
             (p.name && p.name.toLowerCase().includes(f)) || 
@@ -5030,10 +5038,19 @@ async function doLogin() {
         );
     }
 
+    // 2. Filtro per Fornitore
     if (supplierFilterVal !== 'all') {
         filtered = filtered.filter(p => p.supplier_id === supplierFilterVal);
     }
+
+    // 3. Filtro per Conto Vendita / Proprietà
+    if (typeSalesFilterVal === 'proprieta') {
+        filtered = filtered.filter(p => !p.is_consignment);
+    } else if (typeSalesFilterVal === 'consignment') {
+        filtered = filtered.filter(p => p.is_consignment);
+    }
     
+    // 4. Filtro Sottosoglia
     if (productFilter === 'lowstock') {
         filtered = filtered.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock);
     }
@@ -5048,16 +5065,21 @@ async function doLogin() {
         const supplier = allSuppliers.find(s => s.id === item.supplier_id);
         const supplierName = supplier ? supplier.name : '<span style="color:#aaa;">-</span>';
 
+        // Badge visivo Conto Vendita vs Proprietà
+        const typeBadge = item.is_consignment 
+            ? `<span style="background:#fef3c7; color:#d97706; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Conto Vendita</span>`
+            : `<span style="background:#e0e7ff; color:#4338ca; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Proprietà</span>`;
+
         html += `<tr style="${isLowStock ? 'background:#fff1f0' : ''}">
             <td>
                 <b>${item.name}</b>
                 ${item.model ? `<br><small style="color:#666;">Linea: ${item.model}</small>` : ''}
             </td>
+            <td>${typeBadge}</td>
             <td><code>${item.barcode || '-'}</code></td>
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>€ ${parseFloat(cost).toFixed(2)}</td>
-            <td><b>${item.stock}</b> <small>${item.unit || 'Pz'}</small> <br><small style="color:#888;">Min: ${item.min_stock}</small></td>
-            <td>${item.location || '-'}</td>
+            <td><b>${item.stock}</b> <small>${item.unit || 'Pz'}</small></td>
             <td>${supplierName}</td>
             <td style="text-align:right">
                 <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
@@ -5083,17 +5105,29 @@ async function openStockLoadModal(productId) {
     document.getElementById('load-prod-name').innerText = prod.name;
     
     const badge = document.getElementById('load-prod-type-badge');
+    const totalCostInput = document.getElementById('load-total-cost');
+    const qtyInput = document.getElementById('load-qty');
+
     if (prod.is_consignment) {
-        badge.innerText = "Modo: Conto Vendita (Nessun costo immediato generato a bilancio)";
+        badge.innerText = "Modo: Conto Vendita (Nessun costo d'acquisto o spesa generata)";
         badge.style.color = "var(--d)";
+        
+        // Oscuriamo e azzeriamo i campi costo perché in conto vendita non si paga anticipatamente
+        totalCostInput.value = "0";
+        totalCostInput.disabled = true;
+        totalCostInput.style.backgroundColor = "#e9ecef";
+        document.getElementById('load-calculated-unit-cost').innerText = "€ 0.00 (Conto Vendita)";
     } else {
         badge.innerText = "Modo: Prodotto di Proprietà (Genera spesa automatica a bilancio)";
         badge.style.color = "var(--s)";
+        
+        totalCostInput.value = "";
+        totalCostInput.disabled = false;
+        totalCostInput.style.backgroundColor = "#fff";
+        document.getElementById('load-calculated-unit-cost').innerText = "€ 0.00";
     }
 
-    document.getElementById('load-qty').value = "1";
-    document.getElementById('load-total-cost').value = "";
-    document.getElementById('load-calculated-unit-cost').innerText = "€ 0.00";
+    qtyInput.value = "1";
     document.getElementById('load-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('load-notes').value = "";
 
@@ -5129,7 +5163,7 @@ async function executeStockLoad() {
         return alert("Inserisci una quantità valida maggiore di zero.");
     }
 
-    // Se non è in conto vendita, il costo totale è obbligatorio
+    // Se NON è in conto vendita, il costo totale è obbligatorio
     if (!prod.is_consignment && (isNaN(totalCost) || totalCost <= 0)) {
         return alert("Per i prodotti di proprietà è necessario inserire il costo totale d'acquisto.");
     }
@@ -5138,7 +5172,7 @@ async function executeStockLoad() {
     const newStock = (parseInt(prod.stock) || 0) + qty;
 
     try {
-        // 1. Aggiorniamo la giacenza di magazzino
+        // 1. Aggiorniamo la giacenza di magazzino (+ Qta)
         await window.universalQuery({
             action: 'UPDATE',
             table: 'inventory',
@@ -5146,8 +5180,7 @@ async function executeStockLoad() {
             id: prod.id
         });
 
-        // 2. Se abbiamo un costo unitario valido, aggiorniamo/aggiungiamo lo storico prezzi (price_history)
-        // Recuperiamo il prezzo di listino attuale del prodotto per non perderlo
+        // 2. Storico prezzi (aggiorniamo solo se è proprietà, altrimenti manteniamo il costo a 0)
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
         const currentListingPrice = currentPriceInfo ? currentPriceInfo.price : 0;
 
@@ -5160,7 +5193,7 @@ async function executeStockLoad() {
         };
         await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
 
-        // 3. Se NON è in conto vendita, generiamo AUTOMATICAMENTE la spesa nella sezione Spese
+        // 3. Generazione spesa automatica (SOLO se è un prodotto di proprietà)
         if (!prod.is_consignment && totalCost > 0) {
             const expenseData = {
                 date: loadDate || new Date().toISOString().split('T')[0],
@@ -5170,7 +5203,7 @@ async function executeStockLoad() {
             await window.universalQuery({ action: 'INSERT', table: 'expenses', data: expenseData });
         }
 
-        alert(`✅ Carico registrato con successo!\n- Nuova giacenza: ${newStock} Pz\n- Costo unitario registrato: €${unitCost.toFixed(2)}`);
+        alert(`✅ Carico registrato con successo!\n- Nuova giacenza: ${newStock} Pz`);
         
         closeMod();
         await refreshAllData();
@@ -5178,7 +5211,7 @@ async function executeStockLoad() {
 
     } catch (err) {
         console.error("Errore durante l'esecuzione del carico merce:", err);
-        alert("Si è verificato un errore durante la registrazione del carico.");
+        alert("Errore durante la registrazione del carico.");
     }
 }
 
