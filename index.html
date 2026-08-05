@@ -8,109 +8,88 @@
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
         body { background: var(--bg); margin: 0; height: 100vh; overflow: hidden; color: var(--txt); }
 
+        /* FIX FOCUS & CLICKS */<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>BloomUp - Gestionale Beauty & Retail</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root { --p: #6C5CE7; --s: #00B894; --d: #E17055; --bg: #F4F7FE; --txt: #2D3436; --border: #DFE6E9; --sidebar: #2D3436; --grey: #b2bec3; }
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); margin: 0; height: 100vh; overflow: hidden; color: var(--txt); }
+
         /* FIX FOCUS & CLICKS */
         .hidden { display: none !important; }
         #app-shell { display: none; height: 100vh; width: 100vw; flex-direction: row; }
 
-       /* --- LOGIN SCREEN PROFESSIONALE SAAS --- */
-#login-screen {
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    z-index: 20000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
+        /* --- LOGIN SCREEN PROFESSIONALE SAAS --- */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
 
-.login-card {
-    background: #ffffff;
-    padding: 40px 35px;
-    border-radius: 24px;
-    width: 100%;
-    max-width: 420px;
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    animation: fadeInScale 0.4s ease-out forwards;
-}
+        .login-card {
+            background: #ffffff;
+            padding: 40px 35px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: fadeInScale 0.4s ease-out forwards;
+        }
 
-@keyframes fadeInScale {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-}
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
 
-.login-card h1 {
-    font-size: 28px;
-    font-weight: 800;
-    color: #1e1b4b;
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-}
+        .login-card h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e1b4b;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
 
-.login-card p {
-    color: #64748b;
-    font-size: 14px;
-    margin-bottom: 30px;
-}
+        .login-card p {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
 
-.login-input-group {
-    text-align: left;
-    margin-bottom: 20px;
-}
+        .login-input-group {
+            text-align: left;
+            margin-bottom: 15px;
+        }
 
-.login-input-group label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
+        .login-card input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+            margin-bottom: 15px;
+        }
 
-.login-card input {
-    width: 100%;
-    padding: 14px 16px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 16px; /* Evita zoom su iOS */
-    outline: none;
-    transition: all 0.2s ease;
-    background: #f8fafc;
-}
+        .login-card input:focus {
+            border-color: #6366f1;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
 
-.login-card input:focus {
-    border-color: #6366f1;
-    background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-}
-
-.login-btn {
-    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-    color: white;
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    margin-top: 10px;
-}
-
-.login-btn:hover {
-    opacity: 0.95;
-    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
-}
-
-.login-btn:active {
-    transform: scale(0.98);
-}
-        /* SIDEBAR */
-        .sidebar { width: 240px; background: var(--sidebar); color: white; display: flex; flex-direction: column; flex-shrink: 0; z-index: 100; }
+        /* SIDEBAR & DRAWER */
+        .sidebar { width: 240px; background: var(--sidebar); color: white; display: flex; flex-direction: column; flex-shrink: 0; z-index: 1000; }
         .sidebar-brand { padding: 30px 25px; font-weight: bold; font-size: 20px; color: var(--p); border-bottom: 1px solid #444; }
         .nav-item { padding: 16px 25px; cursor: pointer; border-bottom: 1px solid #444; font-size: 14px; display: flex; align-items: center; gap: 12px; transition: 0.2s; color: #BDC3C7; text-decoration: none; }
         .nav-item:hover { background: #3d4545; color: white; }
@@ -118,715 +97,165 @@
 
         /* HEADER & MAIN */
         .main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; background: white; position: relative; z-index: 10; }
-        .header { height: 70px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 30px; justify-content: space-between; flex-shrink: 0; background: #fff; }
+        .header { height: 65px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; flex-shrink: 0; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
         .content { flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
         .view { padding: 30px; display: none; height: 100%; overflow-y: auto !important; }
         .view.active { display: block !important; }
 
+        /* BURGER MENU & MOBILE RESPONSIVE */
+        .burger-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 28px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1200;
+        }
+        .burger-toggle span {
+            width: 100%;
+            height: 3px;
+            background: #1e1b4b;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
 
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 900;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.active { display: block; opacity: 1; }
 
-/* --- BURGER MENU & HEADER MOBILE PROFESSIONALE --- */
+        @media screen and (max-width: 1024px) {
+            .burger-toggle { display: flex; }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                width: 280px !important;
+                height: 100vh !important;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 10px 0 30px rgba(0,0,0,0.15);
+            }
+            .sidebar.active { transform: translateX(280px); }
+            .main { width: 100vw; }
+        }
 
-/* Pulsante Burger animato */
-.burger-toggle {
-    display: none; /* Di default nascosto su desktop grandi */
-    flex-direction: column;
-    justify-content: space-between;
-    width: 28px;
-    height: 20px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    z-index: 1200;
-}
-
-.burger-toggle span {
-    width: 100%;
-    height: 3px;
-    background: #1e1b4b;
-    border-radius: 2px;
-    transition: all 0.3s ease;
-}
-
-/* Header pulito stile SaaS */
-.header {
-    height: 65px;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    justify-content: space-between;
-    flex-shrink: 0;
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-
-/* Overlay scuro di sfondo quando il menu mobile è aperto */
-.sidebar-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(2px);
-    z-index: 900;
-    display: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.sidebar-overlay.active {
-    display: block;
-    opacity: 1;
-}
-
-/* Adattamento Responsive della Sidebar (Drawer laterale su Mobile/Tablet) */
-@media screen and (max-width: 1024px) {
-    .burger-toggle {
-        display: flex; /* Mostra il burger menu su tablet e smartphone */
-    }
-
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: -280px; /* Nascosta fuori schermo a sinistra */
-        width: 280px !important;
-        height: 100vh !important;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 1000;
-        box-shadow: 10px 0 30px rgba(0,0,0,0.15);
-        flex-direction: column !important;
-    }
-
-    .sidebar.active {
-        transform: translateX(280px); /* Fa scivolare il menu in vista */
-    }
-
-    .main {
-        width: 100vw;
-    }
-}
-
-
-
-        /* Sidebar Responsive per Smartphone */
-@media screen and (max-width: 768px) {
-    #app-shell {
-        flex-direction: column !important; /* Menu sopra, contenuto sotto o a scorrimento */
-    }
-    
-    .sidebar {
-        width: 100% !important;
-        height: auto !important;
-        max-height: 60px; /* Ridotta a barra superiore orizzontale o compatta */
-        overflow-x: auto;
-        flex-direction: row !important;
-        flex-shrink: 0;
-    }
-    
-    .sidebar-brand {
-        display: none; /* Nasconde il brand testuale per risparmiare spazio */
-    }
-    
-    .nav-item {
-        padding: 12px 15px;
-        border-bottom: none;
-        border-right: 1px solid #444;
-        white-space: nowrap;
-        font-size: 13px;
-    }
-    
-    .main {
-        height: calc(100vh - 60px) !important;
-    }
-}
-
-
-
-/* Modali a tutto schermo o quasi su dispositivi mobili */
-@media screen and (max-width: 600px) {
-    .modal-box {
-        width: 95% !important;
-        max-height: 90vh !important;
-        padding: 20px !important;
-        margin: 10px;
-        border-radius: 16px;
-    }
-}
-
-/* Area di tocco minima per tutti i bottoni (evita errori di tap) */
-.btn {
-    min-height: 44px;
-    min-width: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Fix griglia statistiche dashboard su mobile */
-@media screen and (max-width: 600px) {
-    .stat-grid {
-        grid-template-columns: 1fr 1fr !important;
-        gap: 10px;
-    }
-    .stat-card {
-        padding: 15px;
-    }
-    .stat-card p {
-        font-size: 22px !important;
-    }
-}
-
-        /* TABLES & CARDS */
-        /*.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        /* STATS & CARDS RIPRISTINATE CORRETTAMENTE */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
         .stat-card { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--border); border-left: 6px solid var(--p); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        .stat-card p { font-size: 28px; font-weight: bold; margin: 12px 0 0; }
-        */.card { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .stat-card h4 { margin: 0; color: #64748b; font-size: 13px; text-transform: uppercase; }
+        .stat-card p { font-size: 28px; font-weight: bold; margin: 12px 0 0; color: #1e1b4b; }
+        .card { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 11px; text-transform: uppercase; color: #777; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-
-/* --- OTTIMIZZAZIONE MOBILE-FIRST & TOUCH (BLOOMUP) --- */
-
-/* Impedisce lo zoom fastidioso di iOS sui campi di input (richiede font-size >= 16px) */
-@media screen and (max-width: 768px) {
-    input, select, textarea {
-        font-size: 16px !important;
-    }
-}
-
-/* --- STILI MODULO CASSA --- */
-        /* Adattamento Cassa POS per Tablet e Smartphone */
-@media screen and (max-width: 900px) {
-    .sales-layout {
-        grid-template-columns: 1fr !important; /* Colonna singola verticale */
-        height: auto !important;
-        overflow-y: auto !important;
-        padding-bottom: 80px; /* Spazio per evitare tagli in basso */
-    }
-    
-    .cart-panel {
-        margin-top: 20px;
-        height: auto !important;
-        max-height: 500px;
-    }
-}
-        .cart-list { 
-            flex-grow: 1; 
-            overflow-y: auto; 
-            margin: 15px 0; 
-            padding-right: 5px; 
-        }
-        .cart-item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 12px 0; 
-            border-bottom: 1px solid #e0e0e0; 
-            font-size: 14px; 
-        }
-
-        /* Stile moderno per il carrello */
-.discount-box {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 5px;
-    background: #f1f5f9;
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-}
-.discount-label { font-weight: bold; color: var(--p); font-size: 11px; text-transform: uppercase; }
-
-
-  /* --- AGENDA STILE GOOGLE CALENDAR (GUSTO FULL TIMELINE) --- */
-/* --- AGENDA STILE GOOGLE CALENDAR (FIX ALTEZZA E SCROLL) --- */
-.cal-header { 
-    padding: 12px 20px; 
-    border-bottom: 1px solid #dadce0; 
-    display: flex; 
-    flex-wrap: wrap; 
-    align-items: center; 
-    justify-content: space-between; 
-    gap: 12px; 
-    background: #fff; 
-    flex-shrink: 0;
-}
-.cal-scroll-area { 
-    flex-grow: 1; 
-    overflow-y: auto; 
-    overflow-x: auto; 
-    background: #fff; 
-    position: relative;
-    height: calc(100vh - 140px); /* 👈 Blocca l'altezza esatta dell'area visibile */
-}
-
-/* Griglia Mese */
-.month-grid { 
-    display: grid; 
-    grid-template-columns: repeat(7, 1fr); 
-    background: #dadce0; 
-    gap: 1px; 
-    border: 1px solid #dadce0; 
-    min-width: 800px; 
-}
-.day-cell { 
-    background: white; 
-    height: 120px; 
-    padding: 6px; 
-    overflow-y: auto; 
-    border-right: 1px solid #f1f3f4; 
-    border-bottom: 1px solid #f1f3f4; 
-    cursor: pointer;
-    transition: background 0.1s;
-}
-.day-cell:hover { background: #f8f9fa; }
-.day-num { font-weight: 500; font-size: 12px; color: #3c4043; margin-bottom: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
-.day-cell.today .day-num { background: #1a73e8; color: white; font-weight: bold; }
-.day-cell.today { background: #f8f9fa; }
-
-.event { 
-    color: #3c4043; 
-    border-radius: 4px; 
-    padding: 3px 6px; 
-    font-size: 11px; 
-    cursor: pointer; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    margin-bottom: 2px; 
-    font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    border-left: 3px solid rgba(0,0,0,0.2);
-}
-
-/* GRIGLIE TEMPORALI SETTIMANA E GIORNO (Fisse e bloccate alle 21:00) */
-.time-grid-container {
-    display: grid;
-    background: #dadce0;
-    gap: 1px;
-    min-width: 900px;
-    position: relative;
-}
-.time-grid-week { grid-template-columns: 60px repeat(7, 1fr); }
-.time-grid-day { grid-template-columns: 60px 1fr; }
-
-.slot-header { 
-    background: #fff; 
-    padding: 10px; 
-    text-align: center; 
-    font-weight: 500; 
-    font-size: 12px;
-    color: #3c4043;
-    position: sticky; 
-    top: 0; 
-    z-index: 30; 
-    border-bottom: 1px solid #dadce0; 
-}
-.time-label { 
-    background: #fff; 
-    height: 60px; /* 60px esatti per ora */
-    text-align: right; 
-    font-size: 10px; 
-    padding-right: 8px; 
-    padding-top: 2px; 
-    color: #70757a; 
-    border-bottom: 1px solid #f1f3f4; 
-    box-sizing: border-box;
-}
-
-/* Colonna del giorno bloccata esattamente a 13 ore (780px) */
-.day-column {
-    background: white;
-    position: relative;
-    border-right: 1px solid #f1f3f4;
-    height: 780px; /* 13 ore * 60px = 780px (Finito alle 21:00 precise) */
-    box-sizing: border-box;
-}
-
-.day-hour-slot {
-    height: 60px;
-    border-bottom: 1px solid #f1f3f4;
-    box-sizing: border-box;
-    cursor: pointer;
-}
-.day-hour-slot:hover { background: #f8f9fa; }
-
-/* Stile per gli slot in cui l'operatore non lavora (Grigio a righe, ma con cursore pointer/normale) */
-.day-hour-slot.non-working {
-    background-color: #f1f3f4 !important;
-    background-image: repeating-linear-gradient(45deg, #f1f3f4, #f1f3f4 10px, #e8eaed 10px, #e8eaed 20px);
-    opacity: 0.7;
-    cursor: pointer !important; /* 👈 Forza il cursore a comportarsi come uno slot normale */
-}
-.day-hour-slot.non-working:hover {
-    background-color: #e8eaed !important;
-    cursor: pointer !important; /* 👈 Assicura che anche in hover non metta il divieto */
-}
-
-.absolute-event {
-    position: absolute;
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 11px;
-    cursor: pointer;
-    overflow: hidden;
-    z-index: 10;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    border-left: 4px solid rgba(0,0,0,0.2);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-}
-
-.legend { 
-    display: flex; 
-    gap: 15px; 
-    padding: 8px 20px; 
-    background: #fff; 
-    border-top: 1px solid #dadce0; 
-    font-size: 11px; 
-    color: #3c4043;
-    flex-shrink: 0;
-}
-
-/* Stile per gli slot in cui l'operatore non lavora (Grigio/Disabilitato) */
-.day-hour-slot.non-working {
-    background-color: #f1f3f4 !important;
-    background-image: repeating-linear-gradient(45deg, #f1f3f4, #f1f3f4 10px, #e8eaed 10px, #e8eaed 20px);
-    opacity: 0.7;
-    cursor: not-allowed !important;
-}
-.day-hour-slot.non-working:hover {
-    background-color: #e8eaed !important;
-}
-
-        .cal-header { padding: 15px 25px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: #fff; }
-        .cal-scroll-area { flex-grow: 1; overflow: auto; background: #f0f2f5; }
-        .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); min-width: 900px; }
-        .day-cell { background: white; height: 130px; padding: 8px; overflow-y: auto; border-right: 1px solid #eee; border-bottom: 1px solid #eee; }
-        .day-num { font-weight: bold; font-size: 12px; color: #bbb; margin-bottom: 8px; }
-        .day-cell.today { background: #f0efff; }
-        .event { color: white; border-radius: 6px; padding: 6px 10px; font-size: 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(0,0,0,0.1); margin-bottom: 2px; }
-        .event.st-none { background: var(--grey); }
-        .event.st-confirm { background: var(--p); }
-        .event.st-remind { background: var(--s); }
-        /*.time-grid { display: grid; grid-template-columns: 80px repeat(var(--cols, 7), 1fr); background: var(--border); gap: 1px; min-width: 1000px; border: 1px solid var(--border); }
-        .time-label { background: #f8f9fa; height: 90px; text-align: center; font-size: 12px; padding-top: 15px; color: #888; border-bottom: 1px solid var(--border); }
-        .slot { background: white; height: 90px; padding: 5px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-bottom: 1px solid var(--border); }
-        */.slot-header { background: #f8f9fa; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid var(--border); }
-        .legend { display: flex; gap: 20px; padding: 10px 30px; background: #fff; border-top: 1px solid var(--border); font-size: 11px; font-weight: bold; }
-        .lg-item { display: flex; align-items: center; gap: 8px; }
-        .lg-dot { width: 12px; height: 12px; border-radius: 3px; }
-
-/* Modali a tutto schermo o quasi su dispositivi mobili */
-@media screen and (max-width: 600px) {
-    .modal-box {
-        width: 95% !important;
-        max-height: 90vh !important;
-        padding: 20px !important;
-        margin: 10px;
-        border-radius: 16px;
-    }
-}
-
-/* Area di tocco minima per tutti i bottoni (evita errori di tap) */
-.btn {
-    min-height: 44px;
-    min-width: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-
         /* UI BUTTONS & MODALS */
-        /*.btn { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; display: inline-flex; align-items: center; gap: 10px; }
-        */.btn-p { background: var(--p); color: white; border: none; }
+        .btn { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
+        .btn-p { background: var(--p); color: white; border: none; }
         .btn-s { background: var(--s); color: white; border: none; }
         .btn-d { background: var(--d); color: white; border: none; }
         .btn-w { background: #25D366; color: white; border: none; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 11000; backdrop-filter: blur(4px); }
+        
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 20000; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
-        /*.modal-box { background: white; padding: 35px; border-radius: 24px; width: 500px; box-shadow: 0 30px 70px rgba(0,0,0,0.4); max-height: 95vh; overflow-y: auto; }
-        */label { display: block; font-size: 11px; color: #777; text-transform: uppercase; font-weight: bold; margin-top: 10px; margin-bottom: 4px; }
-        input, select, textarea { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; margin: 8px 0 18px 0; font-size: 14px; outline: none; background: #fff; }
+        .modal-box { background: white; padding: 35px; border-radius: 24px; width: 500px; box-shadow: 0 30px 70px rgba(0,0,0,0.4); max-height: 95vh; overflow-y: auto; }
+        
+        label { display: block; font-size: 11px; color: #777; text-transform: uppercase; font-weight: bold; margin-top: 10px; margin-bottom: 4px; }
+        input, select, textarea { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; margin: 8px 0 18px 0; font-size: 16px; outline: none; background: #fff; }
         
         .search-results { position: absolute; background: white; border: 1px solid var(--border); width: 100%; max-height: 200px; overflow-y: auto; z-index: 15000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border-radius: 10px; }
         .search-item { padding: 14px; cursor: pointer; border-bottom: 1px solid #eee; }
         .badge-alert { color: white; background: var(--d); font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 11px; }
         .badge-success { color: white; background: var(--s); font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 11px; }
-        /* Foglio di default nascosto */
-.dash-sheet {
-    display: none;
-}
+        
+        .dash-sheet { display: none; }
+        .dash-sheet.active-sheet { display: block !important; }
+        .chart-wrapper { width: 100%; height: 400px; position: relative; min-height: 400px; }
 
-/* Questa classe viene aggiunta da JS per mostrare il foglio */
-.dash-sheet.active-sheet {
-    display: block !important;
-}
-
-/* Stile per migliorare la visibilità degli input data/numero */
-.price-input-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 8px;
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-}
-
-.price-input-row input {
-    margin: 0 !important;
-    padding: 10px !important;
-    font-size: 13px !important;
-}
-
-/* Etichette per gli input sotto */
-.input-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    font-weight: bold;
-    color: #666;
-    margin-bottom: 4px;
-    display: block;
-}
-
-input, select, textarea {
-    pointer-events: auto !important; /* Forza il cursore a rispondere */
-    position: relative;
-    z-index: 10000;
-}
-
-/* Rimuovi il filtro dal modale */
-#mod-inv {
-    backdrop-filter: none !important;
-    background: rgba(0,0,0,0.5) !important;
-}
-
-/* Assicurati che il contenitore del modale non rubi il focus */
-.modal {
-    position: fixed; 
-    inset: 0; 
-    display: none; 
-    align-items: center; 
-    justify-content: center; 
-    z-index: 20000; /* Deve stare sopra tutto */
-}
-
-.chart-wrapper {
-    width: 100%;
-    height: 400px; /* Altezza fissa minima per garantire leggibilità */
-    position: relative;
-    min-height: 400px;
-}
-
-/* Impedisce ai bottoni di andare uno sotto l'altro */
-td {
-    white-space: nowrap;
-}
-
-/* Assicura che la tabella sia scrollabile se la finestra è troppo piccola */
-.card {
-    overflow-x: auto;
-}
-
-/* Fissa la larghezza minima della colonna Azioni */
-th:last-child, td:last-child {
-    text-align: right;
-    min-width: 120px; 
-}
-
-/* Tabella Gestione Utenti Responsiva */
-#list-users {
-    width: 100%;
-}
-
-/* Forza le colonne ad avere una proporzione ragionevole */
-#list-users td, #list-users th {
-    padding: 12px 15px;
-    text-align: left;
-}
-
-/* La colonna azioni deve essere compatta e a destra */
-#list-users td:last-child {
-    display: flex;
-    justify-content: flex-end; /* Tasti allineati a destra */
-    gap: 8px; /* Spazio costante tra Edit e X */
-    white-space: nowrap; /* Impedisce ai tasti di andare a capo */
-}
-
-/* Assicura che le intestazioni corrispondano */
-th:last-child {
-    text-align: right;
-}
-
-.cart-item-container {
-    background: white;
-    border: 1px solid var(--border);
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-.discount-box {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-    margin-top: 8px;
-    background: #f8f9fa;
-    padding: 8px;
-    border-radius: 8px;
-}
-.discount-box input { margin: 0; width: 60px; padding: 5px; }
-.discount-box select { margin: 0; width: 60px; padding: 5px; }
-
-/* Agenda Header Responsive */
-.cal-header { 
-    padding: 15px 25px; 
-    border-bottom: 1px solid var(--border); 
-    display: flex; 
-    flex-wrap: wrap; /* Fondamentale: permette agli elementi di andare a capo */
-    align-items: center; 
-    justify-content: space-between; 
-    gap: 15px; 
-    background: #fff; 
-}
-
-/* Gruppi logici per mantenere i bottoni uniti */
-.cal-header-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-/* Selezione utente stilizzata */
-#user-filter {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #f8f9fa;
-    font-size: 13px;
-    min-width: 180px;
-}
-
-/* Colori Operatori (Sfondo) */
-.event-admin { background-color: #6C5CE7; }
-.event-user { background-color: #00B894; }
-.event-tecnico { background-color: #E17055; }
-.event-default { background-color: #b2bec3; }
-
-/* Bordi per lo stato (Sovrapposti all'evento) */
-.event { 
-    color: white; 
-    border-radius: 6px; 
-    padding: 6px 10px; 
-    font-size: 10px; 
-    cursor: pointer; 
-    border: 3px solid transparent; /* Spazio per il bordo stato */
-}
-
-/* Bordi per gli stati delle comunicazioni */
-.st-confirm { 
-    border: 3px solid #000000 !important; /* Bordo NERO per conferma */
-}
-
-.st-remind { 
-    border: 3px solid #FF00FF !important; /* Arancione fluorescente (o FF4500) - ho scelto un rosa/arancio neon brillante */
-}
-
-.event-admin { background-color: #6C5CE7 !important; }
-.event-user { background-color: #00B894 !important; }
-.event-tecnico { background-color: #E17055 !important; }
-.event-default { background-color: #b2bec3 !important; }
-
-/* La leggenda usa le stesse classi */
-.lg-dot.event-admin { background-color: #6C5CE7; }
-.lg-dot.event-user { background-color: #00B894; }
-.lg-dot.event-tecnico { background-color: #E17055; }
-
-
-select option:hover {
-    background-color: transparent !important;
-}
-
-#inv-error-msg {
-    background: #fff1f0;
-    color: #d63031;
-    border: 1px solid #ff7675;
-    padding: 10px;
-    border-radius: 8px;
-    font-weight: bold;
-    margin: 15px 0;
-    text-align: center;
-    display: none; /* Rimane nascosto finché non c'è errore */
-}
-
+        @media screen and (max-width: 600px) {
+            .modal-box { width: 95% !important; padding: 20px !important; }
+            .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="data-service.js"></script>
     <script src="api-bridge.js"></script>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#6C5CE7">
+    <meta name="theme-color" content="#6C5CE7">
 </head>
 <body>
 
-   
+    <!-- SCHERMATA LOGIN SaaS STYLE -->
     <div id="login-screen">
         <div class="login-card">
-            <h1>BloomUp</h1>
-            <p style="color:#888; margin-bottom: 20px;">Inserisci admin / admin</p>
-            <input type="text" id="l-user" placeholder="Username" value="admin">
-            <input type="password" id="l-pass" placeholder="Password" value="admin">
-            <button class="btn btn-p" style="width:100%; justify-content:center; padding:18px" onclick="doLogin()">ACCEDI</button>
+            <h1>BloomUp 🚀</h1>
+            <p>Gestionale Verticale Retail & Beauty</p>
+            <div class="login-input-group">
+                <label>Username</label>
+                <input type="text" id="l-user" placeholder="Inserisci username" value="admin">
+            </div>
+            <div class="login-input-group">
+                <label>Password</label>
+                <input type="password" id="l-pass" placeholder="Inserisci password" value="admin">
+            </div>
+            <button class="login-btn" onclick="doLogin()">ACCEDI AL SISTEMA</button>
         </div>
     </div>
 
+    <!-- SHELL PRINCIPALE DELL'APPLICAZIONE -->
     <div id="app-shell">
         <nav class="sidebar">
             <div class="sidebar-brand">BloomUp 🚀</div>
-            <a href="#" class="nav-item active" id="n-dash" onclick="changePage('dashboard')">🏠 Dashboard</a>
-            <a href="#" class="nav-item" id="n-sale" onclick="changePage('sales')">🛒 Cassa POS</a>
-            <a href="#" class="nav-item" id="n-cale" onclick="changePage('calendar')">📅 Agenda Appuntamenti</a>
-            <a href="#" class="nav-item" id="n-cust" onclick="changePage('customers')">👥 Anagrafica Clienti</a>
-            <a href="#" class="nav-item" id="n-prod" onclick="changePage('products')">📦 Magazzino Prodotti</a>
-            <a href="#" class="nav-item" id="n-supp" onclick="changePage('suppliers')">🚚 Gestione Fornitori</a>
-            <a href="#" class="nav-item" id="n-serv" onclick="changePage('services')">✂️ Listino Servizi</a>
-            <a href="#" class="nav-item" id="n-repo" onclick="changePage('sales-report')">📈 Report Vendite</a>
-            <a href="#" class="nav-item" id="n-payouts" onclick="changePage('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
-            <a href="#" class="nav-item" id="n-logs" onclick="changePage('logs')">📜 Comunicazioni</a>
-            <a href="#" class="nav-item" id="n-sett" onclick="changePage('settings')">⚙️ Configurazione</a>
-            <a href="#" class="nav-item" id="n-users" onclick="changePage('users')" style="display:none;">🔑 Gestione Utenti</a>
-            <a href="#" class="nav-item" id="n-schedules" onclick="changePage('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
+            <a href="#" class="nav-item active" id="n-dash" onclick="changePageMobileWrapper('dashboard')">🏠 Dashboard</a>
+            <a href="#" class="nav-item" id="n-sale" onclick="changePageMobileWrapper('sales')">🛒 Cassa POS</a>
+            <a href="#" class="nav-item" id="n-cale" onclick="changePageMobileWrapper('calendar')">📅 Agenda Appuntamenti</a>
+            <a href="#" class="nav-item" id="n-cust" onclick="changePageMobileWrapper('customers')">👥 Anagrafica Clienti</a>
+            <a href="#" class="nav-item" id="n-prod" onclick="changePageMobileWrapper('products')">📦 Magazzino Prodotti</a>
+            <a href="#" class="nav-item" id="n-supp" onclick="changePageMobileWrapper('suppliers')">🚚 Gestione Fornitori</a>
+            <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
+            <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
+            <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
+            <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
+            <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
+            <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
+            <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
             <div style="margin-top:auto; padding:20px"><button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button></div>
         </nav>
 
         <main class="main">
             <header class="header">
-    <div style="display:flex; align-items:center; gap: 15px;">
-        <!-- Pulsante Burger visibile principalmente su mobile/tablet -->
-        <button id="burger-btn" class="burger-toggle" onclick="toggleSidebar()">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-        <h3 id="page-title" style="margin:0; font-size: 18px; font-weight: 700; color: #1e1b4b;">Dashboard</h3>
-    </div>
-    <div style="display:flex; align-items:center; gap:12px">
-        <div id="reminder-alert" style="color:var(--d); font-size:12px; font-weight:bold; cursor:pointer; background: #fff1f0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--d);" onclick="changePage('logs')" class="hidden"></div>
-        <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="window.api.checkReminders()">🔄 Sync</button>
-    </div>
-</header>
+                <div style="display:flex; align-items:center; gap: 15px;">
+                    <button id="burger-btn" class="burger-toggle" onclick="toggleSidebar()">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <h3 id="page-title" style="margin:0; font-size: 18px; font-weight: 700; color: #1e1b4b;">Dashboard</h3>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px">
+                    <div id="reminder-alert" style="color:var(--d); font-size:12px; font-weight:bold; cursor:pointer; background: #fff1f0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--d);" onclick="changePage('logs')" class="hidden"></div>
+                    <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="if(typeof window.api.checkReminders === 'function') window.api.checkReminders()">🔄 Verifica Reminders</button>
+                </div>
+            </header>
 
-<!-- Overlay scuro per chiudere il menu quando è aperto su mobile -->
-<div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
-            
+            <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+            <div class="content">
     
     <section id="v-dashboard" class="view active">
         <!-- Statistica Rapida (KPI Globali) -->
@@ -837,52 +266,48 @@ select option:hover {
                 <h4>Sotto Scorta</h4>
                 <p id="st-i">0</p>
             </div>
-<div class="stat-card" style="border-left-color:#f1c40f"><h4>Incasso</h4><p id="st-rev">€ 0.00</p></div>
+            <div class="stat-card" style="border-left-color:#f1c40f"><h4>Incasso</h4><p id="st-rev">€ 0.00</p></div>
         </div>
-
 
         <!-- WIDGET OBIETTIVO INCASSO GIORNALIERO (COPERTURA SPESE) -->
-<div class="card" style="border-left: 6px solid #fdcb6e; background: linear-gradient(135deg, #fff 0%, #fffdf4 100%);">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; margin-bottom:15px;">
-        <div>
-            <h3 style="margin:0; color:#2d3436;">🎯 Obiettivo Copertura Spese Giornaliere</h3>
-            <p style="font-size:12px; color:#636e72; margin:4px 0 0 0;">Calcolato sulle spese fisse del mese in corso.</p>
-        </div>
-        <div id="target-status-badge" style="background:#e17055; color:white; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">
-            Inseguimento Target...
-        </div>
-    </div>
+        <div class="card" style="border-left: 6px solid #fdcb6e; background: linear-gradient(135deg, #fff 0%, #fffdf4 100%);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; margin-bottom:15px;">
+                <div>
+                    <h3 style="margin:0; color:#2d3436;">🎯 Obiettivo Copertura Spese Giornaliere</h3>
+                    <p style="font-size:12px; color:#636e72; margin:4px 0 0 0;">Calcolato sulle spese fisse del mese in corso.</p>
+                </div>
+                <div id="target-status-badge" style="background:#e17055; color:white; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:bold;">
+                    Inseguimento Target...
+                </div>
+            </div>
 
-    <!-- Griglia dei dati chiave -->
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:15px; margin-bottom:20px;">
-        <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-            <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Spese Fisse del Mese</small>
-            <div id="target-monthly-expenses" style="font-size:20px; font-weight:bold; color:#e17055; margin-top:4px;">€ 0.00</div>
-        </div>
-        <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-            <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi</small>
-            <div id="target-daily-goal" style="font-size:20px; font-weight:bold; color:#6c5ce7; margin-top:4px;">€ 0.00</div>
-        </div>
-        <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-            <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Incasso Reale di Oggi</small>
-            <div id="target-today-revenue" style="font-size:20px; font-weight:bold; color:#00b894; margin-top:4px;">€ 0.00</div>
-        </div>
-    </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:15px; margin-bottom:20px;">
+                <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Spese Fisse del Mese</small>
+                    <div id="target-monthly-expenses" style="font-size:20px; font-weight:bold; color:#e17055; margin-top:4px;">€ 0.00</div>
+                </div>
+                <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi</small>
+                    <div id="target-daily-goal" style="font-size:20px; font-weight:bold; color:#6c5ce7; margin-top:4px;">€ 0.00</div>
+                </div>
+                <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Incasso Reale di Oggi</small>
+                    <div id="target-today-revenue" style="font-size:20px; font-weight:bold; color:#00b894; margin-top:4px;">€ 0.00</div>
+                </div>
+            </div>
 
-    <!-- Canvas per il grafico di avanzamento giornaliero -->
-    <div style="width:100%; height:140px; position:relative;">
-        <canvas id="dailyTargetChart"></canvas>
-    </div>
-</div>
-        <div class="card">
-            <h3>🚀 Forecast Operativo & Insight Stagionali</h3>
-            <div id="seasonal-insights-list" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-                <!-- Qui verranno iniettati gli insight -->
+            <div style="width:100%; height:140px; position:relative;">
+                <canvas id="dailyTargetChart"></canvas>
             </div>
         </div>
 
+        <div class="card">
+            <h3>🚀 Forecast Operativo & Insight Stagionali</h3>
+            <div id="seasonal-insights-list" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;"></div>
+        </div>
+
         <!-- Navigazione Fogli -->
-        <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btn-volumi" class="btn btn-p" onclick="showSheet('sheet-volumi', 'btn-volumi')">Analisi Volumi</button>
             <button id="btn-cross" class="btn" onclick="showSheet('sheet-cross', 'btn-cross')">Cross-Selling</button>
             <button id="btn-margini" class="btn" onclick="showSheet('sheet-margini', 'btn-margini')">Analisi Margini</button>
@@ -893,12 +318,11 @@ select option:hover {
             <button id="btn-spese" class="btn" onclick="showSheet('sheet-spese', 'btn-spese')">Spese</button>
         </div>
 
-        <!-- Foglio Volumi Aggiornato -->
+        <!-- Foglio Volumi -->
         <div id="sheet-volumi" class="dash-sheet" style="display:block;">
             <div class="card">
                 <h3>Analisi Volumi</h3>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:15px;">
-                    <!-- onchange aggiorna automaticamente appena cambi data -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:15px;">
                     <input type="date" id="d-start-v" onchange="loadVolumeChart()">
                     <input type="date" id="d-end-v" onchange="loadVolumeChart()">
                     <input type="text" id="src-vol-prod" placeholder="Filtra prodotto..." onkeyup="updateVolumeChart()">
@@ -909,41 +333,38 @@ select option:hover {
             </div>
         </div>
 
+        <!-- Foglio Cross-Selling -->
+        <div id="sheet-cross" class="dash-sheet">
+            <div class="card">
+                <h3>🚀 Analisi "Spesso comprati insieme"</h3>
+                <input type="text" id="src-cross" onkeyup="loadCrossSelling()" placeholder="Filtra per prodotto...">
+                <table>
+                    <thead><tr><th>Prodotto A</th><th>Prodotto B</th><th>Insieme</th><th>Affinità</th><th>Strategia</th></tr></thead>
+                    <tbody id="cross-body"></tbody>
+                </table>
+            </div>
+        </div>
 
-        <!-- Foglio Analisi -->
-         <div id="sheet-cross" class="dash-sheet" style="display:block;">
-        <div class="card">
-            <h3>🚀 Analisi "Spesso comprati insieme"</h3>
-            <input type="text" id="src-cross" onkeyup="loadCrossSelling()" placeholder="Filtra per prodotto...">
-            <table id="tab-cross">
-                <thead>
-                    <tr><th>Prodotto A</th><th>Prodotto B</th><th>Insieme</th><th>Affinità</th><th>Strategia</th></tr>
-                </thead>
-                <tbody id="cross-body"></tbody>
-            </table>
-        </div>
-        </div>
         <!-- Sheet Margini -->
-        <div id="sheet-margini" class="dash-sheet" style="display:block;">
+        <div id="sheet-margini" class="dash-sheet">
             <div class="card">
                 <h3>Analisi Margini</h3>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:15px;">
-                <!-- onchange aggiorna automaticamente appena cambi data -->
-                <input type="date" id="d-start-m" onchange="loadMarginChart()">
-                <input type="date" id="d-end-m" onchange="loadMarginChart()">
-                <input type="text" id="src-margin-prod" placeholder="Filtra prodotto..." onkeyup="updateMarginChart()">
-                <button class="btn btn-d" onclick="clearFiltersMargini()">PULISCI FILTRI</button>
-            </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:15px;">
+                    <input type="date" id="d-start-m" onchange="loadMarginChart()">
+                    <input type="date" id="d-end-m" onchange="loadMarginChart()">
+                    <input type="text" id="src-margin-prod" placeholder="Filtra prodotto..." onkeyup="updateMarginChart()">
+                    <button class="btn btn-d" onclick="clearFiltersMargini()">PULISCI FILTRI</button>
+                </div>
                 <div class="chart-wrapper"><canvas id="marginChart"></canvas></div>
                 <div id="product-details" class="card" style="display:none; margin-top:20px;"></div>
             </div>
         </div>
 
         <!-- Foglio Clienti Top/Bottom -->
-        <div id="sheet-clienti-top" class="dash-sheet" style="display:none;">
+        <div id="sheet-clienti-top" class="dash-sheet">
             <div class="card">
                 <h3>Top 5 Clienti (Alto Spendenti) & Bottom 5</h3>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:20px;">
                     <input type="date" id="d-start-c" onchange="loadCustomerChart()">
                     <input type="date" id="d-end-c" onchange="loadCustomerChart()">
                     <input type="text" id="src-cust-name" placeholder="Filtra cliente..." onkeyup="updateCustomerChart()">
@@ -955,893 +376,232 @@ select option:hover {
         </div>
 
         <!-- Foglio Analisi RFM -->
-       <div id="sheet-rfm" class="dash-sheet" style="display:none;">
+        <div id="sheet-rfm" class="dash-sheet">
             <div class="card">
                 <h3>Segmentazione Clienti (RFM)</h3>
-                <!-- Filtro Cliente -->
                 <input type="text" id="src-rfm" placeholder="Cerca cliente..." onkeyup="loadRFM()">
-                
-                <table id="tab-rfm">
-                    <thead>
-                        <tr><th>Cliente</th><th>Ultimo acquisto</th><th>Visite</th><th>Totale Speso</th><th>Stato</th><th>Suggerimento</th></tr>
-                    </thead>
+                <table>
+                    <thead><tr><th>Cliente</th><th>Ultimo acquisto</th><th>Visite</th><th>Totale Speso</th><th>Stato</th><th>Suggerimento</th></tr></thead>
                     <tbody id="rfm-body"></tbody>
                 </table>
             </div>
         </div>
 
         <!-- Sheet Clienti Dormienti -->
-        <div id="sheet-clienti" class="dash-sheet" style="display:none;">
-        <div class="card">
-            <h3>Filtra Clienti Dormienti</h3>
-            <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <label>Nessun acquisto dal:</label>
-                <input type="date" id="d-limit-dormienti">
-                <button class="btn btn-s" onclick="loadSleepingClients()">Aggiorna Analisi</button>
+        <div id="sheet-clienti" class="dash-sheet">
+            <div class="card">
+                <h3>Filtra Clienti Dormienti</h3>
+                <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+                    <label>Nessun acquisto dal:</label>
+                    <input type="date" id="d-limit-dormienti">
+                    <button class="btn btn-s" onclick="loadSleepingClients()">Aggiorna Analisi</button>
+                </div>
+                <div id="sleeping-clients-list"></div>
             </div>
-            <div id="sleeping-clients-list"></div>
-        </div>
         </div>
 
         <!-- Sheet Spese -->
-        <div id="sheet-spese" class="dash-sheet" style="display:none;">
+        <div id="sheet-spese" class="dash-sheet">
             <div class="card">
                 <h3>Nuova Spesa</h3>
-                <div style="display:flex; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <input type="date" id="exp-date">
                     <input type="text" id="exp-desc" placeholder="Descrizione">
                     <input type="number" id="exp-amt" placeholder="Importo">
                     <button class="btn btn-d" onclick="addExpense()">Registra Spesa</button>
                 </div>
             </div>
-            
             <div class="card">
                 <h3>Storico Spese</h3>
                 <table>
-                    <thead>
-                        <tr><th>Data</th><th>Descrizione</th><th>Importo</th><th>Azioni</th></tr>
-                    </thead>
+                    <thead><tr><th>Data</th><th>Descrizione</th><th>Importo</th><th>Azioni</th></tr></thead>
                     <tbody id="expenses-body"></tbody>
                 </table>
             </div>
         </div>
 
         <!-- Sheet Bilancio -->
-        
-        <div id="sheet-bilancio" class="dash-sheet" style="display:none; background: white; padding: 20px;">
+        <div id="sheet-bilancio" class="dash-sheet" style="background: white; padding: 20px; border-radius: 16px;">
             <h3>Report Economico Mensile</h3>
-            
-            <!-- Nuovi KPI -->
             <div class="stat-grid" style="margin-bottom: 20px;">
                 <div class="stat-card"><h4>Guadagno Medio</h4><p id="kpi-avg-net">€ 0.00</p></div>
                 <div class="stat-card"><h4>Incassi Medi</h4><p id="kpi-avg-rev">€ 0.00</p></div>
                 <div class="stat-card"><h4>Spese Medie</h4><p id="kpi-avg-exp">€ 0.00</p></div>
             </div>
-
-            <!-- Filtri -->
-            <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center;">
-                <label>Da:</label>
-                <select id="m-start" onchange="loadBalance()"></select>
-                <label>A:</label>
-                <select id="m-end" onchange="loadBalance()"></select>
+            <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+                <label>Da:</label><select id="m-start" onchange="loadBalance()"></select>
+                <label>A:</label><select id="m-end" onchange="loadBalance()"></select>
             </div>
-
-            <table id="tabella-bilancio" style="width:100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding:10px;">Mese</th>
-                        <th style="padding:10px;">Incassi</th>
-                        <th style="padding:10px;">Spese</th>
-                        <th style="padding:10px;">Guadagno</th>
-                    </tr>
-                </thead>
+            <table>
+                <thead><tr style="background: #f8f9fa;"><th style="padding:10px;">Mese</th><th style="padding:10px;">Incassi</th><th style="padding:10px;">Spese</th><th style="padding:10px;">Guadagno</th></tr></thead>
                 <tbody id="bilancio-body"></tbody>
             </table>
         </div>
+    </section>
 
-</section>
-
-           <section id="v-calendar" class="view" style="padding:0;">
-    <div class="cal-header">
-        <!-- Gruppo 1: Titolo e Navigazione -->
-        <div class="cal-header-group">
-            <h2 id="cal-label" style="margin:0 15px 0 0">Agenda</h2>
-            <button class="btn" onclick="moveDate(-1)">&lt;</button>
-            <button class="btn" onclick="moveDate(0)">Oggi</button>
-            <button class="btn" onclick="moveDate(1)">&gt;</button>
-        </div>
-
-        <!-- Gruppo 2: Filtri e Azioni -->
-        <div class="cal-header-group">
-            <select id="user-filter" onchange="renderCalendar()">
-                <option value="all">Tutti gli Operatori</option>
-            </select>
-            
-            <button class="btn" onclick="setCalView('month')">Mese</button>
-            <button class="btn" onclick="setCalView('week')">Sett</button>
-            <button class="btn" onclick="setCalView('day')">Giorno</button>
-            <button class="btn btn-p" onclick="openMod('cale')">+ Nuovo</button>
-        </div>
-    </div>
-    
-    <div class="cal-scroll-area" id="cal-area"></div>
-    
-    <div class="legend" id="dynamic-legend" style="flex-direction:column; gap:5px;">
-    <!-- Popolato da JS -->
-    </div>
-</section>
-
-                <section id="v-sales" class="view">
-                    <div class="sales-layout">
-                        <!-- Lato Sinistro: Ricerca -->
-                        <div class="card" style="display:flex; flex-direction:column; height:100%;">
-                            <label>Cerca Prodotto o Servizio nel Listino</label>
-                            <input type="text" id="sales-search-input" placeholder="Scrivi il nome del prodotto o del servizio..." onkeyup="renderSalesList(this.value)" style="margin-bottom: 10px;">
-                            
-                            <div id="sales-results-container" style="flex-grow: 1; overflow-y: auto; border: 1px solid #f0f0f0; border-radius: 10px; padding: 10px;">
-                                <div id="sales-items-grid" style="display:grid; grid-template-columns: 1fr; gap:8px;">
-                                    <div style="color:#aaa; text-align:center; padding:40px;">Usa la barra sopra per cercare prodotti</div>
-                                </div>
-                            </div>
-                        </div>
-
-
-  
-
-                        <!-- Lato Destro: Carrello -->
-                        <div class="cart-panel">
-                            <h4 style="margin:0 0 15px 0">Riepilogo Vendita</h4>
-                            
-                            <label>Cliente</label>
-                            <div style="position:relative">
-                                <input type="text" id="sale-cust-search" placeholder="Cerca cliente..." onkeyup="filterClients(this.value, 'sale')">
-                                <div id="sale-search-results" class="search-results" style="z-index: 20000"></div>
-                            </div>
-                            <div id="cart-selected-cust" style="font-weight:bold; color:var(--p); margin-bottom:15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #eee;">Occasionale</div>
-                            
-                           
-
-                            <div class="cart-list" id="cart-items"></div>
-                            
-                            <div style="font-size:32px; font-weight:bold; text-align:right; border-top:4px solid var(--p); padding-top:15px;" id="cart-total">€ 0.00</div>
-                            <button class="btn btn-s" style="width:100%; margin-top:20px; padding:15px; justify-content:center" onclick="completeSale()">PAGA E CHIUDI</button>
-                            <button class="btn" style="width:100%; margin-top:10px; justify-content:center" onclick="resetCassa()">ANNULLA</button>
-                        </div>
-                    </div>
-                </section>
-
-
-
-                      <!-- VISTA LIQUIDAZIONE FORNITORI (MOBILE & DESKTOP RESPONSIVE) -->
-    <section id="v-supplier-payouts" class="view">
-    <div class="card">
-        <h3>💶 Liquidazione Fornitori (Conto Vendita)</h3>
-        <p style="color:#666; font-size:13px; margin-bottom: 20px;">Filtra per fornitore e gestisci le liquidazioni in modo indipendente.</p>
-        
-        <!-- Filtri temporali e tendina Fornitore -->
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:20px; align-items: end;">
-            <div>
-                <label>Da data</label>
-                <input type="date" id="payout-start-date" style="margin:0;">
+    <!-- ALTRE VISTE (Agenda, Cassa, Clienti, ecc.) -->
+    <section id="v-calendar" class="view" style="padding:0;">
+        <div class="cal-header">
+            <div class="cal-header-group">
+                <h2 id="cal-label" style="margin:0 15px 0 0; font-size:18px;">Agenda</h2>
+                <button class="btn" onclick="moveDate(-1)">&lt;</button>
+                <button class="btn" onclick="moveDate(0)">Oggi</button>
+                <button class="btn" onclick="moveDate(1)">&gt;</button>
             </div>
-            <div>
-                <label>A data</label>
-                <input type="date" id="payout-end-date" style="margin:0;">
-            </div>
-            <div>
-                <label>Fornitore</label>
-                <select id="payout-supplier-filter" style="margin:0;">
-                    <option value="all">-- Tutti i Fornitori --</option>
+            <div class="cal-header-group">
+                <select id="user-filter" onchange="renderCalendar()">
+                    <option value="all">Tutti gli Operatori</option>
                 </select>
+                <button class="btn" onclick="setCalView('month')">Mese</button>
+                <button class="btn" onclick="setCalView('week')">Sett</button>
+                <button class="btn" onclick="setCalView('day')">Giorno</button>
+                <button class="btn btn-p" onclick="openMod('cale')">+ Nuovo</button>
             </div>
-            <button class="btn btn-p" style="justify-content:center; margin:0;" onclick="renderSupplierPayouts()">Filtra / Calcola</button>
-            <button class="btn btn-s" style="justify-content:center; margin:0;" onclick="window.print()">🖨️ Stampa</button>
         </div>
+        <div class="cal-scroll-area" id="cal-area"></div>
+        <div class="legend" id="dynamic-legend" style="flex-direction:column; gap:5px;"></div>
+    </section>
 
-        <div id="supplier-payouts-container" style="min-height: 200px; display: block; width: 100%;">
-            <div style="text-align:center; color:#888; padding: 30px;">Seleziona il periodo e clicca "Filtra / Calcola"</div>
+    <section id="v-sales" class="view">
+        <div style="display:grid; grid-template-columns: 1fr 380px; gap:20px; height:calc(100vh - 150px);">
+            <div class="card" style="display:flex; flex-direction:column; height:100%; margin:0;">
+                <label>Cerca Prodotto o Servizio nel Listino</label>
+                <input type="text" id="sales-search-input" placeholder="Scrivi il nome..." onkeyup="renderSalesList(this.value)">
+                <div style="flex-grow:1; overflow-y:auto; border:1px solid #f0f0f0; border-radius:10px; padding:10px;">
+                    <div id="sales-items-grid" style="display:grid; grid-template-columns: 1fr; gap:8px;">
+                        <div style="color:#aaa; text-align:center; padding:40px;">Usa la barra sopra per cercare prodotti</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="display:flex; flex-direction:column; height:100%; margin:0; background:#f8f9fa;">
+                <h4 style="margin:0 0 15px 0">Riepilogo Vendita</h4>
+                <label>Cliente</label>
+                <div style="position:relative">
+                    <input type="text" id="sale-cust-search" placeholder="Cerca cliente..." onkeyup="filterClients(this.value, 'sale')">
+                    <div id="sale-search-results" class="search-results"></div>
+                </div>
+                <div id="cart-selected-cust" style="font-weight:bold; color:var(--p); margin-bottom:15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #eee;">Occasionale</div>
+                <div style="flex-grow:1; overflow-y:auto;" id="cart-items"></div>
+                <div style="font-size:28px; font-weight:bold; text-align:right; border-top:4px solid var(--p); padding-top:15px;" id="cart-total">€ 0.00</div>
+                <button class="btn btn-s" style="width:100%; margin-top:15px; justify-content:center" onclick="completeSale()">PAGA E CHIUDI</button>
+                <button class="btn" style="width:100%; margin-top:8px; justify-content:center" onclick="resetCassa()">ANNULLA</button>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-                <section id="v-customers" class="view">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:25px; align-items:center"><input type="text" id="src-c" onkeyup="renderCust()" placeholder="Cerca..."><button class="btn btn-p" onclick="openMod('cust')">+ Nuovo Cliente</button></div>
-                    <div class="card" style="padding:0">
-    <table>
-        <thead>
-            <tr>
-                <th>Nome e Cognome</th>
-                <th>Tel / Email</th>
-                <th>Compleanno</th>
-                <th>Note / Allerte</th>
-                <th style="text-align:right">Azioni</th>
-            </tr>
-        </thead>
-        <tbody id="list-c"></tbody>
-    </table>
-</div>
-</section>
+    <!-- Viste standard restanti -->
+    <section id="v-supplier-payouts" class="view">
+        <div class="card">
+            <h3>💶 Liquidazione Fornitori (Conto Vendita)</h3>
+            <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:flex-end;">
+                <div><label>Da data</label><input type="date" id="payout-start-date"></div>
+                <div><label>A data</label><input type="date" id="payout-end-date"></div>
+                <div><label>Fornitore</label><select id="payout-supplier-filter"><option value="all">-- Tutti --</option></select></div>
+                <button class="btn btn-p" onclick="renderSupplierPayouts()">Calcola</button>
+            </div>
+            <div id="supplier-payouts-container"></div>
+        </div>
+    </section>
 
-                <!-- VISTA MAGAZZINO PRODOTTI -->
-    <!-- VISTA MAGAZZINO PRODOTTI -->
+    <section id="v-customers" class="view">
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
+            <input type="text" id="src-c" onkeyup="renderCust()" placeholder="Cerca cliente..." style="max-width:300px; margin:0;">
+            <button class="btn btn-p" onclick="openMod('cust')">+ Nuovo Cliente</button>
+        </div>
+        <div class="card" style="padding:0"><table><thead><tr><th>Nome e Cognome</th><th>Tel / Email</th><th>Compleanno</th><th>Note</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-c"></tbody></table></div>
+    </section>
+
     <section id="v-products" class="view">
         <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
-            <!-- Barra di ricerca testuale (Nome, Modello, Barcode) -->
-            <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o barcode..." style="max-width:300px; margin:0;">
-            
-            <!-- Filtro a tendina per Fornitore -->
-            <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:220px; margin:0;">
-                <option value="all">Tutti i Fornitori</option>
-            </select>
-
-            <div style="display:flex; gap:10px;">
-                <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset Filtri</button>
+            <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca prodotto..." style="max-width:250px; margin:0;">
+            <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:200px; margin:0;"><option value="all">Tutti i Fornitori</option></select>
+            <div style="display:flex; gap:8px;">
                 <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
                 <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
-            </div>    
+            </div>
         </div>
-        <div class="card" style="padding:0; overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Prodotto / Linea</th>
-                        <th>Barcode / SKU / Cod. identificativo</th>
-                        <th>Prezzo</th>
-                        <th>Costo</th>
-                        <th>Giacenza</th>
-                        <th>Ubicazione</th>
-                        <th>Fornitore</th>
-                        <th>Ultima Mod.</th>
-                        <th style="text-align:right">Azioni</th>
-                    </tr>
-                </thead>
-                <tbody id="list-prod"></tbody>
-            </table>
-        </div>
+        <div class="card" style="padding:0"><table><thead><tr><th>Prodotto</th><th>Barcode</th><th>Prezzo</th><th>Costo</th><th>Giacenza</th><th>Fornitore</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-prod"></tbody></table></div>
     </section>
 
-<!-- VISTA FORNITORI -->
     <section id="v-suppliers" class="view">
-        <div style="display:flex; justify-content:space-between; margin-bottom:25px; align-items:center">
-            <input type="text" id="src-supp" onkeyup="renderSuppliers()" placeholder="Cerca fornitore..." style="max-width:300px; margin:0;">
-            <button class="btn btn-p" onclick="openMod('supp')">+ Nuovo Fornitore</button>
-        </div>
-        <div class="card" style="padding:0; overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Azienda</th><th>Referente</th><th>Telefono</th><th>Email</th><th>P.IVA</th><th>Ultima Mod.</th><th>Autore</th><th style="text-align:right">Azioni</th>
-                    </tr>
-                </thead>
-                <tbody id="list-supp"></tbody>
-            </table>
-        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><input type="text" id="src-supp" onkeyup="renderSuppliers()" placeholder="Cerca fornitore..." style="max-width:300px; margin:0;"><button class="btn btn-p" onclick="openMod('supp')">+ Nuovo Fornitore</button></div>
+        <div class="card" style="padding:0"><table><thead><tr><th>Azienda</th><th>Referente</th><th>Tel</th><th>Email</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-supp"></tbody></table></div>
     </section>
-    <!-- VISTA LISTINO SERVIZI -->
+
     <section id="v-services" class="view">
-        <div style="display:flex; justify-content:space-between; margin-bottom:25px; align-items:center">
-            <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;">
-            <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button>
-        </div>
-        <div class="card" style="padding:0; overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nome Servizio</th><th>Prezzo Listino</th><th>Ultima Mod.</th><th>Autore</th><th style="text-align:right">Azioni</th>
-                    </tr>
-                </thead>
-                <tbody id="list-serv"></tbody>
-            </table>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;"><button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button></div>
+        <div class="card" style="padding:0"><table><thead><tr><th>Servizio</th><th>Prezzo</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-serv"></tbody></table></div>
+    </section>
+
+    <section id="v-sales-report" class="view">
+        <div class="card">
+            <h3>Report Vendite</h3>
+            <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;"><input type="date" id="d-start-report" onchange="renderSalesReport()"><input type="date" id="d-end-report" onchange="renderSalesReport()"><button class="btn btn-d" onclick="clearFilters()">Pulisci</button></div>
+            <table><thead><tr><th>Data</th><th>Articolo</th><th>Cliente</th><th>Totale</th><th>Margine Netto</th></tr></thead><tbody id="list-report"></tbody></table>
         </div>
     </section>
 
-            <section id="v-sales-report" class="view">
-    <div class="card">
-        <h3>Filtri Report Vendite</h3>
-        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:20px;">
-            <input type="text" id="src-report-cust" placeholder="Cliente..." onkeyup="renderSalesReport()">
-            <input type="text" id="src-report-prod" placeholder="Prodotto..." onkeyup="renderSalesReport()">
-            <input type="date" id="d-start-report" onchange="renderSalesReport()">
-            <input type="date" id="d-end-report" onchange="renderSalesReport()">
-            <button class="btn btn-d" onclick="clearFilters()">PULISCI FILTRI</button>
+    <section id="v-logs" class="view">
+        <div class="card">
+            <h3>Comunicazioni & Promemoria</h3>
+            <table><thead><tr><th>Stato</th><th>Cliente</th><th>Tel</th><th>Data App.</th><th>Azione</th></tr></thead><tbody id="list-logs"></tbody></table>
         </div>
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Prodotto / Servizio</th>
-                        <th>Cliente</th>
-                        <th>Prezzo</th>
-                        <th>Sconto</th>
-                        <th>Totale</th>
-                        <th>Costo Acq.</th>          <!-- 👈 COSTO UNITARIO -->
-                        <th>Ripartizione Fornitori</th><!-- 👈 QUOTA CONTO VENDITA -->
-                        <th>Margine Netto</th><!-- 👈 MARGINE REALE DEL NEGOZIO -->
-                        <th>Venditore</th>
-                    </tr>
-                </thead>
-                <tbody id="list-report"></tbody>
-            </table>
+    </section>
+
+    <section id="v-users" class="view">
+        <div class="card">
+            <h3>Gestione Utenti</h3>
+            <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;"><input type="hidden" id="edit-user-id" value="-1"><input type="text" id="new-user" placeholder="Username"><input type="password" id="new-pass" placeholder="Password"><select id="new-role"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn btn-p" onclick="saveUserRecord()">Salva</button></div>
+            <table><thead><tr><th>Username</th><th>Ruolo</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-users"></tbody></table>
         </div>
-    </div>
-</section>
+    </section>
 
-
-                <section id="v-logs" class="view">
-                    <div class="card">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:25px; align-items:center">
-                            <h3>Gestione Comunicazioni</h3>
-                            <div style="display:flex; gap:10px; align-items: center;">
-                                <select id="filter-log-status" onchange="renderLogs()" style="width:140px; margin:0"><option value="all">Tutti</option><option value="pending">Da inviare</option><option value="sent">Inviati</option></select>
-                                <input type="text" id="filter-log-cust" placeholder="Cerca Cliente..." onkeyup="renderLogs()" style="width:180px; margin:0">
-                                <input type="date" id="filter-log-date" onchange="renderLogs()" style="width:160px; margin:0">
-                                <button class="btn btn-w" onclick="sendSelectedReminders()">Invia Selezionati</button>
-                            </div>
-                        </div>
-                        <h4 style="font-size:11px; color:var(--d); margin-bottom:10px">Promemoria da inviare</h4>
-                        <table><thead><tr><th style="width:40px"><input type="checkbox" onclick="toggleAllLogs(this.checked)"></th><th>Stato</th><th>Cliente</th><th>Tel</th><th>Appunt.</th><th>INVIATA DA</th><th>Azione</th></tr></thead><tbody id="list-logs"></tbody></table>
-                    </div>
-                    <div class="card">
-                        <h4 style="font-size:11px; color:var(--s); margin-bottom:10px">Storico Comunicazioni</h4>
-                        <table><thead><tr><th>Data Invio</th><th>Tipo</th><th>Cliente</th><th>Tel</th><th>Rif. Appuntamento</th><th>INVIATA DA</th></tr></thead><tbody id="list-archive-logs"></tbody></table>
-                    </div>
-                </section>
-                
-
-                <section id="v-users" class="view">
-                    <div class="card">
-                        <h3>Gestione Utenti</h3>
-                        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:20px; align-items: end;">
-                            <input type="hidden" id="edit-user-id" value="-1">
-                            <div><label>Username</label><input type="text" id="new-user" style="margin:0"></div>
-                            <div><label>Password</label><input type="password" id="new-pass" style="margin:0"></div>
-                            <div><label>Ruolo</label><select id="new-role" style="margin:0"><option value="user">User</option><option value="admin">Admin</option></select></div>
-                            <div><label>Colore Agenda</label><select id="new-user-color" style="margin:0">
-                                <option value="#a4bbfc">Blu</option>
-                                <option value="#7ae7bf">Verde</option>
-                                <option value="#dbadff">Viola</option>
-                                <option value="#ff887c">Corallo</option>
-                                <option value="#fbd75b">Giallo</option>
-                                <option value="#ffb878">Arancio</option>
-                                <option value="#5484ed">Blu Intenso</option>
-                                <option value="#51b749">Verde Smeraldo</option>
-                                <option value="#dc2127">Rosso</option>
-                            </select></div>
-                            <button class="btn btn-p" style="margin:0" onclick="saveUserRecord()">Salva Utente</button>
-                        </div>
-                        
-                        <table id="table-users">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Ruolo</th>
-                                    <th>Colore</th>
-                                    <th style="text-align: right;">Azioni</th>
-                                </tr>
-                            </thead>
-                            <tbody id="list-users"></tbody>
-                        </table>
-                    </div>
-                </section>
-
-
-
-
-<section id="v-schedules" class="view">
-    <div class="card">
-        <h3>Configurazione Orari e Turni Settimanali</h3>
-        <p style="color:#666; font-size:13px;">Seleziona un operatore per configurare le fasce lavorative e la pausa pranzo per ogni giorno della settimana.</p>
-        
-        <div style="margin: 20px 0;">
-            <label>Seleziona Operatore</label>
-            <select id="sch-user-select" onchange="loadOperatorSchedule()" style="max-width: 300px;"></select>
+    <section id="v-schedules" class="view">
+        <div class="card">
+            <h3>Orari e Turni Staff</h3>
+            <select id="sch-user-select" onchange="loadOperatorSchedule()" style="max-width:300px; margin-bottom:20px;"></select>
+            <div id="schedule-days-container"></div>
+            <button class="btn btn-p" onclick="saveOperatorSchedules()">Salva Orari</button>
         </div>
+    </section>
 
-        <div id="schedule-days-container">
-            <!-- Verrà popolato dinamicamente via JavaScript per i 7 giorni -->
+    <section id="v-settings" class="view">
+        <div class="card">
+            <h3>Configurazione Sistema</h3>
+            <label>Ore d'anticipo Reminder</label><input type="number" id="set-rem-hours">
+            <label>Template Conferma</label><textarea id="set-msg-confirm" rows="2"></textarea>
+            <label>Template Reminder</label><textarea id="set-msg-reminder" rows="2"></textarea>
+            <button class="btn btn-p" onclick="saveSystemSettings()">Salva</button>
         </div>
+    </section>
 
-        <button class="btn btn-p" style="margin-top: 20px;" onclick="saveOperatorSchedules()">SALVA ORARI E GENERA PAUSE</button>
-    </div>
-</section>
+</div></main></div>
 
-                <section id="v-settings" class="view">
-    <div class="card">
-        <h3>Impostazioni Reminder & Comunicazioni</h3>
-        
-        <label>Ore d'anticipo per i Reminder</label>
-        <input type="number" id="set-rem-hours">
-        
-        <label>Template Messaggio Conferma</label>
-        <textarea id="set-msg-confirm" rows="2"></textarea>
-        
-        <label>Template Messaggio Promemoria (Reminder)</label>
-        <textarea id="set-msg-reminder" rows="2"></textarea>
-        
-        <h3 style="margin-top:25px; border-top:1px solid var(--border); padding-top:20px;">Impostazioni Agenda & Controlli</h3>
-        
-        <label>Giorni controllo "Doppio Appuntamento" (Prevenzione Doppia Prenotazione)</label>
-        <input type="number" id="set-duplicate-days" value="7">
-        <small style="color:#666; display:block; margin-top:-12px; margin-bottom:15px;">Numero di giorni nel futuro entro cui avvisare se il cliente ha già un appuntamento fissato.</small>
-        
-        <!-- 💾 PULSANTE SALVATAGGIO RIPRISTINATO -->
-        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:15px; padding:15px;" onclick="saveSystemSettings()">Salva Configurazione</button>
-    </div>
-</section>
-                
-                <section id="v-ai" class="view"><div id="ai-msgs" style="height:450px; overflow:auto"></div><input type="text" id="ai-in"><button class="btn btn-p" onclick="askAI()">Analizza</button></section>
-            </div>
-        </main>
-    </div>
-
-    <!-- MODALI -->
-
-<!-- 💡 MODALE SMART EXPENSE REMINDER (SOLO ADMIN - MENSILE) -->
-<div id="mod-monthly-expense-reminder" class="modal" style="z-index: 25000;">
-    <div class="modal-box" style="width: 550px;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
-            <span style="font-size:24px;">📊</span>
-            <div>
-                <h3 style="margin:0; color:var(--p);">Chiusura Spese Mensili</h3>
-                <small style="color:#666;" id="expense-reminder-subtitle">È iniziato un nuovo mese! Registriamo i costi fissi per mantenere il bilancio accurato.</small>
-            </div>
-        </div>
-
-        <p style="font-size:13px; color:#2d3436; line-height:1.5;">
-            In base alle tue registrazioni passate, ecco le spese ricorrenti rilevate. Seleziona quelle da inserire per il mese corrente:
-        </p>
-
-        <!-- Lista dinamica delle spese suggerite -->
-        <div id="suggested-expenses-list" style="display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y: auto; margin-bottom: 20px; border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: #f8f9fa;">
-            <!-- Verrà popolato via JS -->
-        </div>
-
-        <div style="display:flex; gap:10px;">
-            <button type="button" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
-            <button type="button" class="btn" style="flex:1; justify-content:center; background:#fff;" onclick="dismissExpenseReminderForNow()">Fai più tardi</button>
-        </div>
-    </div>
-</div>
-
-    <div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box" style="width: 550px;">
-        <h3>Scheda Cliente</h3>
-        <input type="hidden" id="edit-c-id" value="-1">
-        
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <div>
-                <label>Nome *</label>
-                <input type="text" id="f-c-firstname" style="margin:0;">
-            </div>
-            <div>
-                <label>Cognome *</label>
-                <input type="text" id="f-c-lastname" style="margin:0;">
-            </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-            <div>
-                <label>Telefono</label>
-                <input type="text" id="f-c-phone" style="margin:0;">
-            </div>
-            <div>
-                <label>Email</label>
-                <input type="email" id="f-c-email" style="margin:0;">
-            </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-            <div>
-                <label>Data di Nascita</label>
-                <input type="date" id="f-c-birth" style="margin:0;">
-            </div>
-            <div>
-                <label>Consenso GDPR (Marketing)</label>
-                <div style="display:flex; align-items:center; height:45px; gap:10px;">
-                    <input type="checkbox" id="f-c-gdpr" style="width:20px; height:20px; margin:0;">
-                    <span style="font-size:12px;">Autorizzato</span>
-                </div>
-            </div>
-        </div>
-
-        <label>Note / Allergie / Preferenze</label>
-        <textarea id="f-c-notes" rows="2" style="margin-bottom: 15px;"></textarea>
-
-        <!-- 🕒 SEZIONE STORICO ULTIMI 3 APPUNTAMENTI -->
-        <div id="customer-history-section" style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
-            <label style="margin-top:0; color:var(--p); margin-bottom: 8px;">Ultimi Appuntamenti Effettuati</label>
-            <div id="customer-last-apps" style="display:flex; flex-direction:column; gap:6px;">
-                <div style="font-size:12px; color:#888; font-style:italic;">Caricamento storico...</div>
-            </div>
-        </div>
-
-        <button class="btn btn-p" style="width:100%;" onclick="saveCust()">SALVA CLIENTE</button>
-    </div>
-</div>
-
-<div id="mod-cale" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box" style="width: 550px;">
-        <h3 id="mod-cale-title">Gestione Appuntamento</h3>
-        <input type="hidden" id="edit-a-id" value="-1">
-        
-        <label>Operatore Assegnato</label>
-        <select id="f-a-user" onchange="checkOperatorScheduleValidity(); if(typeof onOperatorChange === 'function') onOperatorChange()"></select>
-
-        <label>Ricerca Cliente</label>
-        <div style="position:relative">
-            <input type="text" id="f-a-search" onkeyup="filterClients(this.value, 'app'); checkDuplicateAppointments();" autocomplete="off">
-            <div id="app-search-results" class="search-results"></div>
-            <input type="hidden" id="f-a-cust-id">
-        </div>
-        
-        <!-- ⚠️ BOX ALERT TURNO OPERATORE / SOVRAPPOSIZIONE ORARIA -->
-        <div id="operator-schedule-alert" style="display:none; background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; padding:12px; border-radius:8px; font-size:12px; margin-top:8px; line-height:1.4;">
-            <div style="font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-                <span id="operator-schedule-alert-title">⚠️ Attenzione orario</span>
-                <button type="button" class="btn" style="padding:2px 6px; font-size:10px; background:white; color:#721c24; border:1px solid #f5c6cb;" onclick="autoFixNextAvailableSlot()">Corri al 1° slot disponibile 🚀</button>
-            </div>
-            <span id="operator-schedule-alert-text">Lo slot selezionato presenta un'incompatibilità di orario o sovrapposizione.</span>
-        </div>
-
-        <!-- ⚠️ BOX LISTA APPUNTAMENTI FUTURI (PREVENZIONE DUPLICATI) -->
-        <div id="duplicate-app-alert" style="display:none; background:#fff3cd; border:1px solid #ffeeba; padding:12px; border-radius:8px; font-size:12px; margin-top:8px;">
-            <div style="font-weight:bold; color:#856404; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                <span>⚠️ Attenzione: Questo cliente ha già appuntamenti futuri!</span>
-            </div>
-            <div id="duplicate-apps-list" style="display:flex; flex-direction:column; gap:4px;">
-                <!-- Iniettato via JS -->
-            </div>
-        </div>
-
-        <div style="display:flex; gap:10px">
-            <div style="flex:1"><label>Data</label><input type="date" id="f-a-date" onchange="checkDuplicateAppointments(); checkOperatorScheduleValidity()"></div>
-            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="checkOperatorScheduleValidity();"></div>
-            <div style="flex:1"><label>Fine</label><input type="time" id="f-a-end" onchange="checkOperatorScheduleValidity()"></div>
-        </div> <!-- 👈 TAG DIV CHIUSO CORRETTAMENTE QUI -->
-        
-        <label>Servizi (CTRL per selezione multipla)</label>
-        <select id="f-a-item-select" multiple style="height: 100px;"></select>
-        
-        <label>Note</label>
-        <textarea id="f-a-notes" rows="2"></textarea>
-        
-        <!-- 🧠 BOX SMART REBOOKING (GHOST APPOINTMENT POST-SALVATAGGIO) -->
-        <div id="smart-rebooking-box" style="background: #f8f9fa; border: 2px dashed var(--p); border-radius: 12px; padding: 15px; margin: 15px 0; display: none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--p); text-transform: uppercase;">✨ Pianifica Prossimo Appuntamento (Smart Loop)</span>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <span id="rebooking-avg-days" style="font-size: 10px; color: #555; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Media: -- gg</span>
-                    <button type="button" class="btn btn-d" style="padding: 2px 6px; font-size: 10px;" onclick="closeSmartRebooking()" title="Salta">✕ Salta</button>
-                </div>
-            </div>
-            
-            <p style="font-size: 11px; color: #666; margin: 0 0 10px 0;">
-                Personalizza i dettagli per il prossimo appuntamento o conferma i dati ereditati:
-            </p>
-
-            <!-- 1. Operatore e Servizi del prossimo appuntamento -->
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom: 10px;">
-                <div>
-                    <label style="font-size:9px; margin:0;">Operatore</label>
-                    <select id="ghost-user-select" style="margin:2px 0 0 0; padding:8px; font-size:12px;" onchange="onGhostUserChange()"></select>
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Servizio/i (CTRL per multi)</label>
-                    <select id="ghost-item-select" multiple style="height: 45px; margin:2px 0 0 0; font-size:11px;" onchange="calculateGhostEndTime()"></select>
-                </div>
-            </div>
-
-            <!-- 2. Data e Orari (Inizio e Fine totalmente modificabili) -->
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom: 10px; background:white; padding:8px; border-radius:8px; border:1px solid var(--border);">
-                <div>
-                    <label style="font-size:9px; margin:0;">Data</label>
-                    <input type="date" id="ghost-manual-date" onchange="onManualGhostDateChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Inizio</label>
-                    <input type="time" id="ghost-manual-time" onchange="onManualGhostTimeChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Fine (Modificabile)</label>
-                    <input type="time" id="ghost-manual-end" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-            </div>
-
-            <!-- 3. Note specifiche per il prossimo appuntamento -->
-            <label style="font-size:9px; margin:0;">Note Trattamento Successivo</label>
-            <textarea id="ghost-manual-notes" rows="1" style="margin:2px 0 10px 0; padding:6px; font-size:12px;" placeholder="Eventuali note..."></textarea>
-
-            <!-- Mini Visualizzatore Calendario Interattivo -->
-            <div style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 140px; overflow-y: auto;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-size: 11px; font-weight: bold;">
-                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(-1)">◀ Giorno Prec.</button>
-                    <span id="ghost-cal-date-label" style="color: var(--txt); font-size:11px;">--/--/----</span>
-                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(1)">Giorno Succ. ▶</button>
-                </div>
-                <div id="ghost-slots-container" style="display: flex; flex-direction: column; gap: 4px;"></div>
-            </div>
-
-            <button type="button" class="btn btn-p" style="width:100%; margin-top:10px; justify-content:center; padding:10px; font-size:12px;" onclick="confirmAndBookNextApp()">
-                💾 Conferma e Prenota Prossimo Appuntamento
-            </button>
-        </div>
-
-        <!-- 💾 TASTO SALVA ORIGINALE -->
-        <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:10px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
-    </div>
-</div>
-
-<div id="mod-supp" class="modal" onclick="if(event.target==this) closeMod()">
-        <div class="modal-box">
-            <h3>Scheda Fornitore</h3>
-            <input type="hidden" id="edit-supp-id" value="-1">
-            <label>Nome Azienda / Fornitore</label>
-            <input type="text" id="f-supp-name">
-            <label>Persona di Contatto (Referente)</label>
-            <input type="text" id="f-supp-contact">
-            <label>Telefono</label>
-            <input type="text" id="f-supp-phone">
-            <label>Email</label>
-            <input type="email" id="f-supp-email">
-            <label>Partita IVA</label>
-            <input type="text" id="f-supp-vat">
-            <label>Indirizzo</label>
-            <input type="text" id="f-supp-address">
-            <label>Note</label>
-            <textarea id="f-supp-notes" rows="2"></textarea>
-            <button class="btn btn-p" style="width:100%; margin-top:15px;" onclick="saveSupplier()">SALVA FORNITORE</button>
-        </div>
-    </div>
-
-<div id="mod-consumables" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box">
-        <h3>Associa Materiali al Servizio</h3>
-        <input type="hidden" id="edit-service-id">
-        
-        <label>Cerca Prodotto</label>
-        <input type="text" id="f-c-search-prod" placeholder="Scrivi nome prodotto..." onkeyup="filterProductSelect()">
-
-        <label>Seleziona Prodotto/Materiale</label>
-        <select id="f-c-prod-select"></select>
-        
-        <label>Quantità necessaria per 1 servizio</label>
-        <input type="number" id="f-c-qty" step="0.01" placeholder="Esempio: 0.5">
-        
-        <button class="btn btn-p" style="width:100%" onclick="saveConsumable()">Associa Materiale</button>
-        
-        <div id="consumables-list" style="margin-top:20px;"></div>
-    </div>
-</div>
-
-    <div id="mod-view-app" class="modal" onclick="if(event.target==this) closeMod()">
-        <div class="modal-box">
-            <h3>Dettaglio Appuntamento</h3>
-            <div id="v-app-content" style="line-height:1.8; background:#f8f9fa; padding:20px; border-radius:16px; margin-bottom:20px"></div>
-            <label>CONFERMA PRENOTAZIONE</label>
-            <div style="display:flex; gap:10px; margin-bottom:15px"><button class="btn btn-w" style="flex:1" onclick="sendAndLog('wa', 'confirm')">WhatsApp</button><button class="btn" style="flex:1; background:#fff" onclick="sendAndLog('sms', 'confirm')">SMS</button></div>
-            <label>PROMEMORIA (REMINDER)</label>
-            <div style="display:flex; gap:10px; margin-bottom:20px"><button class="btn btn-w" style="flex:1" onclick="sendAndLog('wa', 'reminder')">WhatsApp</button><button class="btn" style="flex:1; background:#fff" onclick="sendAndLog('sms', 'reminder')">SMS</button></div>
-            <div style="display:flex; gap:10px"><button class="btn btn-s" style="flex:1" id="btn-to-checkout">🛒 CASSA</button><button class="btn btn-p" id="btn-edit-app">EDIT</button><button class="btn btn-d" id="btn-del-app">X</button></div>
-        </div>
-    </div>
-
-    <<div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box" style="width: 550px;">
-        <h3>Scheda Cliente</h3>
-        <input type="hidden" id="edit-c-id" value="-1">
-        
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <div>
-                <label>Nome *</label>
-                <input type="text" id="f-c-firstname" style="margin:0;">
-            </div>
-            <div>
-                <label>Cognome *</label>
-                <input type="text" id="f-c-lastname" style="margin:0;">
-            </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-            <div>
-                <label>Telefono</label>
-                <input type="text" id="f-c-phone" style="margin:0;">
-            </div>
-            <div>
-                <label>Email</label>
-                <input type="email" id="f-c-email" style="margin:0;">
-            </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-            <div>
-                <label>Data di Nascita</label>
-                <input type="date" id="f-c-birth" style="margin:0;">
-            </div>
-            <div>
-                <label>Consenso GDPR (Marketing)</label>
-                <div style="display:flex; align-items:center; height:45px; gap:10px;">
-                    <input type="checkbox" id="f-c-gdpr" style="width:20px; height:20px; margin:0;">
-                    <span style="font-size:12px;">Autorizzato</span>
-                </div>
-            </div>
-        </div>
-
-        <label>Note / Allergie / Preferenze</label>
-        <textarea id="f-c-notes" rows="2" style="margin-bottom: 15px;"></textarea>
-
-        <!-- 🕒 SEZIONE STORICO ULTIMI 3 APPUNTAMENTI -->
-        <div id="customer-history-section" style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
-            <label style="margin-top:0; color:var(--p); margin-bottom: 8px;">Ultimi Appuntamenti Effettuati</label>
-            <div id="customer-last-apps" style="display:flex; flex-direction:column; gap:6px;">
-                <div style="font-size:12px; color:#888; font-style:italic;">Caricamento storico...</div>
-            </div>
-        </div>
-
-        <button class="btn btn-p" style="width:100%;" onclick="saveCust()">SALVA CLIENTE</button>
-    </div>
-</div>
-            </div>
-        </div>
-
-        <label>Note / Allergie / Preferenze</label>
-        <textarea id="f-c-notes" rows="2"></textarea>
-
-
-        
+    <!-- MODALI DI SISTEMA -->
+    <div id="mod-monthly-expense-reminder" class="modal"><div class="modal-box"><h3>Spese Mensili</h3><div id="suggested-expenses-list"></div><button class="btn btn-p" onclick="confirmSuggestedExpenses()">Conferma</button></div></div>
+    <div id="mod-cust" class="modal"><div class="modal-box"><h3>Cliente</h3><input type="hidden" id="edit-c-id" value="-1"><input type="text" id="f-c-firstname" placeholder="Nome"><input type="text" id="f-c-lastname" placeholder="Cognome"><input type="text" id="f-c-phone" placeholder="Telefono"><button class="btn btn-p" onclick="saveCust()">Salva</button></div></div>
+    <div id="mod-cale" class="modal"><div class="modal-box"><h3 id="mod-cale-title">Appuntamento</h3><input type="hidden" id="edit-a-id" value="-1"><select id="f-a-user"></select><input type="text" id="f-a-search" placeholder="Cerca cliente..."><input type="date" id="f-a-date"><input type="time" id="f-a-time"><select id="f-a-item-select" multiple></select><button class="btn btn-p" onclick="saveApp()">Salva</button></div></div>
+    <div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
+    <div id="mod-consumables" class="modal"><div class="modal-box"><h3>Materiali Consumabili</h3><input type="hidden" id="edit-service-id"><select id="f-c-prod-select"></select><input type="number" id="f-c-qty" placeholder="Quantità"><button class="btn btn-p" onclick="saveConsumable()">Aggiungi</button></div></div>
+    <div id="mod-view-app" class="modal"><div class="modal-box"><h3>Dettaglio</h3><div id="v-app-content"></div><button class="btn btn-s" id="btn-to-checkout">Cassa</button><button class="btn btn-d" id="btn-del-app">Elimina</button></div></div>
+    <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
+    <div id="mod-quick-supp" class="modal"><div class="modal-box"><h3>Nuovo Fornitore Rapido</h3><input type="text" id="q-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveQuickSupplier()">Crea</button></div></div>
     
-    <div id="mod-change-pass" class="modal">
-        <div class="modal-box">
-            <h3>Cambio Password Obbligatorio</h3>
-            <p>Al primo accesso è richiesto impostare una nuova password.</p>
-            <input type="password" id="new-pass-val" placeholder="Nuova Password">
-            <button class="btn btn-p" style="width:100%" onclick="applyNewPassword()">CONFERMA</button>
-        </div>
-    </div>
-
-<!-- MINI MODALE CREAZIONE RAPIDA FORNITORE -->
-    <div id="mod-quick-supp" class="modal" style="z-index: 25000;" onclick="if(event.target==this) closeQuickSupplierModal()">
-        <div class="modal-box" style="width: 400px;">
-            <h3>Nuovo Fornitore Rapido</h3>
-            <label>Nome Azienda / Fornitore *</label>
-            <input type="text" id="q-supp-name">
-            <label>Telefono</label>
-            <input type="text" id="q-supp-phone">
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <button class="btn btn-p" style="flex:1; justify-content:center;" onclick="saveQuickSupplier()">Crea e Seleziona</button>
-                <button class="btn" style="flex:1; justify-content:center;" onclick="closeQuickSupplierModal()">Annulla</button>
-            </div>
-        </div>
-    </div>
-
     <div id="mod-inv" class="modal">
-        <div class="modal-box" style="width: 550px;">
-            <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
-            <h3 id="mod-inv-title" style="margin-top: 0;">Scheda Prodotto</h3>
-            <input type="hidden" id="edit-p-id" value="-1">
-            <input type="hidden" id="edit-h-id" value="-1">
-            
-            <label>Tipo</label>
-            <select id="f-p-type" onchange="toggleInvFields()">
-                <option value="prodotto">Prodotto</option>
-                <option value="servizio">Servizio</option>
-            </select>
-
-            <label>Nome Prodotto / Servizio</label>
-            <input type="text" id="f-p-name">
-            
+        <div class="modal-box">
+            <button onclick="closeMod()" style="float:right; border:none; background:none; font-size:16px; font-weight:bold;">✕</button>
+            <h3 id="mod-inv-title">Scheda Prodotto</h3>
+            <input type="hidden" id="edit-p-id" value="-1"><input type="hidden" id="edit-h-id" value="-1">
+            <label>Tipo</label><select id="f-p-type" onchange="toggleInvFields()"><option value="prodotto">Prodotto</option><option value="servizio">Servizio</option></select>
+            <label>Nome</label><input type="text" id="f-p-name">
             <div id="fields-prodotto">
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 5px;">
-                <div>
-                    <label>Stock (Giacenza)</label>
-                    <input type="number" id="f-p-stock" style="margin: 4px 0 10px 0;">
-                </div>
-                <div>
-                    <label>Soglia Alert Scorta</label>
-                    <input type="number" id="f-p-min" style="margin: 4px 0 10px 0;">
-                </div>
+                <label>Giacenza</label><input type="number" id="f-p-stock">
+                <label>Soglia Scorta</label><input type="number" id="f-p-min">
             </div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 5px;">
-                <div>
-                    <label>Modello / Linea</label>
-                    <input type="text" id="f-p-model" placeholder="Es. Linea Bio" style="margin: 4px 0 10px 0;">
-                </div>
-                <div>
-                    <label>Codice a Barre/ identificativo / SKU</label>
-                    <input type="text" id="f-p-barcode" placeholder="Es. 80234..." style="margin: 4px 0 10px 0;">
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 5px;">
-                <div>
-                    <label>Unità di Misura</label>
-                    <select id="f-p-unit" style="margin: 4px 0 10px 0;">
-                        <option value="Pezzi">Pezzi</option>
-                        <option value="ml">ml (Millilitri)</option>
-                        <option value="L">L (Litri)</option>
-                        <option value="g">g (Grammi)</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Ubicazione / Scaffale</label>
-                    <input type="text" id="f-p-location" placeholder="Es. Scaffale A2" style="margin: 4px 0 10px 0;">
-                </div>
-            </div>
-
-
-<!-- 🤝 SEZIONE CONTO VENDITA MULTI-FORNITORE -->
-            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin: 10px 0;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
-                    <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto in Conto Vendita (Multi-Fornitore)</label>
-                </div>
-                
-                <div id="consignment-details" style="display:none; margin-top: 12px;">
-                    <label style="margin-bottom: 6px;">Ripartizione Fornitori (Massimo 3)</label>
-                    <div id="suppliers-split-container" style="display:flex; flex-direction:column; gap:8px;">
-                        <!-- Righe dinamiche iniettate via JS -->
-                    </div>
-                    <button type="button" class="btn btn-s" style="padding:6px 12px; margin-top:8px; font-size:12px;" onclick="addSupplierSplitRow()">+ Aggiungi Fornitore</button>
-                    <small style="display:block; color:#666; margin-top:6px;">La somma delle percentuali indica quanto va complessivamente ai fornitori. Il resto resta al salone.</small>
-                </div>
-            </div>
-
-            <label style="margin-top:5px;">Fornitore</label>
-            <div style="display:flex; gap:8px; align-items:center; margin-bottom: 10px;">
-                <select id="f-p-supplier" style="margin:0; flex-grow:1;">
-                    <option value="">-- Nessun fornitore --</option>
-                </select>
-                <button type="button" class="btn btn-s" style="padding:12px 14px; margin:0;" onclick="openQuickSupplierModal()" title="Crea nuovo fornitore">+</button>
-            </div>
-        </div>
-            
-            <label style="margin-top:15px; border-top: 1px solid #eee; padding-top: 15px;">Storico Prezzi (Costo / Prezzo)</label>
-            <div style="max-height: 150px; overflow-y: auto; margin-bottom: 10px;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Dal</th><th>Al</th><th>Costo</th><th>Prezzo</th><th style="text-align:right">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-body"></tbody>
-                </table>
-            </div>
-
-            <div id="inv-error-msg"></div>
-
-            <div class="price-input-row" style="margin-top:10px;">
-                <div><span class="input-label">Dal</span><input type="date" id="h-from"></div>
-                <div><span class="input-label">Al</span><input type="date" id="h-to"></div>
-                <div><span class="input-label">Costo</span><input type="number" id="h-cost" step="0.01"></div>
-                <div><span class="input-label">Prezzo</span><input type="number" id="h-price" step="0.01"></div>
-            </div>
-
-            <button class="btn btn-s" style="width:100%; margin-top:10px; justify-content: center;" onclick="addPriceHistory()">AGGIUNGI / MODIFICA STORICO</button>
-            <button class="btn btn-p" style="width:100%; margin-top:15px; justify-content: center; padding: 14px;" onclick="saveInv()">SALVA ANAGRAFICA</button>
+            <button class="btn btn-p" onclick="saveInv()" style="width:100%; margin-top:15px;">Salva</button>
         </div>
     </div>
-
-        <script>
-
-        
-        function toggleInvFields() {
-            const type = document.getElementById('f-p-type').value;
-            document.getElementById('fields-prodotto').style.display = (type === 'servizio') ? 'none' : 'block';
-        }
-        </script>
-        <button class="btn btn-s" style="width:100%; margin-top:5px;" onclick="addPriceHistory()">AGGIUNGI / MODIFICA STORICO</button>
-        <button class="btn btn-p" style="width:100%; margin-top:20px;" onclick="saveInv()">SALVA ANAGRAFICA</button>
-    </div>
-</div>
-
-<div id="mod-warning" class="modal">
-    <div class="modal-box" style="text-align:center;">
-        <h3>Sessione in scadenza</h3>
-        <p>La sessione scadrà tra 5 minuti per inattività. Vuoi rimanere connesso?</p>
-        <button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button>
-    </div>
-</div>
+    <div id="mod-warning" class="modal"><div class="modal-box" style="text-align:center;"><h3>Sessione in scadenza</h3><button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button></div></div>
     <script>
         const GEMINI_KEY = "INSERISCI_CHIAVE_QUI";
         let allCustomers=[], allInventory=[], allAppointments=[], allSales=[], allLogs=[],allUsers=[],  sysSettings={};
