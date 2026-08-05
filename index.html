@@ -166,6 +166,18 @@
 .login-btn:active {
     transform: scale(0.98);
 }
+
+/* --- SFONDI SLOT FUORI ORARIO E NON LAVORATIVI (AGENDA) --- */
+.day-hour-slot.non-working {
+    background-color: #f1f3f4 !important;
+    background-image: repeating-linear-gradient(45deg, #f1f3f4, #f1f3f4 10px, #e8eaed 10px, #e8eaed 20px) !important;
+    opacity: 0.8;
+    cursor: pointer !important;
+}
+.day-hour-slot.non-working:hover {
+    background-color: #e8eaed !important;
+}
+
         /* SIDEBAR SCORRIBILE & BURGER MENU UNIFICATO */
         .sidebar {
             position: fixed; top: 0; left: -280px; width: 280px !important; height: 100vh !important;
@@ -3467,40 +3479,53 @@ async function executePasswordUpdate() {
         html += `</div>`;
 
         // Colonne dei singoli giorni
-        for (let c = 0; c < cols; c++) {
-            const t = new Date(startDate);
-            t.setDate(startDate.getDate() + c);
-            const dStr = t.toLocaleDateString('en-CA');
-            const dayOfWeek = t.getDay();
+    for (let c = 0; c < cols; c++) {
+        const t = new Date(startDate);
+        t.setDate(startDate.getDate() + c);
+        const dStr = t.toLocaleDateString('en-CA');
+        const dayOfWeek = t.getDay();
 
-            const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
-            let isWorkingSlotFunc = (user, hour) => true;
+        const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
+        let isWorkingSlotFunc = (user, hour) => true;
 
-            if (activeFilterUser !== 'all') {
-                const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
-                    s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
-                    s.day_of_week === dayOfWeek
-                );
+        // Se è selezionato un operatore specifico, verifichiamo i suoi turni reali
+        if (activeFilterUser !== 'all') {
+            const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
+                s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
+                s.day_of_week === dayOfWeek
+            );
 
-                isWorkingSlotFunc = (username, h) => {
-                    if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
-                    const shifts = [];
-                    if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-                    if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+            isWorkingSlotFunc = (username, h) => {
+                if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
+                const shifts = [];
+                if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+                if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
 
-                    const slotMinutes = h * 60;
-                    return shifts.some(sh => {
-                        const [sH, sM] = sh.start.split(':').map(Number);
-                        const [eH, eM] = sh.end.split(':').map(Number);
-                        return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
-                    });
-                };
-            }
+                const slotMinutes = h * 60;
+                return shifts.some(sh => {
+                    const [sH, sM] = sh.start.split(':').map(Number);
+                    const [eH, eM] = sh.end.split(':').map(Number);
+                    return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
+                });
+            };
+        }
 
-            const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
-            const processedApps = calculateEventOverlapLayout(dayApps);
+        const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
+        const processedApps = calculateEventOverlapLayout(dayApps);
 
-            html += `<div class="day-column">`;
+        html += `<div class="day-column">`;
+        
+        // Sfondi orari fissi (dalle 08:00 alle 21:00)
+        for (let h = 8; h < 21; h++) {
+            const timeStr = `${String(h).padStart(2, '0')}:00`;
+            
+            // 🛑 QUI VIENE VALUTATO SE LO SLOT È LAVORATIVO O FUORI ORARIO
+            const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
+            const slotStyleClass = isWorking ? '' : 'non-working'; // Applica la classe a righe grigie
+            const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard / Riposo`;
+
+            html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
+        }
             
             // Sfondi orari fissi (dalle 08:00 alle 21:00)
             for (let h = 8; h < 21; h++) {
