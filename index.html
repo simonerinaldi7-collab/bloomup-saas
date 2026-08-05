@@ -1209,7 +1209,6 @@ async function submitPasswordReset() {
     }
 
     try {
-        // Sfruttiamo il client Supabase globale o le configurazioni esistenti
         const supabaseClient = window.supabase ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key) : null;
         
         if (!supabaseClient) {
@@ -1217,14 +1216,15 @@ async function submitPasswordReset() {
             return;
         }
 
+        // 🛑 FORZIAMO IL REDIRECT ALL'URL CORRETTO DELLA PWA ATTUALE
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin, // Riporta l'utente direttamente all'app dopo il click sull'email
+            redirectTo: window.location.origin, 
         });
 
         if (error) {
             alert(`Errore durante l'invio: ${error.message}`);
         } else {
-            alert("✅ Email di recupero inviata con successo! Controlla la tua casella di posta (inclusi spam/promozioni).");
+            alert("✅ Email di recupero inviata con successo! Controlla la tua casella di posta.");
             closeForgotPasswordModal();
         }
     } catch (err) {
