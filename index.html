@@ -5030,10 +5030,13 @@ startProfessionalOperatorAlertSystem();
 
 
 
-// --- CENTRO NOTIFICHE E ALLARMI IMMINENTI (PRO & ROBUSTO) ---
+// --- CENTRO ALLARMI IMMINENTI PROFESSIONALE (CON SUPABASE REALTIME SYNC) ---
+
 if (typeof window.activeSnoozes === 'undefined') {
     window.activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
 }
+
+let realtimeAlertChannel = null;
 
 function getOperatorImminentLeadTime() {
     return parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15; 
@@ -5043,10 +5046,48 @@ function setOperatorImminentLeadTime(minutes) {
     localStorage.setItem('bloomup_imminent_lead_time', minutes);
 }
 
-function startProfessionalOperatorAlertSystem() {
-    console.log("🚀 Sistema di monitoraggio appuntamenti imminenti avviato con successo.");
+// 🌐 Inizializzazione del canale di sincronizzazione Realtime tra i dispositivi dell'operatore
+function initRealtimeAlertChannel(username) {
+    if (!window.supabase || !username) return;
     
-    // Eseguiamo un controllo ogni 15 secondi per massima reattività
+    try {
+        const client = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+        
+        // Chiudiamo eventuali canali precedenti per evitare duplicati
+        if (realtimeAlertChannel) {
+            client.removeChannel(realtimeAlertChannel);
+        }
+
+        const channelName = `operator_alerts_${username.trim().toLowerCase()}`;
+        realtimeAlertChannel = client.channel(channelName);
+
+        realtimeAlertChannel
+            .on('broadcast', { event: 'dismiss_alarm' }, payload => {
+                console.log("📡 Ricevuto comando remoto: chiudi allarme per app ID:", payload.appId);
+                closeLocalAlarmModal();
+            })
+            .on('broadcast', { event: 'snooze_alarm' }, payload => {
+                console.log("📡 Ricevuto comando remoto: posticipa allarme per app ID:", payload.appId);
+                window.activeSnoozes[payload.appId] = payload.snoozeTime;
+                localStorage.setItem('bloomup_active_snoozes', JSON.stringify(window.activeSnoozes));
+                closeLocalAlarmModal();
+            })
+            .subscribe((status) => {
+                console.log(`Stato connessione Realtime Allarmi: ${status}`);
+            });
+    } catch (err) {
+        console.error("Errore configurazione Supabase Realtime Channel:", err);
+    }
+}
+
+function startProfessionalOperatorAlertSystem() {
+    console.log("🚀 Sistema di allarme multi-dispositivo avviato.");
+
+    if (currentUser && currentUser.username) {
+        initRealtimeAlertChannel(currentUser.username);
+    }
+
+    // Controllo ciclico in background
     setInterval(async () => {
         if (!currentUser || !navigator.onLine) return;
 
@@ -5059,21 +5100,17 @@ function startProfessionalOperatorAlertSystem() {
             const leadTimeMinutes = getOperatorImminentLeadTime();
 
             apps.forEach(app => {
-                // Controllo operatore assegnato (default admin se vuoto)
                 const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
                 if (assigned !== currentUsername) return;
 
-                // Escludiamo le pause pranzo
                 const srv = (app.service || '').toLowerCase();
                 if (srv.includes('pausa') || srv.includes('pranzo')) return;
 
                 if (!app.date || !app.time) return;
 
-                // Normalizziamo l'orario prendendo solo HH:MM (tagliando eventuali secondi)
                 const timeClean = app.time.substring(0, 5);
                 const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-                // Controllo Snooze attivo
                 if (window.activeSnoozes[app.id]) {
                     const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                     if (now < snoozeUntil) return;
@@ -5082,32 +5119,26 @@ function startProfessionalOperatorAlertSystem() {
                 const diffMs = appDateTime - now;
                 const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-                // DEBUG in console (premi F12 per vederlo)
-                // console.log(`Check app: ${app.cust_name} alle ${timeClean} del ${app.date} -> Mancano ${diffMinutes} minuti (Target: <= ${leadTimeMinutes})`);
-
-                // Se mancano esattamente i minuti configurati (per esempio tra 0 e 15 minuti prima)
+                // Se l'appuntamento rientra nella finestra di preavviso
                 if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes) {
                     const trackingKey = `pro_alert_sent_${app.id}_${app.date}_${timeClean}`;
                     
-                    // Verifichiamo di non aver già mostrato l'allarme per questo appuntamento in questa sessione
                     if (!sessionStorage.getItem(trackingKey)) {
                         sessionStorage.setItem(trackingKey, 'true');
-                        console.log(`🔔 TRIGGER ALLARME! Appuntamento imminente con ${app.cust_name} tra ${diffMinutes} minuti.`);
                         triggerProfessionalAlarmModal(app, diffMinutes);
                     }
                 }
             });
         } catch (e) {
-            console.error("Errore nel ciclo di controllo allarmi imminenti:", e);
+            console.error("Errore nel ciclo allarmi:", e);
         }
-    }, 15000); // 15 secondi
+    }, 15000); 
 }
 
+// Mostra il modale centrale bloccante con suoni ed enfasi
 function triggerProfessionalAlarmModal(app, minutesLeft) {
-    // Evitiamo di aprire più modali sovrapposti
     if (document.getElementById('pro-alarm-overlay')) return;
 
-    // 🔔 Feedback sonoro (Sveglia)
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTone(freq, timeOffset) {
@@ -5124,9 +5155,7 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
         }
         playTone(587.33, 0);
         playTone(880.00, 0.25);
-    } catch (e) {
-        console.log("Audio bloccato dalle policy del browser finché non c'è interazione.");
-    }
+    } catch (e) {}
 
     const overlay = document.createElement('div');
     overlay.id = 'pro-alarm-overlay';
@@ -5147,8 +5176,8 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
             </div>
             
             <div style="display: flex; gap: 12px;">
-                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #334155; border-radius: 14px; font-weight: 700; cursor: pointer;" onclick="snoozeProAlarm('${app.id}', 5)">⏳ Posticipa 5 min</button>
-                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; color: white; border-radius: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.3);" onclick="dismissProAlarm('${app.id}')">✓ Ho capito / Procedi</button>
+                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #334155; border-radius: 14px; font-weight: 700; cursor: pointer;" onclick="requestSnoozeBroadcast('${app.id}', 5)">⏳ Posticipa 5 min</button>
+                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; color: white; border-radius: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.3);" onclick="requestDismissBroadcast('${app.id}')">✓ Ho capito / Procedi</button>
             </div>
         </div>
     `;
@@ -5156,18 +5185,36 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
     document.body.appendChild(overlay);
 }
 
-function snoozeProAlarm(appId, minutes) {
-    const snoozeTime = new Date(new Date().getTime() + minutes * 60000).toISOString();
-    window.activeSnoozes[appId] = snoozeTime;
-    localStorage.setItem('bloomup_active_snoozes', JSON.stringify(window.activeSnoozes));
-    
+function closeLocalAlarmModal() {
     const overlay = document.getElementById('pro-alarm-overlay');
     if (overlay) overlay.remove();
 }
 
-function dismissProAlarm(appId) {
-    const overlay = document.getElementById('pro-alarm-overlay');
-    if (overlay) overlay.remove();
+// 🌐 Funzioni di trasmissione comando a tutti gli altri dispositivi dell'operatore
+async function requestDismissBroadcast(appId) {
+    closeLocalAlarmModal();
+    if (realtimeAlertChannel) {
+        await realtimeAlertChannel.send({
+            type: 'broadcast',
+            event: 'dismiss_alarm',
+            payload: { appId }
+        });
+    }
+}
+
+async function requestSnoozeBroadcast(appId, minutes) {
+    const snoozeTime = new Date(new Date().getTime() + minutes * 60000).toISOString();
+    window.activeSnoozes[appId] = snoozeTime;
+    localStorage.setItem('bloomup_active_snoozes', JSON.stringify(window.activeSnoozes));
+    
+    closeLocalAlarmModal();
+    if (realtimeAlertChannel) {
+        await realtimeAlertChannel.send({
+            type: 'broadcast',
+            event: 'snooze_alarm',
+            payload: { appId, snoozeTime }
+        });
+    }
 }
 
 
