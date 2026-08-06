@@ -2542,21 +2542,16 @@ function toggleInvFields() {
     }
 }
 
-// Funzione unificata che cambia pagina E chiude sempre la sidebar
+// Funzione unificata che cambia pagina E chiude sempre la sidebar su qualsiasi schermo
 function changePageMobileWrapper(page, force) {
-    // 1. Esegue il cambio pagina standard
     changePage(page, force);
     
-    // 2. Forza SEMPRE la chiusura della sidebar e dell'overlay (sia mobile che desktop drawer)
+    // Forza la chiusura del menu laterale ovunque (PC e Mobile)
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     
-    if (sidebar) {
-        sidebar.classList.remove('active');
-    }
-    if (overlay) {
-        overlay.classList.remove('active');
-    }
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
 }
 
 
@@ -5106,7 +5101,7 @@ function triggerAdvancedNativeNotification(app, minutesLeft) {
     const title = `⏰ Tra ${minutesLeft} min in Agenda!`;
     const body = `Cliente: ${app.cust_name}\nTrattamento: ${app.service}\nOrario: ${app.time}`;
 
-    // 1. Notifica Nativa Persistente (resta fissa sullo schermo finché l'utente non la clicca)
+    // 1. Tentar di mostrare la notifica nativa di sistema (se il browser la supporta)
     if ('Notification' in window && Notification.permission === 'granted') {
         navigator.serviceWorker.ready.then(registration => {
             registration.showNotification(title, {
@@ -5114,38 +5109,55 @@ function triggerAdvancedNativeNotification(app, minutesLeft) {
                 icon: './icon-192.png',
                 badge: './icon-192.png',
                 vibrate: [400, 200, 400, 200, 400],
-                requireInteraction: true, // 👈 Mantiene la notifica fissa finché l'operatore non interagisce
+                requireInteraction: true,
                 data: { appId: app.id }
             });
-        });
+        }).catch(err => console.log("SW notification error:", err));
     }
 
-    // 2. Fallback Banner Toast In-App visibile ovunque (PC e Smartphone se l'app è in primo piano)
+    // 2. Mostriamo SEMPRE il Banner In-App interattivo con i bottoni cliccabili (Snooze / Interrompi)
     showInAppAlertBanner(title, body, app.id);
 }
 
 
 // Banner visivo fluttuante in-app con opzione Snooze e Interrompi integrati direttamente nello schermo!
 function showInAppAlertBanner(title, body, appId) {
-    // Rimuoviamo eventuali banner precedenti per evitare sovrapposizioni
+    // Rimuoviamo eventuali alert precedenti per evitare duplicati
     const oldBanner = document.getElementById('active-imminent-alert');
     if (oldBanner) oldBanner.remove();
 
+    // 🔔 Feedback sonoro di notifica (campanello)
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // Nota E5
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) {
+        // Ignora se il browser blocca l'audio automatico prima di un click
+    }
+
+    // Creiamo un banner fluttuante fisso in alto a destra, ad alto contrasto
     const banner = document.createElement('div');
     banner.id = 'active-imminent-alert';
-    banner.style.cssText = "position: fixed; top: 20px; right: 20px; background: #1e1b4b; color: white; padding: 18px 22px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); z-index: 50000; max-width: 380px; width: 90%; animation: slideInDown 0.3s ease-out;";
+    banner.style.cssText = "position: fixed; top: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 22px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); z-index: 999999; max-width: 420px; width: 92%; border-left: 6px solid #6366f1; border: 1px solid rgba(255,255,255,0.1);";
 
     banner.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom: 10px;">
-            <span style="font-size:24px;">⏰</span>
-            <div>
-                <h4 style="margin:0; font-size:15px; font-weight:700;">${title}</h4>
-                <p style="margin:2px 0 0 0; font-size:12px; color:#cbd5e1; white-space: pre-line;">${body}</p>
+        <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom: 14px;">
+            <span style="font-size:32px; line-height: 1;">🔔</span>
+            <div style="flex-grow:1;">
+                <h4 style="margin:0 0 4px 0; font-size:17px; font-weight:800; color:#ffffff; letter-spacing: -0.3px;">${title}</h4>
+                <p style="margin:0; font-size:13px; color:#94a3b8; line-height: 1.5; white-space: pre-line;">${body}</p>
             </div>
         </div>
-        <div style="display:flex; gap:8px; margin-top: 12px;">
-            <button class="btn btn-s" style="flex:1; padding:8px; font-size:11px; justify-content:center; background:#4f46e5;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5m</button>
-            <button class="btn btn-d" style="flex:1; padding:8px; font-size:11px; justify-content:center;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
+        <div style="display:flex; gap:10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;">
+            <button class="btn" style="flex:1; padding:12px; font-size:12px; justify-content:center; background:#4f46e5; border:none; color:white; border-radius:10px; font-weight:700; cursor:pointer;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5 min</button>
+            <button class="btn" style="flex:1; padding:12px; font-size:12px; justify-content:center; background:#ef4444; border:none; color:white; border-radius:10px; font-weight:700; cursor:pointer;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
         </div>
     `;
 
