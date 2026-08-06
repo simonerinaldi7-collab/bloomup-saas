@@ -2270,9 +2270,8 @@ async function submitPasswordReset() {
     renderUsers();
 }
 
-// 🛡️ FUNZIONE DI PROTEZIONE ELIMINAZIONE UTENTE
+// 🛡️ FUNZIONE DI PROTEZIONE ELIMINAZIONE UTENTE (Aggiornata con pulizia pause)
 async function deleteUser(userId) {
-    // Assicuriamoci che l'array allUsers sia popolato
     const usersList = allUsers || await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
     const userToDelete = usersList.find(u => u.id == userId);
     
@@ -2283,20 +2282,31 @@ async function deleteUser(userId) {
     const username = userToDelete.username.trim();
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Recuperiamo gli appuntamenti aggiornati
     const appointmentsList = allAppointments || await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-    // Controlliamo se l'operatore ha appuntamenti futuri (escludendo le pause)
+    // Controlliamo se l'operatore ha appuntamenti futuri (distinguendo clienti e pause)
     const futureApps = appointmentsList.filter(a => {
         const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
         const isFuture = a.date >= todayStr;
-        const isPausa = (a.service || '').toLowerCase().includes('pausa') || (a.service || '').toLowerCase().includes('pranzo');
+        const srv = (a.service || '').toLowerCase();
+        const cust = (a.cust_name || '').toLowerCase();
+        const isPausa = srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
         return isSameUser && isFuture && !isPausa;
     });
 
-    // Se non ha appuntamenti futuri, eliminiamo direttamente dopo conferma
+    // Se non ha appuntamenti con clienti, eliminiamo l'utente E ripuliamo le sue pause future
     if (futureApps.length === 0) {
-        if (confirm(`Sei sicuro di voler eliminare l'utente '${username}'?`)) {
+        if (confirm(`Sei sicuro di voler eliminare l'utente '${username}'? Tutte le sue pause pranzo future in agenda verranno rimosse.`)) {
+            // 1. Rimuoviamo tutte le pause future di questo utente
+            const allFutureUserApps = appointmentsList.filter(a => {
+                const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
+                return isSameUser && a.date >= todayStr;
+            });
+            for (let app of allFutureUserApps) {
+                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: app.id });
+            }
+
+            // 2. Rimuoviamo l'utente
             await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
             await refreshAllData();
             if (typeof renderUsers === 'function') renderUsers();
@@ -2304,7 +2314,7 @@ async function deleteUser(userId) {
         return;
     }
 
-    // SE HA APPUNTAMENTI FUTURI: Apriamo il modale di protezione
+    // SE HA APPUNTAMENTI FUTURI CON CLIENTI: Apriamo il modale di protezione
     const idField = document.getElementById('pending-delete-user-id');
     const nameField = document.getElementById('pending-delete-user-username');
     const descEl = document.getElementById('reassign-modal-desc');
@@ -2314,8 +2324,8 @@ async function deleteUser(userId) {
     
     if (descEl) {
         descEl.innerHTML = `
-            L'operatore <b>${username}</b> ha <b>${futureApps.length} appuntamenti futuri</b> programmati in agenda.<br>
-            Prima di poter eliminare l'utente, scegli come gestire questi appuntamenti:
+            L'operatore <b>${username}</b> ha <b>${futureApps.length} appuntamenti futuri</b> con clienti in agenda.<br>
+            Le pause pranzo associate verranno eliminate in ogni caso. Come desideri procedere con gli appuntamenti dei clienti?
         `;
     }
 
@@ -2335,17 +2345,16 @@ async function deleteUser(userId) {
     const modal = document.getElementById('mod-reassign-user-apps');
     if (modal) {
         modal.classList.add('active');
-    } else {
-        alert("Errore: Modale di riassegnazione non trovato nel DOM.");
     }
 }
+
 
 function toggleReassignDropdown(enable) {
     const select = document.getElementById('reassign-target-user');
     if (select) select.disabled = !enable;
 }
 
-// Esecuzione della cancellazione sicura dopo la scelta dell'admin nel modale
+// Esecuzione della cancellazione sicura (Aggiornata per gestire pause e riassegnazioni)
 async function executeSafeUserDeletion() {
     const userId = document.getElementById('pending-delete-user-id').value;
     const username = document.getElementById('pending-delete-user-username').value;
@@ -2355,41 +2364,44 @@ async function executeSafeUserDeletion() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     try {
-        const futureApps = (allAppointments || []).filter(a => {
+        const allUserFutureApps = (allAppointments || []).filter(a => {
             const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
             return isSameUser && a.date >= todayStr;
         });
 
-        if (actionRadio === 'reassign') {
-            if (!targetUser) {
-                return alert("Seleziona un operatore a cui riassegnare gli appuntamenti.");
-            }
-            for (let app of futureApps) {
-                await window.universalQuery({
-                    action: 'UPDATE',
-                    table: 'appointments',
-                    data: { assigned_user: targetUser },
-                    id: app.id
-                });
-            }
-        } else {
-            for (let app of futureApps) {
-                await window.universalQuery({
-                    action: 'DELETE',
-                    table: 'appointments',
-                    id: app.id
-                });
+        for (let app of allUserFutureApps) {
+            const srv = (app.service || '').toLowerCase();
+            const cust = (app.cust_name || '').toLowerCase();
+            const isPausa = srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
+
+            if (isPausa) {
+                // Le pause pranzo vengono SEMPRE eliminate (verranno rigenerate per il nuovo operatore se previsto dai turni)
+                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: app.id });
+            } else {
+                // Appuntamenti con clienti
+                if (actionRadio === 'reassign') {
+                    if (!targetUser) return alert("Seleziona un operatore a cui riassegnare gli appuntamenti.");
+                    await window.universalQuery({
+                        action: 'UPDATE',
+                        table: 'appointments',
+                        data: { assigned_user: targetUser },
+                        id: app.id
+                    });
+                } else {
+                    // Eliminazione definitiva appuntamenti clienti
+                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: app.id });
+                }
             }
         }
 
-        // Eliminazione dell'utente
+        // Eliminazione definitiva dell'utente
         await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
 
         closeMod();
         await refreshAllData();
         renderUsers();
 
-        alert(`✅ Utente '${username}' eliminato con successo.`);
+        alert(`✅ Utente '${username}' e relative pause future eliminate con successo.`);
 
     } catch (err) {
         console.error("Errore durante la cancellazione sicura dell'utente:", err);
