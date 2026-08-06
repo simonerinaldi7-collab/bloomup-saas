@@ -312,9 +312,9 @@
     background: white;
     position: relative;
     border-right: 1px solid #f1f3f4;
-    height: 780px !important; /* 13 ore * 60px = 780px (Finito alle 21:00 precise) */
-    min-height: 780px !important;
-    max-height: 780px !important;
+    height: 900px !important; /* 15 ore * 60px = 900px */
+    min-height: 900px !important;
+    max-height: 900px !important;
     box-sizing: border-box;
 }
 
@@ -3716,12 +3716,11 @@ window.loadSettingsFields = function() {
         // 2. CORPO GRIGLIA TEMPORALE (Ore + Colonne)
         html += `<div class="time-grid-container ${containerClass}">`;
         
-        // Colonna etichette orarie (dalle 08:00 alle 21:00)
-        html += `<div>`;
-        for (let h = 8; h < 21; h++) {
-            html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
-        }
-        html += `</div>`;
+       html += `<div>`;
+    for (let h = 7; h < 22; h++) {
+        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+    }
+    html += `</div>`;
 
         // Colonne dei singoli giorni
     for (let c = 0; c < cols; c++) {
@@ -3760,27 +3759,16 @@ window.loadSettingsFields = function() {
 
         html += `<div class="day-column">`;
         
-        // Sfondi orari fissi (dalle 08:00 alle 21:00)
-        for (let h = 8; h < 21; h++) {
+        // Sfondi orari fissi (dalle 07:00 alle 22:00)
+        for (let h = 7; h < 22; h++) {
             const timeStr = `${String(h).padStart(2, '0')}:00`;
-            
-            // 🛑 QUI VIENE VALUTATO SE LO SLOT È LAVORATIVO O FUORI ORARIO
             const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
-            const slotStyleClass = isWorking ? '' : 'non-working'; // Applica la classe a righe grigie
+            const slotStyleClass = isWorking ? '' : 'non-working';
             const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard / Riposo`;
 
             html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
         }
             
-            // Sfondi orari fissi (dalle 08:00 alle 21:00)
-            for (let h = 8; h < 21; h++) {
-                const timeStr = `${String(h).padStart(2, '0')}:00`;
-                const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
-                const slotStyleClass = isWorking ? '' : 'non-working';
-                const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard`;
-
-                html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
-            }
 
             // Eventi posizionati in assoluto
             processedApps.forEach(ev => {
@@ -3810,36 +3798,36 @@ window.loadSettingsFields = function() {
 
     // Algoritmo avanzato di layout a cluster per Google Calendar Style
     function calculateEventOverlapLayout(apps) {
-        if (!apps || apps.length === 0) return [];
+    if (!apps || apps.length === 0) return [];
 
-        // 8:00 è l'inizio della griglia (minuto 480 della giornata)
-        const gridStartMinutes = 8 * 60; 
-        const pxPerMinute = 60 / 60; // 60px per ora = 1px per minuto
+    // 7:00 è l'inizio della nuova griglia (minuto 420 della giornata)
+    const gridStartMinutes = 7 * 60; 
+    const pxPerMinute = 60 / 60; // 60px per ora = 1px per minuto
 
-        const eventsWithCoords = apps.map(a => {
-            const [sH, sM] = (a.time || "08:00").split(':').map(Number);
-            const startMin = sH * 60 + sM;
-            
-            let endMin = startMin + 60;
-            if (a.end_time) {
-                const [eH, eM] = a.end_time.split(':').map(Number);
-                endMin = eH * 60 + eM;
-            }
+    const eventsWithCoords = apps.map(a => {
+        const [sH, sM] = (a.time || "07:00").split(':').map(Number);
+        const startMin = sH * 60 + sM;
+        
+        let endMin = startMin + 60;
+        if (a.end_time) {
+            const [eH, eM] = a.end_time.split(':').map(Number);
+            endMin = eH * 60 + eM;
+        }
 
-            const topPx = (startMin - gridStartMinutes) * pxPerMinute;
-            const durationMin = Math.max(endMin - startMin, 30);
-            const heightPx = durationMin * pxPerMinute;
+        const topPx = (startMin - gridStartMinutes) * pxPerMinute;
+        const durationMin = Math.max(endMin - startMin, 30);
+        const heightPx = durationMin * pxPerMinute;
 
-            return { 
-                ...a, 
-                startMin, 
-                endMin, 
-                topPx, 
-                heightPx, 
-                col: 0, 
-                totalCols: 1 
-            };
-        });
+        return { 
+            ...a, 
+            startMin, 
+            endMin, 
+            topPx, 
+            heightPx, 
+            col: 0, 
+            totalCols: 1 
+        };
+    });
 
         // 1. Ordiniamo per orario di inizio crescente, e a parità di inizio, per durata decrescente
         eventsWithCoords.sort((a, b) => {
