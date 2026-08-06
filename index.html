@@ -980,8 +980,31 @@
         <div id="consumables-list" style="margin-top:10px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #f8f9fa;"></div>
     </div>
 </div>
-<div id="mod-view-app" class="modal"><div class="modal-box"><h3>Dettaglio</h3><div id="v-app-content"></div><button class="btn btn-s" id="btn-to-checkout">Cassa</button><button class="btn btn-d" id="btn-del-app">Elimina</button></div></div>
-    <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
+<div id="mod-view-app" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box">
+        <h3>Dettaglio Appuntamento</h3>
+        <div id="v-app-content" style="line-height:1.8; background:#f8f9fa; padding:20px; border-radius:16px; margin-bottom:20px"></div>
+        
+        <label>CONFERMA PRENOTAZIONE</label>
+        <div style="display:flex; gap:10px; margin-bottom:15px">
+            <button class="btn btn-w" style="flex:1" onclick="sendAndLog('wa', 'confirm')">WhatsApp</button>
+            <button class="btn" style="flex:1; background:#fff" onclick="sendAndLog('sms', 'confirm')">SMS</button>
+        </div>
+        <label>PROMEMORIA (REMINDER)</label>
+        <div style="display:flex; gap:10px; margin-bottom:20px">
+            <button class="btn btn-w" style="flex:1" onclick="sendAndLog('wa', 'reminder')">WhatsApp</button>
+            <button class="btn" style="flex:1; background:#fff" onclick="sendAndLog('sms', 'reminder')">SMS</button>
+        </div>
+        
+        <!-- Pulsanti di controllo protetti da ID -->
+        <div style="display:flex; gap:10px">
+            <button class="btn btn-s" style="flex:1" id="btn-to-checkout">🛒 CASSA</button>
+            <button class="btn btn-p" id="btn-edit-app">EDIT</button>
+            <button class="btn btn-d" id="btn-del-app">X</button>
+        </div>
+    </div>
+</div>
+   <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
     <div id="mod-quick-supp" class="modal"><div class="modal-box"><h3>Nuovo Fornitore Rapido</h3><input type="text" id="q-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveQuickSupplier()">Crea</button></div></div>
     
     
@@ -5083,136 +5106,150 @@ function triggerAdvancedNativeNotification(app, minutesLeft) {
     const title = `⏰ Tra ${minutesLeft} min in Agenda!`;
     const body = `Cliente: ${app.cust_name}\nTrattamento: ${app.service}\nOrario: ${app.time}`;
 
+    // 1. Notifica Nativa Persistente (resta fissa sullo schermo finché l'utente non la clicca)
     if ('Notification' in window && Notification.permission === 'granted') {
         navigator.serviceWorker.ready.then(registration => {
             registration.showNotification(title, {
                 body: body,
                 icon: './icon-192.png',
                 badge: './icon-192.png',
-                vibrate: [400, 200, 400],
-                requireInteraction: true,
-                data: { appId: app.id },
-                actions: [
-                    { action: 'snooze_5', title: '⏳ Posticipa 5 min' },
-                    { action: 'dismiss', title: '✕ Interrompi' }
-                ]
+                vibrate: [400, 200, 400, 200, 400],
+                requireInteraction: true, // 👈 Mantiene la notifica fissa finché l'operatore non interagisce
+                data: { appId: app.id }
             });
         });
     }
-}
 
-// Ascoltatore dei messaggi inviati dal Service Worker (es. tasto Snooze premuto dalla lockscreen)
-if ('navigator' in navigator && navigator.serviceWorker) {
-    navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data && event.data.type === 'SNOOZE_APPOINTMENT') {
-            const appId = event.data.appId;
-            const extraMinutes = event.data.minutes || 5;
-            
-            const snoozeTime = new Date(new Date().getTime() + extraMinutes * 60000).toISOString();
-            activeSnoozes[appId] = snoozeTime;
-            localStorage.setItem('bloomup_active_snoozes', JSON.stringify(activeSnoozes));
-            
-            console.log(`⏳ Appuntamento ${appId} posticipato di ${extraMinutes} minuti.`);
-            alert(`⏳ Promemoria posticipato di ${extraMinutes} minuti.`);
-        }
-    });
+    // 2. Fallback Banner Toast In-App visibile ovunque (PC e Smartphone se l'app è in primo piano)
+    showInAppAlertBanner(title, body, app.id);
 }
 
 
+// Banner visivo fluttuante in-app con opzione Snooze e Interrompi integrati direttamente nello schermo!
+function showInAppAlertBanner(title, body, appId) {
+    // Rimuoviamo eventuali banner precedenti per evitare sovrapposizioni
+    const oldBanner = document.getElementById('active-imminent-alert');
+    if (oldBanner) oldBanner.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'active-imminent-alert';
+    banner.style.cssText = "position: fixed; top: 20px; right: 20px; background: #1e1b4b; color: white; padding: 18px 22px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); z-index: 50000; max-width: 380px; width: 90%; animation: slideInDown 0.3s ease-out;";
+
+    banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom: 10px;">
+            <span style="font-size:24px;">⏰</span>
+            <div>
+                <h4 style="margin:0; font-size:15px; font-weight:700;">${title}</h4>
+                <p style="margin:2px 0 0 0; font-size:12px; color:#cbd5e1; white-space: pre-line;">${body}</p>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top: 12px;">
+            <button class="btn btn-s" style="flex:1; padding:8px; font-size:11px; justify-content:center; background:#4f46e5;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5m</button>
+            <button class="btn btn-d" style="flex:1; padding:8px; font-size:11px; justify-content:center;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
+        </div>
+    `;
+
+    document.body.appendChild(banner);
+}
+
+function snoozeAlertApp(appId, minutes) {
+    const snoozeTime = new Date(new Date().getTime() + minutes * 60000).toISOString();
+    activeSnoozes[appId] = snoozeTime;
+    localStorage.setItem('bloomup_active_snoozes', JSON.stringify(activeSnoozes));
+    
+    const banner = document.getElementById('active-imminent-alert');
+    if (banner) banner.remove();
+}
+
+function dismissAlertApp(appId) {
+    const banner = document.getElementById('active-imminent-alert');
+    if (banner) banner.remove();
+}
             async function viewApp(id) {
-                const a = allAppointments.find(x => x.id === id); 
-                if(!a) return; 
-                currentViewApp = a;
-                
-                // 1. Spacchettiamo i servizi dell'appuntamento (es. "Taglio, Barba" -> ["Taglio", "Barba"])
-                const services = (a.service || "").split(',').map(s => s.trim());
-                
-                let calculatedTotalPrice = 0;
+    const a = allAppointments.find(x => x.id === id); 
+    if(!a) return; 
+    currentViewApp = a;
+    
+    const services = (a.service || "").split(',').map(s => s.trim());
+    let calculatedTotalPrice = 0;
 
-                // 2. Per ogni servizio, cerchiamo il prezzo storico valido alla data dell'appuntamento
-                for (let servName of services) {
-                    const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
-                    if (product) {
-                        try {
-                            const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
-                            
-                            // Troviamo il prezzo valido per la data dell'appuntamento (a.date)
-                            const validPriceRow = historyRecords.find(ph => 
-                                a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
-                            );
-                            
-                            if (validPriceRow && validPriceRow.price) {
-                                calculatedTotalPrice += parseFloat(validPriceRow.price);
-                            } else if (historyRecords.length > 0) {
-                                calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
-                            }
-                        } catch (e) {
-                            console.error("Errore recupero storico prezzi per visualizzazione:", e);
-                        }
-                    }
+    for (let servName of services) {
+        const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
+        if (product) {
+            try {
+                const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
+                const validPriceRow = historyRecords.find(ph => 
+                    a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
+                );
+                if (validPriceRow && validPriceRow.price) {
+                    calculatedTotalPrice += parseFloat(validPriceRow.price);
+                } else if (historyRecords.length > 0) {
+                    calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
                 }
-
-                // Fallback sul prezzo salvato nell'appuntamento se il calcolo storico restituisce 0
-                const finalDisplayPrice = calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0);
-
-                console.log("DEBUG viewApp - Prezzo calcolato da price_history:", finalDisplayPrice);
-
-                document.getElementById('v-app-content').innerHTML = `
-                    <b>CLIENTE:</b> ${a.cust_name}<br>
-                    <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
-                    <b>SERVIZIO:</b> ${a.service}<br>
-                    <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
-                    <b>NOTE:</b> ${a.notes || '-'}
-                `;
-
-                document.getElementById('btn-to-checkout').onclick = async () => { 
-                    const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
-                    cart = []; 
-                    
-                    for (let servizio of cartServices) {
-                        const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
-                        
-                        if (product) {
-                            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                            const price = pInfo ? parseFloat(pInfo.price) : 0;
-                            cart.push({ name: servizio, price: price, id: product.id });
-                        } else {
-                            console.warn("Prodotto non trovato:", servizio);
-                            cart.push({ name: servizio, price: 0, id: null });
-                        }
-                    }
-
-                    const fc = allCustomers.find(c => c.name === currentViewApp.cust_name);
-                    currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
-                    document.getElementById('cart-selected-cust').innerText = currentCheckoutCustomer.name;
-                    
-                    renderCart(); 
-                    closeMod(); 
-                    changePage('sales', true); 
-                };
-
-                document.getElementById('btn-edit-app').onclick = (e) => { 
-                    e.stopPropagation();
-                    if (!currentViewApp || !currentViewApp.id) {
-                        console.error("Errore: currentViewApp non è valorizzato!");
-                        return;
-                    }
-                    editApp(currentViewApp.id); 
-                    document.getElementById('mod-view-app').classList.remove('active');
-                };
-
-                document.getElementById('btn-del-app').onclick = async () => {
-                    if(!confirm("Eliminare l'appuntamento?")) return;
-
-                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
-                    
-                    closeMod(); 
-                    await refreshAllData();
-                    renderCalendar();
-                };
-                
-                document.getElementById('mod-view-app').classList.add('active');
+            } catch (e) {
+                console.error("Errore recupero storico prezzi:", e);
             }
+        }
+    }
+
+    const finalDisplayPrice = calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0);
+
+    document.getElementById('v-app-content').innerHTML = `
+        <b>CLIENTE:</b> ${a.cust_name}<br>
+        <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
+        <b>SERVIZIO:</b> ${a.service}<br>
+        <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
+        <b>NOTE:</b> ${a.notes || '-'}
+    `;
+
+    // Protezione elementi null con controllo condizionale
+    const btnCheckout = document.getElementById('btn-to-checkout');
+    if (btnCheckout) {
+        btnCheckout.onclick = async () => { 
+            const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
+            cart = []; 
+            for (let servizio of cartServices) {
+                const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
+                if (product) {
+                    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                    const price = pInfo ? parseFloat(pInfo.price) : 0;
+                    cart.push({ name: servizio, price: price, id: product.id });
+                } else {
+                    cart.push({ name: servizio, price: 0, id: null });
+                }
+            }
+            const fc = allCustomers.find(c => c.name === currentViewApp.cust_name);
+            currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
+            document.getElementById('cart-selected-cust').innerText = currentCheckoutCustomer.name;
+            renderCart(); 
+            closeMod(); 
+            changePage('sales', true); 
+        };
+    }
+
+    const btnEdit = document.getElementById('btn-edit-app');
+    if (btnEdit) {
+        btnEdit.onclick = (e) => { 
+            e.stopPropagation();
+            if (!currentViewApp || !currentViewApp.id) return;
+            editApp(currentViewApp.id); 
+            document.getElementById('mod-view-app').classList.remove('active');
+        };
+    }
+
+    const btnDel = document.getElementById('btn-del-app');
+    if (btnDel) {
+        btnDel.onclick = async () => {
+            if(!confirm("Eliminare l'appuntamento?")) return;
+            await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
+            closeMod(); 
+            await refreshAllData();
+            renderCalendar();
+        };
+    }
+    
+    document.getElementById('mod-view-app').classList.add('active');
+}
 
 
             async function editApp(id) { 
