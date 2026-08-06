@@ -405,7 +405,7 @@
 </div>
 
 <!-- MODALE GESTIONE APPUNTAMENTI ORFANI AL CANCELLARE UN UTENTE -->
-<div id="mod-reassign-user-apps" class="modal" style="z-index: 30000;">
+<div id="mod-reassign-user-apps" class="modal" onclick="if(event.target==this) closeMod()" style="z-index: 30000;">
     <div class="modal-box" style="width: 500px;">
         <h3 style="margin-top:0; color:var(--d);">⚠️ Attenzione: Utente con Appuntamenti Futuri</h3>
         <p id="reassign-modal-desc" style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px;">
@@ -2259,39 +2259,64 @@ async function submitPasswordReset() {
     
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    if(!user) return alert("Inserisci almeno lo username!");
+    if (!user) return alert("Inserisci almeno lo username!");
 
-    if (editId === "-1") {
-        if(!pass) return alert("Inserisci una password per il nuovo utente!");
-        
-        // Creazione nuovo utente
-        const newUserPayload = {
-            id: crypto.randomUUID(),
-            salon_id: salonId,
-            username: user,
-            password: pass,
-            role: role,
-            color: color,
-            status: 'active'
-        };
-        await window.universalQuery({ action: 'INSERT', table: 'users', data: newUserPayload });
-        alert("Utente creato con successo!");
-    } else {
-        // Modifica utente esistente
-        const updateData = { username: user, role, color };
-        if (pass) {
-            updateData.password = pass;
+    try {
+        if (editId === "-1") {
+            if (!pass) return alert("Inserisci una password per il nuovo utente!");
+            
+            // Creazione nuovo utente sfruttando il data-service standard (INSERT)
+            const newUserPayload = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                username: user,
+                password: pass,
+                role: role,
+                color: color,
+                status: 'active',
+                must_change_password: 0
+            };
+
+            const res = await window.universalQuery({ 
+                action: 'INSERT', 
+                table: 'users', 
+                data: newUserPayload 
+            });
+
+            if (res) {
+                alert("✅ Utente creato con successo!");
+            } else {
+                alert("❌ Errore durante la creazione dell'utente nel database.");
+            }
+        } else {
+            // Modifica utente esistente (UPDATE)
+            const updateData = { username: user, role, color };
+            if (pass) {
+                updateData.password = pass;
+            }
+
+            await window.universalQuery({ 
+                action: 'UPDATE', 
+                table: 'users', 
+                data: updateData, 
+                id: editId 
+            });
+
+            alert("✅ Utente aggiornato con successo!");
         }
-        await window.universalQuery({ action: 'UPDATE', table: 'users', data: updateData, id: editId });
-        alert("Utente aggiornato con successo!");
+        
+        // Reset form
+        document.getElementById('edit-user-id').value = "-1";
+        document.getElementById('new-user').value = "";
+        document.getElementById('new-pass').value = "";
+        
+        await refreshAllData(); 
+        if (typeof renderUsers === 'function') renderUsers();
+
+    } catch (err) {
+        console.error("Errore salvataggio utente:", err);
+        alert("Impossibile salvare l'utente. Controlla la console per i dettagli.");
     }
-    
-    document.getElementById('edit-user-id').value = "-1";
-    document.getElementById('new-user').value = "";
-    document.getElementById('new-pass').value = "";
-    
-    await refreshAllData(); 
-    renderUsers(); 
 }
 
     async function resetUserPassword(userId) {
@@ -2312,37 +2337,48 @@ async function submitPasswordReset() {
     renderUsers();
 }
 
-// 🛡️ FUNZIONE DI PROTEZIONE ELIMINAZIONE (Apre il modale se ci sono appuntamenti futuri)
+// 🛡️ FUNZIONE DI PROTEZIONE ELIMINAZIONE UTENTE
 async function deleteUser(userId) {
-    const userToDelete = (allUsers || []).find(u => u.id === userId);
-    if (!userToDelete) return alert("Utente non trovato.");
+    // Assicuriamoci che l'array allUsers sia popolato
+    const usersList = allUsers || await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+    const userToDelete = usersList.find(u => u.id == userId);
+    
+    if (!userToDelete) {
+        return alert("Utente non trovato nel sistema.");
+    }
 
     const username = userToDelete.username.trim();
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Controlliamo se l'operatore ha appuntamenti futuri (escludendo le pause pranzo)
-    const futureApps = (allAppointments || []).filter(a => {
+    // Recuperiamo gli appuntamenti aggiornati
+    const appointmentsList = allAppointments || await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+
+    // Controlliamo se l'operatore ha appuntamenti futuri (escludendo le pause)
+    const futureApps = appointmentsList.filter(a => {
         const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
         const isFuture = a.date >= todayStr;
         const isPausa = (a.service || '').toLowerCase().includes('pausa') || (a.service || '').toLowerCase().includes('pranzo');
         return isSameUser && isFuture && !isPausa;
     });
 
-    // Se non ha appuntamenti futuri, eliminiamo direttamente
+    // Se non ha appuntamenti futuri, eliminiamo direttamente dopo conferma
     if (futureApps.length === 0) {
         if (confirm(`Sei sicuro di voler eliminare l'utente '${username}'?`)) {
             await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
             await refreshAllData();
-            renderUsers();
+            if (typeof renderUsers === 'function') renderUsers();
         }
         return;
     }
 
     // SE HA APPUNTAMENTI FUTURI: Apriamo il modale di protezione
-    document.getElementById('pending-delete-user-id').value = userId;
-    document.getElementById('pending-delete-user-username').value = username;
-    
+    const idField = document.getElementById('pending-delete-user-id');
+    const nameField = document.getElementById('pending-delete-user-username');
     const descEl = document.getElementById('reassign-modal-desc');
+
+    if (idField) idField.value = userId;
+    if (nameField) nameField.value = username;
+    
     if (descEl) {
         descEl.innerHTML = `
             L'operatore <b>${username}</b> ha <b>${futureApps.length} appuntamenti futuri</b> programmati in agenda.<br>
@@ -2350,7 +2386,7 @@ async function deleteUser(userId) {
         `;
     }
 
-    const otherUsers = (allUsers || []).filter(u => u.username.trim().toLowerCase() !== username.toLowerCase());
+    const otherUsers = usersList.filter(u => u.username.trim().toLowerCase() !== username.toLowerCase());
     const targetSelect = document.getElementById('reassign-target-user');
     
     if (targetSelect) {
@@ -2364,7 +2400,11 @@ async function deleteUser(userId) {
     }
 
     const modal = document.getElementById('mod-reassign-user-apps');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+        modal.classList.add('active');
+    } else {
+        alert("Errore: Modale di riassegnazione non trovato nel DOM.");
+    }
 }
 
 function toggleReassignDropdown(enable) {
