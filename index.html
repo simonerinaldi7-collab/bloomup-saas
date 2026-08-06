@@ -2372,7 +2372,7 @@ function toggleReassignDropdown(enable) {
     if (select) select.disabled = !enable;
 }
 
-executeSafeUserDeletion// Esecuzione della cancellazione sicura dopo la scelta dell'admin nel modale
+// Esecuzione della cancellazione sicura dopo la scelta dell'admin nel modale
 async function executeSafeUserDeletion() {
     const userId = document.getElementById('pending-delete-user-id').value;
     const username = document.getElementById('pending-delete-user-username').value;
