@@ -4978,15 +4978,21 @@ async function doLogin() {
         if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
             await window.hydrateLocalDatabase(currentUser.salon_id);
         }
-requestNativeNotificationPermission();
-startProfessionalOperatorAlertSystem();
+
 
         // 3. Caricamento dati in memoria
         await refreshAllData();
 
-        // 4. ORA rimuoviamo la schermata di login e mostriamo l'app SHELL
+// 4. ORA rimuoviamo la schermata di login e mostriamo l'app SHELL
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app-shell').style.display = 'flex';
+
+requestNativeNotificationPermission();
+startProfessionalOperatorAlertSystem();
+
+        
+
+        
 
         // 5. DECISIONE ROTTA INIZIALE (Zero flicker di dati sensibili)
         if (isAdmin) {
