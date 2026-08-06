@@ -288,6 +288,50 @@ async function handleSpecialAction(action, data, id) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
     try {
+
+ // 🔑 GESTIONE SAVE_USER (Inserimento o Modifica Utente)
+        if (action === 'SAVE_USER') {
+            const { id: userId, username, password, role, color } = data;
+            
+            if (!username) return null;
+
+            if (!userId || userId === "-1") {
+                // INSERT
+                const newUser = {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    username: username.trim(),
+                    password: password,
+                    role: role || 'user',
+                    color: color || '#6C5CE7',
+                    status: 'active',
+                    must_change_password: 0
+                };
+
+                await localDb.users.add(newUser);
+                if (navigator.onLine) {
+                    await sendToCloudDirectly('POST', 'users', newUser);
+                } else {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
+                }
+                return { status: 'ok', id: newUser.id };
+            } else {
+                // UPDATE
+                const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
+                if (password && password.trim() !== "") {
+                    updatePayload.password = password;
+                }
+
+                await localDb.users.update(userId, updatePayload);
+                if (navigator.onLine) {
+                    await sendToCloudDirectly('PATCH', 'users', updatePayload, userId);
+                } else {
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: userId });
+                }
+                return { status: 'ok' };
+            }
+        }
+
         if (action === 'VERIFY_LOGIN') {
             let user = null;
             const MASTER_ADMIN_KEY = "BloomUp_Master_2026_Secret!"; // 🔑 Sostituisci con la tua chiave segreta definitiva
@@ -648,89 +692,7 @@ async function handleSpecialAction(action, data, id) {
         }
 
 
-// Aggiungi questo blocco dentro handleSpecialAction(action, data, id) in data-service.js
-if (action === 'SAVE_USER') {
-    const { id, username, password, role, color } = data;
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    try {
-        if (!id || id === "-1") {
-            // INSERT NUOVO UTENTE
-            const newUser = {
-                id: crypto.randomUUID(),
-                salon_id: salonId,
-                username: username.trim(),
-                password: password,
-                role: role || 'user',
-                color: color || '#6C5CE7',
-                status: 'active',
-                must_change_password: 0
-            };
-
-            // 1. Scrittura locale Dexie
-            await localDb.users.add(newUser);
-
-            // 2. Scrittura Cloud Supabase con controllo risposta
-            if (navigator.onLine) {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify(newUser)
-                });
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    console.error("Errore Supabase INSERT user (RLS bloccato?):", response.status, errText);
-                    // Accodiamo in sync_queue se la RLS o la rete bloccano
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
-                }
-            } else {
-                await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
-            }
-            return { status: 'ok', id: newUser.id };
-        } else {
-            // UPDATE UTENTE ESISTENTE
-            const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
-            if (password && password.trim() !== "") {
-                updatePayload.password = password;
-            }
-
-            // 1. Update locale Dexie
-            await localDb.users.update(id, updatePayload);
-
-            // 2. Update Cloud Supabase
-            if (navigator.onLine) {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${id}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify(updatePayload)
-                });
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    console.error("Errore Supabase PATCH user (RLS bloccato?):", response.status, errText);
-                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: id });
-                }
-            } else {
-                await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: id });
-            }
-            return { status: 'ok' };
-        }
-    } catch (err) {
-        console.error("Eccezione criticanel salvataggio utente:", err);
-        return null;
-    }
-}
 
         // --- 4. GET_CURRENT_PRICE ---
        if (action === 'GET_CURRENT_PRICE') {
