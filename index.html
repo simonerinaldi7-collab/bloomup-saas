@@ -4978,8 +4978,8 @@ async function doLogin() {
         if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
             await window.hydrateLocalDatabase(currentUser.salon_id);
         }
-startProfessionalOperatorAlertSystem();
 
+startProfessionalOperatorAlertSystem();
 
         // 3. Caricamento dati in memoria
         await refreshAllData();
@@ -5030,9 +5030,11 @@ startProfessionalOperatorAlertSystem();
 
 
 
-// --- MOTORE AVANZATO ALERT IMMINENTI OPERATORE (MULTI-DISPOSITIVO & SNOOZE) ---
+// --- CENTRO NOTIFICHE E ALLARMI IMMINENTI (PRO & ROBUSTO) ---
+if (typeof window.activeSnoozes === 'undefined') {
+    window.activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
+}
 
-// Legge l'anticipo configurato (default 15 minuti se non specificato)
 function getOperatorImminentLeadTime() {
     return parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15; 
 }
@@ -5041,152 +5043,37 @@ function setOperatorImminentLeadTime(minutes) {
     localStorage.setItem('bloomup_imminent_lead_time', minutes);
 }
 
-let activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
-
-function startAdvancedOperatorAlertChecker() {
+function startProfessionalOperatorAlertSystem() {
+    console.log("🚀 Sistema di monitoraggio appuntamenti imminenti avviato con successo.");
+    
+    // Eseguiamo un controllo ogni 15 secondi per massima reattività
     setInterval(async () => {
         if (!currentUser || !navigator.onLine) return;
 
         try {
             const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-            if (apps.length === 0) return;
+            if (!Array.isArray(apps) || apps.length === 0) return;
 
             const now = new Date();
             const currentUsername = currentUser.username.trim().toLowerCase();
             const leadTimeMinutes = getOperatorImminentLeadTime();
 
             apps.forEach(app => {
+                // Controllo operatore assegnato (default admin se vuoto)
                 const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
                 if (assigned !== currentUsername) return;
 
+                // Escludiamo le pause pranzo
                 const srv = (app.service || '').toLowerCase();
                 if (srv.includes('pausa') || srv.includes('pranzo')) return;
 
-                let appDateTime = new Date(`${app.date}T${app.time}`);
+                if (!app.date || !app.time) return;
 
-                // Se l'appuntamento è stato posticipato (Snooze) via notifica, spostiamo l'orario di controllo virtualmente
-                if (activeSnoozes[app.id]) {
-                    const snoozeUntil = new Date(activeSnoozes[app.id]);
-                    if (now < snoozeUntil) return; // Salta finché dura lo snooze
-                }
+                // Normalizziamo l'orario prendendo solo HH:MM (tagliando eventuali secondi)
+                const timeClean = app.time.substring(0, 5);
+                const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-                const diffMs = appDateTime - now;
-                const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-                // Se ci troviamo esattamente nel minuto impostato come anticipo
-                if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes) {
-                    const trackingKey = `alert_sent_${app.id}_${app.date}_${app.time}`;
-                    
-                    if (!sessionStorage.getItem(trackingKey)) {
-                        sessionStorage.setItem(trackingKey, 'true');
-                        triggerAdvancedNativeNotification(app, diffMinutes);
-                    }
-                }
-            });
-        } catch (e) {
-            console.error("Errore nel checker avanzato alert:", e);
-        }
-    }, 30000); // Controlla ogni 30 secondi
-}
-
-// Spedisce la notifica nativa con azioni su tutti i dispositivi registrati dell'operatore
-function triggerAdvancedNativeNotification(app, minutesLeft) {
-    const title = `⏰ Tra ${minutesLeft} min in Agenda!`;
-    const body = `Cliente: ${app.cust_name}\nTrattamento: ${app.service}\nOrario: ${app.time}`;
-
-    // 1. Tentar di mostrare la notifica nativa di sistema (se il browser la supporta)
-    if ('Notification' in window && Notification.permission === 'granted') {
-        navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification(title, {
-                body: body,
-                icon: './icon-192.png',
-                badge: './icon-192.png',
-                vibrate: [400, 200, 400, 200, 400],
-                requireInteraction: true,
-                data: { appId: app.id }
-            });
-        }).catch(err => console.log("SW notification error:", err));
-    }
-
-    // 2. Mostriamo SEMPRE il Banner In-App interattivo con i bottoni cliccabili (Snooze / Interrompi)
-    showInAppAlertBanner(title, body, app.id);
-}
-
-
-// Banner visivo fluttuante in-app con opzione Snooze e Interrompi integrati direttamente nello schermo!
-function showInAppAlertBanner(title, body, appId) {
-    // Evitiamo di aprire più modali identici sovrapposti
-    if (document.getElementById('modal-imminent-alarm')) return;
-
-    // 🔔 Feedback sonoro continuo o a squillo (campanello)
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Nota C5
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
-    } catch (e) {
-        // Ignora se il browser blocca l'audio
-    }
-
-    // Creiamo un modale d'allarme centrale persistente (non si chiude cliccando fuori)
-    const modalWrapper = document.createElement('div');
-    modalWrapper.id = 'modal-imminent-alarm';
-    modalWrapper.style.cssText = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeInScale 0.3s ease-out;";
-
-    modalWrapper.innerHTML = `
-        <div style="background: #ffffff; color: #1e293b; padding: 35px 30px; border-radius: 24px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.4); border-top: 6px solid #6366f1;">
-            <div style="font-size: 50px; margin-bottom: 10px;">⏰</div>
-            <h2 style="margin: 0 0 10px 0; font-size: 22px; font-weight: 800; color: #1e1b4b;">${title}</h2>
-            <p style="margin: 0 0 25px 0; font-size: 15px; color: #475569; line-height: 1.5; white-space: pre-line; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;">${body}</p>
-            
-            <div style="display: flex; gap: 12px;">
-                <button class="btn" style="flex:1; padding: 14px; font-size: 14px; justify-content: center; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5 min</button>
-                <button class="btn" style="flex:1; padding: 14px; font-size: 14px; justify-content: center; background: #ef4444; border: none; color: white; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modalWrapper);
-}
-
-
-
-
-
-// --- CENTRO NOTIFICHE E ALLARMI IMMINENTI (MULTI-DISPOSITIVO & SNOOZE) ---
-
-// --- CENTRO NOTIFICHE E ALLARMI IMMINENTI (PRO) ---
-if (typeof window.activeSnoozes === 'undefined') {
-    window.activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
-}
-
-function startProfessionalOperatorAlertSystem() {
-    setInterval(async () => {
-        if (!currentUser || !navigator.onLine) return;
-
-        try {
-            const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-            if (apps.length === 0) return;
-
-            const now = new Date();
-            const currentUsername = currentUser.username.trim().toLowerCase();
-            const leadTimeMinutes = parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15;
-
-            apps.forEach(app => {
-                const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
-                if (assigned !== currentUsername) return;
-
-                const srv = (app.service || '').toLowerCase();
-                if (srv.includes('pausa') || srv.includes('pranzo')) return;
-
-                const appDateTime = new Date(`${app.date}T${app.time}`);
-
+                // Controllo Snooze attivo
                 if (window.activeSnoozes[app.id]) {
                     const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                     if (now < snoozeUntil) return;
@@ -5195,24 +5082,32 @@ function startProfessionalOperatorAlertSystem() {
                 const diffMs = appDateTime - now;
                 const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
+                // DEBUG in console (premi F12 per vederlo)
+                // console.log(`Check app: ${app.cust_name} alle ${timeClean} del ${app.date} -> Mancano ${diffMinutes} minuti (Target: <= ${leadTimeMinutes})`);
+
+                // Se mancano esattamente i minuti configurati (per esempio tra 0 e 15 minuti prima)
                 if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes) {
-                    const trackingKey = `pro_alert_${app.id}_${app.date}_${app.time}`;
+                    const trackingKey = `pro_alert_sent_${app.id}_${app.date}_${timeClean}`;
                     
+                    // Verifichiamo di non aver già mostrato l'allarme per questo appuntamento in questa sessione
                     if (!sessionStorage.getItem(trackingKey)) {
                         sessionStorage.setItem(trackingKey, 'true');
+                        console.log(`🔔 TRIGGER ALLARME! Appuntamento imminente con ${app.cust_name} tra ${diffMinutes} minuti.`);
                         triggerProfessionalAlarmModal(app, diffMinutes);
                     }
                 }
             });
         } catch (e) {
-            console.error("Errore nel sistema notifiche professionali:", e);
+            console.error("Errore nel ciclo di controllo allarmi imminenti:", e);
         }
-    }, 20000); 
+    }, 15000); // 15 secondi
 }
 
 function triggerProfessionalAlarmModal(app, minutesLeft) {
+    // Evitiamo di aprire più modali sovrapposti
     if (document.getElementById('pro-alarm-overlay')) return;
 
+    // 🔔 Feedback sonoro (Sveglia)
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTone(freq, timeOffset) {
@@ -5220,16 +5115,18 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
             const gain = audioCtx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime + timeOffset);
-            gain.gain.setValueAtTime(0.15, audioCtx.currentTime + timeOffset);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + timeOffset + 0.3);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + timeOffset);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + timeOffset + 0.35);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(audioCtx.currentTime + timeOffset);
-            osc.stop(audioCtx.currentTime + timeOffset + 0.3);
+            osc.stop(audioCtx.currentTime + timeOffset + 0.35);
         }
         playTone(587.33, 0);
         playTone(880.00, 0.25);
-    } catch (e) {}
+    } catch (e) {
+        console.log("Audio bloccato dalle policy del browser finché non c'è interazione.");
+    }
 
     const overlay = document.createElement('div');
     overlay.id = 'pro-alarm-overlay';
@@ -5246,7 +5143,7 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
             <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 18px; margin: 20px 0; text-align: left;">
                 <div style="font-size: 13px; font-weight: 700; color: #4f46e5; margin-bottom: 4px;">👤 ${app.cust_name}</div>
                 <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">✂️ ${app.service || 'Trattamento'}</div>
-                <div style="font-size: 12px; color: #64748b;">🕒 Orario previsto: <b>${app.date} alle ${app.time}</b></div>
+                <div style="font-size: 12px; color: #64748b;">🕒 Orario previsto: <b>${app.date} alle ${app.time.substring(0, 5)}</b></div>
             </div>
             
             <div style="display: flex; gap: 12px;">
