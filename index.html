@@ -2604,12 +2604,7 @@ async function executeSafeUserDeletion() {
         renderUsers(); 
     }
 
-    async function deleteUser(id) {
-        if(confirm("Eliminare utente?")) {
-            await window.api.query({ action: 'DELETE', table: 'users', id });
-            renderUsers();
-        }
-    }
+    
 
     async function addPriceHistory() {
         const hId = document.getElementById('edit-h-id').value;
