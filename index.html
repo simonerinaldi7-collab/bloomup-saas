@@ -825,6 +825,10 @@
             <label>Ore d'anticipo Reminder</label><input type="number" id="set-rem-hours">
             <label>Template Conferma</label><textarea id="set-msg-confirm" rows="2"></textarea>
             <label>Template Reminder</label><textarea id="set-msg-reminder" rows="2"></textarea>
+            <label style="margin-top:20px;">Anticipo Notifica Imminente Operatore (Minuti)</label>
+<input type="number" id="set-imminent-lead" value="15" min="1" max="120" onchange="saveImminentLeadSetting(this.value)">
+<small style="color:#666; display:block; margin-top:-12px; margin-bottom:15px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
+            
             <button class="btn btn-p" onclick="saveSystemSettings()">Salva</button>
         </div>
     </section>
@@ -3648,6 +3652,19 @@ async function executePasswordUpdate() {
     }
 }
 
+function saveImminentLeadSetting(val) {
+    const mins = parseInt(val) || 15;
+    setOperatorImminentLeadTime(mins);
+    alert(`✅ Impostato preavviso di ${mins} minuti per i promemoria imminenti.`);
+}
+
+// All'avvio della schermata settings, carica il valore salvato
+const originalLoadSettings = window.loadSettingsFields;
+window.loadSettingsFields = function() {
+    if (typeof originalLoadSettings === 'function') originalLoadSettings();
+    const leadInput = document.getElementById('set-imminent-lead');
+    if (leadInput) leadInput.value = getOperatorImminentLeadTime();
+};
 
     function renderTimeline(area, cols) {
         area.innerHTML = ''; 
@@ -4999,6 +5016,108 @@ startOperatorImminentAlertChecker();
 
         resetLogoutTimer();
     }
+
+
+
+// --- MOTORE AVANZATO ALERT IMMINENTI OPERATORE (MULTI-DISPOSITIVO & SNOOZE) ---
+
+// Legge l'anticipo configurato (default 15 minuti se non specificato)
+function getOperatorImminentLeadTime() {
+    return parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15; 
+}
+
+function setOperatorImminentLeadTime(minutes) {
+    localStorage.setItem('bloomup_imminent_lead_time', minutes);
+}
+
+let activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
+
+function startAdvancedOperatorAlertChecker() {
+    setInterval(async () => {
+        if (!currentUser || !navigator.onLine) return;
+
+        try {
+            const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            if (apps.length === 0) return;
+
+            const now = new Date();
+            const currentUsername = currentUser.username.trim().toLowerCase();
+            const leadTimeMinutes = getOperatorImminentLeadTime();
+
+            apps.forEach(app => {
+                const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
+                if (assigned !== currentUsername) return;
+
+                const srv = (app.service || '').toLowerCase();
+                if (srv.includes('pausa') || srv.includes('pranzo')) return;
+
+                let appDateTime = new Date(`${app.date}T${app.time}`);
+
+                // Se l'appuntamento è stato posticipato (Snooze) via notifica, spostiamo l'orario di controllo virtualmente
+                if (activeSnoozes[app.id]) {
+                    const snoozeUntil = new Date(activeSnoozes[app.id]);
+                    if (now < snoozeUntil) return; // Salta finché dura lo snooze
+                }
+
+                const diffMs = appDateTime - now;
+                const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+                // Se ci troviamo esattamente nel minuto impostato come anticipo
+                if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes) {
+                    const trackingKey = `alert_sent_${app.id}_${app.date}_${app.time}`;
+                    
+                    if (!sessionStorage.getItem(trackingKey)) {
+                        sessionStorage.setItem(trackingKey, 'true');
+                        triggerAdvancedNativeNotification(app, diffMinutes);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Errore nel checker avanzato alert:", e);
+        }
+    }, 30000); // Controlla ogni 30 secondi
+}
+
+// Spedisce la notifica nativa con azioni su tutti i dispositivi registrati dell'operatore
+function triggerAdvancedNativeNotification(app, minutesLeft) {
+    const title = `⏰ Tra ${minutesLeft} min in Agenda!`;
+    const body = `Cliente: ${app.cust_name}\nTrattamento: ${app.service}\nOrario: ${app.time}`;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, {
+                body: body,
+                icon: './icon-192.png',
+                badge: './icon-192.png',
+                vibrate: [400, 200, 400],
+                requireInteraction: true,
+                data: { appId: app.id },
+                actions: [
+                    { action: 'snooze_5', title: '⏳ Posticipa 5 min' },
+                    { action: 'dismiss', title: '✕ Interrompi' }
+                ]
+            });
+        });
+    }
+}
+
+// Ascoltatore dei messaggi inviati dal Service Worker (es. tasto Snooze premuto dalla lockscreen)
+if ('navigator' in navigator && navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'SNOOZE_APPOINTMENT') {
+            const appId = event.data.appId;
+            const extraMinutes = event.data.minutes || 5;
+            
+            const snoozeTime = new Date(new Date().getTime() + extraMinutes * 60000).toISOString();
+            activeSnoozes[appId] = snoozeTime;
+            localStorage.setItem('bloomup_active_snoozes', JSON.stringify(activeSnoozes));
+            
+            console.log(`⏳ Appuntamento ${appId} posticipato di ${extraMinutes} minuti.`);
+            alert(`⏳ Promemoria posticipato di ${extraMinutes} minuti.`);
+        }
+    });
+}
+
 
             async function viewApp(id) {
                 const a = allAppointments.find(x => x.id === id); 
