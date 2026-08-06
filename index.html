@@ -403,6 +403,45 @@
         <button class="login-btn" onclick="doLogin()">ACCEDI AL SISTEMA</button>
     </div>
 </div>
+
+<!-- MODALE GESTIONE APPUNTAMENTI ORFANI AL CANCELLARE UN UTENTE -->
+<div id="mod-reassign-user-apps" class="modal" style="z-index: 30000;">
+    <div class="modal-box" style="width: 500px;">
+        <h3 style="margin-top:0; color:var(--d);">⚠️ Attenzione: Utente con Appuntamenti Futuri</h3>
+        <p id="reassign-modal-desc" style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px;">
+            L'operatore che stai cercando di eliminare ha degli appuntamenti futuri in agenda. Come desideri procedere?
+        </p>
+
+        <input type="hidden" id="pending-delete-user-username">
+        <input type="hidden" id="pending-delete-user-id">
+
+        <div style="background: #f8fafc; border: 1px solid var(--border); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+            <label style="margin-top:0;">Scegli un'azione:</label>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: normal; color: var(--txt); text-transform: none; cursor: pointer;">
+                    <input type="radio" name="reassign-action" value="reassign" checked onclick="toggleReassignDropdown(true)">
+                    <span>Riassegna gli appuntamenti futuri a un altro operatore:</span>
+                </label>
+                
+                <select id="reassign-target-user" style="margin: 0 0 0 25px; width: calc(100% - 25px);">
+                    <!-- Popolato dinamicamente -->
+                </select>
+
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: normal; color: var(--d); text-transform: none; cursor: pointer; margin-top: 5px;">
+                    <input type="radio" name="reassign-action" value="delete" onclick="toggleReassignDropdown(false)">
+                    <span>Elimina definitivamente tutti gli appuntamenti futuri di questo operatore</span>
+                </label>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-d" style="flex:1; justify-content:center;" onclick="executeSafeUserDeletion()">Conferma ed Elimina Utente</button>
+            <button class="btn" style="flex:1; justify-content:center; background:#fff;" onclick="closeMod()">Annulla</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODALE CARICO MERCE (MAGAZZINO) -->
 <div id="mod-stock-load" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 450px;">
@@ -874,13 +913,59 @@
         </div>
     </section>
 
-    <section id="v-users" class="view">
-        <div class="card">
-            <h3>Gestione Utenti</h3>
-            <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;"><input type="hidden" id="edit-user-id" value="-1"><input type="text" id="new-user" placeholder="Username"><input type="password" id="new-pass" placeholder="Password"><select id="new-role"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn btn-p" onclick="saveUserRecord()">Salva</button></div>
-            <table><thead><tr><th>Username</th><th>Ruolo</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-users"></tbody></table>
+    <<section id="v-users" class="view">
+    <div class="card">
+        <h3>Gestione Utenti & Operatori</h3>
+        <p style="color:#666; font-size:13px; margin-bottom:20px;">Crea o modifica gli operatori del salone, assegna i ruoli e il colore identificativo per l'agenda.</p>
+        
+        <!-- Form di Creazione / Modifica Utente -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:25px; align-items: end; background: #f8f9fa; padding: 20px; border-radius: 14px; border: 1px solid var(--border);">
+            <input type="hidden" id="edit-user-id" value="-1">
+            <div>
+                <label>Username</label>
+                <input type="text" id="new-user" placeholder="Es. mario" style="margin:0">
+            </div>
+            <div>
+                <label>Password</label>
+                <input type="password" id="new-pass" placeholder="••••••••" style="margin:0">
+            </div>
+            <div>
+                <label>Ruolo</label>
+                <select id="new-role" style="margin:0">
+                    <option value="user">User (Operatore)</option>
+                    <option value="admin">Admin (Titolare)</option>
+                </select>
+            </div>
+            <div>
+                <label>Colore Agenda</label>
+                <select id="new-user-color" style="margin:0">
+                    <option value="#6C5CE7">Viola BloomUp</option>
+                    <option value="#00B894">Verde Smeraldo</option>
+                    <option value="#E17055">Corallo</option>
+                    <option value="#0984e3">Blu Oceano</option>
+                    <option value="#e17055">Arancio Caldo</option>
+                    <option value="#fdcb6e">Giallo Sole</option>
+                    <option value="#e84393">Fucsia</option>
+                    <option value="#2d3436">Antracite</option>
+                </select>
+            </div>
+            <button class="btn btn-p" style="margin:0; justify-content:center;" onclick="saveUserRecord()">Salva Utente</button>
         </div>
-    </section>
+        
+        <!-- Tabella Utenti -->
+        <table id="table-users">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Ruolo</th>
+                    <th>Colore Agenda</th>
+                    <th style="text-align: right;">Azioni</th>
+                </tr>
+            </thead>
+            <tbody id="list-users"></tbody>
+        </table>
+    </div>
+</section>
 
     <section id="v-schedules" class="view">
         <div class="card">
@@ -2125,106 +2210,219 @@ async function submitPasswordReset() {
 
 
 
-    async function renderUsers() {
-        const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
-        const tbody = document.getElementById('list-users');
-        if(!tbody) return;
-        
-        tbody.innerHTML = users.map(u => `
-            <tr>
-                <td>${u.username}</td>
-                <td>${u.role}</td>
-                <td>
-                    <div style="width:20px; height:20px; background:${u.color || '#6C5CE7'}; border-radius:50%; border:1px solid #ddd;"></div>
-                </td>
-                <td style="text-align: right;">
+   async function renderUsers() {
+    const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+    const tbody = document.getElementById('list-users');
+    if(!tbody) return;
+    
+    tbody.innerHTML = users.map(u => `
+        <tr>
+            <td><b>${u.username}</b></td>
+            <td><span style="background:${u.role === 'admin' ? '#ede9fe; color:#6d28d9' : '#f1f5f9; color:#475569'}; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">${u.role}</span></td>
+            <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:22px; height:22px; background:${u.color || '#6C5CE7'}; border-radius:50%; border:1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"></div>
+                    <span style="font-size:11px; color:#666;">${u.color || '#6C5CE7'}</span>
+                </div>
+            </td>
+            <td style="text-align: right;">
+                <div style="display: inline-flex; gap: 6px; justify-content: flex-end;">
                     <button class="btn btn-s" style="padding:4px 10px; font-size:11px;" onclick="editUserRecord('${u.id}')" title="Modifica Utente">✎</button>
                     <button class="btn btn-w" style="padding:4px 10px; font-size:11px; background:#e67e22; border:none; color:white;" onclick="resetUserPassword('${u.id}')" title="Reset Password a 'password'">🔑</button>
                     <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="deleteUser('${u.id}')" title="Elimina Utente">✕</button>
-                </td>
-            </tr>
-        `).join('');
-    }
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
 
 
-    // 📌 ASSICURATI CHE QUESTA FUNZIONE SIA GLOBALE E BEN VISIBILE NEL SCRIPT
-    function editUserRecord(id) {
-        console.log("Edit utente richiesto per ID:", id);
-        const u = allUsers.find(x => x.id === id);
-        if (!u) {
-            console.error("Utente non trovato in allUsers con ID:", id);
-            return;
-        }
+   function editUserRecord(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
 
-        document.getElementById('edit-user-id').value = u.id;
-        document.getElementById('new-user').value = u.username;
-        document.getElementById('new-pass').value = ""; // Lasciamo vuoto per sicurezza
-        document.getElementById('new-role').value = u.role || 'user';
-        document.getElementById('new-user-color').value = u.color || '#6C5CE7';
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    document.getElementById('edit-user-id').value = u.id;
+    document.getElementById('new-user').value = u.username;
+    document.getElementById('new-pass').value = ""; // Vuoto per sicurezza
+    document.getElementById('new-role').value = u.role || 'user';
+    document.getElementById('new-user-color').value = u.color || '#6C5CE7';
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
     async function saveUserRecord() {
-        const editId = document.getElementById('edit-user-id').value;
-        const user = document.getElementById('new-user').value;
-        const pass = document.getElementById('new-pass').value;
-        const role = document.getElementById('new-role').value;
-        const color = document.getElementById('new-user-color').value;
-        
-        if(!user) return alert("Inserisci almeno lo username!");
+    const editId = document.getElementById('edit-user-id').value;
+    const user = document.getElementById('new-user').value.trim();
+    const pass = document.getElementById('new-pass').value;
+    const role = document.getElementById('new-role').value;
+    const color = document.getElementById('new-user-color').value;
+    
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-        if (editId === "-1") {
-            // CREAZIONE NUOVO UTENTE
-            if(!pass) return alert("Inserisci una password per il nuovo utente!");
-            await window.universalQuery({ 
-                action: 'CREATE_USER', 
-                data: { user, pass, role, color } 
-            });
-            alert("Utente creato con successo");
-        } else {
-            // MODIFICA UTENTE ESISTENTE
-            const updateData = { username: user, role, color };
-            // Se viene inserita una nuova password in fase di modifica, la aggiorniamo
-            if (pass) {
-                updateData.password = pass; // Nota: In produzione ricordati di fare l'hash se gestito nel backend
-            }
-            await window.universalQuery({ 
-                action: 'UPDATE', 
-                table: 'users', 
-                data: updateData, 
-                id: editId 
-            });
-            alert("Utente aggiornato con successo");
+    if(!user) return alert("Inserisci almeno lo username!");
+
+    if (editId === "-1") {
+        if(!pass) return alert("Inserisci una password per il nuovo utente!");
+        
+        // Creazione nuovo utente
+        const newUserPayload = {
+            id: crypto.randomUUID(),
+            salon_id: salonId,
+            username: user,
+            password: pass,
+            role: role,
+            color: color,
+            status: 'active'
+        };
+        await window.universalQuery({ action: 'INSERT', table: 'users', data: newUserPayload });
+        alert("Utente creato con successo!");
+    } else {
+        // Modifica utente esistente
+        const updateData = { username: user, role, color };
+        if (pass) {
+            updateData.password = pass;
         }
-        
-        // Reset form e ID nascosto
-        document.getElementById('edit-user-id').value = "-1";
-        document.getElementById('new-user').value = "";
-        document.getElementById('new-pass').value = "";
-        
-        await refreshAllData(); 
-        renderUsers(); 
+        await window.universalQuery({ action: 'UPDATE', table: 'users', data: updateData, id: editId });
+        alert("Utente aggiornato con successo!");
     }
+    
+    document.getElementById('edit-user-id').value = "-1";
+    document.getElementById('new-user').value = "";
+    document.getElementById('new-pass').value = "";
+    
+    await refreshAllData(); 
+    renderUsers(); 
+}
 
     async function resetUserPassword(userId) {
-        if(!confirm("Sei sicuro di voler resettare la password di questo utente a 'password'? Al prossimo accesso sarà obbligato a modificarla.")) return;
-        
-        await window.universalQuery({ 
-            action: 'RESET_PASSWORD', 
-            data: { id: userId } 
-        });
-        
-        alert("Password resettata con successo. Verrà richiesto il cambio password al prossimo login dell'utente.");
-        renderUsers();
-    }
+    if(!confirm("Vuoi impostare la password di default a 'password'? Al prossimo accesso l'utente dovrà modificarla.")) return;
+    
+    const updatePayload = {
+        password: 'password',
+        must_change_password: 1
+    };
+    await window.universalQuery({ 
+        action: 'UPDATE', 
+        table: 'users', 
+        data: updatePayload, 
+        id: userId 
+    });
+    
+    alert("Password resettata a 'password'.");
+    renderUsers();
+}
 
-    async function deleteUser(id) {
-        if(confirm("Sei sicuro di voler eliminare questo utente?")) {
-            await window.universalQuery({ action: 'DELETE', table: 'users', id });
+// 🛡️ FUNZIONE DI PROTEZIONE ELIMINAZIONE (Apre il modale se ci sono appuntamenti futuri)
+async function deleteUser(userId) {
+    const userToDelete = (allUsers || []).find(u => u.id === userId);
+    if (!userToDelete) return alert("Utente non trovato.");
+
+    const username = userToDelete.username.trim();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Controlliamo se l'operatore ha appuntamenti futuri (escludendo le pause pranzo)
+    const futureApps = (allAppointments || []).filter(a => {
+        const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
+        const isFuture = a.date >= todayStr;
+        const isPausa = (a.service || '').toLowerCase().includes('pausa') || (a.service || '').toLowerCase().includes('pranzo');
+        return isSameUser && isFuture && !isPausa;
+    });
+
+    // Se non ha appuntamenti futuri, eliminiamo direttamente
+    if (futureApps.length === 0) {
+        if (confirm(`Sei sicuro di voler eliminare l'utente '${username}'?`)) {
+            await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
+            await refreshAllData();
             renderUsers();
         }
+        return;
     }
+
+    // SE HA APPUNTAMENTI FUTURI: Apriamo il modale di protezione
+    document.getElementById('pending-delete-user-id').value = userId;
+    document.getElementById('pending-delete-user-username').value = username;
+    
+    const descEl = document.getElementById('reassign-modal-desc');
+    if (descEl) {
+        descEl.innerHTML = `
+            L'operatore <b>${username}</b> ha <b>${futureApps.length} appuntamenti futuri</b> programmati in agenda.<br>
+            Prima di poter eliminare l'utente, scegli come gestire questi appuntamenti:
+        `;
+    }
+
+    const otherUsers = (allUsers || []).filter(u => u.username.trim().toLowerCase() !== username.toLowerCase());
+    const targetSelect = document.getElementById('reassign-target-user');
+    
+    if (targetSelect) {
+        if (otherUsers.length > 0) {
+            targetSelect.innerHTML = otherUsers.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+            targetSelect.disabled = false;
+        } else {
+            targetSelect.innerHTML = `<option value="">Nessun altro operatore disponibile</option>`;
+            targetSelect.disabled = true;
+        }
+    }
+
+    const modal = document.getElementById('mod-reassign-user-apps');
+    if (modal) modal.classList.add('active');
+}
+
+function toggleReassignDropdown(enable) {
+    const select = document.getElementById('reassign-target-user');
+    if (select) select.disabled = !enable;
+}
+
+executeSafeUserDeletion// Esecuzione della cancellazione sicura dopo la scelta dell'admin nel modale
+async function executeSafeUserDeletion() {
+    const userId = document.getElementById('pending-delete-user-id').value;
+    const username = document.getElementById('pending-delete-user-username').value;
+    const actionRadio = document.querySelector('input[name="reassign-action"]:checked').value;
+    const targetUser = document.getElementById('reassign-target-user').value;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    try {
+        const futureApps = (allAppointments || []).filter(a => {
+            const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username.toLowerCase();
+            return isSameUser && a.date >= todayStr;
+        });
+
+        if (actionRadio === 'reassign') {
+            if (!targetUser) {
+                return alert("Seleziona un operatore a cui riassegnare gli appuntamenti.");
+            }
+            for (let app of futureApps) {
+                await window.universalQuery({
+                    action: 'UPDATE',
+                    table: 'appointments',
+                    data: { assigned_user: targetUser },
+                    id: app.id
+                });
+            }
+        } else {
+            for (let app of futureApps) {
+                await window.universalQuery({
+                    action: 'DELETE',
+                    table: 'appointments',
+                    id: app.id
+                });
+            }
+        }
+
+        // Eliminazione dell'utente
+        await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
+
+        closeMod();
+        await refreshAllData();
+        renderUsers();
+
+        alert(`✅ Utente '${username}' eliminato con successo.`);
+
+    } catch (err) {
+        console.error("Errore durante la cancellazione sicura dell'utente:", err);
+        alert("Si è verificato un errore durante l'operazione.");
+    }
+}
 
     async function saveUserRecord() {
         const editId = document.getElementById('edit-user-id').value;
