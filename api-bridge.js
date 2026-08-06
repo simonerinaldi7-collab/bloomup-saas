@@ -17,7 +17,10 @@ if (!window.api) {
     window.api = {
         query: window.universalQuery,
         openExternal: (url) => window.open(url, '_blank'),
-        checkReminders: () => {},
+        checkReminders: () => {
+            if (typeof updateReminderBadgeCount === 'function') updateReminderBadgeCount();
+            if (typeof changePage === 'function') changePage('logs');
+        },
         onReminder: () => {},
         onNoReminder: () => {}
     };
@@ -26,4 +29,12 @@ if (!window.api) {
         window.api.originalQuery = window.api.query;
     }
     window.api.query = window.universalQuery;
+    
+    // Iniettiamo checkReminders se non esiste
+    if (!window.api.checkReminders) {
+        window.api.checkReminders = () => {
+            if (typeof updateReminderBadgeCount === 'function') updateReminderBadgeCount();
+            if (typeof changePage === 'function') changePage('logs');
+        };
+    }
 }

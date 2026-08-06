@@ -2546,7 +2546,7 @@ function toggleInvFields() {
 function changePageMobileWrapper(page, force) {
     changePage(page, force);
     
-    // Forza la chiusura del menu laterale ovunque (PC e Mobile)
+    // Forza SEMPRE la chiusura del menu laterale su qualsiasi dispositivo (PC e Mobile)
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     
@@ -3147,7 +3147,8 @@ function triggerImminentPushNotification(app, minutesLeft) {
             updateStats(); 
             renderActiveView();
             if (document.getElementById('user-filter')) updateCalendarUI();
-            
+            await updateReminderBadgeCount();
+
         } catch(e) { 
             console.error("Errore nel refresh:", e); 
         }
@@ -5122,46 +5123,44 @@ function triggerAdvancedNativeNotification(app, minutesLeft) {
 
 // Banner visivo fluttuante in-app con opzione Snooze e Interrompi integrati direttamente nello schermo!
 function showInAppAlertBanner(title, body, appId) {
-    // Rimuoviamo eventuali alert precedenti per evitare duplicati
-    const oldBanner = document.getElementById('active-imminent-alert');
-    if (oldBanner) oldBanner.remove();
+    // Evitiamo di aprire più modali identici sovrapposti
+    if (document.getElementById('modal-imminent-alarm')) return;
 
-    // 🔔 Feedback sonoro di notifica (campanello)
+    // 🔔 Feedback sonoro continuo o a squillo (campanello)
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // Nota E5
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Nota C5
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.25);
+        osc.stop(audioCtx.currentTime + 0.4);
     } catch (e) {
-        // Ignora se il browser blocca l'audio automatico prima di un click
+        // Ignora se il browser blocca l'audio
     }
 
-    // Creiamo un banner fluttuante fisso in alto a destra, ad alto contrasto
-    const banner = document.createElement('div');
-    banner.id = 'active-imminent-alert';
-    banner.style.cssText = "position: fixed; top: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 22px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); z-index: 999999; max-width: 420px; width: 92%; border-left: 6px solid #6366f1; border: 1px solid rgba(255,255,255,0.1);";
+    // Creiamo un modale d'allarme centrale persistente (non si chiude cliccando fuori)
+    const modalWrapper = document.createElement('div');
+    modalWrapper.id = 'modal-imminent-alarm';
+    modalWrapper.style.cssText = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeInScale 0.3s ease-out;";
 
-    banner.innerHTML = `
-        <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom: 14px;">
-            <span style="font-size:32px; line-height: 1;">🔔</span>
-            <div style="flex-grow:1;">
-                <h4 style="margin:0 0 4px 0; font-size:17px; font-weight:800; color:#ffffff; letter-spacing: -0.3px;">${title}</h4>
-                <p style="margin:0; font-size:13px; color:#94a3b8; line-height: 1.5; white-space: pre-line;">${body}</p>
+    modalWrapper.innerHTML = `
+        <div style="background: #ffffff; color: #1e293b; padding: 35px 30px; border-radius: 24px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.4); border-top: 6px solid #6366f1;">
+            <div style="font-size: 50px; margin-bottom: 10px;">⏰</div>
+            <h2 style="margin: 0 0 10px 0; font-size: 22px; font-weight: 800; color: #1e1b4b;">${title}</h2>
+            <p style="margin: 0 0 25px 0; font-size: 15px; color: #475569; line-height: 1.5; white-space: pre-line; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;">${body}</p>
+            
+            <div style="display: flex; gap: 12px;">
+                <button class="btn" style="flex:1; padding: 14px; font-size: 14px; justify-content: center; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5 min</button>
+                <button class="btn" style="flex:1; padding: 14px; font-size: 14px; justify-content: center; background: #ef4444; border: none; color: white; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
             </div>
-        </div>
-        <div style="display:flex; gap:10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;">
-            <button class="btn" style="flex:1; padding:12px; font-size:12px; justify-content:center; background:#4f46e5; border:none; color:white; border-radius:10px; font-weight:700; cursor:pointer;" onclick="snoozeAlertApp('${appId}', 5)">⏳ Posticipa 5 min</button>
-            <button class="btn" style="flex:1; padding:12px; font-size:12px; justify-content:center; background:#ef4444; border:none; color:white; border-radius:10px; font-weight:700; cursor:pointer;" onclick="dismissAlertApp('${appId}')">✕ Interrompi</button>
         </div>
     `;
 
-    document.body.appendChild(banner);
+    document.body.appendChild(modalWrapper);
 }
 
 function snoozeAlertApp(appId, minutes) {
@@ -5169,14 +5168,53 @@ function snoozeAlertApp(appId, minutes) {
     activeSnoozes[appId] = snoozeTime;
     localStorage.setItem('bloomup_active_snoozes', JSON.stringify(activeSnoozes));
     
-    const banner = document.getElementById('active-imminent-alert');
-    if (banner) banner.remove();
+    const modal = document.getElementById('modal-imminent-alarm');
+    if (modal) modal.remove();
 }
 
 function dismissAlertApp(appId) {
-    const banner = document.getElementById('active-imminent-alert');
-    if (banner) banner.remove();
+    const modal = document.getElementById('modal-imminent-alarm');
+    if (modal) modal.remove();
 }
+
+
+
+async function updateReminderBadgeCount() {
+    try {
+        // Usiamo la logica esistente di calcolo dei promemoria da inviare
+        const targetHours = parseInt(sysSettings.reminder_hours) || 48;
+        const targetDate = new Date();
+        targetDate.setHours(targetDate.getHours() + targetHours);
+        const dateStr = targetDate.toISOString().split('T')[0];
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+        let pendingCount = 0;
+        allAppointments.forEach(a => {
+            const isPausa = (a.cust_name && a.cust_name.toLowerCase().includes('pausa')) || (a.service && a.service.toLowerCase().includes('pausa'));
+            if (isPausa) return;
+
+            const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
+            const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
+
+            if (a.date === dateStr && !alreadySent) {
+                pendingCount++;
+            }
+        });
+
+        const alertBox = document.getElementById('reminder-alert');
+        if (alertBox) {
+            if (pendingCount > 0) {
+                alertBox.innerText = `⚠️ ${pendingCount} Messaggi pronti!`;
+                alertBox.classList.remove('hidden');
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+    } catch (e) {
+        console.error("Errore aggiornamento badge reminder:", e);
+    }
+}
+
             async function viewApp(id) {
     const a = allAppointments.find(x => x.id === id); 
     if(!a) return; 
