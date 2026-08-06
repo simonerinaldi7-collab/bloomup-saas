@@ -1514,24 +1514,18 @@
     }
 
     async function generateBreakAppointments(username) {
-    if (!username) {
-        console.warn("[DEBUG PAUSE] Username non valido passato a generateBreakAppointments.");
-        return;
-    }
-
+    if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
     console.log(`[DEBUG PAUSE] 🔄 Avvio generazione/aggiornamento pause per utente: '${cleanUsername}'`);
 
-    // 1. Recuperiamo le schedulazioni dell'operatore
     const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
     const userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
 
     if (!userSchedules || userSchedules.length === 0) {
-        console.log(`[DEBUG PAUSE] ⚠️ Nessuna schedulazione oraria trovata per '${cleanUsername}'. Impossibile generare pause.`);
+        console.log(`[DEBUG PAUSE] ⚠️ Nessuna schedulazione trovata per '${cleanUsername}'.`);
         return;
     }
 
-    // 2. Troviamo il colore dell'operatore in modo sicuro
     let operatorHexColor = '#6C5CE7';
     if (typeof allUsers !== 'undefined' && Array.isArray(allUsers)) {
         const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
@@ -1540,19 +1534,16 @@
 
     const today = new Date();
     
-    // Generiamo/Verifichiamo i prossimi 30 giorni
+    // Generiamo i prossimi 30 giorni
     for (let i = 0; i < 30; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const dayOfWeek = d.getDay(); // 0 = Domenica, 1 = Lunedì...
+        const dayOfWeek = d.getDay(); 
         const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
 
         const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
-        
-        // Ricarichiamo gli appuntamenti freschi per il controllo giorno per giorno
         const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         
-        // Cerchiamo se esiste già una pausa per QUESTO utente in QUESTA specifica data
         let existingBreak = currentApps.find(a => {
             if (!a.date || a.date !== dateStr) return false;
             const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
@@ -1564,16 +1555,11 @@
         });
 
         const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
-        // Verifichiamo se esiste uno stacco orario valido (es. fine 1° blocco e inizio 2° blocco)
         const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
 
         if (!hasValidSplitShift) {
-            // Se il giorno non è lavorativo o non ha lo stacco pausa, ma la pausa esiste in agenda, la eliminiamo
-            if (existingBreak) {
-                if (existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
-                    console.log(`[DEBUG PAUSE] 🗑️ Rimuovo pausa obsoleta per ${cleanUsername} in data ${dateStr}`);
-                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
-                }
+            if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
+                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
             }
             continue;
         }
@@ -1583,7 +1569,6 @@
 
         if (targetTime && targetEndTime && targetTime < targetEndTime) {
             if (existingBreak) {
-                // Se la pausa esiste già, aggiorniamo eventualmente gli orari se sono cambiati nei turni
                 if (existingBreak.time !== targetTime || existingBreak.end_time !== targetEndTime) {
                     await window.universalQuery({
                         action: 'UPDATE',
@@ -1592,10 +1577,9 @@
                         id: existingBreak.id
                     });
                 }
-                continue; // Passiamo al giorno successivo
+                continue; 
             }
 
-            // Creazione nuova pausa automatica
             const breakData = {
                 id: crypto.randomUUID(),
                 cust_name: "☕ Pausa Pranzo",
@@ -1605,17 +1589,22 @@
                 service: "Pausa Pranzo",
                 price: 0,
                 notes: "Generato automaticamente dai turni",
-                assigned_user: username, // Manteniamo ilケース originale o pulito
+                assigned_user: username,
                 color: operatorHexColor
             };
             
-            console.log(`[DEBUG PAUSE] ✨ Creo pausa per ${cleanUsername} il ${dateStr} (${targetTime} - ${targetEndTime})`);
-            await window.universalQuery({ action: 'INSERT', table: 'appointments', data: breakData });
+            console.log(`[DEBUG PAUSE] ✨ INSERISCO pausa per ${cleanUsername} il ${dateStr} (${targetTime} - ${targetEndTime})`);
+            
+            // 🛑 CORRETTO: Inserimento esplicito con la proprietà table
+            await window.universalQuery({ 
+                action: 'INSERT', 
+                table: 'appointments', 
+                data: breakData 
+            });
         }
     }
     console.log(`[DEBUG PAUSE] ✅ Fine generazione pause per: '${cleanUsername}'`);
 }
-
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
         const selectedUser = document.getElementById('user-filter').value;
@@ -5181,6 +5170,7 @@ async function doLogin() {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app-shell').style.display = 'flex';
 
+        
 requestNativeNotificationPermission();
 startProfessionalOperatorAlertSystem();
 
