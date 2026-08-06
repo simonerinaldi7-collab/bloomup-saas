@@ -257,8 +257,16 @@
 
         /* AGENDA STILE GOOGLE CALENDAR */
         .cal-header { padding: 12px 20px; border-bottom: 1px solid #dadce0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: #fff; flex-shrink: 0; }
-        .cal-scroll-area { flex-grow: 1; overflow-y: auto; overflow-x: auto; background: #fff; position: relative; height: calc(100vh - 140px); }
-        .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: #dadce0; gap: 1px; border: 1px solid #dadce0; min-width: 800px; }
+        .cal-scroll-area { 
+    flex-grow: 1; 
+    overflow-y: auto; 
+    overflow-x: auto; 
+    background: #fff; 
+    position: relative;
+    height: calc(100vh - 160px) !important; /* 👈 Blocca l'altezza esatta dell'area visibile */
+    max-height: calc(100vh - 160px) !important;
+}
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: #dadce0; gap: 1px; border: 1px solid #dadce0; min-width: 800px; }
         .day-cell { background: white; height: 120px; padding: 6px; overflow-y: auto; border-right: 1px solid #f1f3f4; border-bottom: 1px solid #f1f3f4; cursor: pointer; transition: background 0.1s; }
         .day-cell:hover { background: #f8f9fa; }
         .day-num { font-weight: 500; font-size: 12px; color: #3c4043; margin-bottom: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
@@ -266,17 +274,74 @@
         .day-cell.today { background: #f8f9fa; }
         .event { color: #3c4043; border-radius: 4px; padding: 3px 6px; font-size: 11px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-left: 3px solid rgba(0,0,0,0.2); }
         
-        .time-grid-container { display: grid; background: #dadce0; gap: 1px; min-width: 900px; position: relative; }
-        .time-grid-week { grid-template-columns: 60px repeat(7, 1fr); }
-        .time-grid-day { grid-template-columns: 60px 1fr; }
-        .slot-header { background: #fff; padding: 10px; text-align: center; font-weight: 500; font-size: 12px; color: #3c4043; position: sticky; top: 0; z-index: 30; border-bottom: 1px solid #dadce0; }
-        .time-label { background: #fff; height: 60px; text-align: right; font-size: 10px; padding-right: 8px; padding-top: 2px; color: #70757a; border-bottom: 1px solid #f1f3f4; box-sizing: border-box; }
-        .day-column { background: white; position: relative; border-right: 1px solid #f1f3f4; height: 780px; box-sizing: border-box; }
-        .day-hour-slot { height: 60px; border-bottom: 1px solid #f1f3f4; box-sizing: border-box; cursor: pointer; }
-        .day-hour-slot:hover { background: #f8f9fa; }
-        .absolute-event { position: absolute; border-radius: 6px; padding: 6px 8px; font-size: 11px; cursor: pointer; overflow: hidden; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border-left: 4px solid rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: flex-start; }
-        .legend { display: flex; gap: 15px; padding: 8px 20px; background: #fff; border-top: 1px solid #dadce0; font-size: 11px; color: #3c4043; flex-shrink: 0; }
+        .time-grid-container {
+    display: grid;
+    background: #dadce0;
+    gap: 1px;
+    min-width: 900px;
+    position: relative;
+}
+.time-grid-week { grid-template-columns: 60px repeat(7, 1fr); }
+.time-grid-day { grid-template-columns: 60px 1fr; }
+.slot-header { 
+    background: #fff; 
+    padding: 10px; 
+    text-align: center; 
+    font-weight: 500; 
+    font-size: 12px;
+    color: #3c4043;
+    position: sticky; 
+    top: 0; 
+    z-index: 30; 
+    border-bottom: 1px solid #dadce0; 
+}
+.time-label { 
+    background: #fff; 
+    height: 60px; /* 60px esatti per ora */
+    text-align: right; 
+    font-size: 10px; 
+    padding-right: 8px; 
+    padding-top: 2px; 
+    color: #70757a; 
+    border-bottom: 1px solid #f1f3f4; 
+    box-sizing: border-box;
+}
 
+/* Colonna del giorno bloccata esattamente a 13 ore (780px) -> Evita lo scroll infinito */
+.day-column {
+    background: white;
+    position: relative;
+    border-right: 1px solid #f1f3f4;
+    height: 780px !important; /* 13 ore * 60px = 780px (Finito alle 21:00 precise) */
+    min-height: 780px !important;
+    max-height: 780px !important;
+    box-sizing: border-box;
+}
+
+.day-hour-slot {
+    height: 60px;
+    border-bottom: 1px solid #f1f3f4;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+.day-hour-slot:hover { background: #f8f9fa; }
+
+/* Slot non lavorativo (Tratteggiato grigio) */
+
+        .absolute-event { position: absolute; border-radius: 6px; padding: 6px 8px; font-size: 11px; cursor: pointer; overflow: hidden; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border-left: 4px solid rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: flex-start; }
+        .legend { 
+    display: flex; 
+    flex-direction: column;
+    gap: 8px; 
+    padding: 10px 20px; 
+    background: #fff; 
+    border-top: 1px solid #dadce0; 
+    font-size: 11px; 
+    color: #3c4043;
+    flex-shrink: 0;
+        }
+    .lg-item { display: flex; align-items: center; gap: 8px; }
+.lg-dot { width: 12px; height: 12px; border-radius: 3px; }
         /* BANNER INSTALLAZIONE PWA */
         #pwa-install-banner {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
