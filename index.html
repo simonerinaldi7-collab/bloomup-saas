@@ -5081,58 +5081,72 @@ function initRealtimeAlertChannel(username) {
 }
 
 function startProfessionalOperatorAlertSystem() {
-    console.log("🚀 Sistema di allarme multi-dispositivo avviato.");
+    console.log("🚀 Sistema di allarme multi-dispositivo con risveglio attivo.");
 
     if (currentUser && currentUser.username) {
         initRealtimeAlertChannel(currentUser.username);
     }
 
-    // Controllo ciclico in background
-    setInterval(async () => {
-        if (!currentUser || !navigator.onLine) return;
-
-        try {
-            const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-            if (!Array.isArray(apps) || apps.length === 0) return;
-
-            const now = new Date();
-            const currentUsername = currentUser.username.trim().toLowerCase();
-            const leadTimeMinutes = getOperatorImminentLeadTime();
-
-            apps.forEach(app => {
-                const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
-                if (assigned !== currentUsername) return;
-
-                const srv = (app.service || '').toLowerCase();
-                if (srv.includes('pausa') || srv.includes('pranzo')) return;
-
-                if (!app.date || !app.time) return;
-
-                const timeClean = app.time.substring(0, 5);
-                const appDateTime = new Date(`${app.date}T${timeClean}:00`);
-
-                if (window.activeSnoozes[app.id]) {
-                    const snoozeUntil = new Date(window.activeSnoozes[app.id]);
-                    if (now < snoozeUntil) return;
-                }
-
-                const diffMs = appDateTime - now;
-                const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-                // Se l'appuntamento rientra nella finestra di preavviso
-                if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes) {
-                    const trackingKey = `pro_alert_sent_${app.id}_${app.date}_${timeClean}`;
-                    
-                    if (!sessionStorage.getItem(trackingKey)) {
-                        sessionStorage.setItem(trackingKey, 'true');
-                        triggerProfessionalAlarmModal(app, diffMinutes);
-                    }
-                }
-            });
-        } catch (e) {
-            console.error("Errore nel ciclo allarmi:", e);
-        }
+    // 1. Controllo periodico ogni 15 secondi (quando l'app è aperta o in background recente)
+    setInterval(() => {
+        checkImminentAppointmentsNow();
     }, 15000); 
+
+    // 2. ⚡ CONTROLLO ISTANTANEO AL RISVEGLIO: 
+    // Appena l'operatore riprende in mano il telefono o sblocca lo schermo riaprendo la PWA, 
+    // il sistema controlla subito l'agenda senza aspettare i 15 secondi del timer!
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log("📱 App tornata in primo piano: verifica istantanea allarmi agenda...");
+            checkImminentAppointmentsNow();
+        }
+    });
+}
+
+async function checkImminentAppointmentsNow() {
+    if (!currentUser || !navigator.onLine) return;
+
+    try {
+        const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        if (!Array.isArray(apps) || apps.length === 0) return;
+
+        const now = new Date();
+        const currentUsername = currentUser.username.trim().toLowerCase();
+        const leadTimeMinutes = parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15;
+
+        apps.forEach(app => {
+            const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
+            if (assigned !== currentUsername) return;
+
+            const srv = (app.service || '').toLowerCase();
+            if (srv.includes('pausa') || srv.includes('pranzo')) return;
+
+            if (!app.date || !app.time) return;
+
+            const timeClean = app.time.substring(0, 5);
+            const appDateTime = new Date(`${app.date}T${timeClean}:00`);
+
+            if (window.activeSnoozes[app.id]) {
+                const snoozeUntil = new Date(window.activeSnoozes[app.id]);
+                if (now < snoozeUntil) return;
+            }
+
+            const diffMs = appDateTime - now;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+            // Se l'appuntamento è imminente (es. da 0 a 15 minuti prima) O è iniziato da pochissimo (es. fino a -5 minuti fa, utile se ha aperto l'app in ritardo)
+            if (diffMinutes >= -5 && diffMinutes <= leadTimeMinutes) {
+                const trackingKey = `pro_alert_sent_${app.id}_${app.date}_${timeClean}`;
+                
+                if (!sessionStorage.getItem(trackingKey)) {
+                    sessionStorage.setItem(trackingKey, 'true');
+                    triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Errore nel controllo imminente al risveglio:", e);
+    }
 }
 
 // Mostra il modale centrale bloccante con suoni ed enfasi
