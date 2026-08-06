@@ -30,7 +30,6 @@ if (typeof Dexie !== 'undefined') {
     console.error("ATTENZIONE: Libreria Dexie.js non caricata!");
 }
 
-// Funzione principale di intercettazione query aggiornata con debug spinto
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
