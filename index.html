@@ -2250,45 +2250,7 @@ async function submitPasswordReset() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-    async function saveUserRecord() {
-    const editId = document.getElementById('edit-user-id').value;
-    const user = document.getElementById('new-user').value.trim();
-    const pass = document.getElementById('new-pass').value;
-    const role = document.getElementById('new-role').value;
-    const color = document.getElementById('new-user-color').value;
     
-    if (!user) return alert("Inserisci almeno lo username!");
-    if (editId === "-1" && !pass) return alert("Inserisci una password per il nuovo utente!");
-
-    try {
-        const res = await window.universalQuery({ 
-            action: 'SAVE_USER', 
-            data: { 
-                id: editId, 
-                username: user, 
-                password: pass, 
-                role: role, 
-                color: color 
-            } 
-        });
-
-        if (res && res.status === 'ok') {
-            alert("✅ Utente salvato con successo!");
-        } else {
-            alert("❌ Errore durante il salvataggio. Controlla la console.");
-        }
-        
-        document.getElementById('edit-user-id').value = "-1";
-        document.getElementById('new-user').value = "";
-        document.getElementById('new-pass').value = "";
-        
-        await refreshAllData(); 
-        if (typeof renderUsers === 'function') renderUsers();
-
-    } catch (err) {
-        console.error("Errore in saveUserRecord:", err);
-    }
-}
 
     async function resetUserPassword(userId) {
     if(!confirm("Vuoi impostare la password di default a 'password'? Al prossimo accesso l'utente dovrà modificarla.")) return;
@@ -2436,61 +2398,62 @@ async function executeSafeUserDeletion() {
 }
 
     async function saveUserRecord() {
-        const editId = document.getElementById('edit-user-id').value;
-        const user = document.getElementById('new-user').value;
-        const pass = document.getElementById('new-pass').value;
-        const role = document.getElementById('new-role').value;
-        const color = document.getElementById('new-user-color').value;
-        
-        if(!user) return alert("Inserisci almeno lo username!");
+    console.log("🖱️ [UI] Click su Salva Utente intercettato.");
+    
+    const editId = document.getElementById('edit-user-id').value;
+    const user = document.getElementById('new-user').value.trim();
+    const pass = document.getElementById('new-pass').value;
+    const role = document.getElementById('new-role').value;
+    const color = document.getElementById('new-user-color').value;
+    
+    console.parametri = { editId, user, role, color };
+    console.log("📦 [UI] Dati letti dal form:", console.parametri);
 
-        if (editId === "-1") {
-            // CREAZIONE NUOVO UTENTE
-            if(!pass) return alert("Inserisci una password per il nuovo utente!");
-            await window.universalQuery({ 
-                action: 'CREATE_USER', 
-                data: { user, pass, role, color } 
-            });
-            alert("Utente creato con successo");
+    if (!user) {
+        alert("Inserisci almeno lo username!");
+        return;
+    }
+
+    if (editId === "-1" && !pass) {
+        alert("Inserisci una password per il nuovo utente!");
+        return;
+    }
+
+    try {
+        
+        const res = await window.universalQuery({ 
+            action: 'SAVE_USER', 
+            data: { 
+                id: editId, 
+                username: user, 
+                password: pass, 
+                role: role, 
+                color: color 
+            } 
+        });
+
+        console.log("📥 [UI] Risposta ricevuta da universalQuery:", res);
+
+        if (res && res.status === 'ok') {
+            alert("✅ Utente salvato con successo!");
         } else {
-            // MODIFICA UTENTE ESISTENTE
-            const updateData = { username: user, role, color };
-            // Se viene inserita una nuova password in fase di modifica, la aggiorniamo
-            if (pass) {
-                updateData.password = pass; // Nota: In produzione ricordati di fare l'hash se gestito nel backend
-            }
-            await window.universalQuery({ 
-                action: 'UPDATE', 
-                table: 'users', 
-                data: updateData, 
-                id: editId 
-            });
-            alert("Utente aggiornato con successo");
+            alert("❌ Errore durante il salvataggio. Controlla la console.");
         }
         
-        // Reset form e ID nascosto
         document.getElementById('edit-user-id').value = "-1";
         document.getElementById('new-user').value = "";
         document.getElementById('new-pass').value = "";
         
         await refreshAllData(); 
-        renderUsers(); 
-    }
+        if (typeof renderUsers === 'function') renderUsers();
 
-    async function resetUserPassword(userId) {
-        if(!confirm("Impostare password di default 'password'?")) return;
-        
-        // Passiamo sia l'ID dell'utente da resettare, sia l'ID dell'admin che sta cliccando
-        await window.api.query({ 
-            action: 'RESET_PASSWORD', 
-            data: { 
-                id: userId, 
-                adminId: currentUser.id // Passiamo chi sta facendo l'azione
-            } 
-        });
-        alert("Password resettata a 'password'");
-        renderUsers();
+    } catch (err) {
+        console.error("💥 [UI] Eccezione critica catturata in saveUserRecord:", err);
+        alert("Errore imprevisto durante il salvataggio utente. Guarda la console.");
     }
+}
+
+   
 
 
     // 1. Controllo unificato: Turno lavorativo + Sovrapposizione appuntamenti
