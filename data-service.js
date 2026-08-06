@@ -41,9 +41,10 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
+    // 🛑 BLINDIAMO IL ROUTING: INSERT, UPDATE e DELETE DEVONO ANDARE SEMPRE ALLE SCRITTURE STANDARD!
+    const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
 
-
-    if (!table && [
+    if (!isStandardWrite && !table && [
         'GET_MARGIN_INSIGHTS', 
         'GET_VOLUME_INSIGHTS', 
         'GET_MONTHLY_BALANCE', 
@@ -63,11 +64,11 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'RESET_PASSWORD',
         'SAVE_USER'
     ].includes(action)) {
-        console.log(`⚡ [ROUTING] Azione speciale riconosciuta senza tabella: ${action}`);
+        console.log(`⚡ [ROUTING] Azione speciale riconosciuta: ${action}`);
         return await handleSpecialAction(action, data, id);
     }
 
-    // C. LETTURE (GET_ALL) -> Strategia Offline-First (Legge locale + Pull di aggiornamento in background se online)
+    // C. LETTURE (GET_ALL)
     if (action === 'GET_ALL') {
         console.log(`📖 [DATA-SERVICE GET_ALL] Richiesta lettura per tabella: '${table}' (SalonId: ${salonId})`);
         try {
@@ -77,13 +78,13 @@ window.appDataService = async function(action, table, data = null, id = null) {
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
-        
-        // Lettura sicura da IndexedDB con fallback su array vuoto
         const records = await localDb.table(table).where('salon_id').equals(salonId).toArray() || [];
         console.log(`📦 [DATA-SERVICE GET_ALL] Restituisco ${records.length} record per '${table}'`);
-        return records; // 👈 IL RETURN DEVE ESSERE ESPLICITO E PRESENTE
+        return records;
     }
 
+    // D. SCRITTURE STANDARD (INSERT, UPDATE, DELETE)
+    console.log(`✍️ [ROUTING] Invio a handleWriteOperation per azione: ${action} su tabella: ${table}`);
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
