@@ -4978,7 +4978,7 @@ async function doLogin() {
         if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
             await window.hydrateLocalDatabase(currentUser.salon_id);
         }
-
+requestNativeNotificationPermission();
 startProfessionalOperatorAlertSystem();
 
         // 3. Caricamento dati in memoria
@@ -5030,6 +5030,23 @@ startProfessionalOperatorAlertSystem();
 
 
 
+// --- ATTIVAZIONE E RICHIESTA PERMESSO NOTIFICHE NATIVE ---
+async function requestNativeNotificationPermission() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        console.warn("Questo browser non supporta le notifiche di sistema.");
+        return;
+    }
+
+    if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            console.log("✅ Permesso notifiche di sistema accordato dall'operatore.");
+        } else {
+            console.log("❌ Permesso notifiche negato.");
+        }
+    }
+}
+    
 // --- CENTRO ALLARMI IMMINENTI PROFESSIONALE (CON SUPABASE REALTIME SYNC) ---
 
 if (typeof window.activeSnoozes === 'undefined') {

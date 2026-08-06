@@ -8,54 +8,42 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/dexie/dist/dexie.js'
 ];
 
-// Installazione: scarica e memorizza i file in cache
+// --- SERVICE WORKER PWA CON GESTIONE NOTIFICHE E CLICK ---
+
+const CACHE_NAME = 'retailmaster-cache-v1';
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Salvataggio asset in cache');
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-  self.skipWaiting();
+    self.skipWaiting();
 });
 
-// Attivazione: pulisce le vecchie cache se aggiorni la versione
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Rimozione vecchia cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
+    event.waitUntil(clients.claim());
 });
 
-
-// --- SERVICE WORKER CON AZIONI INTERATTIVE (SNOOZE & DISMISS) ---
-
+// Ricezione dell'evento di notifica imminente
 self.addEventListener('push', function (event) {
-    let data = { title: '⏰ Appuntamento Imminente', body: 'Il trattamento sta per iniziare.', appId: 'gen_id' };
+    let data = { 
+        title: '⏰ Appuntamento Imminente', 
+        body: 'Hai un trattamento in agenda a breve.', 
+        icon: './icon-192.png',
+        url: './index.html' 
+    };
+    
     if (event.data) {
-        try { data = event.data.json(); } catch (e) { data.body = event.data.text(); }
+        try { 
+            data = event.data.json(); 
+        } catch (e) { 
+            data.body = event.data.text(); 
+        }
     }
 
     const options = {
         body: data.body,
-        icon: './icon-192.png',
+        icon: data.icon || './icon-192.png',
         badge: './icon-192.png',
-        vibrate: [300, 100, 300, 100, 300],
-        requireInteraction: true, // Mantiene la notifica attiva finché l'utente non la tocca
-        data: { appId: data.appId },
-        actions: [
-            { action: 'snooze_5', title: '⏳ Posticipa 5 min' },
-            { action: 'dismiss', title: '✕ Interrompi' }
-        ]
+        vibrate: [400, 200, 400, 200, 400],
+        requireInteraction: true, // Mantiene la notifica attiva sullo schermo
+        data: { url: data.url || './index.html' }
     };
 
     event.waitUntil(
@@ -63,60 +51,23 @@ self.addEventListener('push', function (event) {
     );
 });
 
-// Gestione dei click sui bottoni della notifica nativa
+// ⚡ GESTIONE DEL CLICK SULLA NOTIFICA (Apre l'app se era chiusa)
 self.addEventListener('notificationclick', function (event) {
-    const notification = event.notification;
-    const action = event.action;
-    const appId = notification.data ? notification.data.appId : null;
+    event.notification.close();
 
-    notification.close();
-
-    if (action === 'snooze_5') {
-        // Comuniciamo al client (app aperta) di posticipare l'appuntamento di 5 minuti
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-                clientList.forEach(client => {
-                    client.postMessage({ type: 'SNOOZE_APPOINTMENT', appId: appId, minutes: 5 });
-                });
-            })
-        );
-    } else if (action === 'dismiss') {
-        // L'utente ha interrotto/chiuso l'avviso
-        console.log('Notifica interrotta dall\'operatore per app ID:', appId);
-    } else {
-        // Clic generico sul corpo della notifica -> apre l'app
-        event.waitUntil(
-            clients.openWindow('./index.html')
-        );
-    }
-});
-
-
-// Intercettazione delle richieste (Network First, con fallback su Cache)
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Escludiamo API esterne (Supabase, Google) e richieste di favicon/estensioni
-  if (url.origin !== location.origin || url.pathname.includes('favicon.ico')) {
-    return; 
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Verifichiamo che la risposta sia valida prima di metterla in cache
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return response;
-      })
-      .catch(() => {
-        // Fallback su Cache se offline
-        return caches.match(event.request);
-      })
-  );
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+            // Se l'app è già aperta in qualche scheda, la portiamo in primo piano (focus)
+            for (let i = 0; i < clientList.length; i++) {
+                let client = clientList[i];
+                if ('focus' in client) {
+                    return client.focus();
+                }
+            }
+            // Se l'app era completamente chiusa, apriamo la PWA da zero
+            if (clients.openWindow) {
+                return clients.openWindow(event.notification.data.url || './index.html');
+            }
+        })
+    );
 });
