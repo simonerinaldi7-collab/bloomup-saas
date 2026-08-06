@@ -5213,10 +5213,10 @@ startProfessionalOperatorAlertSystem();
                 const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
                 if (Array.isArray(users)) {
                     for (let u of users) {
-                        if (typeof generateBreakAppointments === 'function') {
-                            await generateBreakAppointments(u.username);
-                        }
-                    }
+    await generateBreakAppointments(u.username);
+}
+await refreshAllData(); // Ricarica tutti gli array globali dal DB locale
+if (typeof renderCalendar === 'function') renderCalendar();
                 }
                 if (typeof checkAndRollBreakAppointments === 'function') {
                     await checkAndRollBreakAppointments();

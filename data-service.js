@@ -957,34 +957,28 @@ async function handleSpecialAction(action, data, id) {
 
 
         // --- INSERT_PRICE_HISTORY (Web / PWA) ---
-        if (action === 'INSERT_PRICE_HISTORY') {
-            const { product_id, cost, price, date_from, date_to } = data;
-            const histId = crypto.randomUUID();
-            const dtTo = date_to || null;
-
-            const historyRecord = {
-                id: histId,
-                salon_id: salonId,
-                product_id: product_id,
-                cost: cost,
-                price: price,
-                date_from: date_from,
-                date_to: dtTo
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId 
             };
+            
+            console.log(`💾 [DATA-SERVICE INSERT] Scrittura su tabella '${table}':`, recordToSave);
 
-            // Salvataggio IndexedDB locale
-            await localDb.price_history.add(historyRecord);
+            // 1. Scrittura locale
+            await localDb.table(table).add(recordToSave);
 
-            // Invio Cloud o Coda
-            if (navigator.onLine) {
-                const success = await sendToCloudDirectly('POST', 'price_history', historyRecord);
+            // 2. Invio Cloud o Accodamento
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
                 if (!success) {
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'price_history', data: historyRecord, target_id: histId });
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
                 }
             } else {
-                await localDb.sync_queue.add({ action: 'INSERT', table_name: 'price_history', data: historyRecord, target_id: histId });
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
             }
-            return { status: 'ok', id: histId };
+            return { status: 'ok', lastInsertRowid: recordToSave.id }; // 👈 ASSICURATI CHE CI SIA IL RETURN
         }
 
         // --- 11. GET_CROSS_SELLING ---
