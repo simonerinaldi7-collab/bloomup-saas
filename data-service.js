@@ -70,6 +70,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
 
     // C. LETTURE (GET_ALL) -> Strategia Offline-First (Legge locale + Pull di aggiornamento in background se online)
     if (action === 'GET_ALL') {
+        console.log(`📖 [DATA-SERVICE GET_ALL] Richiesta lettura per tabella: '${table}' (SalonId: ${salonId})`);
         try {
             if (isOnline) {
                 await backgroundPullFromSupabase(table, salonId);
@@ -78,9 +79,10 @@ window.appDataService = async function(action, table, data = null, id = null) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
         
-        // Ritorna ESCLUSIVAMENTE i record del salonId corrente. 
-        // Se la tabella è settings e non ci sono record, restituirà [] (vuoto, corretto!).
-        return await localDb.table(table).where('salon_id').equals(salonId).toArray();
+        // Lettura sicura da IndexedDB con fallback su array vuoto
+        const records = await localDb.table(table).where('salon_id').equals(salonId).toArray() || [];
+        console.log(`📦 [DATA-SERVICE GET_ALL] Restituisco ${records.length} record per '${table}'`);
+        return records; // 👈 IL RETURN DEVE ESSERE ESPLICITO E PRESENTE
     }
 
     return await handleWriteOperation(action, table, data, id, isOnline);
