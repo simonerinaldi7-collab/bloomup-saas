@@ -2257,55 +2257,33 @@ async function submitPasswordReset() {
     const role = document.getElementById('new-role').value;
     const color = document.getElementById('new-user-color').value;
     
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    if (!user) {
+        return alert("Inserisci almeno lo username!");
+    }
 
-    if (!user) return alert("Inserisci almeno lo username!");
+    if (editId === "-1" && !pass) {
+        return alert("Inserisci una password per il nuovo utente!");
+    }
 
     try {
-        if (editId === "-1") {
-            if (!pass) return alert("Inserisci una password per il nuovo utente!");
-            
-            // Creazione nuovo utente sfruttando il data-service standard (INSERT)
-            const newUserPayload = {
-                id: crypto.randomUUID(),
-                salon_id: salonId,
-                username: user,
-                password: pass,
-                role: role,
-                color: color,
-                status: 'active',
-                must_change_password: 0
-            };
+        const result = await window.universalQuery({ 
+            action: 'SAVE_USER', 
+            data: { 
+                id: editId, 
+                username: user, 
+                password: pass, 
+                role: role, 
+                color: color 
+            } 
+        });
 
-            const res = await window.universalQuery({ 
-                action: 'INSERT', 
-                table: 'users', 
-                data: newUserPayload 
-            });
-
-            if (res) {
-                alert("✅ Utente creato con successo!");
-            } else {
-                alert("❌ Errore durante la creazione dell'utente nel database.");
-            }
+        if (result && result.status === 'ok') {
+            alert("✅ Utente salvato con successo!");
         } else {
-            // Modifica utente esistente (UPDATE)
-            const updateData = { username: user, role, color };
-            if (pass) {
-                updateData.password = pass;
-            }
-
-            await window.universalQuery({ 
-                action: 'UPDATE', 
-                table: 'users', 
-                data: updateData, 
-                id: editId 
-            });
-
-            alert("✅ Utente aggiornato con successo!");
+            alert("❌ Errore durante il salvataggio dell'utente.");
         }
         
-        // Reset form
+        // Reset del form
         document.getElementById('edit-user-id').value = "-1";
         document.getElementById('new-user').value = "";
         document.getElementById('new-pass').value = "";
@@ -2314,8 +2292,8 @@ async function submitPasswordReset() {
         if (typeof renderUsers === 'function') renderUsers();
 
     } catch (err) {
-        console.error("Errore salvataggio utente:", err);
-        alert("Impossibile salvare l'utente. Controlla la console per i dettagli.");
+        console.error("Errore critico in saveUserRecord:", err);
+        alert("Impossibile completare l'operazione.");
     }
 }
 

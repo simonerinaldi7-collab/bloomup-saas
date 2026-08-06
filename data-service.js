@@ -58,7 +58,8 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'INSERT_PRICE_HISTORY',
         'UPDATE_PASSWORD',
         'UPSERT_SETTING',
-        'RESET_PASSWORD'
+        'RESET_PASSWORD',
+        'SAVE_USER'
     ].includes(action)) {
         return await handleSpecialAction(action, data, id);
     }
@@ -645,6 +646,55 @@ async function handleSpecialAction(action, data, id) {
                 total_expenses: m.total_expenses
             })).sort((a, b) => b.m_label.localeCompare(a.m_label));
         }
+
+
+if (action === 'SAVE_USER') {
+    const { id, username, password, role, color } = data;
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    try {
+        if (!id || id === "-1") {
+            // INSERT NUOVO UTENTE
+            const newUser = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                username: username.trim(),
+                password: password, // In un contesto di produzione reale valutare hash, qui mantenuto coerente con l'architettura attuale
+                role: role || 'user',
+                color: color || '#6C5CE7',
+                status: 'active',
+                must_change_password: 0
+            };
+
+            await localDb.users.add(newUser);
+            if (navigator.onLine) {
+                await sendToCloudDirectly('POST', 'users', newUser);
+            } else {
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
+            }
+            return { status: 'ok', id: newUser.id };
+        } else {
+            // UPDATE UTENTE ESISTENTE
+            const updatePayload = { username: username.trim(), role, color };
+            if (password && password.trim() !== "") {
+                updatePayload.password = password;
+            }
+
+            await localDb.users.update(id, updatePayload);
+            const cloudPayload = { ...updatePayload, salon_id: salonId };
+
+            if (navigator.onLine) {
+                await sendToCloudDirectly('PATCH', 'users', cloudPayload, id);
+            } else {
+                await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: cloudPayload, target_id: id });
+            }
+            return { status: 'ok' };
+        }
+    } catch (err) {
+        console.error("Errore salvataggio utente nel data-service:", err);
+        return null;
+    }
+}
 
         // --- 4. GET_CURRENT_PRICE ---
        if (action === 'GET_CURRENT_PRICE') {
