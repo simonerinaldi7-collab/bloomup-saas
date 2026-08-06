@@ -2257,16 +2257,11 @@ async function submitPasswordReset() {
     const role = document.getElementById('new-role').value;
     const color = document.getElementById('new-user-color').value;
     
-    if (!user) {
-        return alert("Inserisci almeno lo username!");
-    }
-
-    if (editId === "-1" && !pass) {
-        return alert("Inserisci una password per il nuovo utente!");
-    }
+    if (!user) return alert("Inserisci almeno lo username!");
+    if (editId === "-1" && !pass) return alert("Inserisci una password per il nuovo utente!");
 
     try {
-        const result = await window.universalQuery({ 
+        const res = await window.universalQuery({ 
             action: 'SAVE_USER', 
             data: { 
                 id: editId, 
@@ -2277,13 +2272,12 @@ async function submitPasswordReset() {
             } 
         });
 
-        if (result && result.status === 'ok') {
+        if (res && res.status === 'ok') {
             alert("✅ Utente salvato con successo!");
         } else {
-            alert("❌ Errore durante il salvataggio dell'utente.");
+            alert("❌ Errore durante il salvataggio. Controlla la console.");
         }
         
-        // Reset del form
         document.getElementById('edit-user-id').value = "-1";
         document.getElementById('new-user').value = "";
         document.getElementById('new-pass').value = "";
@@ -2292,8 +2286,7 @@ async function submitPasswordReset() {
         if (typeof renderUsers === 'function') renderUsers();
 
     } catch (err) {
-        console.error("Errore critico in saveUserRecord:", err);
-        alert("Impossibile completare l'operazione.");
+        console.error("Errore in saveUserRecord:", err);
     }
 }
 
