@@ -1516,15 +1516,14 @@
    async function generateBreakAppointments(username) {
     if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
-    console.log(`[DEBUG PAUSE] 🔄 Avvio generazione/aggiornamento pause per utente: '${cleanUsername}'`);
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    console.log(`[DEBUG PAUSE] 🔄 Avvio generazione per utente: '${cleanUsername}' (Salon: ${salonId})`);
 
     const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
     let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
 
-    // 🛡️ FALLBACK FONDAMENTALE: Se l'operatore (es. admin) non ha turni salvati in operator_schedules, 
-    // gli assegniamo un orario standard di default per consentire la generazione della pausa.
+    // Fallback turni standard se non configurati
     if (!userSchedules || userSchedules.length === 0) {
-        console.log(`[DEBUG PAUSE] ℹ️ Nessun orario trovato per '${cleanUsername}'. Applico orari standard di default (Lun-Sab 09-13 / 14-19).`);
         userSchedules = [1, 2, 3, 4, 5, 6].map(day => ({
             username: username,
             day_of_week: day,
@@ -1545,41 +1544,40 @@
         const d = new Date(today);
         d.setDate(today.getDate() + i);
         const dayOfWeek = d.getDay(); 
-        const dateStr = d.toLocaleDateString('en-CA');
+        const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
 
         const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
         const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         
         let existingBreak = currentApps.find(a => {
-            const isSameDate = a.date === dateStr;
-            const isSameUser = a.assigned_user && a.assigned_user.trim().toLowerCase() === cleanUsername;
+            if (!a.date || a.date !== dateStr) return false;
+            const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
+            if (appUser !== cleanUsername) return false;
             
             const srv = (a.service || "").toLowerCase();
             const cust = (a.cust_name || "").toLowerCase();
-            const isPausa = srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
-
-            return isSameDate && isSameUser && isPausa;
+            return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
         });
 
         const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
         const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
 
         if (!hasValidSplitShift) {
-            if (existingBreak) {
-                if (existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
-                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
-                }
+            if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
+                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
             }
             continue;
         }
-
-        if (existingBreak) continue; 
 
         const targetTime = dayConfig.end_time_1;
         const targetEndTime = dayConfig.start_time_2;
 
         if (targetTime < targetEndTime) {
+            if (existingBreak) continue; // Esiste già, passiamo oltre
+
             const breakData = {
+                id: crypto.randomUUID(),
+                salon_id: salonId, // 👈 CRITICO: Il salon_id deve essere esplicito per rispettare la RLS di Supabase
                 cust_name: "☕ Pausa Pranzo",
                 date: dateStr,
                 time: targetTime,
@@ -1591,13 +1589,43 @@
                 color: operatorHexColor
             };
             
-            console.log(`[DEBUG PAUSE] ✨ CREO NUOVA PAUSA per ${username} in data ${dateStr} (${targetTime}-${targetEndTime})`);
-            
-            // Inserimento standard tramite universalQuery che ora atterra correttamente su handleWriteOperation
-            await window.universalQuery({ action: 'INSERT', table: 'appointments', data: breakData });
+            console.log(`[DEBUG PAUSE] ✨ Scrittura appuntamento pausa per ${cleanUsername} il ${dateStr}`);
+
+            try {
+                // Scrittura diretta tramite Dexie locale
+                if (window.localDb && window.localDb.appointments) {
+                    await window.localDb.appointments.put(breakData);
+                }
+
+                // Sincronizzazione diretta al Cloud Supabase via REST POST con upsert (merge-duplicates)
+                if (navigator.onLine) {
+                    const SUPABASE_URL = window.SUPABASE_CONFIG.url;
+                    const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
+
+                    const response = await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify(breakData)
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        console.error(`❌ Errore Supabase POST pausa (${dateStr}):`, response.status, errText);
+                    } else {
+                        console.log(`🚀 Pausa sincronizzata con successo su Supabase per il ${dateStr}`);
+                    }
+                }
+            } catch (err) {
+                console.error(`❌ Errore critico generazione pausa per il ${dateStr}:`, err);
+            }
         }
     }
-    console.log(`[DEBUG PAUSE] Fine generazione per utente: '${username}'`);
+    console.log(`[DEBUG PAUSE] ✅ Fine generazione pause per: '${cleanUsername}'`);
 }
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
