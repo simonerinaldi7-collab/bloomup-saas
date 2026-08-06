@@ -1521,7 +1521,8 @@
     const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
     let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
 
-    // 🛠️ FALLBACK DI EMERGENZA: Se l'utente (es. admin) non ha turni salvati, diamogli un orario standard dal lunedì al sabato
+    // 🛡️ FALLBACK FONDAMENTALE: Se l'operatore (es. admin) non ha turni salvati in operator_schedules, 
+    // gli assegniamo un orario standard di default per consentire la generazione della pausa.
     if (!userSchedules || userSchedules.length === 0) {
         console.log(`[DEBUG PAUSE] ℹ️ Nessun orario trovato per '${cleanUsername}'. Applico orari standard di default (Lun-Sab 09-13 / 14-19).`);
         userSchedules = [1, 2, 3, 4, 5, 6].map(day => ({
@@ -1535,11 +1536,8 @@
         }));
     }
 
-    let operatorHexColor = '#6C5CE7';
-    if (typeof allUsers !== 'undefined' && Array.isArray(allUsers)) {
-        const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
-        if (targetUser && targetUser.color) operatorHexColor = targetUser.color;
-    }
+    const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
+    const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
 
     const today = new Date();
     
@@ -1547,49 +1545,41 @@
         const d = new Date(today);
         d.setDate(today.getDate() + i);
         const dayOfWeek = d.getDay(); 
-        const dateStr = d.toLocaleDateString('en-CA'); 
+        const dateStr = d.toLocaleDateString('en-CA');
 
         const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
         const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         
         let existingBreak = currentApps.find(a => {
-            if (!a.date || a.date !== dateStr) return false;
-            const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
-            if (appUser !== cleanUsername) return false;
+            const isSameDate = a.date === dateStr;
+            const isSameUser = a.assigned_user && a.assigned_user.trim().toLowerCase() === cleanUsername;
             
             const srv = (a.service || "").toLowerCase();
             const cust = (a.cust_name || "").toLowerCase();
-            return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
+            const isPausa = srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
+
+            return isSameDate && isSameUser && isPausa;
         });
 
         const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
         const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
 
         if (!hasValidSplitShift) {
-            if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
-                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
+            if (existingBreak) {
+                if (existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
+                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
+                }
             }
             continue;
         }
 
+        if (existingBreak) continue; 
+
         const targetTime = dayConfig.end_time_1;
         const targetEndTime = dayConfig.start_time_2;
 
-        if (targetTime && targetEndTime && targetTime < targetEndTime) {
-            if (existingBreak) {
-                if (existingBreak.time !== targetTime || existingBreak.end_time !== targetEndTime) {
-                    await window.universalQuery({
-                        action: 'UPDATE',
-                        table: 'appointments',
-                        data: { time: targetTime, end_time: targetEndTime },
-                        id: existingBreak.id
-                    });
-                }
-                continue; 
-            }
-
+        if (targetTime < targetEndTime) {
             const breakData = {
-                id: crypto.randomUUID(),
                 cust_name: "☕ Pausa Pranzo",
                 date: dateStr,
                 time: targetTime,
@@ -1601,22 +1591,13 @@
                 color: operatorHexColor
             };
             
-            console.log(`[DEBUG PAUSE] ✨ Tenterò di inserire la pausa per ${cleanUsername} il ${dateStr}`);
-
-            try {
-                // 🛑 Chiamata tracciata con cattura dell'esito
-                const insertResult = await window.universalQuery({ 
-                    action: 'INSERT', 
-                    table: 'appointments', 
-                    data: breakData 
-                });
-                console.log(`[DEBUG PAUSE] Esito scrittura per ${dateStr}:`, insertResult);
-            } catch (insErr) {
-                console.error(`❌ [DEBUG PAUSE] Errore critico inserimento pausa per ${dateStr}:`, insErr);
-            }
+            console.log(`[DEBUG PAUSE] ✨ CREO NUOVA PAUSA per ${username} in data ${dateStr} (${targetTime}-${targetEndTime})`);
+            
+            // Inserimento standard tramite universalQuery che ora atterra correttamente su handleWriteOperation
+            await window.universalQuery({ action: 'INSERT', table: 'appointments', data: breakData });
         }
     }
-    console.log(`[DEBUG PAUSE] ✅ Fine generazione pause per: '${cleanUsername}'`);
+    console.log(`[DEBUG PAUSE] Fine generazione per utente: '${username}'`);
 }
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
