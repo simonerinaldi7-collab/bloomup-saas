@@ -561,6 +561,7 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 2. GET_MARGIN_INSIGHTS ---
         // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
+        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
@@ -579,19 +580,30 @@ async function handleSpecialAction(action, data, id) {
             const margins = {};
 
             filteredItems.forEach(si => {
-                const inv = inventory.find(i => i.name.toLowerCase() === si.item_name.toLowerCase());
+                // Troviamo il prodotto associato per nome o per ID se disponibile
+                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
                 const sale = salesInRange.find(s => s.id === si.sale_id);
                 const saleDate = sale ? sale.date : '2099-12-31';
 
-                const soldPrice = si.price || 0;
-                const discount = si.discount || 0;
+                const soldPrice = parseFloat(si.price) || 0;
+                const discount = parseFloat(si.discount) || 0;
                 const finalRev = (soldPrice - discount) * (si.qty || 1);
 
                 let totalCostOrPayout = 0;
 
                 if (inv) {
+                    // Cerchiamo nello storico prezzi il record valido alla data esatta della vendita
                     const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                    
+                    // Fallback se non trova il match per data esatta: prende il più recente prima o vicino alla vendita
+                    let activePh = phList.length > 0 ? phList[0] : null;
+                    if (!activePh) {
+                        const prodHistory = priceHistory.filter(p => p.product_id === inv.id);
+                        prodHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                        activePh = prodHistory.length > 0 ? prodHistory[0] : null;
+                    }
+
+                    const listinoPienoOriginale = activePh ? (parseFloat(activePh.price) || soldPrice) : soldPrice;
 
                     if (inv.is_consignment) {
                         const links = productSuppliers.filter(l => l.product_id === inv.id);
@@ -604,8 +616,8 @@ async function handleSpecialAction(action, data, id) {
                         const unitPayout = (listinoPienoOriginale * totalPct) / 100;
                         totalCostOrPayout = unitPayout * (si.qty || 1);
                     } else {
-                        let unitCost = 0;
-                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
+                        // 💰 PRELEVAMENTO CORRETTO DEL COSTO UNITARIO STORICO
+                        let unitCost = activePh ? (parseFloat(activePh.cost) || 0) : 0;
                         totalCostOrPayout = unitCost * (si.qty || 1);
                     }
                 }
