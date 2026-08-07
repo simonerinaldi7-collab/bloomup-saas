@@ -6969,6 +6969,11 @@ const nowTimestamp = new Date().toISOString();
 
             const schedAlert = document.getElementById('operator-schedule-alert');
             if (schedAlert) schedAlert.style.display = 'none';
+
+            // 🔍 ESEGUIT SUBITO ALL'APERTURA DEL MODALE PER VALUTARE IL TURNO INIZIALE
+            if (typeof checkOperatorScheduleValidity === 'function') {
+                await checkOperatorScheduleValidity();
+            }
         } 
         
         else if (t === 'cust') {
