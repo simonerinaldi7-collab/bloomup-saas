@@ -6235,8 +6235,9 @@ async function saveInv() {
     const id = document.getElementById('edit-p-id').value;
     const name = document.getElementById('f-p-name').value.trim();
     const type = document.getElementById('f-p-type').value;
-    const listingPrice = parseFloat(document.getElementById('f-p-listing-price').value) || 0;
-    const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
+    const rawPriceInput = document.getElementById('f-p-listing-price').value;
+const listingPrice = parseFloat(String(rawPriceInput).replace(',', '.')) || 0;
+const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
     
     const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value.trim() : '';
     const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value.trim() : '';
@@ -6280,12 +6281,14 @@ productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || r
 
         await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: id });
 
+        
         // Gestione aggiornamento prezzo listino se modificato
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
-        const oldListingPrice = currentPriceInfo ? currentPriceInfo.price : 0;
-        const oldCostPrice = currentPriceInfo ? currentPriceInfo.cost : 0;
+        const oldListingPrice = currentPriceInfo && currentPriceInfo.price !== undefined ? parseFloat(currentPriceInfo.price) : 0;
+        const oldCostPrice = currentPriceInfo && currentPriceInfo.cost !== undefined ? parseFloat(currentPriceInfo.cost) : 0;
 
-        if (listingPrice !== oldListingPrice) {
+        // Confrontiamo i valori arrotondati a 2 decimali per evitare bug di floating point
+        if (Number(listingPrice.toFixed(2)) !== Number(oldListingPrice.toFixed(2))) {
             const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: id });
             const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= todayStr);
 
@@ -6340,8 +6343,8 @@ productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || r
         }
     }
 
-    alert("Anagrafica prodotto salvata con successo!");
-    refreshAllData(); 
+   alert("Anagrafica prodotto salvata con successo!");
+    await refreshAllData(); 
     closeMod();
 }
 
