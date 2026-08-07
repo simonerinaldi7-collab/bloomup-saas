@@ -15,6 +15,14 @@
 
 
 
+/* 🎨 STILI E BORDI PER EVENTI IN AGENDA (CONFERME E REMINDER) */
+        .event.st-confirm {
+            border-left: 5px solid #000000 !important; /* Bordo nero/scuro per conferma */
+        }
+        .event.st-remind {
+            border-left: 5px solid #FF00FF !important; /* Bordo fucsia per remind inviato */
+        }
+
         @keyframes pulseAlarm {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
     70% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(99, 102, 241, 0); }
@@ -4557,22 +4565,28 @@ async function registerOperatorPushNotifications() {
     }
 
             function getEventStyles(a) {
+        if (!a || !allLogs || allLogs.length === 0) return '';
+        
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
-        
-        // Cerchiamo nei log caricati (allLogs)
-        const sentRemind = allLogs.some(l => 
-            l.appointment_info === logKey && 
-            l.msg_type.includes('REMINDER')
-        );
-        
-        const sentConfirm = allLogs.some(l => 
-            l.appointment_info === logKey && 
-            l.msg_type.includes('CONFIRM')
-        );
-        
-        if(sentRemind) return 'st-remind'; 
-        if(sentConfirm) return 'st-confirm';
+        const targetCust = (a.cust_name || '').trim().toLowerCase();
+        const targetDate = a.date;
+        const targetTime = (a.time || '').substring(0, 5);
+
+        // Cerchiamo nello storico dei log se esiste un invio per questo appuntamento (confrontando cliente, data e ora)
+        const matchedLog = allLogs.find(l => {
+            if (!l.appointment_info) return false;
+            const info = l.appointment_info.toLowerCase();
+            const matchCust = info.includes(targetCust);
+            const matchDate = info.includes(targetDate);
+            const matchTime = info.includes(targetTime);
+            return matchCust && matchDate && matchTime;
+        });
+
+        if (matchedLog) {
+            const type = (matchedLog.msg_type || '').toUpperCase();
+            if (type.includes('REMINDER')) return 'st-remind';
+            if (type.includes('CONFIRM')) return 'st-confirm';
+        }
         
         return ''; 
     }
