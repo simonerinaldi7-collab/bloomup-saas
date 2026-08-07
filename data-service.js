@@ -62,7 +62,6 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return await handleSpecialAction(action, data, id);
     }
 
-    // C. LETTURE (GET_ALL) -> Strategia Offline-First (Legge locale + Pull di aggiornamento in background se online)
     if (action === 'GET_ALL') {
         try {
             if (isOnline) {
@@ -71,9 +70,6 @@ window.appDataService = async function(action, table, data = null, id = null) {
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
-        
-        // Ritorna ESCLUSIVAMENTE i record del salonId corrente. 
-        // Se la tabella è settings e non ci sono record, restituirà [] (vuoto, corretto!).
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
