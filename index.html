@@ -1395,7 +1395,15 @@
             let cart=[], currentCheckoutCustomer=null, currentViewApp=null, calView='week', viewDate=new Date();
             let inventoryFilter = "all"; // "all" o "lowstock"
             
-
+// 🛡️ FILTRO CONSOLE: Ignora i log di telemetria interna di terze parti (WhatsApp/Meta)
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    const msg = args.join(' ');
+    if (msg.includes('ErrorUtils caught an error') || msg.includes('crashlogs.whatsapp.net') || msg.includes('Content Security Policy')) {
+        return; // Ignora silenziosamente gli avvisi di Meta
+    }
+    originalConsoleError.apply(console, args);
+};
 
             // Funzione sicura per leggere valori senza mandare in crash l'app
             function getValue(id) {

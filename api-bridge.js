@@ -13,30 +13,12 @@ window.universalQuery = async function(params) {
     }
 };
 
-// Sostituzione in api-bridge.js
+// Sostituzione in api-bridge.js con l'affidabilissimo wa.me
 if (!window.api) {
     window.api = {
         query: window.universalQuery,
         openExternal: (url) => {
-            if (url.includes('wa.me') || url.includes('whatsapp.com')) {
-                // Estraiamo il numero e il testo dall'URL di wa.me per convertirlo nel protocollo nativo di sistema
-                try {
-                    const urlObj = new URL(url);
-                    const phone = urlObj.pathname.replace(/\D/g, '');
-                    const text = urlObj.searchParams.get('text') || '';
-                    
-                    // Protocollo nativo WhatsApp Desktop (se installato, apre l'app nativa senza caricare script web di crash)
-                    const nativeUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
-                    
-                    if (window.open(nativeUrl, '_system')) {
-                        return;
-                    }
-                } catch (e) {
-                    console.warn("Fallback su URL web standard per WhatsApp:", e);
-                }
-            }
-
-            // Apertura standard per tutti gli altri link (SMS, browser esterni, ecc.)
+            // Apriamo via web standard wa.me che è l'unico metodo ufficiale supportato al 100%
             window.open(url, '_blank');
         },
         checkReminders: () => {
@@ -53,16 +35,6 @@ if (!window.api) {
     window.api.query = window.universalQuery;
     
     window.api.openExternal = (url) => {
-        if (url.includes('wa.me') || url.includes('whatsapp.com')) {
-            try {
-                const urlObj = new URL(url);
-                const phone = urlObj.pathname.replace(/\D/g, '');
-                const text = urlObj.searchParams.get('text') || '';
-                const nativeUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
-                window.open(nativeUrl, '_system');
-                return;
-            } catch (e) {}
-        }
         window.open(url, '_blank');
     };
 
