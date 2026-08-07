@@ -4091,7 +4091,6 @@ window.loadSettingsFields = function() {
         area.innerHTML = ''; 
         const containerClass = (cols === 7) ? 'time-grid-week' : 'time-grid-day';
         
-        // Contenitore principale flessibile
         let html = `<div style="display:flex; flex-direction:column; width:100%; min-height:100%;">`;
 
         // 1. HEADER GIORNI
@@ -4115,66 +4114,94 @@ window.loadSettingsFields = function() {
         // 2. CORPO GRIGLIA TEMPORALE (Ore + Colonne)
         html += `<div class="time-grid-container ${containerClass}">`;
         
-       html += `<div>`;
-    for (let h = 7; h < 22; h++) {
-        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
-    }
-    html += `</div>`;
+        html += `<div>`;
+        for (let h = 7; h < 22; h++) {
+            html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+        }
+        html += `</div>`;
 
         // Colonne dei singoli giorni
-    for (let c = 0; c < cols; c++) {
-        const t = new Date(startDate);
-        t.setDate(startDate.getDate() + c);
-        const dStr = t.toLocaleDateString('en-CA');
-        const dayOfWeek = t.getDay();
+        for (let c = 0; c < cols; c++) {
+            const t = new Date(startDate);
+            t.setDate(startDate.getDate() + c);
+            const dStr = t.toLocaleDateString('en-CA');
+            const dayOfWeek = t.getDay();
 
-        const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
-        let isWorkingSlotFunc = (user, hour) => true;
+            const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
+            let isWorkingSlotFunc = (user, hour) => true;
 
-        // Se è selezionato un operatore specifico, verifichiamo i suoi turni reali
-        if (activeFilterUser !== 'all') {
-            const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
-                s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
-                s.day_of_week === dayOfWeek
-            );
+            if (activeFilterUser !== 'all') {
+                const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
+                    s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
+                    s.day_of_week === dayOfWeek
+                );
 
-            isWorkingSlotFunc = (username, h) => {
-                if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
-                const shifts = [];
-                if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-                if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+                isWorkingSlotFunc = (username, h) => {
+                    if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
+                    const shifts = [];
+                    if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+                    if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
 
-                const slotMinutes = h * 60;
-                return shifts.some(sh => {
-                    const [sH, sM] = sh.start.split(':').map(Number);
-                    const [eH, eM] = sh.end.split(':').map(Number);
-                    return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
-                });
-            };
-        }
+                    const slotMinutes = h * 60;
+                    return shifts.some(sh => {
+                        const [sH, sM] = sh.start.split(':').map(Number);
+                        const [eH, eM] = sh.end.split(':').map(Number);
+                        return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
+                    });
+                };
+            }
 
-        const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
-        const processedApps = calculateEventOverlapLayout(dayApps);
-
-        html += `<div class="day-column">`;
-        
-        // Sfondi orari fissi (dalle 07:00 alle 22:00)
-        for (let h = 7; h < 22; h++) {
-            const timeStr = `${String(h).padStart(2, '0')}:00`;
-            const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
-            const slotStyleClass = isWorking ? '' : 'non-working';
-            const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard / Riposo`;
-
-            html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
-        }
+            const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
             
+            // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
+            if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
+                const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
+                const activeOp = activeFilterUser.trim().toLowerCase();
+                if (activeOp === 'all' || activeOp === pUser) {
+                    dayApps.push({
+                        id: 'ghost_preview_temp',
+                        cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
+                        date: window.pendingSmartPreview.date,
+                        time: window.pendingSmartPreview.time,
+                        end_time: window.pendingSmartPreview.end_time,
+                        service: window.pendingSmartPreview.service,
+                        assigned_user: window.pendingSmartPreview.assigned_user,
+                        isGhost: true
+                    });
+                }
+            }
 
-            // Eventi posizionati in assoluto
-           processedApps.forEach(ev => {
+            const processedApps = calculateEventOverlapLayout(dayApps);
 
-const isGhost = ev.isGhost === true;
-                const ghostStyle = isGhost ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px);' : `background-color: ${userColor}; color: white;`;
-                const clickAction = isGhost ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); const sInput=document.getElementById('f-a-search'); if(sInput) sInput.value='${window.pendingSmartPreview.custName}'; window.pendingSmartPreview = null;` : `viewApp('${ev.id}')`;
+            html += `<div class="day-column">`;
+            
+            // Sfondi orari fissi (dalle 07:00 alle 22:00)
+            for (let h = 7; h < 22; h++) {
+                const timeStr = `${String(h).padStart(2, '0')}:00`;
+                const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
+                const slotStyleClass = isWorking ? '' : 'non-working';
+                const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard / Riposo`;
+
+                html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
+            }
+
+            // Eventi posizionati in assoluto (ordinati e corretti con le dichiarazioni a monte)
+            processedApps.forEach(ev => {
+                const userColor = getUserColor(ev.assigned_user);
+                const topPx = ev.topPx;
+                const heightPx = Math.max(ev.heightPx, 25);
+                const widthPct = ev.widthPct;
+                const leftPct = ev.leftPct;
+                const statusClass = getEventStyles(ev);
+
+                const isGhost = ev.isGhost === true;
+                const ghostStyle = isGhost 
+                    ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold;' 
+                    : `background-color: ${userColor}; color: white;`;
+                
+                const clickAction = isGhost 
+                    ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); const sInput=document.getElementById('f-a-search'); if(sInput) sInput.value='${window.pendingSmartPreview.custName}'; window.pendingSmartPreview = null;` 
+                    : `viewApp('${ev.id}')`;
 
                 html += `
                     <div class="absolute-event ${statusClass}" 
@@ -4185,53 +4212,8 @@ const isGhost = ev.isGhost === true;
                         <div style="font-size:9px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.service || ''}</div>
                     </div>
                 `;
-
-                const userColor = getUserColor(ev.assigned_user);
-                const topPx = ev.topPx;
-                const heightPx = Math.max(ev.heightPx, 25);
-                const widthPct = ev.widthPct;
-                const leftPct = ev.leftPct;
-
-                // 🔍 CHIAMATA ESPLICITA A GETEVENTSTYLES ANCHE QUI:
-                const statusClass = getEventStyles(ev);
-
-const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
-        
-        // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
-        if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
-            const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
-            const activeOp = activeFilterUser.trim().toLowerCase();
-            if (activeOp === 'all' || activeOp === pUser) {
-                // Evitiamo di duplicarlo se per caso è già presente negli appuntamenti reali
-                dayApps.push({
-                    id: 'ghost_preview_temp',
-                    cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
-                    date: window.pendingSmartPreview.date,
-                    time: window.pendingSmartPreview.time,
-                    end_time: window.pendingSmartPreview.end_time,
-                    service: window.pendingSmartPreview.service,
-                    assigned_user: window.pendingSmartPreview.assigned_user,
-                    isGhost: true
-                });
-            }
-        }
-
-        const processedApps = calculateEventOverlapLayout(dayApps);
-
-
-                html += `
-                    <div class="absolute-event ${statusClass}" 
-                        onclick="event.stopPropagation(); viewApp('${ev.id}')" 
-                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; background-color: ${userColor}; color: white;">
-                        <div style="font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)} - ${ev.end_time || ''}</div>
-                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
-                        <div style="font-size:9px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.service || ''}</div>
-                    </div>
-                `;
             });
 
-
-            
             html += `</div>`; // Chiude day-column
         }
 
