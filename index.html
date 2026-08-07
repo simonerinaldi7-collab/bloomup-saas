@@ -4129,6 +4129,9 @@ window.loadSettingsFields = function() {
                 const widthPct = ev.widthPct;
                 const leftPct = ev.leftPct;
 
+                // 🔍 CHIAMATA ESPLICITA A GETEVENTSTYLES ANCHE QUI:
+                const statusClass = getEventStyles(ev);
+
                 html += `
                     <div class="absolute-event" 
                         onclick="event.stopPropagation(); viewApp('${ev.id}')" 
