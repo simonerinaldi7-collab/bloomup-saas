@@ -4920,30 +4920,34 @@ async function registerOperatorPushNotifications() {
 
         if (!searchInputEl || !alertBox || !alertListContainer) return;
 
-        const custNameInput = searchInputEl.value.trim().toLowerCase();
+        const typedText = searchInputEl.value.trim().toLowerCase();
         const currentAppId = document.getElementById('edit-a-id').value; // Esclude se stesso in modifica
 
-        // Se il nome è troppo corto, nascondiamo il box
-        if (!custNameInput || custNameInput.length < 2) {
+        if (!typedText || typedText.length < 2) {
             alertBox.style.display = 'none';
             return;
         }
 
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Filtriamo tra tutti gli appuntamenti futuri di questo cliente
+        // 🛡️ RICERCA ROBUSTA: Confronta il testo digitato con il nome cliente nell'appuntamento o nell'anagrafica clienti
         const duplicates = (allAppointments || []).filter(a => {
             if (currentAppId !== "-1" && a.id === currentAppId) return false;
 
             const appCustName = (a.cust_name || '').trim().toLowerCase();
-            const isSameClient = appCustName === custNameInput || 
-                                appCustName.includes(custNameInput) || 
-                                custNameInput.includes(appCustName);
             
-            // Consideriamo solo gli appuntamenti da oggi in poi
+            // Verifichiamo se il testo digitato è contenuto nell'appuntamento o viceversa
+            const isMatchText = appCustName.includes(typedText) || typedText.includes(appCustName);
+            
+            // Verifichiamo anche tramite l'anagrafica clienti per sicurezza
+            const matchedCustomer = (allCustomers || []).find(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                return fullName.includes(typedText) && (appCustName === fullName || appCustName.includes(c.first_name?.toLowerCase() || ''));
+            });
+
             const isFuture = a.date >= todayStr;
 
-            return isSameClient && isFuture;
+            return (isMatchText || matchedCustomer) && isFuture;
         });
 
         if (duplicates.length > 0) {
@@ -4959,7 +4963,7 @@ async function registerOperatorPushNotifications() {
                     <div style="background:white; padding:8px 10px; border-radius:6px; border:1px solid #ffeeba; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                         <div>
                             <b>${formattedDate}</b> @ ${timeStr} — <span style="color:#2d3436;">${a.service || 'Servizio'}</span> 
-                            <br><small style="color:#666;">Operatore: <b>${operator}</b></small>
+                            <br><small style="color:#666;">Cliente: <b>${a.cust_name}</b> | Operatore: <b>${operator}</b></small>
                         </div>
                         <button type="button" class="btn btn-s" style="padding:4px 8px; font-size:11px;" onclick="closeMod(); editApp('${a.id}');" title="Modifica questo appuntamento esistente">
                             ✏️ Apri
@@ -4968,7 +4972,6 @@ async function registerOperatorPushNotifications() {
                 `;
             }).join('');
 
-            // Mostriamo il box con l'elenco
             alertBox.style.setProperty('display', 'block', 'important');
         } else {
             alertBox.style.display = 'none';
