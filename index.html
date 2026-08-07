@@ -4930,28 +4930,39 @@ async function registerOperatorPushNotifications() {
 
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // 🛡️ RICERCA ROBUSTA: Confronta il testo digitato con il nome cliente nell'appuntamento o nell'anagrafica clienti
+        // 🛡️ FILTRO RIGOROSO: Evita falsi positivi tra omonimie parziali (es. Simone Sino vs Simone Rinaldi)
         const duplicates = (allAppointments || []).filter(a => {
             if (currentAppId !== "-1" && a.id === currentAppId) return false;
 
             const appCustName = (a.cust_name || '').trim().toLowerCase();
             
-            // Verifichiamo se il testo digitato è contenuto nell'appuntamento o viceversa
-            const isMatchText = appCustName.includes(typedText) || typedText.includes(appCustName);
+            // Verifichiamo l'uguaglianza esatta o se il nome completo corrisponde con precisione
+            const isExactMatch = appCustName === typedText;
+            const isIncludedMatch = appCustName.includes(typedText) || typedText.includes(appCustName);
             
-            // Verifichiamo anche tramite l'anagrafica clienti per sicurezza
-            const matchedCustomer = (allCustomers || []).find(c => {
-                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                return fullName.includes(typedText) && (appCustName === fullName || appCustName.includes(c.first_name?.toLowerCase() || ''));
-            });
+            // Per evitare che "Simone Sino" matchi "Simone Rinaldi", se c'è più di una parola controlliamo che le parole chiave combacino
+            let isValidByName = isExactMatch;
+            if (!isExactMatch && isIncludedMatch) {
+                // Se digitato "simone sino", verifichiamo che l'appuntamento contenga entrambe le parti o sia coerente
+                const typedParts = typedText.split(' ').filter(p => p.length > 1);
+                const appParts = appCustName.split(' ').filter(p => p.length > 1);
+                
+                // Se il cognome differisce (es. sino vs rinaldi), scartiamo il falso positivo
+                if (typedParts.length > 1 && appParts.length > 1) {
+                    const typedLastName = typedParts[typedParts.length - 1];
+                    const appLastName = appParts[appParts.length - 1];
+                    isValidByName = (appCustName.includes(typedText)) && (typedLastName === appLastName);
+                } else {
+                    isValidByName = appCustName === typedText || appCustName.startsWith(typedText);
+                }
+            }
 
             const isFuture = a.date >= todayStr;
 
-            return (isMatchText || matchedCustomer) && isFuture;
+            return isValidByName && isFuture;
         });
 
         if (duplicates.length > 0) {
-            // Ordiniamo per data crescente (dal più vicino al più lontano)
             duplicates.sort((a, b) => a.date.localeCompare(b.date));
 
             alertListContainer.innerHTML = duplicates.map(a => {
@@ -6830,13 +6841,18 @@ const nowTimestamp = new Date().toISOString();
         r.style.display = f.length ? 'block' : 'none'; 
     }
     
-    function selectClient(n, id, t) { 
+   function selectClient(n, id, t) { 
         if(t === 'sale') { 
             currentCheckoutCustomer = { id, name: n }; 
             document.getElementById('cart-selected-cust').innerText = n; 
         } else { 
             document.getElementById('f-a-search').value = n; 
             document.getElementById('f-a-cust-id').value = id; 
+            
+            // 🔍 ATTIVIAMO IL CONTROLLO DUPLICATI APPLICATO AL CLIENTE SELEZIONATO
+            if (typeof checkDuplicateAppointments === 'function') {
+                checkDuplicateAppointments();
+            }
         } 
         document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); 
     }
