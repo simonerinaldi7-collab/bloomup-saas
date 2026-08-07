@@ -6233,9 +6233,9 @@ async function executeStockLoad() {
     // Correzione di saveInv per includere il campo size
 async function saveInv() {
     const rawId = document.getElementById('edit-p-id').value;
-    // 🛡️ SE L'ID È "-1" O VUOTO, SI TRATTA DI UN NUOVO INSERIMENTO E GENERIAMO UN UUID FRESCO
     const isNew = (!rawId || rawId === "-1" || rawId === -1);
-    const productId = isNew ? crypto.randomUUID() : rawId;
+    // Usiamo una variabile 'targetId' univoca per tutta la funzione
+    const targetId = isNew ? crypto.randomUUID() : rawId;
 
     const name = document.getElementById('f-p-name').value.trim();
     const type = document.getElementById('f-p-type').value;
@@ -6259,7 +6259,7 @@ async function saveInv() {
 
     if (isNew) {
         let invData = { 
-            id: productId, // 👈 Ora passa sempre un UUID valido e mai "-1"
+            id: targetId,
             salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             name: name, 
             type: type, 
@@ -6279,13 +6279,14 @@ async function saveInv() {
         const historyData = {
             id: crypto.randomUUID(),
             salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-            product_id: productId,
+            product_id: targetId,
             cost: 0,
             price: Number(listingPrice) || 0,
             date_from: todayStr,
             date_to: null
         };
-        const histRes = await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
+        await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
+
     } else {
         let invData = { 
             name: name, 
@@ -6300,15 +6301,15 @@ async function saveInv() {
             is_consignment: Boolean(is_consignment)
         };
 
-        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: productId });
-        // Gestione aggiornamento prezzo listino se modificato
-        const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
+        // 👈 Usiamo targetId al posto del vecchio 'id' non definito
+        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: targetId });
+
+        const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: targetId });
         const oldListingPrice = currentPriceInfo && currentPriceInfo.price !== undefined ? parseFloat(currentPriceInfo.price) : 0;
         const oldCostPrice = currentPriceInfo && currentPriceInfo.cost !== undefined ? parseFloat(currentPriceInfo.cost) : 0;
 
-        // Confrontiamo i valori arrotondati a 2 decimali per evitare bug di floating point
         if (Number(listingPrice.toFixed(2)) !== Number(oldListingPrice.toFixed(2))) {
-            const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: id });
+            const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: targetId });
             const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= todayStr);
 
             if (activeHistory) {
@@ -6321,18 +6322,20 @@ async function saveInv() {
             }
 
             const newHistoryData = {
-                product_id: id,
+                id: crypto.randomUUID(),
+                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                product_id: targetId,
                 cost: oldCostPrice,
-                price: listingPrice,
+                price: Number(listingPrice) || 0,
                 date_from: todayStr,
                 date_to: null
             };
-            const histResUpdate = await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
+            await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
         }
 
         const oldLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
         for (let ol of (Array.isArray(oldLinks) ? oldLinks : [])) {
-            if (ol.product_id === id) {
+            if (ol.product_id === targetId) {
                 await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: ol.id });
             }
         }
@@ -6352,7 +6355,7 @@ async function saveInv() {
                     const linkData = {
                         id: crypto.randomUUID(),
                         salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-                        product_id: productId,
+                        product_id: targetId, // 👈 Anche qui usiamo targetId
                         supplier_id: suppId,
                         split_pct: pct
                     };
@@ -6362,7 +6365,7 @@ async function saveInv() {
         }
     }
 
-   alert("Anagrafica prodotto salvata con successo!");
+    alert("Anagrafica prodotto salvata con successo!");
     await refreshAllData(); 
     closeMod();
 }
