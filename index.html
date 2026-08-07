@@ -6124,12 +6124,11 @@ function calculateUnitCostFromTotal() {
     }
 }
 
-// Esecuzione e salvataggio del carico
 async function executeStockLoad() {
     const productId = document.getElementById('load-prod-id').value;
     const qty = parseInt(document.getElementById('load-qty').value) || 0;
     const totalCost = parseFloat(document.getElementById('load-total-cost').value) || 0;
-    const loadDate = document.getElementById('load-date').value;
+    const loadDate = document.getElementById('load-date').value || new Date().toISOString().split('T')[0];
     const notes = document.getElementById('load-notes').value.trim();
 
     const prod = allInventory.find(p => p.id === productId);
@@ -6139,13 +6138,12 @@ async function executeStockLoad() {
         return alert("Inserisci una quantità valida maggiore di zero.");
     }
 
-    // Se NON è in conto vendita, il costo totale è obbligatorio
     if (!prod.is_consignment && (isNaN(totalCost) || totalCost <= 0)) {
         return alert("Per i prodotti di proprietà è necessario inserire il costo totale d'acquisto.");
     }
 
     const unitCost = (!prod.is_consignment && qty > 0) ? (totalCost / qty) : 0;
-    const newStock = (parseInt(prod.stock) || 0) + qty;
+    const newStock = (parseFloat(prod.stock) || 0) + qty;
 
     try {
         // 1. Aggiorniamo la giacenza di magazzino (+ Qta)
@@ -6156,15 +6154,31 @@ async function executeStockLoad() {
             id: prod.id
         });
 
-        // 2. Storico prezzi (aggiorniamo solo se è proprietà, altrimenti manteniamo il costo a 0)
+        // 2. RECUPERO PREZZO LISTINO CORRENTE E GESTIONE STORICO PREZZI/COSTI
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
-        const currentListingPrice = currentPriceInfo ? currentPriceInfo.price : 0;
+        const currentListingPrice = currentPriceInfo ? parseFloat(currentPriceInfo.price) : 0;
 
-        const historyData = {
+        // Chiudiamo il record precedente nello storico se esiste
+        const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: prod.id });
+        const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= loadDate);
+
+        if (activeHistory) {
+            await window.universalQuery({ 
+                action: 'UPDATE', 
+                table: 'price_history', 
+                data: { date_to: loadDate }, 
+                id: activeHistory.id 
+            });
+        }
+
+        // Inseriamo il nuovo record di storico con il NUOVO COSTO UNITARIO AGGIORNATO DAL CARICO
+        const newHistoryData = {
+            id: crypto.randomUUID(),
+            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             product_id: prod.id,
-            cost: unitCost,
-            price: currentListingPrice,
-            date_from: loadDate || new Date().toISOString().split('T')[0],
+            cost: Number(unitCost) || 0,       // 👈 Nuovo costo unitario calcolato
+            price: Number(currentListingPrice) || 0, // 👈 Mantiene il listino attuale
+            date_from: loadDate,
             date_to: null
         };
         await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
@@ -6172,14 +6186,16 @@ async function executeStockLoad() {
         // 3. Generazione spesa automatica (SOLO se è un prodotto di proprietà)
         if (!prod.is_consignment && totalCost > 0) {
             const expenseData = {
-                date: loadDate || new Date().toISOString().split('T')[0],
+                id: crypto.randomUUID(),
+                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                date: loadDate,
                 description: `Carico Magazzino: ${prod.name} (x${qty}) ${notes ? '- ' + notes : ''}`,
                 amount: totalCost
             };
             await window.universalQuery({ action: 'INSERT', table: 'expenses', data: expenseData });
         }
 
-        alert(`✅ Carico registrato con successo!\n- Nuova giacenza: ${newStock} Pz`);
+        alert(`✅ Carico registrato con successo!\n- Nuova giacenza: ${newStock}\n- Costo unitario aggiornato: € ${unitCost.toFixed(2)}`);
         
         closeMod();
         await refreshAllData();
