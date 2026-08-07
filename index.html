@@ -7765,10 +7765,11 @@ const nowTimestamp = new Date().toISOString();
                             <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                             
                             <!-- Riquadro Sconto con etichetta -->
-                            <div class="discount-box">
-                                <span class="discount-label">Sconto:</span>
-                                <input type="number" value="${discVal}" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width:50px;">
-                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width:50px;">
+                            <!-- Riquadro Sconto allargato e leggibile -->
+                            <div class="discount-box" style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                                <span class="discount-label" style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Sconto:</span>
+                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 75px; padding: 6px; margin: 0; font-size: 13px;" placeholder="0.00">
+                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 65px; padding: 6px; margin: 0; font-size: 13px;">
                                     <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
                                     <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
                                 </select>
