@@ -829,14 +829,22 @@
         <div class="card" style="padding:0"><table><thead><tr><th>Nome e Cognome</th><th>Tel / Email</th><th>Compleanno</th><th>Note</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-c"></tbody></table></div>
     </section>
 
-    <section id="v-products" class="view">
+   <section id="v-products" class="view">
     <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
-        <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello, codice o taglia..." style="max-width:250px; margin:0;">
+        <!-- 1. Ricerca testuale generale -->
+        <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o codice..." style="max-width:220px; margin:0;">
         
-        <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:180px; margin:0;">
+        <!-- 2. Filtro per Fornitore -->
+        <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:160px; margin:0;">
             <option value="all">Tutti i Fornitori</option>
         </select>
 
+        <!-- 3. NUOVO FILTRO: Taglia / Misura -->
+        <select id="filter-prod-size" onchange="renderProducts()" style="max-width:150px; margin:0;">
+            <option value="all">Tutte le Taglie</option>
+        </select>
+
+        <!-- 4. Filtro Tipologia Conto Vendita -->
         <select id="filter-prod-type-sales" onchange="renderProducts()" style="max-width:160px; margin:0;">
             <option value="all">Tutti (Proprietà & CV)</option>
             <option value="proprieta">Solo Proprietà</option>
@@ -844,7 +852,7 @@
         </select>
 
        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('filter-prod-type-sales').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset</button>
+            <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('filter-prod-size').value='all'; document.getElementById('filter-prod-type-sales').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset</button>
             <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
             <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
         </div>
@@ -856,10 +864,10 @@
                     <th>Prodotto / Linea</th>
                     <th>Tipo / Gestione</th>
                     <th>Codice identificativo</th>
-                    <th>Taglia / Misura</th> <!-- 👈 NUOVA COLONNA -->
+                    <th>Taglia / Misura</th>
                     <th>Prezzo Listino</th>
                     <th>Ultimo Costo</th>
-                    <th>Giacenza (Modificabile)</th> <!-- 👈 MODIFICABILE A MANO -->
+                    <th>Giacenza (Modificabile)</th>
                     <th>Fornitore</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
@@ -1182,9 +1190,9 @@
     
     
     
-<!-- MODALE ANAGRAFICA PRODOTTO / SERVIZIO -->
+<!-- MODALE ANAGRAFICA PRODOTTO / SERVIZIO (PULITO E AUTOMATIZZATO) -->
 <div id="mod-inv" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box" style="width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-box" style="width: 550px; max-height: 90vh; display: flex; flex-direction: column;">
         
         <!-- Header del Modale -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
@@ -1195,7 +1203,6 @@
         <!-- Area Scrollabile interna -->
         <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
             <input type="hidden" id="edit-p-id" value="-1">
-            <input type="hidden" id="edit-h-id" value="-1">
             
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
@@ -1206,7 +1213,7 @@
                     </select>
                 </div>
                 <div>
-                    <label>Prezzo di Listino (€) *</label>
+                    <label>Prezzo di Listino Attuale (€) *</label>
                     <input type="number" id="f-p-listing-price" step="0.01" placeholder="Es. 25.00">
                 </div>
             </div>
@@ -1279,31 +1286,10 @@
                 </div>
             </div>
 
-            <label style="margin-top:15px; border-top: 1px solid #eee; padding-top: 15px;">Storico Prezzi (Costo / Prezzo)</label>
-            <div style="max-height: 120px; overflow-y: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Dal</th><th>Al</th><th>Costo</th><th>Prezzo</th><th style="text-align:right">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-body"></tbody>
-                </table>
-            </div>
-
             <div id="inv-error-msg"></div>
-
-            <div class="price-input-row" style="margin-top:10px;">
-                <div><span class="input-label">Dal</span><input type="date" id="h-from"></div>
-                <div><span class="input-label">Al</span><input type="date" id="h-to"></div>
-                <div><span class="input-label">Costo</span><input type="number" id="h-cost" step="0.01"></div>
-                <div><span class="input-label">Prezzo</span><input type="number" id="h-price" step="0.01"></div>
-            </div>
-
-            <button class="btn btn-s" style="width:100%; margin-top:10px; justify-content: center;" onclick="addPriceHistory()">AGGIUNGI / MODIFICA STORICO</button>
         </div>
 
-        <!-- Footer Fisso in Basso con il Tasto Salva -->
+        <!-- Footer Fisso con il Tasto Salva -->
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0;">
             <button class="btn btn-p" style="width:100%; justify-content: center; padding: 14px;" onclick="saveInv()">SALVA ANAGRAFICA PRODOTTO</button>
         </div>
@@ -4058,6 +4044,22 @@ window.loadSettingsFields = function() {
         area.innerHTML = html;
     }
 
+
+
+
+    // Popola la tendina del filtro Taglia/Misura in base ai prodotti esistenti
+async function updateProductSizeFilter() {
+    const select = document.getElementById('filter-prod-size');
+    if (!select) return;
+    
+    const currentVal = select.value;
+    
+    // Estraiamo tutte le taglie uniche presenti nell'inventario (escludendo i valori vuoti o nulli)
+    const uniqueSizes = [...new Set(allInventory.map(p => p.size ? p.size.trim() : '').filter(s => s !== ''))].sort();
+    
+    select.innerHTML = '<option value="all">Tutte le Taglie</option>' + 
+        uniqueSizes.map(sz => `<option value="${sz}" ${sz === currentVal ? 'selected' : ''}>${sz}</option>`).join('');
+}
     // Algoritmo avanzato di layout a cluster per Google Calendar Style
     function calculateEventOverlapLayout(apps) {
     if (!apps || apps.length === 0) return [];
@@ -5890,25 +5892,28 @@ async function updateReminderBadgeCount() {
             allSuppliers.map(s => `<option value="${s.id}" ${s.id === currentVal ? 'selected' : ''}>${s.name}</option>`).join('');
     }
 
-    async function renderProducts() {
+    // Funzione renderProducts aggiornata con il nuovo filtro taglia
+async function renderProducts() {
     const f = (document.getElementById('src-prod').value || '').toLowerCase();
     const supplierFilterVal = document.getElementById('filter-prod-supplier')?.value || 'all';
+    const sizeFilterVal = document.getElementById('filter-prod-size')?.value || 'all'; // 👈 Valore filtro taglia
     const typeSalesFilterVal = document.getElementById('filter-prod-type-sales')?.value || 'all';
     const tbody = document.getElementById('list-prod');
     if (!tbody) return;
 
+    // Aggiorniamo le tendine dei filtri
     await updateProductSupplierFilter();
+    await updateProductSizeFilter();
 
     let filtered = allInventory.filter(p => (p.type === 'prodotto' || !p.type));
     const allLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
-    // Filtro di ricerca avanzata (inclusa la taglia/misura)
+    // 1. Filtro testuale generale
     if (f) {
         filtered = filtered.filter(p => {
             const matchBase = (p.name && p.name.toLowerCase().includes(f)) || 
                               (p.model && p.model.toLowerCase().includes(f)) || 
-                              (p.barcode && p.barcode.toLowerCase().includes(f)) ||
-                              (p.size && p.size.toLowerCase().includes(f)); // 👈 Ricerca su taglia
+                              (p.barcode && p.barcode.toLowerCase().includes(f));
             if (matchBase) return true;
 
             const mainSupp = allSuppliers.find(s => s.id === p.supplier_id);
@@ -5922,6 +5927,7 @@ async function updateReminderBadgeCount() {
         });
     }
 
+    // 2. Filtro per Fornitore
     if (supplierFilterVal !== 'all') {
         filtered = filtered.filter(p => {
             if (p.supplier_id === supplierFilterVal) return true;
@@ -5930,12 +5936,19 @@ async function updateReminderBadgeCount() {
         });
     }
 
+    // 3. Filtro per Taglia/Misura specifica
+    if (sizeFilterVal !== 'all') {
+        filtered = filtered.filter(p => p.size && p.size.trim().toLowerCase() === sizeFilterVal.toLowerCase());
+    }
+
+    // 4. Filtro per Tipologia Conto Vendita / Proprietà
     if (typeSalesFilterVal === 'proprieta') {
         filtered = filtered.filter(p => !p.is_consignment);
     } else if (typeSalesFilterVal === 'consignment') {
         filtered = filtered.filter(p => p.is_consignment);
     }
     
+    // 5. Filtro Sottosoglia
     if (productFilter === 'lowstock') {
         filtered = filtered.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock);
     }
@@ -5974,11 +5987,10 @@ async function updateReminderBadgeCount() {
             <td><b>${item.name}</b>${item.model ? `<br><small style="color:#666;">${item.model}</small>` : ''}</td>
             <td>${typeBadge}</td>
             <td><code>${item.barcode || '-'}</code></td>
-            <td><b>${item.size || '-'}</b></td> <!-- 👈 VALORE TAGLIA IN TABELLA -->
+            <td><b>${item.size || '-'}</b></td>
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>€ ${parseFloat(cost).toFixed(2)}</td>
             <td>
-                <!-- 👈 GIACENZA EDITABILE A MANO DIRETTAMENTE IN TABELLA -->
                 <div style="display:flex; align-items:center; gap:6px;">
                     <input type="number" value="${item.stock}" style="width:70px; margin:0; padding:6px; font-weight:bold;" 
                            onchange="updateStockInline('${item.id}', this.value)">
