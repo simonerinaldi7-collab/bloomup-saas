@@ -6187,6 +6187,49 @@ async function executeStockLoad() {
         };
         await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
 
+
+// 3. CREAZIONE DEL LOTTO DI MAGAZZINO FIFO
+        if (!prod.is_consignment && qty > 0) {
+            const lotData = {
+                id: crypto.randomUUID(),
+                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                product_id: prod.id,
+                initial_qty: qty,
+                qty_remaining: qty,
+                unit_cost: unitCost,
+                created_at: nowTimestamp
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'stock_lots', data: lotData });
+         } else if (prod.is_consignment && qty > 0) {
+            // Recuperiamo i collegamenti attuali dei fornitori per questo prodotto
+            const allLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
+            const prodLinks = (Array.isArray(allLinks) ? allLinks : []).filter(l => l.product_id === prod.id);
+            
+            let splitsToSave = [];
+            if (prodLinks.length > 0) {
+                prodLinks.forEach(l => {
+                    splitsToSave.push({ supplier_id: l.supplier_id, split_pct: parseFloat(l.split_pct) || 0 });
+                });
+            } else if (prod.consignment_split_pct && prod.supplier_id) {
+                splitsToSave.push({ supplier_id: prod.supplier_id, split_pct: parseFloat(prod.consignment_split_pct) || 0 });
+            }
+
+            const lotData = {
+                id: crypto.randomUUID(),
+                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                product_id: prod.id,
+                initial_qty: qty,
+                qty_remaining: qty,
+                unit_cost: 0,
+                supplier_splits: JSON.stringify(splitsToSave), // 👈 Congeliamo le percentuali attuali nel lotto
+                created_at: nowTimestamp
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'stock_lots', data: lotData });
+        
+        
+        
+        }
+
         // 3. Generazione spesa automatica (SOLO se è un prodotto di proprietà)
         if (!prod.is_consignment && totalCost > 0) {
             const expenseData = {
@@ -6928,64 +6971,135 @@ const nowTimestamp = new Date().toISOString();
         // 2. Inserimento dei singoli articoli della vendita
         for(let item of cartWithDiscounts) { 
             if (item.id) { 
-                // 1. Troviamo il prodotto nel magazzino in memoria per recuperare il prezzo di listino originale
                 const productDb = allInventory.find(p => p.id === item.id);
-                
-                // 2. Recuperiamo il prezzo di listino pieno dallo storico o dal DB
                 const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
                 const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
-                
-                // 3. Calcoliamo il prezzo finale pagato dal cliente sottraendo lo sconto del carrello
-                const discountAppied = item.discountAmount || 0;
-                const finalItemPrice = listinoPieno - discountAppied;
+                const discountApplied = item.discountAmount || 0;
+                const finalItemPrice = listinoPieno - discountApplied;
 
+                let unitCostUsed = 0;
                 let supplierPayout = 0;
                 let salonRevenue = finalItemPrice;
 
                 if (productDb && productDb.is_consignment) {
-                    const allLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
-                    const prodLinks = (Array.isArray(allLinks) ? allLinks : []).filter(l => l.product_id === productDb.id);
-                    
-                    let totalPct = 0;
-                    prodLinks.forEach(l => {
-                        totalPct += parseFloat(l.split_pct) || 0;
-                    });
+                    let qtyToProcess = item.qty || 1;
+                    let totalSupplierPayoutForThisSale = 0;
 
-                    // Se non ci sono link multi-fornitore ma c'è la vecchia percentuale singola, usiamo quella come fallback
-                    if (totalPct === 0 && productDb.consignment_split_pct) {
-                        totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    // Recuperiamo i lotti del conto vendita ordinati in FIFO
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
+
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        
+                        // Leggiamo le percentuali salvate in quel lotto specifico
+                        let lotSplits = [];
+                        try {
+                            lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
+                        } catch (e) {
+                            lotSplits = [];
+                        }
+
+                        let lotPayoutForOneUnit = 0;
+                        if (lotSplits.length > 0) {
+                            let lotTotalPct = 0;
+                            lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
+                            lotPayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
+                        } else {
+                            lotPayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
+                        }
+
+                        totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
+
+                        // Scala la giacenza dal lotto
+                        lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
+
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
                     }
 
-                    // 🛑 BLINDATO: La quota fornitore è calcolata RIGOROSAMENTE sul listino pieno (listinoPieno)
-                    supplierPayout = (listinoPieno * totalPct) / 100;
-                    
-                    // Il ricavo del negozio assorbe lo sconto
-                    salonRevenue = finalItemPrice - supplierPayout;
-                }
+                    // Fallback se non ci sono lotti registrati
+                    if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
+                        const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        totalSupplierPayoutForThisSale = (listinoPieno * fallbackPct / 100) * (item.qty || 1);
+                    }
 
-                console.log(`[DEBUG CASSA] Prodotto: ${item.name} | Listino Pieno: ${listinoPieno} | Sconto: ${discountAppied} | Payout Fornitore: ${supplierPayout} | Ricavo Negozio: ${salonRevenue}`);
+                    supplierPayout = totalSupplierPayoutForThisSale;
+                    salonRevenue = finalItemPrice - supplierPayout;
+                
+                } else if (productDb && productDb.type === 'prodotto') {
+                    // 🔄 APPLICAZIONE LOGICA FIFO SUI LOTTI DI MAGAZZINO
+                    let qtyToProcess = item.qty || 1;
+                    let totalCostForThisSale = 0;
+
+                    // Recuperiamo tutti i lotti del prodotto ordinati dal più vecchio al più recente (FIFO)
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
+
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
+                        
+                        // Aggiorniamo la quantità residua del lotto
+                        lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
+
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
+                    }
+
+                    // Se non ci sono lotti registrati (es. prodotti creati senza carico), usiamo lo storico prezzi o 0
+                    if (totalCostForThisSale === 0 && prodLots.length === 0) {
+                        const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                        totalCostForThisSale = fallbackCost * (item.qty || 1);
+                    }
+
+                    unitCostUsed = totalCostForThisSale / (item.qty || 1);
+                    salonRevenue = finalItemPrice - totalCostForThisSale;
+                } else {
+                    // Servizi o altro
+                    salonRevenue = finalItemPrice;
+                }
 
                 await window.universalQuery({ 
                     action:'INSERT', table:'sale_items', 
                     data: { 
                         sale_id: saleId, 
                         item_name: item.name, 
-                        qty: 1, 
-                        price: listinoPieno, // Salviamo il listino pieno come prezzo base
-                        discount: discountAppied,
+                        qty: item.qty || 1, 
+                        price: listinoPieno,
+                        discount: discountApplied,
+                        unit_cost: unitCostUsed, // 👈 Salviamo il costo FIFO esatto del lotto
                         supplier_payout: supplierPayout,
                         salon_revenue: salonRevenue
                     } 
                 });
                 
-                // 3. Aggiornamento stock magazzino
+                // Aggiornamento stock generale inventario
                 if (productDb && productDb.type === 'prodotto') {
                     await window.universalQuery({ 
                         action:'UPDATE', table:'inventory', 
-                        data: { stock: productDb.stock - 1 }, 
+                        data: { stock: productDb.stock - (item.qty || 1) }, 
                         id: productDb.id 
                     }); 
-                } 
+                }
                 else if (productDb && productDb.type === 'servizio') {
                     const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
                     for (let c of (Array.isArray(consumables) ? consumables : [])) {

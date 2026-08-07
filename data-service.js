@@ -6,7 +6,7 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(17).stores({
+    localDb.version(18).stores({
         users: 'id, salon_id, username, status',
         customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
         inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment', // 👈 Aggiunto 'size'
@@ -21,6 +21,7 @@ if (typeof Dexie !== 'undefined') {
         suppliers: 'id, salon_id, name',
         product_suppliers: 'id, salon_id, product_id, supplier_id',
         supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid', // 👈 NUOVA TABELLA
+        stock_lots: 'id, salon_id, product_id, created_at', // 👈 NUOVA TABELLA PER GESTIONE LOTTI FIFO
         settings: 'key, salon_id',
         sync_queue: '++local_id, action, table_name, data, target_id'
     });
@@ -561,7 +562,7 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
-        if (action === 'GET_MARGIN_INSIGHTS') {
+         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
 
@@ -573,50 +574,33 @@ async function handleSpecialAction(action, data, id) {
             const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id));
 
             const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray();
-            const priceHistory = await localDb.price_history.where('salon_id').equals(salonId).toArray();
             const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.where('salon_id').equals(salonId).toArray() : [];
 
             const margins = {};
 
             filteredItems.forEach(si => {
                 const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-                const sale = salesInRange.find(s => s.id === si.sale_id);
-                // Usiamo il timestamp o la data della vendita per il confronto di precisione
-                const saleTimestamp = sale ? (sale.date.includes('T') ? sale.date : `${sale.date}T23:59:59.999Z`) : '2099-12-31T23:59:59.999Z';
-
+                
                 const soldPrice = parseFloat(si.price) || 0;
                 const discount = parseFloat(si.discount) || 0;
                 const finalRev = (soldPrice - discount) * (si.qty || 1);
 
                 let totalCostOrPayout = 0;
 
-                if (inv) {
-                    // 🛡️ DEFINIZIONE CORRETTA DI prodHistory E FILTRAGGIO CRONOLOGICO AL MILLISECONDO
-                    const prodHistory = priceHistory.filter(p => p.product_id === inv.id);
-                    const validHistoryRecords = prodHistory.filter(p => {
-                        const from = p.date_from || '1900-01-01T00:00:00.000Z';
-                        return saleTimestamp >= from;
-                    });
-                    
-                    validHistoryRecords.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                    const activePh = validHistoryRecords.length > 0 ? validHistoryRecords[0] : (prodHistory[0] || null);
-
-                    const listinoPienoOriginale = activePh ? (parseFloat(activePh.price) || soldPrice) : soldPrice;
-
-                    if (inv.is_consignment) {
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                        }
-                        const unitPayout = (listinoPienoOriginale * totalPct) / 100;
-                        totalCostOrPayout = unitPayout * (si.qty || 1);
+                if (inv && inv.is_consignment) {
+                    const links = productSuppliers.filter(l => l.product_id === inv.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
                     } else {
-                        let unitCost = activePh ? (parseFloat(activePh.cost) || 0) : 0;
-                        totalCostOrPayout = unitCost * (si.qty || 1);
+                        totalPct = parseFloat(inv.consignment_split_pct) || 0;
                     }
+                    const unitPayout = (soldPrice * totalPct) / 100;
+                    totalCostOrPayout = unitPayout * (si.qty || 1);
+                } else {
+                    // 💰 PRELEVAMENTO DIRETTO DEL COSTO REALE SALVATO NELLA VENDITA (FIFO)
+                    const unitCost = parseFloat(si.unit_cost) || 0;
+                    totalCostOrPayout = unitCost * (si.qty || 1);
                 }
 
                 const totalMargin = finalRev - totalCostOrPayout;
