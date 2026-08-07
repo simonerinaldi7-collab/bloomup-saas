@@ -4198,7 +4198,7 @@ window.loadSettingsFields = function() {
                 html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
             }
 
-            // Eventi posizionati in assoluto (ordinati e corretti con le dichiarazioni a monte)
+            // Eventi posizionati in assoluto
             processedApps.forEach(ev => {
                 const userColor = getUserColor(ev.assigned_user);
                 const topPx = ev.topPx;
@@ -4209,31 +4209,19 @@ window.loadSettingsFields = function() {
 
                 const isGhost = ev.isGhost === true;
                 const ghostStyle = isGhost 
-                    ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold;' 
+                    ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold; cursor: pointer;' 
                     : `background-color: ${userColor}; color: white;`;
                 
+                // 🛡️ USA LA FUNZIONE GLOBALE DEDICATA PER EVITARE QUALSIASI ERRORE DI SINTASSI INLINE
                 const clickAction = isGhost 
-                    ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); 
-                       setTimeout(() => {
-                           const sInput = document.getElementById('f-a-search'); if(sInput) sInput.value = '${window.pendingSmartPreview.custName}';
-                           const uSelect = document.getElementById('f-a-user'); if(uSelect) uSelect.value = '${window.pendingSmartPreview.assigned_user}';
-                           const nInput = document.getElementById('f-a-notes'); if(nInput) nInput.value = '${window.pendingSmartPreview.notes || ''}';
-                           const itemSelect = document.getElementById('f-a-item-select');
-                           if(itemSelect) {
-                               Array.from(itemSelect.options).forEach(opt => {
-                                   if (${JSON.stringify(window.pendingSmartPreview.selectedServices || [])}.includes(opt.text)) opt.selected = true;
-                               });
-                           }
-                           if(typeof checkOperatorScheduleValidity === 'function') checkOperatorScheduleValidity();
-                       }, 100);
-                       window.pendingSmartPreview = null; 
-                       const b = document.getElementById('smart-preview-banner'); if(b) b.style.display='none';` 
+                    ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
                     : `viewApp('${ev.id}')`;
 
                 html += `
                     <div class="absolute-event ${statusClass}" 
                         onclick="event.stopPropagation(); ${clickAction}" 
-                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}">
+                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
+                        title="${isGhost ? 'Clicca per confermare e aprire il modale di prenotazione' : ''}">
                         <div style="font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)} - ${ev.end_time || ''}</div>
                         <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
                         <div style="font-size:9px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.service || ''}</div>
@@ -4249,7 +4237,42 @@ window.loadSettingsFields = function() {
     }
 
 
+function confirmSmartPreviewClick(dateStr, timeStr, endTimeStr) {
+        if (!window.pendingSmartPreview) return;
 
+        // Apriamo il modale con i dati temporanei della preview
+        openMod('cale', dateStr, timeStr, endTimeStr);
+
+        setTimeout(() => {
+            const sInput = document.getElementById('f-a-search'); 
+            if (sInput) sInput.value = window.pendingSmartPreview.custName || '';
+            
+            const uSelect = document.getElementById('f-a-user'); 
+            if (uSelect) uSelect.value = window.pendingSmartPreview.assigned_user || 'admin';
+            
+            const nInput = document.getElementById('f-a-notes'); 
+            if (nInput) nInput.value = window.pendingSmartPreview.notes || '';
+            
+            const itemSelect = document.getElementById('f-a-item-select');
+            if (itemSelect && window.pendingSmartPreview.selectedServices) {
+                Array.from(itemSelect.options).forEach(opt => {
+                    if (window.pendingSmartPreview.selectedServices.includes(opt.text)) {
+                        opt.selected = true;
+                    }
+                });
+            }
+
+            if (typeof checkOperatorScheduleValidity === 'function') {
+                checkOperatorScheduleValidity();
+            }
+        }, 150);
+
+        // Puliamo la preview e nascondiamo il banner
+        window.pendingSmartPreview = null;
+        const banner = document.getElementById('smart-preview-banner');
+        if (banner) banner.style.display = 'none';
+        if (typeof renderCalendar === 'function') renderCalendar();
+    }
 
     // Popola la tendina del filtro Taglia/Misura in base ai prodotti esistenti
 async function updateProductSizeFilter() {
