@@ -30,6 +30,7 @@ if (typeof Dexie !== 'undefined') {
     console.error("ATTENZIONE: Libreria Dexie.js non caricata!");
 }
 
+// Aggiunta/Modifica nel file data-service.js dentro window.appDataService
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -39,7 +40,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
-    // 🛑 FILTRO RIGOROSO: INSERT, UPDATE e DELETE DEVONO ESSERE SEMPRE ESCLUSE DALLE AZIONI SPECIALI
+     // Gestione azioni speciali (non standard INSERT/UPDATE/DELETE su tabelle)
     const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
     if (!isStandardWrite && !table && [
         'GET_MARGIN_INSIGHTS', 
@@ -75,7 +76,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
-    // ✍️ I comandi INSERT, UPDATE e DELETE scendono correttamente qui
+    // ✍️ GESTIONE CENTRALIZZATA SCRITTURE (INSERT, UPDATE, DELETE) PER QUALSIASI TABELLA
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
@@ -113,90 +114,44 @@ async function backgroundPullFromSupabase(table, salonId) {
     }
 }
 
-// Gestione unificata per Scritture (INSERT, UPDATE, DELETE)
 async function handleWriteOperation(action, table, data, id, isOnline) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-    console.log(`🛠️ [SPECIAL-ACTION] Entrato in handleSpecialAction con action: ${action}`, data);
+    console.log(`🛠️ [WRITE] Azione: ${action} su Tabella: ${table}`, data);
 
     try {
-        // 🔑 GESTIONE SAVE_USER CON DEBUG ESTREMO
-        if (action === 'SAVE_USER') {
-            console.log("👤 [SAVE_USER] Avvio elaborazione utente...", data);
-            const userId = data.id;
-            const username = data.username;
-            const password = data.password;
-            const role = data.role;
-            const color = data.color;
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId 
+            };
+            
+            // 1. Scrittura locale su Dexie
+            await localDb.table(table).add(recordToSave);
+            console.log(`✅ [INSERT LOCALE] Salvato in ${table}:`, recordToSave.id);
 
-            if (!username) {
-                console.error("❌ [SAVE_USER] Errore: Username mancante!");
-                return { status: 'error', message: 'Username mancante' };
-            }
-
-            if (!userId || userId === "-1") {
-                console.log("➕ [SAVE_USER] Tentativo INSERT nuovo utente in corso...");
-                const newUser = {
-                    id: crypto.randomUUID(),
-                    salon_id: salonId,
-                    username: username.trim(),
-                    password: password || 'password',
-                    role: role || 'user',
-                    color: color || '#6C5CE7',
-                    status: 'active',
-                    must_change_password: 0
-                };
-
-                // 1. Dexie Locale
-                await localDb.users.add(newUser);
-                console.log("✅ [SAVE_USER] Aggiunto con successo a IndexedDB locale:", newUser);
-
-                // 2. Cloud Supabase
-                if (navigator.onLine) {
-                    console.log("🌐 [SAVE_USER] Online: invio diretto a Supabase...");
-                    const successCloud = await sendToCloudDirectly('POST', 'users', newUser);
-                    if (!successCloud) {
-                        console.warn("⚠️ [SAVE_USER] Invio cloud fallito, accodo in sync_queue");
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
-                    } else {
-                        console.log("🚀 [SAVE_USER] Sincronizzato con successo su Supabase!");
-                    }
+            // 2. Invio al Cloud Supabase o accodamento in sync_queue
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
+                if (!success) {
+                    console.warn(`⚠️ [INSERT CLOUD KO] Accodato in sync_queue per ${table}`);
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
                 } else {
-                    console.log("📴 [SAVE_USER] Offline: accodato in sync_queue");
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
+                    console.log(`🚀 [INSERT CLOUD OK] Sincronizzato su Supabase (${table})`);
                 }
-
-                return { status: 'ok', id: newUser.id };
             } else {
-                console.log("✏️ [SAVE_USER] Tentativo UPDATE utente ID:", userId);
-                const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
-                if (password && password.trim() !== "") {
-                    updatePayload.password = password;
-                }
-
-                await localDb.users.update(userId, updatePayload);
-                console.log("✅ [SAVE_USER] Aggiornato in IndexedDB locale.");
-
-                if (navigator.onLine) {
-                    const successCloud = await sendToCloudDirectly('PATCH', 'users', updatePayload, userId);
-                    if (!successCloud) {
-                        await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: userId });
-                    }
-                } else {
-                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: userId });
-                }
-                return { status: 'ok' };
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
             }
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
         }
         else if (action === 'UPDATE') {
-            console.log("Tentativo UPDATE locale per ID:", id, "con dati:", data);
-            await localDb.table(table).update(id, data);
             const updatePayload = { ...data, salon_id: salonId };
+            await localDb.table(table).update(id, updatePayload);
+            console.log(`✅ [UPDATE LOCALE] Aggiornato in ${table} ID: ${id}`);
 
             if (isOnline) {
                 const success = await sendToCloudDirectly('PATCH', table, updatePayload, id);
-                console.log("Esito PATCH Cloud per UPDATE:", success);
                 if (!success) {
-                    console.warn("Cloud UPDATE fallito, accodo in sync_queue");
                     await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
                 }
             } else {
@@ -206,6 +161,7 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
         }
         else if (action === 'DELETE') {
             await localDb.table(table).delete(id);
+            console.log(`✅ [DELETE LOCALE] Eliminato da ${table} ID: ${id}`);
 
             if (isOnline) {
                 const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
@@ -218,8 +174,8 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
             return { changes: 1 };
         }
    } catch (err) {
-        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err); // 👈 STAMPA L'ERRORE REALE
-        return null;
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err);
+        return { status: 'error', message: err.message };
     }
 }
 
