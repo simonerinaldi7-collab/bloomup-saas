@@ -6232,16 +6232,22 @@ async function executeStockLoad() {
     }
     // Correzione di saveInv per includere il campo size
 async function saveInv() {
-    const id = document.getElementById('edit-p-id').value;
+    const rawId = document.getElementById('edit-p-id').value;
+    // 🛡️ SE L'ID È "-1" O VUOTO, SI TRATTA DI UN NUOVO INSERIMENTO E GENERIAMO UN UUID FRESCO
+    const isNew = (!rawId || rawId === "-1" || rawId === -1);
+    const productId = isNew ? crypto.randomUUID() : rawId;
+
     const name = document.getElementById('f-p-name').value.trim();
     const type = document.getElementById('f-p-type').value;
+    
     const rawPriceInput = document.getElementById('f-p-listing-price').value;
-const listingPrice = parseFloat(String(rawPriceInput).replace(',', '.')) || 0;
-const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
+    const listingPrice = parseFloat(String(rawPriceInput).replace(',', '.')) || 0;
+
+    const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
     
     const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value.trim() : '';
     const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value.trim() : '';
-    const size = document.getElementById('f-p-size') ? document.getElementById('f-p-size').value.trim() : ''; // 👈 Legge taglia
+    const size = document.getElementById('f-p-size') ? document.getElementById('f-p-size').value.trim() : ''; 
     const unit = document.getElementById('f-p-unit') ? document.getElementById('f-p-unit').value : 'Pezzi';
     const location = document.getElementById('f-p-location') ? document.getElementById('f-p-location').value.trim() : '';
     const supplier_id = document.getElementById('f-p-supplier') ? document.getElementById('f-p-supplier').value : '';
@@ -6249,35 +6255,33 @@ const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-
 
     if (!name) return alert("Inserisci il nome del prodotto o servizio!");
 
-    let productId = id;
     const todayStr = new Date().toISOString().split('T')[0];
 
-    if (id === "-1") {
+    if (isNew) {
         let invData = { 
-            id: productId, // 👈 Garantiamo l'invio dell'UUID generato o assegnato
+            id: productId, // 👈 Ora passa sempre un UUID valido e mai "-1"
             salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             name: name, 
             type: type, 
             stock: 0, 
-            min_stock: min_stock, 
+            min_stock: Number(min_stock) || 0, 
             model: model || null, 
             barcode: barcode || null, 
             size: size || null, 
             unit: unit || 'Pezzi', 
             location: location || null, 
             supplier_id: supplier_id || null, 
-            is_consignment: is_consignment ? true : false
+            is_consignment: Boolean(is_consignment)
         };
 
-        const res = await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
-        productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || res.id) : invData.id;
+        await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
 
         const historyData = {
             id: crypto.randomUUID(),
             salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             product_id: productId,
             cost: 0,
-            price: listingPrice,
+            price: Number(listingPrice) || 0,
             date_from: todayStr,
             date_to: null
         };
@@ -6287,18 +6291,17 @@ const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-
         let invData = { 
             name: name, 
             type: type, 
-            min_stock: min_stock, 
+            min_stock: Number(min_stock) || 0, 
             model: model || null, 
             barcode: barcode || null, 
             size: size || null, 
             unit: unit || 'Pezzi', 
             location: location || null, 
             supplier_id: supplier_id || null, 
-            is_consignment: is_consignment ? true : false 
+            is_consignment: Boolean(is_consignment)
         };
 
-        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: id });
-        
+        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: productId });
         // Gestione aggiornamento prezzo listino se modificato
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
         const oldListingPrice = currentPriceInfo && currentPriceInfo.price !== undefined ? parseFloat(currentPriceInfo.price) : 0;
