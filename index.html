@@ -4564,39 +4564,46 @@ async function registerOperatorPushNotifications() {
         return { top, height };
     }
 
-            function getEventStyles(a) {
-        if (!a || !allLogs || allLogs.length === 0) return '';
+           function getEventStyles(a) {
+        if (!a) return '';
+        if (!allLogs || allLogs.length === 0) {
+            console.warn("🔍 [DEBUG STILI] Nessun log presente in allLogs.");
+            return '';
+        }
         
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const targetAppDate = a.date;
-        const targetAppTime = (a.time || '').substring(0, 5);
-        
-        // Troviamo il cliente associato all'appuntamento (tramite id o riscontro testuale)
+        const targetAppDate = (a.date || '').trim();
+        const targetAppTime = (a.time || '').substring(0, 5).trim();
         const custNameRaw = (a.cust_name || '').trim().toLowerCase();
 
-        // Cerchiamo un log che corrisponda per data, ora e nome/cognome del cliente
+        console.log(`🔍 [DEBUG STILI] Esamino appuntamento -> Cliente: "${custNameRaw}", Data: "${targetAppDate}", Ora: "${targetAppTime}"`);
+
+        // Cerchiamo un log corrispondente stampando le verifiche
         const matchedLog = allLogs.find(l => {
             if (!l.appointment_info) return false;
-            const logInfo = l.appointment_info.toLowerCase();
+            const logInfo = (l.appointment_info || '').toLowerCase();
             const logCust = (l.cust_name || '').trim().toLowerCase();
 
             const matchDate = logInfo.includes(targetAppDate);
             const matchTime = logInfo.includes(targetAppTime);
-            
-            // Verifica flessibile sul nome (cust_name dell'app vs logCust vs logInfo)
             const matchName = custNameRaw && (
                 logCust === custNameRaw || 
                 logInfo.includes(custNameRaw) || 
                 custNameRaw.includes(logCust)
             );
 
+            // Stampiamo in console i dettagli del confronto per ogni log analizzato
+            console.log(`   └─ Confronto con Log ID ${l.id} | LogCust: "${logCust}" | MatchName: ${matchName} (App:"${custNameRaw}" vs Log:"${logCust}") | MatchDate: ${matchDate} (${targetAppDate}) | MatchTime: ${matchTime} (${targetAppTime})`);
+
             return matchDate && matchTime && matchName;
         });
 
         if (matchedLog) {
             const type = (matchedLog.msg_type || '').toUpperCase();
+            console.log(`✨ [DEBUG STILI] Trovato log corrispondente! Tipo msg: ${type}`);
             if (type.includes('REMINDER')) return 'st-remind';
             if (type.includes('CONFIRM')) return 'st-confirm';
+        } else {
+            console.log(`❌ [DEBUG STILI] Nessun log valido trovato per l'appuntamento di ${custNameRaw}`);
         }
         
         return ''; 
