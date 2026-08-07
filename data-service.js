@@ -786,7 +786,9 @@ async function handleSpecialAction(action, data, id) {
             const saleDate = sale.date || new Date().toISOString().split('T')[0];
 
             let unitCost = 0;
-            if (inv) {
+            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
+                unitCost = parseFloat(item.unit_cost) || 0;
+            } else if (inv) {
                 const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                 if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
             }

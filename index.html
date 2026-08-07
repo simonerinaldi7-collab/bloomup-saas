@@ -2234,12 +2234,12 @@ async function submitPasswordReset() {
             let netMarginOrRevenue = finalPrice;
 
             if (prod) {
-                // A. Recuperiamo il costo di acquisto storico valido alla data della vendita
-                const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-                if (phList.length > 0) {
-                    unitCost = parseFloat(phList[0].cost) || 0;
-                } else if (r.unit_cost) {
+                // A. Usiamo prima il costo FIFO reale della vendita (r.unit_cost), altrimenti fallback sullo storico
+                if (r.unit_cost !== undefined && r.unit_cost !== null && !isNaN(r.unit_cost) && parseFloat(r.unit_cost) > 0) {
                     unitCost = parseFloat(r.unit_cost) || 0;
+                } else {
+                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                    if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
                 }
 
                 // B. Calcoliamo se è in conto vendita o di proprietà
