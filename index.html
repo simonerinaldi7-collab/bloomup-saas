@@ -6145,6 +6145,12 @@ async function executeStockLoad() {
     const unitCost = (!prod.is_consignment && qty > 0) ? (totalCost / qty) : 0;
     const newStock = (parseFloat(prod.stock) || 0) + qty;
 
+// 🕒 TIMESTAMP COMPLETO CON ORARIO PER IL CARICO MERCE
+    const nowTimestamp = new Date().toISOString();
+    const loadDateOnly = document.getElementById('load-date').value || nowTimestamp.split('T')[0];
+    // Se l'utente seleziona una data passata usiamo quella a inizio giornata, altrimenti il timestamp esatto di adesso
+    const loadTimestamp = (loadDateOnly === nowTimestamp.split('T')[0]) ? nowTimestamp : `${loadDateOnly}T00:00:00.000Z`;
+
     try {
         // 1. Aggiorniamo la giacenza di magazzino (+ Qta)
         await window.universalQuery({
@@ -6154,31 +6160,29 @@ async function executeStockLoad() {
             id: prod.id
         });
 
-        // 2. RECUPERO PREZZO LISTINO CORRENTE E GESTIONE STORICO PREZZI/COSTI
+        // 2. RECUPERO PREZZO LISTINO CORRENTE E GESTIONE STORICO PREZZI/COSTI CON ORARIO
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
         const currentListingPrice = currentPriceInfo ? parseFloat(currentPriceInfo.price) : 0;
 
-        // Chiudiamo il record precedente nello storico se esiste
         const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: prod.id });
-        const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= loadDate);
+        const activeHistory = historyRecords.find(h => !h.date_to || h.date_to >= loadTimestamp);
 
         if (activeHistory) {
             await window.universalQuery({ 
                 action: 'UPDATE', 
                 table: 'price_history', 
-                data: { date_to: loadDate }, 
+                data: { date_to: loadTimestamp }, // 👈 Chiude il vecchio costo all'orario esatto del carico
                 id: activeHistory.id 
             });
         }
 
-        // Inseriamo il nuovo record di storico con il NUOVO COSTO UNITARIO AGGIORNATO DAL CARICO
         const newHistoryData = {
             id: crypto.randomUUID(),
             salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             product_id: prod.id,
-            cost: Number(unitCost) || 0,       // 👈 Nuovo costo unitario calcolato
-            price: Number(currentListingPrice) || 0, // 👈 Mantiene il listino attuale
-            date_from: loadDate,
+            cost: Number(unitCost) || 0,          // 👈 Nuovo costo unitario dal carico
+            price: Number(currentListingPrice) || 0, 
+            date_from: loadTimestamp,            // 👈 Inizia esattamente all'orario del carico
             date_to: null
         };
         await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
@@ -6188,7 +6192,7 @@ async function executeStockLoad() {
             const expenseData = {
                 id: crypto.randomUUID(),
                 salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-                date: loadDate,
+                date: loadDateOnly,
                 description: `Carico Magazzino: ${prod.name} (x${qty}) ${notes ? '- ' + notes : ''}`,
                 amount: totalCost
             };
@@ -6273,6 +6277,8 @@ async function saveInv() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
+const nowTimestamp = new Date().toISOString();
+
     if (isNew) {
         let invData = { 
             id: targetId,
@@ -6298,7 +6304,7 @@ async function saveInv() {
             product_id: targetId,
             cost: 0,
             price: Number(listingPrice) || 0,
-            date_from: todayStr,
+            date_from: nowTimestamp, // 👈 Timestamp completo con orario
             date_to: null
         };
         await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
@@ -6332,7 +6338,7 @@ async function saveInv() {
                 await window.universalQuery({ 
                     action: 'UPDATE', 
                     table: 'price_history', 
-                    data: { date_to: todayStr }, 
+                    data: { date_to: nowTimestamp },
                     id: activeHistory.id 
                 });
             }
@@ -6343,7 +6349,7 @@ async function saveInv() {
                 product_id: targetId,
                 cost: oldCostPrice,
                 price: Number(listingPrice) || 0,
-                date_from: todayStr,
+                date_from: nowTimestamp,
                 date_to: null
             };
             await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });

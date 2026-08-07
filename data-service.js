@@ -713,26 +713,25 @@ async function handleSpecialAction(action, data, id) {
 
 
         // --- 4. GET_CURRENT_PRICE ---
-       if (action === 'GET_CURRENT_PRICE') {
+       // --- 4. GET_CURRENT_PRICE (Con supporto Timestamp Completo) ---
+        if (action === 'GET_CURRENT_PRICE') {
+            const nowIso = new Date().toISOString();
             const history = await localDb.price_history.where('salon_id').equals(salonId).toArray();
             
-            // Filtriamo per product_id
             const prodHistory = history.filter(ph => ph.product_id === id);
             
-            if (prodHistory.length === 0) {
-                return { cost: 0, price: 0 };
-            }
-
-            // Ordiniamo lo storico dal più recente al più vecchio in base a date_from (e se c'è un timestamp o id, lo usiamo come secondario)
-            prodHistory.sort((a, b) => {
-                const dateCompare = (b.date_from || '').localeCompare(a.date_from || '');
-                if (dateCompare !== 0) return dateCompare;
-                // Fallback se hanno la stessa data: ordinamento inverso di creazione se tracciato
-                return (b.id || '').localeCompare(a.id || '');
+            // Cerca il record il cui intervallo temporale include l'istante corrente
+            let current = prodHistory.find(ph => {
+                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                return nowIso >= from && nowIso <= to;
             });
 
-            // L'ultimo valido in assoluto è il primo della lista ordinata
-            const current = prodHistory[0];
+            // Fallback: se non c'è un match esatto per orario, prende il più recente per data/timestamp
+            if (!current && prodHistory.length > 0) {
+                prodHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                current = prodHistory[0];
+            }
 
             return current ? { cost: parseFloat(current.cost) || 0, price: parseFloat(current.price) || 0 } : { cost: 0, price: 0 };
         }
