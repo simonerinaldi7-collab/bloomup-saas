@@ -2247,10 +2247,24 @@ async function submitPasswordReset() {
             
             
         
-    // Quando si cambia operatore nel box ghost
-    function onGhostUserChange() {
-        if (window.ghostSelectedDate) {
-            renderGhostCalendarDay(window.ghostSelectedDate);
+    async function onGhostUserChange() {
+        const userSelect = document.getElementById('ghost-user-select');
+        if (!userSelect) return;
+        
+        const selectedOperator = userSelect.value.trim();
+        const manualDateInput = document.getElementById('ghost-manual-date');
+        const currentTargetDate = manualDateInput ? manualDateInput.value : window.ghostSelectedDate;
+
+        if (currentTargetDate) {
+            // Ricarichiamo i primi slot liberi o ricalcoliamo il giorno per il nuovo operatore
+            const availableSlots = await findAvailableSlots(new Date(currentTargetDate), selectedOperator, 1);
+            if (availableSlots && availableSlots.length > 0) {
+                window.ghostSelectedDate = availableSlots[0].date;
+                window.ghostSelectedTime = availableSlots[0].time;
+                window.ghostSelectedEndTime = availableSlots[0].endTime;
+                if (manualDateInput) manualDateInput.value = window.ghostSelectedDate;
+            }
+            await renderGhostCalendarDay(window.ghostSelectedDate);
         }
     }
 
