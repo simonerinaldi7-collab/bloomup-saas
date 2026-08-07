@@ -5766,8 +5766,12 @@ async function updateReminderBadgeCount() {
                     cart.push({ name: servizio, price: 0, id: null });
                 }
             }
-            const fc = allCustomers.find(c => c.name === currentViewApp.cust_name);
-            currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
+            const fc = allCustomers.find(c => {
+    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+    const target = (currentViewApp.cust_name || '').trim().toLowerCase();
+    return fullName === target || (c.name && c.name.trim().toLowerCase() === target);
+});
+currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
             document.getElementById('cart-selected-cust').innerText = currentCheckoutCustomer.name;
             renderCart(); 
             closeMod(); 
@@ -5841,7 +5845,16 @@ async function updateReminderBadgeCount() {
             
         async function sendAndLogGeneric(appId, type, tk) {
         const a = allAppointments.find(x => x.id == appId);
-        const phone = allCustomers.find(c => c.name === a.cust_name)?.phone || "";
+        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+        
+        const matchedCust = allCustomers.find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            const legacyName = (c.name || "").trim().toLowerCase();
+            return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
+        });
+
+        const phone = matchedCust ? matchedCust.phone : "";
+        if(!phone) return alert("Nessun numero di telefono trovato per questo cliente!");
         if(!phone) return alert("No tel!");
         
         // NUOVA CHIAVE: salon_id + cliente + data + ora + servizio
@@ -6764,17 +6777,28 @@ const nowTimestamp = new Date().toISOString();
 
         const f = allCustomers.filter(c => {
             const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-            return fullName.includes(v.toLowerCase()) || (c.phone || '').includes(v);
+            const phone = (c.phone || '').toLowerCase();
+            return fullName.includes(v.toLowerCase()) || phone.includes(v);
         });
 
         r.innerHTML = f.map(c => {
-            const displayName = `${c.first_name || ''} ${c.last_name || ''}`; // 👈 PRIMA NOME, POI COGNOME
-            return `<div class="search-item" onclick="selectClient('${displayName}', '${c.id}', '${t}')">${displayName} (${c.phone || 'N/D'})</div>`;
+            const displayName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+            return `<div class="search-item" onclick="selectClient('${displayName.replace(/'/g, "\\'")}', '${c.id}', '${t}')">${displayName} (${c.phone || 'N/D'})</div>`;
         }).join(''); 
 
         r.style.display = f.length ? 'block' : 'none'; 
     }
-    function selectClient(n, id, t) { if(t === 'sale') { currentCheckoutCustomer = {id, name: n}; document.getElementById('cart-selected-cust').innerText = n; } else { document.getElementById('f-a-search').value = n; document.getElementById('f-a-cust-id').value = id; } document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); }
+    
+    function selectClient(n, id, t) { 
+        if(t === 'sale') { 
+            currentCheckoutCustomer = { id, name: n }; 
+            document.getElementById('cart-selected-cust').innerText = n; 
+        } else { 
+            document.getElementById('f-a-search').value = n; 
+            document.getElementById('f-a-cust-id').value = id; 
+        } 
+        document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); 
+    }
            async function updateStats() {
     document.getElementById('st-c').innerText = allCustomers.length;
     document.getElementById('st-a').innerText = allAppointments.length;
