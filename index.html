@@ -6184,8 +6184,33 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
     }
             function sendAndLog(t, k) { if(currentViewApp) sendAndLogGeneric(currentViewApp.id, t, k); }
             function sendIndividualRem(id, type) { sendAndLogGeneric(id, type, 'reminder'); }
-            async function sendSelectedReminders() { const checked = document.querySelectorAll('.log-cb:checked'); for(let cb of checked) await sendAndLogGeneric(cb.value, 'wa', 'reminder'); }
+            async function sendSelectedReminders() {
+        const checked = document.querySelectorAll('.log-cb:checked');
+        if (checked.length === 0) {
+            return alert("Seleziona almeno un promemoria da inviare!");
+        }
 
+        if (!confirm(`Stai per inviare ${checked.length} messaggi WhatsApp in sequenza. Procedere?`)) {
+            return;
+        }
+
+        // Iteriamo con un ritardo controllato (1.5 secondi) per evitare il blocco dei popup del browser
+        for (let i = 0; i < checked.length; i++) {
+            const cb = checked[i];
+            
+            // Eseguiamo l'invio e la registrazione del log per il singolo elemento
+            await sendAndLogGeneric(cb.value, 'wa', 'reminder');
+            
+            // Se non è l'ultimo elemento, attendiamo 1.5 secondi prima di aprire il successivo
+            if (i < checked.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+        }
+
+        alert("✅ Invio multiplo completato con successo!");
+        await refreshAllData();
+        if (typeof renderLogs === 'function') renderLogs();
+    }
             function renderCust() { 
         const f = document.getElementById('src-c').value.toLowerCase(); 
 
