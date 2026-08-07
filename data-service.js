@@ -6,10 +6,11 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(15).stores({
+    localDb.version(16).stores({
         users: 'id, salon_id, username, status',
         customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
         inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment', // 👈 Aggiunto 'size'
+        appointments: 'id, salon_id, date, time',
         sales: 'id, salon_id, date',
         sale_items: 'id, salon_id, sale_id, is_paid',
         message_logs: 'id, salon_id',
