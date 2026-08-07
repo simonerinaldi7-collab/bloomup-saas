@@ -3624,7 +3624,7 @@ function triggerLocalOperatorAlert(appointment) {
 
             function renderActiveView() {
                 const active = document.querySelector('.view.active').id;
-                const t = { 'v-dashboard':'Riepilogo', 'v-sales':'Cassa POS', 'v-calendar':'Agenda', 'v-customers':'Clienti', 'v-services':'Listino servizi','v-products':'Magazzino Prodotti','v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni',  'v-users': 'Gestione Utenti','v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'};
+                const t = { 'v-dashboard':'Riepilogo', 'v-sales':'Cassa POS', 'v-calendar':'Agenda', 'v-customers':'Clienti', 'v-services':'Listino servizi','v-products':'Magazzino Prodotti','v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni',  'v-users': 'Gestione Utenti','v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff','v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'};
                 document.getElementById('page-title').innerText = t[active] || 'BloomUp';
                 if(active === 'v-dashboard') {
             refreshDashboard();      // Carica i grafici
