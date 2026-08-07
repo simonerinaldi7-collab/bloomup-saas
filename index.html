@@ -1178,63 +1178,7 @@
         <label>Note Trattamento</label>
         <textarea id="f-a-notes" rows="2"></textarea>
         
-        <!-- 🧠 BOX SMART REBOOKING (GHOST APPOINTMENT POST-SALVATAGGIO) -->
-        <div id="smart-rebooking-box" style="background: #f8f9fa; border: 2px dashed var(--p); border-radius: 12px; padding: 15px; margin: 15px 0; display: none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--p); text-transform: uppercase;">✨ Pianifica Prossimo Appuntamento (Smart Loop)</span>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <span id="rebooking-avg-days" style="font-size: 10px; color: #555; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Media: -- gg</span>
-                    <button type="button" class="btn btn-d" style="padding: 2px 6px; font-size: 10px;" onclick="closeSmartRebooking()" title="Salta">✕ Salta</button>
-                </div>
-            </div>
-            
-            <p style="font-size: 11px; color: #666; margin: 0 0 10px 0;">
-                Personalizza i dettagli per il prossimo appuntamento o conferma i dati ereditati:
-            </p>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom: 10px;">
-                <div>
-                    <label style="font-size:9px; margin:0;">Operatore</label>
-                    <select id="ghost-user-select" style="margin:2px 0 0 0; padding:8px; font-size:12px;" onchange="onGhostUserChange()"></select>
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Servizio/i (CTRL per multi)</label>
-                    <select id="ghost-item-select" multiple style="height: 45px; margin:2px 0 0 0; font-size:11px;" onchange="calculateGhostEndTime(); validateCurrentGhostSelection();"></select>
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom: 10px; background:white; padding:8px; border-radius:8px; border:1px solid var(--border);">
-                <div>
-                    <label style="font-size:9px; margin:0;">Data</label>
-                    <input type="date" id="ghost-manual-date" onchange="onManualGhostDateChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Inizio</label>
-                    <input type="time" id="ghost-manual-time" onchange="onManualGhostTimeChange()" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-                <div>
-                    <label style="font-size:9px; margin:0;">Fine (Modificabile)</label>
-                    <input type="time" id="ghost-manual-end" style="margin:2px 0 0 0; padding:6px; font-size:12px;">
-                </div>
-            </div>
-
-            <label style="font-size:9px; margin:0;">Note Trattamento Successivo</label>
-            <textarea id="ghost-manual-notes" rows="1" style="margin:2px 0 10px 0; padding:6px; font-size:12px;" placeholder="Eventuali note..."></textarea>
-
-            <div style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 140px; overflow-y: auto;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; font-size: 11px; font-weight: bold;">
-                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(-1)">◀ Giorno Prec.</button>
-                    <span id="ghost-cal-date-label" style="color: var(--txt); font-size:11px;">--/--/----</span>
-                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="shiftSmartDay(1)">Giorno Succ. ▶</button>
-                </div>
-                <div id="ghost-slots-container" style="display: flex; flex-direction: column; gap: 4px;"></div>
-            </div>
-
-            <button type="button" class="btn btn-p" style="width:100%; margin-top:10px; justify-content:center; padding:10px; font-size:12px;" onclick="confirmAndBookNextApp()">
-                💾 Conferma e Prenota Prossimo Appuntamento
-            </button>
-        </div>
-
+    
         <!-- TASTO SALVA ORIGINALE -->
         <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:15px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
     </div>
@@ -5218,7 +5162,6 @@ async function registerOperatorPushNotifications() {
             const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data });
             const newId = res && res.lastInsertRowid ? res.lastInsertRowid : crypto.randomUUID(); 
             allAppointments.push({ ...data, id: newId });
-            document.getElementById('edit-a-id').value = newId;
         } else {
             const oldAppIndex = allAppointments.findIndex(a => a.id === id);
             if (oldAppIndex !== -1) {
@@ -5229,23 +5172,53 @@ async function registerOperatorPushNotifications() {
 
         await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
+        closeMod();
 
-        // 🚀 TRANSIZIONE AL FLUSSO SMART REBOOKING GHOST NELLO STESSO MODALE
-        const saveBtn = document.getElementById('btn-save-original-app');
-        if (saveBtn) saveBtn.style.display = 'none'; // Nasconde il tasto salva normale
+        // ✨ SMART LOOP ASSISTITO IN AGENDA
+        const avgDays = getCustomerAverageFrequency(custName);
+        if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi pianificare il prossimo appuntamento per ${custName}? (Frequenza media: ${avgDays} giorni)`)) {
+            const baseDate = new Date(date);
+            baseDate.setDate(baseDate.getDate() + avgDays);
+            const nextDateStr = baseDate.toLocaleDateString('en-CA');
 
-        // Nascondiamo temporaneamente i campi dell'appuntamento corrente per dare spazio al pannello smart
-        const itemSelectEl = document.getElementById('f-a-item-select');
-        if (itemSelectEl && itemSelectEl.previousElementSibling) {
-            // Nasconde la select dei servizi originari per pulire la vista
+            // Spostiamo l'agenda sulla data calcolata
+            viewDate = new Date(baseDate);
+            
+            // Impostiamo il filtro operatore sull'agenda se possibile
+            const userFilter = document.getElementById('user-filter');
+            if (userFilter) {
+                userFilter.value = assignedUser;
+            }
+
+            // Cambiamo pagina portando l'utente sull'Agenda principale
+            changePage('calendar');
+            
+            // Apriamo direttamente il modale appuntamento pre-compilato con i dati del cliente e i servizi
+            setTimeout(async () => {
+                await openMod('cale', nextDateStr, start, end);
+                
+                // Pre-impostiamo il nome del cliente e l'operatore nel modale
+                const searchInput = document.getElementById('f-a-search');
+                if (searchInput) searchInput.value = custName;
+                
+                const userSelect = document.getElementById('f-a-user');
+                if (userSelect) userSelect.value = assignedUser;
+
+                // Selezioniamo gli stessi servizi nella multi-select
+                if (select) {
+                    Array.from(select.options).forEach(opt => {
+                        if (selectedServices.includes(opt.text)) {
+                            opt.selected = true;
+                        }
+                    });
+                }
+                
+                // Lanciamo il controllo turni sullo slot pre-compilato
+                if (typeof checkOperatorScheduleValidity === 'function') {
+                    await checkOperatorScheduleValidity();
+                }
+            }, 200);
         }
-
-        alert("✅ Appuntamento salvato con successo! Pianifica ora il prossimo appuntamento dal pannello Smart Rebooking.");
-        
-        const originalServices = selectedServices.length > 0 ? selectedServices : [finalService];
-        const originalNotes = notes;
-
-        await evaluateSmartRebookingInModal(custName, date, assignedUser, originalServices, originalNotes);
     }
 
     // Inizializzazione del box Smart Rebooking post-salvataggio con ricerca del primo slot reale disponibile
