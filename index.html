@@ -6167,7 +6167,7 @@ async function executeStockLoad() {
             date_from: loadDate || new Date().toISOString().split('T')[0],
             date_to: null
         };
-        await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
+        await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
 
         // 3. Generazione spesa automatica (SOLO se è un prodotto di proprietà)
         if (!prod.is_consignment && totalCost > 0) {
