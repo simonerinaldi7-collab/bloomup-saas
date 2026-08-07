@@ -1199,7 +1199,7 @@
                 </div>
                 <div>
                     <label style="font-size:9px; margin:0;">Servizio/i (CTRL per multi)</label>
-                    <select id="ghost-item-select" multiple style="height: 45px; margin:2px 0 0 0; font-size:11px;" onchange="calculateGhostEndTime()"></select>
+                    <select id="ghost-item-select" multiple style="height: 45px; margin:2px 0 0 0; font-size:11px;" onchange="calculateGhostEndTime(); validateCurrentGhostSelection();"></select>
                 </div>
             </div>
 
@@ -2247,29 +2247,115 @@ async function submitPasswordReset() {
             
             
         
+      // 2. Eventi di intercettazione unificata quando cambi qualsiasi cosa nel box ghost
     async function onGhostUserChange() {
         const userSelect = document.getElementById('ghost-user-select');
-        if (!userSelect) return;
+        const manualDateInput = document.getElementById('ghost-manual-date');
+        if (!userSelect || !manualDateInput) return;
         
         const selectedOperator = userSelect.value.trim();
-        const manualDateInput = document.getElementById('ghost-manual-date');
-        const currentTargetDate = manualDateInput ? manualDateInput.value : window.ghostSelectedDate;
+        const currentTargetDate = manualDateInput.value;
 
         if (currentTargetDate) {
-            // Ricarichiamo i primi slot liberi o ricalcoliamo il giorno per il nuovo operatore
             const availableSlots = await findAvailableSlots(new Date(currentTargetDate), selectedOperator, 1);
             if (availableSlots && availableSlots.length > 0) {
                 window.ghostSelectedDate = availableSlots[0].date;
                 window.ghostSelectedTime = availableSlots[0].time;
                 window.ghostSelectedEndTime = availableSlots[0].endTime;
-                if (manualDateInput) manualDateInput.value = window.ghostSelectedDate;
+                manualDateInput.value = window.ghostSelectedDate;
             }
             await renderGhostCalendarDay(window.ghostSelectedDate);
         }
+        await validateCurrentGhostSelection();
     }
 
 
+// 1. Funzione di validazione unificata per qualsiasi modifica nel box Smart Rebooking
+    async function validateCurrentGhostSelection() {
+        const userSelect = document.getElementById('ghost-user-select');
+        const dateInput = document.getElementById('ghost-manual-date');
+        const timeInput = document.getElementById('ghost-manual-time');
+        const endInput = document.getElementById('ghost-manual-end');
+        
+        // Creiamo o recuperiamo un box di alert dinamico dentro lo smart box se non esiste
+        let warningBox = document.getElementById('ghost-validation-warning');
+        if (!warningBox) {
+            warningBox = document.createElement('div');
+            warningBox.id = 'ghost-validation-warning';
+            warningBox.style.cssText = "display:none; background:#fff1f0; color:#e17055; border:1px solid #ffa39e; padding:8px 10px; border-radius:6px; font-size:11px; margin-top:8px; font-weight:bold;";
+            const confirmBtn = document.querySelector('#smart-rebooking-box button.btn-p');
+            if (confirmBtn) confirmBtn.parentNode.insertBefore(warningBox, confirmBtn);
+        }
 
+        if (!userSelect || !dateInput || !timeInput) return true;
+
+        const username = userSelect.value.trim().toLowerCase();
+        const dateStr = dateInput.value;
+        const timeStr = timeInput.value;
+        const endTimeStr = endInput ? endInput.value : '';
+
+        if (!username || !dateStr || !timeStr) return true;
+
+        // A. Verifica Giorno Lavorativo / Turno Operatore
+        const dateObj = new Date(dateStr + 'T00:00:00');
+        const dayOfWeek = dateObj.getDay();
+        const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        const dayConfig = schedules.find(s => (s.username || '').trim().toLowerCase() === username && Number(s.day_of_week) === dayOfWeek);
+
+        if (!dayConfig || Number(dayConfig.is_working) !== 1) {
+            warningBox.innerHTML = `⚠️ L'operatore ${username} è a riposo in data ${dateStr}.`;
+            warningBox.style.display = 'block';
+            return false;
+        }
+
+        const shifts = [];
+        if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+        if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+
+        if (shifts.length > 0) {
+            const [appH, appM] = timeStr.split(':').map(Number);
+            const appMinutes = appH * 60 + appM;
+            let isWithinShift = false;
+
+            for (let shift of shifts) {
+                const [sH, sM] = shift.start.split(':').map(Number);
+                const [eH, eM] = shift.end.split(':').map(Number);
+                if (appMinutes >= (sH * 60 + sM) && appMinutes < (eH * 60 + eM)) {
+                    isWithinShift = true;
+                    break;
+                }
+            }
+
+            if (!isWithinShift) {
+                warningBox.innerHTML = `⚠️ L'orario ${timeStr} è fuori turno per ${username}.`;
+                warningBox.style.display = 'block';
+                return false;
+            }
+        }
+
+        // B. Verifica Sovrapposizione Appuntamenti Esistenti
+        const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const slotEndStr = endTimeStr || `${String(parseInt(timeStr.split(':')[0]) + 1).padStart(2, '0')}:${timeStr.split(':')[1]}`;
+
+        const overlappingApp = existingApps.find(a => {
+            const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username;
+            const isSameDate = a.date === dateStr;
+            if (!isSameUser || !isSameDate) return false;
+            const aStart = a.time;
+            const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
+            return (timeStr < aEnd) && (slotEndStr > aStart);
+        });
+
+        if (overlappingApp) {
+            warningBox.innerHTML = `⚠️ Slot occupato da ${overlappingApp.cust_name} (${overlappingApp.time} - ${overlappingApp.end_time || 'N/D'}).`;
+            warningBox.style.display = 'block';
+            return false;
+        }
+
+        // Se tutto è valido, nascondiamo l'avviso
+        warningBox.style.display = 'none';
+        return true;
+    }
 
     async function renderSalesReport() {
         const fCust = document.getElementById('src-report-cust').value.toLowerCase();
@@ -4341,20 +4427,20 @@ async function updateProductSizeFilter() {
         await renderGhostCalendarDay(window.ghostSelectedDate);
     }
 
-    // 3. Modifica manuale della data dal campo input
-    async function onManualGhostDateChange() {
+     async function onManualGhostDateChange() {
         const manualDateInput = document.getElementById('ghost-manual-date');
         if (!manualDateInput || !manualDateInput.value) return;
         window.ghostSelectedDate = manualDateInput.value;
         await renderGhostCalendarDay(window.ghostSelectedDate);
+        await validateCurrentGhostSelection();
     }
 
-    // Aggiornamento manuale dell'orario d'inizio
-    function onManualGhostTimeChange() {
+     async function onManualGhostTimeChange() {
         const timeInput = document.getElementById('ghost-manual-time');
         if (!timeInput || !timeInput.value) return;
         window.ghostSelectedTime = timeInput.value;
         calculateGhostEndTime();
+        await validateCurrentGhostSelection();
     }
 
     // 5. Renderizzazione della griglia slot del giorno per l'operatore selezionato
@@ -4471,6 +4557,10 @@ async function updateProductSizeFilter() {
 
     // Conferma e salvataggio del prossimo appuntamento con i dati modificati dall'utente
     async function confirmAndBookNextApp() {
+          const isValid = await validateCurrentGhostSelection();
+        if (!isValid) {
+            return alert("Impossibile procedere: correggi l'orario o l'operatore selezionato in base alle segnalazioni nel box.");
+        }
         const custName = document.getElementById('f-a-search').value.trim();
         const assignedUser = document.getElementById('ghost-user-select').value || 'admin';
         const manualDate = document.getElementById('ghost-manual-date').value;
