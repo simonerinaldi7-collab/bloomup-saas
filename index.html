@@ -5992,10 +5992,11 @@ async function renderProducts() {
             <td>€ ${parseFloat(cost).toFixed(2)}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:6px;">
-                    <input type="number" value="${item.stock}" style="width:70px; margin:0; padding:6px; font-weight:bold;" 
-                           onchange="updateStockInline('${item.id}', this.value)">
-                    <small>${item.unit || 'Pz'}</small>
-                </div>
+        <!-- 👈 Aggiunto step="0.01" e min="0" per accettare decimali -->
+        <input type="number" value="${item.stock}" step="0.1" min="0" style="width:80px; margin:0; padding:6px; font-weight:bold;" 
+               onchange="updateStockInline('${item.id}', this.value)">
+        <small>${item.unit || 'Pz'}</small>
+    </div>
             </td>
             <td>${supplierHtml}</td>
             <td style="text-align:right">
@@ -6013,7 +6014,7 @@ async function renderProducts() {
 
 // Funzione per aggiornare la giacenza modificandola inline nella tabella
 async function updateStockInline(productId, newStockVal) {
-    const newStock = parseInt(newStockVal);
+    const newStock = parseFloat(newStockVal);
     if (isNaN(newStock) || newStock < 0) {
         alert("Inserisci un valore numerico valido per la giacenza.");
         renderProducts();
@@ -6257,7 +6258,9 @@ async function saveInv() {
         invData = addAuditData(invData);
 
         const res = await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
-        productId = res.lastInsertRowid;
+
+// 🛡️ GESTIONE SICURA DELL'ID RESTITUITO (Supporta lastInsertRowid, id, o genera un fallback)
+productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || res.id) : invData.id;
 
         const historyData = {
             product_id: productId,
