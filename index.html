@@ -4846,13 +4846,23 @@ async function registerOperatorPushNotifications() {
             
             const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
             
+// Ricerca sicura del telefono del cliente per l'appuntamento corrente
+        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+        const matchedCust = allCustomers.find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            const legacyName = (c.name || "").trim().toLowerCase();
+            return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
+        });
+        const custPhone = matchedCust ? matchedCust.phone : '-';
+
+
             if (fStatus === 'all' || (fStatus === 'pending' && !alreadySent) || (fStatus === 'sent' && alreadySent)) {
                 if (!alreadySent) {
                     html += `<tr>
                         <td><input type="checkbox" class="log-cb" value="${a.id}"></td>
                         <td><span class="badge-alert">DA INV</span></td>
                         <td><b>${a.cust_name}</b></td>
-                        <td>${allCustomers.find(c=>c.name===a.cust_name)?.phone || '-'}</td>
+                    <td>${custPhone}</td>
                     <td>${formatDateIt(a.date)} @ ${a.time}</td>
                         <td>
                             <button class="btn btn-w" onclick="sendIndividualRem('${a.id}', 'wa')">WA</button>
