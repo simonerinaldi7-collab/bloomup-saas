@@ -7764,15 +7764,17 @@ const nowTimestamp = new Date().toISOString();
                             <div style="font-weight:600;">${item.name}</div>
                             <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                             
-                            <!-- Riquadro Sconto con etichetta -->
-                            <!-- Riquadro Sconto allargato e leggibile -->
-                            <div class="discount-box" style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                                <span class="discount-label" style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Sconto:</span>
-                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 75px; padding: 6px; margin: 0; font-size: 13px;" placeholder="0.00">
-                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 65px; padding: 6px; margin: 0; font-size: 13px;">
-                                    <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
-                                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
-                                </select>
+                            
+                            <!-- Riquadro Sconto ottimizzato su due righe per massima leggibilità -->
+                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px; background: #f8fafc; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                                <span class="discount-label" style="font-size: 10px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Modifica Sconto</span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 70px; padding: 8px; margin: 0; font-size: 14px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 70px; padding: 8px; margin: 0; font-size: 14px; font-weight: bold; background: white;">
+                                        <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
+                                        <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         <div style="text-align:right;">
