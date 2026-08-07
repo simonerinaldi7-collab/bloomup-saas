@@ -13,16 +13,31 @@ window.universalQuery = async function(params) {
     }
 };
 
+// Sostituzione in api-bridge.js
 if (!window.api) {
     window.api = {
         query: window.universalQuery,
         openExternal: (url) => {
-            // 🛡️ Forza l'apertura nel browser di sistema predefinito o esternamente alla sandbox
-            if (window.electron && typeof window.electron.openExternal === 'function') {
-                window.electron.openExternal(url);
-            } else {
-                window.open(url, '_system'); // Forzatura apertura esterna browser
+            if (url.includes('wa.me') || url.includes('whatsapp.com')) {
+                // Estraiamo il numero e il testo dall'URL di wa.me per convertirlo nel protocollo nativo di sistema
+                try {
+                    const urlObj = new URL(url);
+                    const phone = urlObj.pathname.replace(/\D/g, '');
+                    const text = urlObj.searchParams.get('text') || '';
+                    
+                    // Protocollo nativo WhatsApp Desktop (se installato, apre l'app nativa senza caricare script web di crash)
+                    const nativeUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
+                    
+                    if (window.open(nativeUrl, '_system')) {
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("Fallback su URL web standard per WhatsApp:", e);
+                }
             }
+
+            // Apertura standard per tutti gli altri link (SMS, browser esterni, ecc.)
+            window.open(url, '_blank');
         },
         checkReminders: () => {
             if (typeof updateReminderBadgeCount === 'function') updateReminderBadgeCount();
@@ -37,9 +52,18 @@ if (!window.api) {
     }
     window.api.query = window.universalQuery;
     
-    // Sovrascriviamo openExternal in modo blindato
     window.api.openExternal = (url) => {
-        window.open(url, '_system');
+        if (url.includes('wa.me') || url.includes('whatsapp.com')) {
+            try {
+                const urlObj = new URL(url);
+                const phone = urlObj.pathname.replace(/\D/g, '');
+                const text = urlObj.searchParams.get('text') || '';
+                const nativeUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`;
+                window.open(nativeUrl, '_system');
+                return;
+            } catch (e) {}
+        }
+        window.open(url, '_blank');
     };
 
     if (!window.api.checkReminders) {

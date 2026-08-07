@@ -6137,7 +6137,7 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
         
         const m = (sysSettings['template_' + tk] || "")
-            .replace(/{{CLIENTE}}/g, a.fullName)
+            .replace(/{{CLIENTE}}/g, a.cust_name)
             .replace(/{{DATA}}/g, a.date)
             .replace(/{{ORA}}/g, a.time)
             .replace(/{{SERVIZIO}}/g, a.service);
@@ -6154,7 +6154,7 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
         // 🛡️ FORMULAZIONE E PULIZIA COMPATTA PER EVITARE IL CRASH DEL PARSER DI WHATSAPP
         let rawMessage = (sysSettings['template_' + tk] || "Gentile {{CLIENTE}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
-            .replace(/{{CLIENTE}}/g, a.fullName || 'Cliente')
+            .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
             .replace(/{{DATA}}/g, a.date || '')
             .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
             .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
