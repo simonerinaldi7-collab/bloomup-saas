@@ -1069,7 +1069,58 @@
         <button type="button" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
         <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Chiudi alert e vai a Spese</button>
     </div></div></div>
-    <div id="mod-cust" class="modal"><div class="modal-box"><h3>Cliente</h3><input type="hidden" id="edit-c-id" value="-1"><input type="text" id="f-c-firstname" placeholder="Nome"><input type="text" id="f-c-lastname" placeholder="Cognome"><input type="text" id="f-c-phone" placeholder="Telefono"><button class="btn btn-p" onclick="saveCust()">Salva</button></div></div>
+    <div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
+        <div class="modal-box" style="width: 500px; max-height: 90vh; display: flex; flex-direction: column;">
+            
+            <!-- Header con tasto di chiusura -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+                <h3 style="margin: 0; color: var(--p);">👥 Gestione Cliente</h3>
+                <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+            </div>
+
+            <!-- Area scrollabile dei campi -->
+            <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+                <input type="hidden" id="edit-c-id" value="-1">
+                
+                <label>Nome</label>
+                <input type="text" id="f-c-firstname" placeholder="Nome">
+                
+                <label>Cognome</label>
+                <input type="text" id="f-c-lastname" placeholder="Cognome">
+                
+                <label>Telefono</label>
+                <input type="text" id="f-c-phone" placeholder="Es. 3331234567">
+                
+                <label>Email</label>
+                <input type="email" id="f-c-email" placeholder="cliente@email.it">
+                
+                <label>Data di Nascita</label>
+                <input type="date" id="f-c-birth">
+                
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin: 10px 0;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" id="f-c-gdpr" style="width: 18px; height: 18px; margin:0;">
+                        <label for="f-c-gdpr" style="margin:0; font-weight:bold; color:var(--txt); cursor:pointer; text-transform:none;">Consenso Privacy GDPR firmato</label>
+                    </div>
+                </div>
+
+                <label>Note / Allerte</label>
+                <textarea id="f-c-notes" rows="2" placeholder="Eventuali note sul cliente..."></textarea>
+
+                <div id="customer-history-section" style="margin-top: 15px; display: none;">
+                    <label style="color: var(--p);">Ultimi Appuntamenti Presi</label>
+                    <div id="customer-last-apps" style="margin-top: 5px;"></div>
+                </div>
+            </div>
+
+            <!-- Footer con tasti Salva e Annulla -->
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
+                <button class="btn btn-p" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveCust()">Salva Cliente</button>
+                <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Annulla</button>
+            </div>
+
+        </div>
+    </div>
     <div id="mod-cale" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 550px;">
         <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
