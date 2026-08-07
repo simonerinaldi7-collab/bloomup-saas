@@ -4568,18 +4568,29 @@ async function registerOperatorPushNotifications() {
         if (!a || !allLogs || allLogs.length === 0) return '';
         
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const targetCust = (a.cust_name || '').trim().toLowerCase();
-        const targetDate = a.date;
-        const targetTime = (a.time || '').substring(0, 5);
+        const targetAppDate = a.date;
+        const targetAppTime = (a.time || '').substring(0, 5);
+        
+        // Troviamo il cliente associato all'appuntamento (tramite id o riscontro testuale)
+        const custNameRaw = (a.cust_name || '').trim().toLowerCase();
 
-        // Cerchiamo nello storico dei log se esiste un invio per questo appuntamento (confrontando cliente, data e ora)
+        // Cerchiamo un log che corrisponda per data, ora e nome/cognome del cliente
         const matchedLog = allLogs.find(l => {
             if (!l.appointment_info) return false;
-            const info = l.appointment_info.toLowerCase();
-            const matchCust = info.includes(targetCust);
-            const matchDate = info.includes(targetDate);
-            const matchTime = info.includes(targetTime);
-            return matchCust && matchDate && matchTime;
+            const logInfo = l.appointment_info.toLowerCase();
+            const logCust = (l.cust_name || '').trim().toLowerCase();
+
+            const matchDate = logInfo.includes(targetAppDate);
+            const matchTime = logInfo.includes(targetAppTime);
+            
+            // Verifica flessibile sul nome (cust_name dell'app vs logCust vs logInfo)
+            const matchName = custNameRaw && (
+                logCust === custNameRaw || 
+                logInfo.includes(custNameRaw) || 
+                custNameRaw.includes(logCust)
+            );
+
+            return matchDate && matchTime && matchName;
         });
 
         if (matchedLog) {
@@ -4590,7 +4601,6 @@ async function registerOperatorPushNotifications() {
         
         return ''; 
     }
-
             // --- COMUNICAZIONI ---
             function getFriendlyType(t) {
                 if(t.includes('WA_CONFIRM')) return "WhatsApp: Conferma";
