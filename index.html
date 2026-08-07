@@ -6285,8 +6285,7 @@ async function saveInv() {
             date_from: todayStr,
             date_to: null
         };
-        await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: historyData });
-
+        const histRes = await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
     } else {
         let invData = { 
             name: name, 
@@ -6328,7 +6327,7 @@ async function saveInv() {
                 date_from: todayStr,
                 date_to: null
             };
-            await window.universalQuery({ action: 'INSERT_PRICE_HISTORY', data: newHistoryData });
+            const histResUpdate = await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
         }
 
         const oldLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' });
