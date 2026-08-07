@@ -4171,6 +4171,21 @@ window.loadSettingsFields = function() {
 
             // Eventi posizionati in assoluto
            processedApps.forEach(ev => {
+
+const isGhost = ev.isGhost === true;
+                const ghostStyle = isGhost ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px);' : `background-color: ${userColor}; color: white;`;
+                const clickAction = isGhost ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); const sInput=document.getElementById('f-a-search'); if(sInput) sInput.value='${window.pendingSmartPreview.custName}'; window.pendingSmartPreview = null;` : `viewApp('${ev.id}')`;
+
+                html += `
+                    <div class="absolute-event ${statusClass}" 
+                        onclick="event.stopPropagation(); ${clickAction}" 
+                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}">
+                        <div style="font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)} - ${ev.end_time || ''}</div>
+                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
+                        <div style="font-size:9px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.service || ''}</div>
+                    </div>
+                `;
+
                 const userColor = getUserColor(ev.assigned_user);
                 const topPx = ev.topPx;
                 const heightPx = Math.max(ev.heightPx, 25);
@@ -4179,6 +4194,30 @@ window.loadSettingsFields = function() {
 
                 // 🔍 CHIAMATA ESPLICITA A GETEVENTSTYLES ANCHE QUI:
                 const statusClass = getEventStyles(ev);
+
+const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
+        
+        // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
+        if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
+            const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
+            const activeOp = activeFilterUser.trim().toLowerCase();
+            if (activeOp === 'all' || activeOp === pUser) {
+                // Evitiamo di duplicarlo se per caso è già presente negli appuntamenti reali
+                dayApps.push({
+                    id: 'ghost_preview_temp',
+                    cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
+                    date: window.pendingSmartPreview.date,
+                    time: window.pendingSmartPreview.time,
+                    end_time: window.pendingSmartPreview.end_time,
+                    service: window.pendingSmartPreview.service,
+                    assigned_user: window.pendingSmartPreview.assigned_user,
+                    isGhost: true
+                });
+            }
+        }
+
+        const processedApps = calculateEventOverlapLayout(dayApps);
+
 
                 html += `
                     <div class="absolute-event ${statusClass}" 
@@ -4191,6 +4230,8 @@ window.loadSettingsFields = function() {
                 `;
             });
 
+
+            
             html += `</div>`; // Chiude day-column
         }
 
@@ -5171,53 +5212,41 @@ async function registerOperatorPushNotifications() {
         }
 
         await refreshAllData();
+        await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
         closeMod();
 
-        // ✨ SMART LOOP ASSISTITO IN AGENDA
+        // ✨ SMART REBOOKING CON PREVIEW VISIVA IN AGENDA
         const avgDays = getCustomerAverageFrequency(custName);
-        if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi pianificare il prossimo appuntamento per ${custName}? (Frequenza media: ${avgDays} giorni)`)) {
+        if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
             const baseDate = new Date(date);
             baseDate.setDate(baseDate.getDate() + avgDays);
             const nextDateStr = baseDate.toLocaleDateString('en-CA');
 
-            // Spostiamo l'agenda sulla data calcolata
-            viewDate = new Date(baseDate);
+            // Cerchiamo il primo slot libero reale per quell'operatore
+            const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
+            const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
+            const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
+
+            // 👻 SALVIAMO LO STATO DELLA PREVIEW TEMPORANEA
+            window.pendingSmartPreview = {
+                custName: custName,
+                date: freeSlots.length > 0 ? freeSlots[0].date : nextDateStr,
+                time: targetTime,
+                end_time: targetEndTime,
+                service: finalService,
+                assigned_user: assignedUser,
+                notes: notes
+            };
+
+            // Spostiamo la vista dell'Agenda sulla data della preview
+            viewDate = new Date(window.pendingSmartPreview.date);
             
-            // Impostiamo il filtro operatore sull'agenda se possibile
             const userFilter = document.getElementById('user-filter');
-            if (userFilter) {
-                userFilter.value = assignedUser;
-            }
+            if (userFilter) userFilter.value = assignedUser;
 
-            // Cambiamo pagina portando l'utente sull'Agenda principale
             changePage('calendar');
-            
-            // Apriamo direttamente il modale appuntamento pre-compilato con i dati del cliente e i servizi
-            setTimeout(async () => {
-                await openMod('cale', nextDateStr, start, end);
-                
-                // Pre-impostiamo il nome del cliente e l'operatore nel modale
-                const searchInput = document.getElementById('f-a-search');
-                if (searchInput) searchInput.value = custName;
-                
-                const userSelect = document.getElementById('f-a-user');
-                if (userSelect) userSelect.value = assignedUser;
-
-                // Selezioniamo gli stessi servizi nella multi-select
-                if (select) {
-                    Array.from(select.options).forEach(opt => {
-                        if (selectedServices.includes(opt.text)) {
-                            opt.selected = true;
-                        }
-                    });
-                }
-                
-                // Lanciamo il controllo turni sullo slot pre-compilato
-                if (typeof checkOperatorScheduleValidity === 'function') {
-                    await checkOperatorScheduleValidity();
-                }
-            }, 200);
+            if (typeof renderCalendar === 'function') renderCalendar();
         }
     }
 
