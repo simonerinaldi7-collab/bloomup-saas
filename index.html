@@ -6254,17 +6254,27 @@ const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-
 
     if (id === "-1") {
         let invData = { 
-            name, type, stock: 0, min_stock, model, barcode, size, unit, location, supplier_id, is_consignment 
+            id: productId, // 👈 Garantiamo l'invio dell'UUID generato o assegnato
+            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+            name: name, 
+            type: type, 
+            stock: 0, 
+            min_stock: min_stock, 
+            model: model || null, 
+            barcode: barcode || null, 
+            size: size || null, 
+            unit: unit || 'Pezzi', 
+            location: location || null, 
+            supplier_id: supplier_id || null, 
+            is_consignment: is_consignment ? true : false
         };
-        invData = addAuditData(invData);
 
         const res = await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
-
-// 🛡️ GESTIONE SICURA DELL'ID RESTITUITO (Supporta lastInsertRowid, id, o genera un fallback)
-productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || res.id) : invData.id;
-
+        productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || res.id) : invData.id;
 
         const historyData = {
+            id: crypto.randomUUID(),
+            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
             product_id: productId,
             cost: 0,
             price: listingPrice,
@@ -6275,12 +6285,19 @@ productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || r
 
     } else {
         let invData = { 
-            name, type, min_stock, model, barcode, size, unit, location, supplier_id, is_consignment 
+            name: name, 
+            type: type, 
+            min_stock: min_stock, 
+            model: model || null, 
+            barcode: barcode || null, 
+            size: size || null, 
+            unit: unit || 'Pezzi', 
+            location: location || null, 
+            supplier_id: supplier_id || null, 
+            is_consignment: is_consignment ? true : false 
         };
-        invData = addAuditData(invData);
 
         await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: id });
-
         
         // Gestione aggiornamento prezzo listino se modificato
         const currentPriceInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
