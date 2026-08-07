@@ -15,14 +15,14 @@
 
 
 
-/* 🎨 STILI E BORDI PER EVENTI IN AGENDA (CONFERME E REMINDER) */
-        .event.st-confirm {
+/* 🎨 STILI E BORDI PER EVENTI IN AGENDA (Mese, Settimana, Giorno) */
+        .event.st-confirm, .absolute-event.st-confirm {
             border-left: 5px solid #000000 !important; /* Bordo nero/scuro per conferma */
         }
-        .event.st-remind {
+        .event.st-remind, .absolute-event.st-remind {
             border-left: 5px solid #FF00FF !important; /* Bordo fucsia per remind inviato */
         }
-
+        
         @keyframes pulseAlarm {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
     70% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(99, 102, 241, 0); }
@@ -4122,7 +4122,7 @@ window.loadSettingsFields = function() {
             
 
             // Eventi posizionati in assoluto
-            processedApps.forEach(ev => {
+           processedApps.forEach(ev => {
                 const userColor = getUserColor(ev.assigned_user);
                 const topPx = ev.topPx;
                 const heightPx = Math.max(ev.heightPx, 25);
@@ -4133,7 +4133,7 @@ window.loadSettingsFields = function() {
                 const statusClass = getEventStyles(ev);
 
                 html += `
-                    <div class="absolute-event" 
+                    <div class="absolute-event ${statusClass}" 
                         onclick="event.stopPropagation(); viewApp('${ev.id}')" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; background-color: ${userColor}; color: white;">
                         <div style="font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)} - ${ev.end_time || ''}</div>
