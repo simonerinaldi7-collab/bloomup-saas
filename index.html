@@ -824,6 +824,12 @@
                 <button class="btn" onclick="setCalView('day')">Giorno</button>
                 <button class="btn btn-p" onclick="openMod('cale')">+ Nuovo</button>
             </div>
+
+            <!-- BANNER FLUTTUANTE SMART PREVIEW ATTIVA -->
+<div id="smart-preview-banner" style="display:none; background: #ede9fe; color: #4338ca; border-bottom: 1px solid #c7d2fe; padding: 10px 20px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items:center; flex-shrink:0;">
+    <div id="smart-preview-banner-text">⭐ Anteprima Smart Rebooking attiva in agenda. Clicca sul blocco tratteggiato per confermare.</div>
+    <button class="btn" style="padding: 4px 10px; font-size: 11px; background: white; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 6px;" onclick="cancelSmartPreview()">✕ Abbandona Proposta</button>
+</div>
         </div>
         <div class="cal-scroll-area" id="cal-area"></div>
         <div class="legend" id="dynamic-legend" style="flex-direction:column; gap:5px;"></div>
@@ -4154,10 +4160,15 @@ window.loadSettingsFields = function() {
             const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
             
             // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
+            const banner = document.getElementById('smart-preview-banner');
             if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
                 const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
                 const activeOp = activeFilterUser.trim().toLowerCase();
                 if (activeOp === 'all' || activeOp === pUser) {
+                    if (banner) {
+                        banner.style.display = 'flex';
+                        document.getElementById('smart-preview-banner-text').innerHTML = `⭐ Anteprima attiva per <b>${window.pendingSmartPreview.custName}</b> (${formatDateIt(window.pendingSmartPreview.date)} @ ${window.pendingSmartPreview.time}). Clicca sul blocco in griglia per confermare.`;
+                    }
                     dayApps.push({
                         id: 'ghost_preview_temp',
                         cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
@@ -4169,6 +4180,8 @@ window.loadSettingsFields = function() {
                         isGhost: true
                     });
                 }
+            } else {
+                if (banner && !window.pendingSmartPreview) banner.style.display = 'none';
             }
 
             const processedApps = calculateEventOverlapLayout(dayApps);
@@ -4200,7 +4213,21 @@ window.loadSettingsFields = function() {
                     : `background-color: ${userColor}; color: white;`;
                 
                 const clickAction = isGhost 
-                    ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); const sInput=document.getElementById('f-a-search'); if(sInput) sInput.value='${window.pendingSmartPreview.custName}'; window.pendingSmartPreview = null;` 
+                    ? `openMod('cale', '${ev.date}', '${ev.time}', '${ev.end_time}'); 
+                       setTimeout(() => {
+                           const sInput = document.getElementById('f-a-search'); if(sInput) sInput.value = '${window.pendingSmartPreview.custName}';
+                           const uSelect = document.getElementById('f-a-user'); if(uSelect) uSelect.value = '${window.pendingSmartPreview.assigned_user}';
+                           const nInput = document.getElementById('f-a-notes'); if(nInput) nInput.value = '${window.pendingSmartPreview.notes || ''}';
+                           const itemSelect = document.getElementById('f-a-item-select');
+                           if(itemSelect) {
+                               Array.from(itemSelect.options).forEach(opt => {
+                                   if (${JSON.stringify(window.pendingSmartPreview.selectedServices || [])}.includes(opt.text)) opt.selected = true;
+                               });
+                           }
+                           if(typeof checkOperatorScheduleValidity === 'function') checkOperatorScheduleValidity();
+                       }, 100);
+                       window.pendingSmartPreview = null; 
+                       const b = document.getElementById('smart-preview-banner'); if(b) b.style.display='none';` 
                     : `viewApp('${ev.id}')`;
 
                 html += `
@@ -5194,7 +5221,6 @@ async function registerOperatorPushNotifications() {
         }
 
         await refreshAllData();
-        await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
         closeMod();
 
@@ -5203,26 +5229,27 @@ async function registerOperatorPushNotifications() {
         if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
             const baseDate = new Date(date);
             baseDate.setDate(baseDate.getDate() + avgDays);
-            const nextDateStr = baseDate.toLocaleDateString('en-CA');
 
-            // Cerchiamo il primo slot libero reale per quell'operatore
+            // Cerchiamo il primo slot libero reale rispettando i turni dell'operatore
             const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
+            const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
             const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
             const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
 
-            // 👻 SALVIAMO LO STATO DELLA PREVIEW TEMPORANEA
+            // 👻 SALVIAMO LO STATO DELLA PREVIEW TEMPORANEA (Inclusi i servizi)
             window.pendingSmartPreview = {
                 custName: custName,
-                date: freeSlots.length > 0 ? freeSlots[0].date : nextDateStr,
+                date: targetDate,
                 time: targetTime,
                 end_time: targetEndTime,
                 service: finalService,
                 assigned_user: assignedUser,
-                notes: notes
+                notes: notes,
+                selectedServices: selectedServices // Array dei nomi dei servizi
             };
 
             // Spostiamo la vista dell'Agenda sulla data della preview
-            viewDate = new Date(window.pendingSmartPreview.date);
+            viewDate = new Date(targetDate);
             
             const userFilter = document.getElementById('user-filter');
             if (userFilter) userFilter.value = assignedUser;
@@ -5231,6 +5258,14 @@ async function registerOperatorPushNotifications() {
             if (typeof renderCalendar === 'function') renderCalendar();
         }
     }
+
+function cancelSmartPreview() {
+        window.pendingSmartPreview = null;
+        const banner = document.getElementById('smart-preview-banner');
+        if (banner) banner.style.display = 'none';
+        if (typeof renderCalendar === 'function') renderCalendar();
+    }
+
 
     // Inizializzazione del box Smart Rebooking post-salvataggio con ricerca del primo slot reale disponibile
     async function evaluateSmartRebookingInModal(custName, startDate, originalAssignedUser, originalServiceNames, originalNotes) {
