@@ -39,7 +39,9 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
-   if (!table && [
+    // 🛑 FILTRO RIGOROSO: INSERT, UPDATE e DELETE DEVONO ESSERE SEMPRE ESCLUSE DALLE AZIONI SPECIALI
+    const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
+    if (!isStandardWrite && !table && [
         'GET_MARGIN_INSIGHTS', 
         'GET_VOLUME_INSIGHTS', 
         'GET_MONTHLY_BALANCE', 
@@ -73,6 +75,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
+    // ✍️ I comandi INSERT, UPDATE e DELETE scendono correttamente qui
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
