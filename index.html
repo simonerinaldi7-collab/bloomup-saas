@@ -5995,17 +5995,19 @@ async function updateReminderBadgeCount() {
 async function renderProducts() {
     const f = (document.getElementById('src-prod').value || '').toLowerCase();
     const supplierFilterVal = document.getElementById('filter-prod-supplier')?.value || 'all';
-    const sizeFilterVal = document.getElementById('filter-prod-size')?.value || 'all'; // 👈 Valore filtro taglia
+    const sizeFilterVal = document.getElementById('filter-prod-size')?.value || 'all';
     const typeSalesFilterVal = document.getElementById('filter-prod-type-sales')?.value || 'all';
     const tbody = document.getElementById('list-prod');
     if (!tbody) return;
 
-    // Aggiorniamo le tendine dei filtri
     await updateProductSupplierFilter();
     await updateProductSizeFilter();
 
     let filtered = allInventory.filter(p => (p.type === 'prodotto' || !p.type));
     const allLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+    
+    // 📦 RECUPERIAMO TUTTI I LOTTI DAL DB PER CALCOLARE LA GIACENZA REALE
+    const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
 
     // 1. Filtro testuale generale
     if (f) {
@@ -6035,7 +6037,7 @@ async function renderProducts() {
         });
     }
 
-    // 3. Filtro per Taglia/Misura specifica
+    // 3. Filtro per Taglia/Misura
     if (sizeFilterVal !== 'all') {
         filtered = filtered.filter(p => p.size && p.size.trim().toLowerCase() === sizeFilterVal.toLowerCase());
     }
@@ -6047,18 +6049,23 @@ async function renderProducts() {
         filtered = filtered.filter(p => p.is_consignment);
     }
     
-    // 5. Filtro Sottosoglia
-    if (productFilter === 'lowstock') {
-        filtered = filtered.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock);
-    }
-    
     let html = "";
     for (let item of filtered) {
+        // 🧮 CALCOLO REALE DELLA GIACENZA SOMMANDO I LOTTI RESIDUI (qty_remaining)
+        const productLots = allLots.filter(l => l.product_id === item.id);
+        const realStock = productLots.length > 0 
+            ? productLots.reduce((sum, l) => sum + (parseFloat(l.qty_remaining) || 0), 0)
+            : (parseFloat(item.stock) || 0); // Fallback al vecchio stock se non ci sono lotti
+
         const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
         const price = pInfo ? pInfo.price : 0;
         const cost = pInfo ? pInfo.cost : 0;
-        const isLowStock = item.stock <= item.min_stock;
         
+        // Sottosoglia calcolata sulla giacenza reale
+        const isLowStock = realStock <= (item.min_stock || 0);
+        
+        if (productFilter === 'lowstock' && !isLowStock) continue;
+
         let supplierHtml = '-';
         if (item.is_consignment) {
             const prodLinks = allLinks.filter(l => l.product_id === item.id);
@@ -6093,7 +6100,7 @@ async function renderProducts() {
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-weight:bold; font-size:14px; padding:4px 8px; background:#f1f5f9; border-radius:6px; cursor:pointer;" 
                           onclick="openStockLotsModal('${item.id}')" title="Clicca per ispezionare i lotti di magazzino">
-                        📦 ${item.stock} ${item.unit || 'Pz'}
+                        📦 ${realStock % 1 === 0 ? realStock : realStock.toFixed(2)} ${item.unit || 'Pz'}
                     </span>
                 </div>
             </td>
