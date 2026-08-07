@@ -6262,6 +6262,7 @@ async function saveInv() {
 // 🛡️ GESTIONE SICURA DELL'ID RESTITUITO (Supporta lastInsertRowid, id, o genera un fallback)
 productId = (res && (res.lastInsertRowid || res.id)) ? (res.lastInsertRowid || res.id) : invData.id;
 
+
         const historyData = {
             product_id: productId,
             cost: 0,
