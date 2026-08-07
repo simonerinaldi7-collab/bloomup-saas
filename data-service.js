@@ -34,15 +34,10 @@ window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    console.log(`🔍 [APP-DATA-SERVICE] Azione ricevuta:`, { action, table, data, id, salonId, isOnline });
-
     if (action === 'FORCE_SYNC') {
         await processBrowserSyncQueue();
         return { status: 'ok' };
     }
-
-    // 🛑 BLINDIAMO IL ROUTING: INSERT, UPDATE e DELETE DEVONO ANDARE SEMPRE ALLE SCRITTURE STANDARD!
-    const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
 
     if (!isStandardWrite && !table && [
         'GET_MARGIN_INSIGHTS', 
@@ -64,13 +59,11 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'RESET_PASSWORD',
         'SAVE_USER'
     ].includes(action)) {
-        console.log(`⚡ [ROUTING] Azione speciale riconosciuta: ${action}`);
         return await handleSpecialAction(action, data, id);
     }
 
     // C. LETTURE (GET_ALL)
-    if (action === 'GET_ALL') {
-        console.log(`📖 [DATA-SERVICE GET_ALL] Richiesta lettura per tabella: '${table}' (SalonId: ${salonId})`);
+     if (action === 'GET_ALL') {
         try {
             if (isOnline) {
                 await backgroundPullFromSupabase(table, salonId);
@@ -78,13 +71,10 @@ window.appDataService = async function(action, table, data = null, id = null) {
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
-        const records = await localDb.table(table).where('salon_id').equals(salonId).toArray() || [];
-        console.log(`📦 [DATA-SERVICE GET_ALL] Restituisco ${records.length} record per '${table}'`);
-        return records;
+        return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
     // D. SCRITTURE STANDARD (INSERT, UPDATE, DELETE)
-    console.log(`✍️ [ROUTING] Invio a handleWriteOperation per azione: ${action} su tabella: ${table}`);
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
@@ -966,12 +956,8 @@ async function handleSpecialAction(action, data, id) {
                 salon_id: salonId 
             };
             
-            console.log(`💾 [DATA-SERVICE INSERT] Scrittura su tabella '${table}':`, recordToSave);
-
-            // 1. Scrittura locale
             await localDb.table(table).add(recordToSave);
 
-            // 2. Invio Cloud o Accodamento
             if (isOnline) {
                 const success = await sendToCloudDirectly('POST', table, recordToSave);
                 if (!success) {
@@ -980,7 +966,9 @@ async function handleSpecialAction(action, data, id) {
             } else {
                 await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
             }
-            return { status: 'ok', lastInsertRowid: recordToSave.id }; // 👈 ASSICURATI CHE CI SIA IL RETURN
+            
+            // 👈 RESTITUISCI ENTRAMBI I PARAMETRI PER COMPATIBILITÀ TOTALE CON LA CASSA E I PRODOTTI
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id, status: 'ok' };
         }
 
         // --- 11. GET_CROSS_SELLING ---
