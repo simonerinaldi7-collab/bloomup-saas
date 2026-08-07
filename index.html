@@ -4450,19 +4450,22 @@ async function updateProductSizeFilter() {
         if (!container || !label) return;
 
         label.innerText = typeof formatDateIt === 'function' ? formatDateIt(dateStr) : dateStr;
-        container.innerHTML = `<div style="text-align:center; color:#888; font-size:11px; padding:10px;">Verifica agenda operatore...</div>`;
+        container.innerHTML = `<div style="text-align:center; color:#888; font-size:11px; padding:10px;">Verifica turni operatore...</div>`;
 
-        const assignedUser = document.getElementById('f-a-user').value || 'admin';
+        // 🛡️ LETTURA RIGOROSA DAL SELECT DEL BOX GHOST E NON DA ALTRI MODALI
+        const userSelect = document.getElementById('ghost-user-select');
+        const assignedUser = userSelect ? userSelect.value.trim().toLowerCase() : 'admin';
+        
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-        const dateObj = new Date(dateStr);
+        const dateObj = new Date(dateStr + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
 
-        const dayConfig = schedules.find(s => s.username.trim().toLowerCase() === assignedUser.trim().toLowerCase() && s.day_of_week === dayOfWeek);
+        const dayConfig = schedules.find(s => (s.username || '').trim().toLowerCase() === assignedUser && Number(s.day_of_week) === dayOfWeek);
 
         if (!dayConfig || Number(dayConfig.is_working) !== 1) {
-            container.innerHTML = `<div style="text-align:center; color:var(--d); font-size:11px; padding:10px;">⚠️ L'operatore ${assignedUser} non lavora in questo giorno.</div>`;
+            container.innerHTML = `<div style="text-align:center; color:var(--d); font-size:11px; padding:10px; background:#fff1f0; border-radius:6px; border:1px solid #ffccd5;">⚠️ L'operatore <b>${assignedUser}</b> è a riposo in questa data. Scegli un altro giorno o cambia operatore.</div>`;
             return;
         }
 
@@ -4470,7 +4473,8 @@ async function updateProductSizeFilter() {
         if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
         if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
 
-        const dayApps = existingApps.filter(a => a.date === dateStr && (a.assigned_user || 'admin').trim().toLowerCase() === assignedUser.trim().toLowerCase());
+        // 🛡️ FILTRO ISOLATO SUGLI APPUNTAMENTI DI QUEL SPECIFICO OPERATORE
+        const dayApps = existingApps.filter(a => a.date === dateStr && (a.assigned_user || 'admin').trim().toLowerCase() === assignedUser);
 
         let html = '';
         let foundFirstFree = false;
@@ -4493,7 +4497,7 @@ async function updateProductSizeFilter() {
 
                 const matchingApp = dayApps.find(a => {
                     const aStart = a.time;
-                    const aEnd = a.end_time || (parseInt(a.time.split(':')[0]) + 1).toString().padStart(2, '0') + ':' + a.time.split(':')[1];
+                    const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
                     return timeStr < aEnd && endTimeStr > aStart;
                 });
 
@@ -4528,7 +4532,7 @@ async function updateProductSizeFilter() {
             }
         }
 
-        container.innerHTML = html || `<div style="text-align:center; color:#888; font-size:11px;">Nessun orario disponibile.</div>`;
+        container.innerHTML = html || `<div style="text-align:center; color:#888; font-size:11px;">Nessun orario disponibile in turno.</div>`;
 
         if (window.ghostSelectedTime) {
             const tInput = document.getElementById('ghost-manual-time');
@@ -4867,38 +4871,32 @@ async function registerOperatorPushNotifications() {
     }
 
     // 3. Algoritmo di ricerca slot liberi basato sugli orari dell'operatore e sugli appuntamenti esistenti
+    // 1. Ricerca slot liberi filtrata rigorosamente per l'operatore passato come parametro
     async function findAvailableSlots(targetDateObj, username, limit = 5) {
         const validSlots = [];
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
+        const cleanUsername = (username || 'admin').trim().toLowerCase();
         let searchDate = new Date(targetDateObj);
 
-        // Cerchiamo nei prossimi 14 giorni a partire dalla data target finché non troviamo abbastanza slot liberi
         for (let dayOffset = 0; dayOffset < 14 && validSlots.length < limit; dayOffset++) {
             const checkDate = new Date(searchDate);
             checkDate.setDate(searchDate.getDate() + dayOffset);
             const dayOfWeek = checkDate.getDay();
             const dateStr = checkDate.toLocaleDateString('en-CA');
 
-            // Verifichiamo se l'operatore lavora in quel giorno della settimana
-            const dayConfig = schedules.find(s => s.username.trim().toLowerCase() === username.trim().toLowerCase() && s.day_of_week === dayOfWeek);
+            const dayConfig = schedules.find(s => (s.username || '').trim().toLowerCase() === cleanUsername && Number(s.day_of_week) === dayOfWeek);
             
             if (!dayConfig || Number(dayConfig.is_working) !== 1) continue;
 
-            // Estraiamo i blocchi orari lavorativi del giorno
             const shifts = [];
-            if (dayConfig.start_time_1 && dayConfig.end_time_1) {
-                shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-            }
-            if (dayConfig.start_time_2 && dayConfig.end_time_2) {
-                shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
-            }
+            if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+            if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
 
-            // Appuntamenti già presi da questo operatore in quella data
-            const dayApps = existingApps.filter(a => a.date === dateStr && (a.assigned_user || 'admin').trim().toLowerCase() === username.trim().toLowerCase());
+            // 🛡️ Filtro rigoroso sugli appuntamenti di QUEL SPECIFICO OPERATORE
+            const dayApps = existingApps.filter(a => a.date === dateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanUsername);
 
-            // Generiamo slot orari a intervalli di 30 minuti
             for (let shift of shifts) {
                 let [startH, startM] = shift.start.split(':').map(Number);
                 let [endH, endM] = shift.end.split(':').map(Number);
@@ -4911,24 +4909,23 @@ async function registerOperatorPushNotifications() {
                     const m = currentMinutes % 60;
                     const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                     
-                    const endMinTarget = currentMinutes + 60; // Durata stimata standard 60 min
+                    const endMinTarget = currentMinutes + 60; 
                     const endH_slot = Math.floor(endMinTarget / 60);
                     const endM_slot = endMinTarget % 60;
                     const endTimeStr = `${String(endH_slot).padStart(2, '0')}:${String(endM_slot).padStart(2, '0')}`;
 
-                    // Verifichiamo se lo slot si sovrappone ad appuntamenti esistenti
                     const isOccupied = dayApps.some(a => {
                         const aStart = a.time;
-                        const aEnd = a.end_time || (parseInt(a.time.split(':')[0]) + 1).toString().padStart(2, '0') + ':' + a.time.split(':')[1];
+                        const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
                         return timeStr < aEnd && endTimeStr > aStart;
                     });
 
                     if (!isOccupied) {
-                        validSlots.pop ? validSlots.push({ date: dateStr, time: timeStr, endTime: endTimeStr }) : null;
+                        validSlots.push({ date: dateStr, time: timeStr, endTime: endTimeStr });
                         if (validSlots.length >= limit) break;
                     }
 
-                    currentMinutes += 30; // Salto di 30 minuti
+                    currentMinutes += 30;
                 }
             }
         }
