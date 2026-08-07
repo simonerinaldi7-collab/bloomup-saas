@@ -2207,6 +2207,9 @@ async function submitPasswordReset() {
         const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
         const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
         
+        // 🛡️ ALLESTIAMO UN ALIAS DI SICUREZZA PER EVITARE QUALSIASI ERRORE DI NOME VARIABILE
+        const priceHistory = priceHistoryData;
+        
         const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
             const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
             const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
@@ -2233,12 +2236,16 @@ async function submitPasswordReset() {
             let totalSupplierPayout = 0;
             let netMarginOrRevenue = finalPrice;
 
+            // Dichiariamo phList qui per renderla visibile in tutto lo scope del prodotto
+            let phList = [];
+
             if (prod) {
+                phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+
                 // A. Usiamo prima il costo FIFO reale della vendita (r.unit_cost), altrimenti fallback sullo storico
                 if (r.unit_cost !== undefined && r.unit_cost !== null && !isNaN(r.unit_cost) && parseFloat(r.unit_cost) > 0) {
                     unitCost = parseFloat(r.unit_cost) || 0;
                 } else {
-                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
                     if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
                 }
 
