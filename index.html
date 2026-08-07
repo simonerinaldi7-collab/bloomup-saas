@@ -460,6 +460,43 @@
     </div>
 </div>
 
+
+<!-- MODALE ISPEZIONE LOTTI DI MAGAZZINO (FIFO) -->
+<div id="mod-stock-lots" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 600px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; color: var(--p);">📦 Dettaglio Lotti di Magazzino (FIFO)</h3>
+            <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); flex-shrink: 0;">
+            <div style="font-size: 12px; color: #666;">Prodotto Selezionato:</div>
+            <div id="lots-prod-name" style="font-weight: bold; font-size: 16px; color: var(--txt);">Nome Prodotto</div>
+            <div style="font-size: 11px; color: var(--p); margin-top: 4px;" id="lots-prod-total-stock">Giacenza Totale: 0 Pz</div>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; margin-bottom: 15px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f1f5f9; text-align: left; font-size: 11px;">
+                        <th style="padding: 10px;">Data Carico</th>
+                        <th style="padding: 10px;">Qtà Iniziale</th>
+                        <th style="padding: 10px;">Residua (FIFO)</th>
+                        <th style="padding: 10px;">Costo / Quote</th>
+                    </tr>
+                </thead>
+                <tbody id="stock-lots-table-body">
+                    <!-- Popolato dinamicamente -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 10px; text-align: right;">
+            <button class="btn" style="background: #f1f5f9; color: #475569;" onclick="closeMod()">Chiudi</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODALE CARICO MERCE (MAGAZZINO) -->
 <div id="mod-stock-load" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 450px;">
@@ -5487,6 +5524,68 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
     document.body.appendChild(overlay);
 }
 
+
+
+// Funzione per aprire il modale dei lotti di un prodotto specifico
+async function openStockLotsModal(productId) {
+    const prod = allInventory.find(p => p.id === productId);
+    if (!prod) return;
+
+    document.getElementById('lots-prod-name').innerText = prod.name;
+    document.getElementById('lots-prod-total-stock').innerText = `Giacenza Totale: ${prod.stock} ${prod.unit || 'Pz'}`;
+
+    const tbody = document.getElementById('stock-lots-table-body');
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">Caricamento lotti in corso...</td></tr>`;
+
+    document.getElementById('mod-stock-lots').classList.add('active');
+
+    try {
+        const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const prodLots = lots
+            .filter(l => l.product_id === productId)
+            .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')); // Dal più vecchio al più recente (FIFO)
+
+        if (prodLots.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">Nessun lotto registrato per questo prodotto (giacenza iniziale o lotti non tracciati).</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        for (let lot of prodLots) {
+            const dateFormatted = lot.created_at ? new Date(lot.created_at).toLocaleString('it-IT') : '-';
+            const isExhausted = lot.qty_remaining <= 0;
+            
+            let detailsText = `Costo: €${parseFloat(lot.unit_cost || 0).toFixed(2)}`;
+            if (prod.is_consignment && lot.supplier_splits) {
+                try {
+                    const splits = JSON.parse(lot.supplier_splits);
+                    let parts = splits.map(s => `${s.split_pct}%`);
+                    detailsText = `Conto Vendita (${parts.join(', ')})`;
+                } catch (e) {
+                    detailsText = `Conto Vendita`;
+                }
+            }
+
+            html += `
+                <tr style="${isExhausted ? 'opacity: 0.5; background: #f8f9fa;' : ''} border-bottom: 1px solid #eee; font-size: 13px;">
+                    <td style="padding: 10px;">${dateFormatted}</td>
+                    <td style="padding: 10px;">${lot.initial_qty} ${prod.unit || 'Pz'}</td>
+                    <td style="padding: 10px; font-weight: bold; color: ${isExhausted ? '#888' : 'var(--s)'};">
+                        ${lot.qty_remaining} ${prod.unit || 'Pz'} ${isExhausted ? '(Esaurito)' : ''}
+                    </td>
+                    <td style="padding: 10px; font-size: 12px; color: #475569;">${detailsText}</td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = html;
+
+    } catch (err) {
+        console.error("Errore nel recupero dei lotti di magazzino:", err);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:red;">Errore nel caricamento dei lotti.</td></tr>`;
+    }
+}
+
+
 function closeLocalAlarmModal() {
     const overlay = document.getElementById('pro-alarm-overlay');
     if (overlay) overlay.remove();
@@ -5991,12 +6090,12 @@ async function renderProducts() {
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>€ ${parseFloat(cost).toFixed(2)}</td>
             <td>
-                <div style="display:flex; align-items:center; gap:6px;">
-        <!-- 👈 Aggiunto step="0.01" e min="0" per accettare decimali -->
-        <input type="number" value="${item.stock}" step="0.1" min="0" style="width:80px; margin:0; padding:6px; font-weight:bold;" 
-               onchange="updateStockInline('${item.id}', this.value)">
-        <small>${item.unit || 'Pz'}</small>
-    </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:bold; font-size:14px; padding:4px 8px; background:#f1f5f9; border-radius:6px; cursor:pointer;" 
+                          onclick="openStockLotsModal('${item.id}')" title="Clicca per ispezionare i lotti di magazzino">
+                        📦 ${item.stock} ${item.unit || 'Pz'}
+                    </span>
+                </div>
             </td>
             <td>${supplierHtml}</td>
             <td style="text-align:right">
