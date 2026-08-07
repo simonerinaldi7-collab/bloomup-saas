@@ -954,8 +954,10 @@ async function handleSpecialAction(action, data, id) {
                 salon_id: salonId 
             };
             
+            // 1. Scrittura locale
             await localDb.table(table).add(recordToSave);
 
+            // 2. Invio Cloud o Accodamento
             if (isOnline) {
                 const success = await sendToCloudDirectly('POST', table, recordToSave);
                 if (!success) {
@@ -964,10 +966,8 @@ async function handleSpecialAction(action, data, id) {
             } else {
                 await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
             }
-            
-            // 👈 RESTITUISCI ENTRAMBI I PARAMETRI PER COMPATIBILITÀ TOTALE CON LA CASSA E I PRODOTTI
-            return { lastInsertRowid: recordToSave.id, id: recordToSave.id, status: 'ok' };
-        }
+            return { lastInsertRowid: recordToSave.id };
+        } 
 
         // --- 11. GET_CROSS_SELLING ---
         if (action === 'GET_CROSS_SELLING') {
