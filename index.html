@@ -933,8 +933,25 @@
 </section>
 
     <section id="v-suppliers" class="view">
-        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><input type="text" id="src-supp" onkeyup="renderSuppliers()" placeholder="Cerca fornitore..." style="max-width:300px; margin:0;"><button class="btn btn-p" onclick="openMod('supp')">+ Nuovo Fornitore</button></div>
-        <div class="card" style="padding:0"><table><thead><tr><th>Azienda</th><th>Referente</th><th>Tel</th><th>Email</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-supp"></tbody></table></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
+            <input type="text" id="src-supp" onkeyup="renderSuppliers()" placeholder="Cerca fornitore..." style="max-width:300px; margin:0;">
+            <button class="btn btn-p" onclick="openMod('supp')">+ Nuovo Fornitore</button>
+        </div>
+        <div class="card" style="padding:0; overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Azienda</th>
+                        <th>Referente</th>
+                        <th>Tel / Email</th>
+                        <th>P.IVA</th>
+                        <th>Indirizzo</th>
+                        <th style="text-align:right">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="list-supp"></tbody>
+            </table>
+        </div>
     </section>
 
     <section id="v-services" class="view">
@@ -1189,26 +1206,48 @@
         <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:15px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
     </div>
 </div>
-<div id="mod-supp" class="modal"><div class="modal-box"><h3>Fornitore</h3><input type="hidden" id="edit-supp-id" value="-1"><input type="text" id="f-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveSupplier()">Salva</button></div></div>
-    <div id="mod-consumables" class="modal" onclick="if(event.target==this) closeMod()">
-    <div class="modal-box" style="width: 500px;">
-        <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
-        <h3 style="margin-top:0; color:var(--p);">📦 Associa Materiali al Servizio</h3>
-        <input type="hidden" id="edit-service-id" value="">
-        
-        <label>Cerca Prodotto in Magazzino</label>
-        <input type="text" id="f-c-search-prod" placeholder="Scrivi nome prodotto..." onkeyup="filterProductSelect()">
+<!-- MODALE GESTIONE FORNITORI -->
+<div id="mod-supp" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 500px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; color: var(--p);">🚚 Anagrafica Fornitore</h3>
+            <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+        </div>
 
-        <label>Seleziona Prodotto</label>
-        <select id="f-c-prod-select"></select>
-        
-        <label>Quantità necessaria per 1 servizio</label>
-        <input type="number" id="f-c-qty" step="0.01" placeholder="Esempio: 0.5">
-        
-        <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:12px;" onclick="saveConsumable()">Associa Materiale</button>
-        
-        <div style="margin-top: 20px; font-weight: bold; font-size: 12px; color: #666; text-transform: uppercase;">Materiali già associati:</div>
-        <div id="consumables-list" style="margin-top:10px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #f8f9fa;"></div>
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <input type="hidden" id="edit-supp-id" value="-1">
+            
+            <label>Nome Azienda / Fornitore *</label>
+            <input type="text" id="f-supp-name" placeholder="Es. Beauty Distribuzione Srl">
+
+            <label>Referente</label>
+            <input type="text" id="f-supp-contact" placeholder="Nome del referente">
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Telefono</label>
+                    <input type="text" id="f-supp-phone" placeholder="Es. 021234567">
+                </div>
+                <div>
+                    <label>Email</label>
+                    <input type="email" id="f-supp-email" placeholder="ordini@fornitore.it">
+                </div>
+            </div>
+
+            <label>Partita IVA / Codice Fiscale</label>
+            <input type="text" id="f-supp-vat" placeholder="Es. IT01234567890">
+
+            <label>Indirizzo Sede</label>
+            <input type="text" id="f-supp-address" placeholder="Via Roma 1, Milano">
+
+            <label>Note</label>
+            <textarea id="f-supp-notes" rows="2" placeholder="Condizioni di pagamento, giorni di consegna..."></textarea>
+        </div>
+
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
+            <button class="btn btn-p" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveSupplier()">Salva Fornitore</button>
+            <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Annulla</button>
+        </div>
     </div>
 </div>
 <div id="mod-view-app" class="modal" onclick="if(event.target==this) closeMod()">
@@ -3644,20 +3683,26 @@ function triggerLocalOperatorAlert(appointment) {
         const tbody = document.getElementById('list-supp');
         if (!tbody) return;
 
-        const filtered = allSuppliers.filter(s => s.name.toLowerCase().includes(f) || (s.contact_person && s.contact_person.toLowerCase().includes(f)));
+        allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+
+        const filtered = allSuppliers.filter(s => 
+            (s.name && s.name.toLowerCase().includes(f)) || 
+            (s.contact_person && s.contact_person.toLowerCase().includes(f)) ||
+            (s.email && s.email.toLowerCase().includes(f))
+        );
         
         tbody.innerHTML = filtered.map(s => `
             <tr>
                 <td><b>${s.name}</b></td>
                 <td>${s.contact_person || '-'}</td>
-                <td>${s.phone || '-'}</td>
-                <td>${s.email || '-'}</td>
-                <td>${s.vat_number || '-'}</td>
-                <td>${s.updated_at ? formatDateIt(s.updated_at.substring(0, 10)) : '-'}</td>
-                <td>${s.created_by || 'Admin'}</td>
+                <td>${s.phone || '-'}<br><small style="color:#666;">${s.email || ''}</small></td>
+                <td><code>${s.vat_number || '-'}</code></td>
+                <td>${s.address || '-'}</td>
                 <td style="text-align:right">
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="editSupplier('${s.id}')">Edit</button>
-                    <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('suppliers', '${s.id}')">✕</button>
+                    <div style="display: inline-flex; gap: 5px;">
+                        <button class="btn btn-s" style="padding:2px 8px;" onclick="editSupplier('${s.id}')" title="Modifica">Edit</button>
+                        <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('suppliers', '${s.id}')" title="Elimina">✕</button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -3819,31 +3864,33 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 
-    async function saveSupplier() {
+   async function saveSupplier() {
         const id = document.getElementById('edit-supp-id').value;
-        let data = {
-            name: document.getElementById('f-supp-name').value,
-            contact_person: document.getElementById('f-supp-contact').value,
-            phone: document.getElementById('f-supp-phone').value,
-            email: document.getElementById('f-supp-email').value,
-            vat_number: document.getElementById('f-supp-vat').value,
-            address: document.getElementById('f-supp-address').value,
-            notes: document.getElementById('f-supp-notes').value
-        };
+        const name = document.getElementById('f-supp-name').value.trim();
+        
+        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-        if(!data.name) return alert("Inserisci il nome del fornitore!");
+        let data = {
+            id: (id === "-1" || !id) ? crypto.randomUUID() : id,
+            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+            name: name,
+            contact_person: document.getElementById('f-supp-contact').value.trim(),
+            phone: document.getElementById('f-supp-phone').value.trim(),
+            email: document.getElementById('f-supp-email').value.trim(),
+            vat_number: document.getElementById('f-supp-vat').value.trim(),
+            address: document.getElementById('f-supp-address').value.trim(),
+            notes: document.getElementById('f-supp-notes').value.trim()
+        };
 
         data = addAuditData(data);
 
-        if (id === "-1") {
+        if (id === "-1" || !id) {
             await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
         } else {
             await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
         }
 
         closeMod();
-        
-        // 🔄 AGGIORNAMENTO GLOBALE IMMEDIATO
         await refreshAllData();
         if (typeof renderSuppliers === 'function') renderSuppliers();
     }
