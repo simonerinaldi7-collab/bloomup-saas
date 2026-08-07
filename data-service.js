@@ -39,7 +39,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
-    if (!isStandardWrite && !table && [
+   if (!table && [
         'GET_MARGIN_INSIGHTS', 
         'GET_VOLUME_INSIGHTS', 
         'GET_MONTHLY_BALANCE', 
@@ -58,12 +58,12 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'UPSERT_SETTING',
         'RESET_PASSWORD',
         'SAVE_USER'
-    ].includes(action)) {
+        ].includes(action)) {
         return await handleSpecialAction(action, data, id);
     }
 
-    // C. LETTURE (GET_ALL)
-     if (action === 'GET_ALL') {
+    // C. LETTURE (GET_ALL) -> Strategia Offline-First (Legge locale + Pull di aggiornamento in background se online)
+    if (action === 'GET_ALL') {
         try {
             if (isOnline) {
                 await backgroundPullFromSupabase(table, salonId);
@@ -71,10 +71,12 @@ window.appDataService = async function(action, table, data = null, id = null) {
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
+        
+        // Ritorna ESCLUSIVAMENTE i record del salonId corrente. 
+        // Se la tabella è settings e non ci sono record, restituirà [] (vuoto, corretto!).
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
-    // D. SCRITTURE STANDARD (INSERT, UPDATE, DELETE)
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
