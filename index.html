@@ -1073,16 +1073,43 @@
     </section>
 
     <section id="v-settings" class="view">
-        <div class="card">
-            <h3>Configurazione Sistema</h3>
-            <label>Ore d'anticipo Reminder</label><input type="number" id="set-rem-hours">
-            <label>Template Conferma</label><textarea id="set-msg-confirm" rows="2"></textarea>
-            <label>Template Reminder</label><textarea id="set-msg-reminder" rows="2"></textarea>
-            <label style="margin-top:20px;">Anticipo Notifica Imminente Operatore (Minuti)</label>
-<input type="number" id="set-imminent-lead" value="15" min="1" max="120" onchange="saveImminentLeadSetting(this.value)">
-<small style="color:#666; display:block; margin-top:-12px; margin-bottom:15px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
+        <div class="card" style="max-width: 700px; margin: 0 auto;">
+            <h3 style="margin-top:0; color:var(--p);">⚙️ Configurazione Sistema & Template</h3>
             
-            <button class="btn btn-p" onclick="saveSystemSettings()">Salva</button>
+            <label>Ore d'anticipo Reminder</label>
+            <input type="number" id="set-rem-hours">
+            
+            <div style="margin: 20px 0 5px 0;">
+                <label>Template Messaggio Conferma</label>
+                <!-- BARRA PLACEHOLDER INTERATTIVI -->
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
+                    <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{CLIENTE}}')">{{CLIENTE}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                </div>
+                <textarea id="set-msg-confirm" rows="3" placeholder="Scrivi il messaggio di conferma..."></textarea>
+            </div>
+
+            <div style="margin: 20px 0 5px 0;">
+                <label>Template Messaggio Reminder</label>
+                <!-- BARRA PLACEHOLDER INTERATTIVI -->
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
+                    <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{CLIENTE}}')">{{CLIENTE}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{DATA}}')">{{DATA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{ORA}}')">{{ORA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                </div>
+                <textarea id="set-msg-reminder" rows="3" placeholder="Scrivi il messaggio promemoria..."></textarea>
+            </div>
+
+            <label style="margin-top:20px;">Anticipo Notifica Imminente Operatore (Minuti)</label>
+            <input type="number" id="set-imminent-lead" value="15" min="1" max="120" onchange="saveImminentLeadSetting(this.value)">
+            <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
+            
+            <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
 
@@ -3030,7 +3057,23 @@ async function executeSafeUserDeletion() {
     }
 
 
+// Funzione universale per inserire un tag placeholder nella posizione del cursore della textarea
+    function insertPlaceholderAtCursor(textareaId, placeholderTag) {
+        const textarea = document.getElementById(textareaId);
+        if (!textarea) return;
 
+        const startPos = textarea.selectionStart;
+        const endPos = textarea.selectionEnd;
+        const textVal = textarea.value;
+
+        // Inserisce il tag esattamente dove si trova il cursore
+        textarea.value = textVal.substring(0, startPos) + placeholderTag + textVal.substring(endPos, textVal.length);
+        
+        // Ripristina il focus e sposta il cursore subito dopo il tag inserito
+        textarea.focus();
+        textarea.selectionStart = startPos + placeholderTag.length;
+        textarea.selectionEnd = startPos + placeholderTag.length;
+    }
 
 
 
