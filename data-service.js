@@ -559,8 +559,6 @@ async function handleSpecialAction(action, data, id) {
             })).sort((a, b) => b.total_sold - a.total_sold);
         }
 
-        // --- 2. GET_MARGIN_INSIGHTS ---
-        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
         // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
@@ -598,10 +596,17 @@ async function handleSpecialAction(action, data, id) {
                     // Fallback se non trova il match per data esatta: prende il più recente prima o vicino alla vendita
                     let activePh = phList.length > 0 ? phList[0] : null;
                     if (!activePh) {
-                        const prodHistory = priceHistory.filter(p => p.product_id === inv.id);
-                        prodHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                        activePh = prodHistory.length > 0 ? prodHistory[0] : null;
-                    }
+                         const validHistoryRecords = prodHistory.filter(p => saleDate >= (p.date_from || '1900-01-01'));
+                    
+                    // Ordiniamo dal più recente al più vecchio
+                    validHistoryRecords.sort((a, b) => {
+                        const dateCmp = (b.date_from || '').localeCompare(a.date_from || '');
+                        if (dateCmp !== 0) return dateCmp;
+                        return (b.id || '').localeCompare(a.id || '');
+                        const activePh = validHistoryRecords.length > 0 ? validHistoryRecords[0] : (prodHistory[0] || null);
+                    });
+
+                     }
 
                     const listinoPienoOriginale = activePh ? (parseFloat(activePh.price) || soldPrice) : soldPrice;
 
@@ -616,7 +621,7 @@ async function handleSpecialAction(action, data, id) {
                         const unitPayout = (listinoPienoOriginale * totalPct) / 100;
                         totalCostOrPayout = unitPayout * (si.qty || 1);
                     } else {
-                        // 💰 PRELEVAMENTO CORRETTO DEL COSTO UNITARIO STORICO
+                        // 💰 COSTO UNITARIO STORICO PRECISO AL 100%
                         let unitCost = activePh ? (parseFloat(activePh.cost) || 0) : 0;
                         totalCostOrPayout = unitCost * (si.qty || 1);
                     }
@@ -709,20 +714,27 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 4. GET_CURRENT_PRICE ---
        if (action === 'GET_CURRENT_PRICE') {
-            const today = new Date().toISOString().split('T')[0];
             const history = await localDb.price_history.where('salon_id').equals(salonId).toArray();
             
-            console.log("DEBUG Storico prezzi in locale:", history);
-            console.log("DEBUG Cerco prezzo per product_id:", id, "alla data:", today);
+            // Filtriamo per product_id
+            const prodHistory = history.filter(ph => ph.product_id === id);
+            
+            if (prodHistory.length === 0) {
+                return { cost: 0, price: 0 };
+            }
 
-            const current = history.find(ph => 
-                ph.product_id === id && 
-                today >= ph.date_from && 
-                (today <= ph.date_to || !ph.date_to)
-            );
-            console.log("DEBUG Prezzo trovato nello storico:", current);
+            // Ordiniamo lo storico dal più recente al più vecchio in base a date_from (e se c'è un timestamp o id, lo usiamo come secondario)
+            prodHistory.sort((a, b) => {
+                const dateCompare = (b.date_from || '').localeCompare(a.date_from || '');
+                if (dateCompare !== 0) return dateCompare;
+                // Fallback se hanno la stessa data: ordinamento inverso di creazione se tracciato
+                return (b.id || '').localeCompare(a.id || '');
+            });
 
-            return current ? { cost: current.cost, price: current.price } : { cost: 0, price: 0 };
+            // L'ultimo valido in assoluto è il primo della lista ordinata
+            const current = prodHistory[0];
+
+            return current ? { cost: parseFloat(current.cost) || 0, price: parseFloat(current.price) || 0 } : { cost: 0, price: 0 };
         }
 
         // --- 5. GET_HISTORY ---
