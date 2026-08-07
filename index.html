@@ -4240,34 +4240,48 @@ window.loadSettingsFields = function() {
 function confirmSmartPreviewClick(dateStr, timeStr, endTimeStr) {
         if (!window.pendingSmartPreview) return;
 
-        // Apriamo il modale con i dati temporanei della preview
+        const previewData = { ...window.pendingSmartPreview };
+
+        // 1. Apriamo il modale sulla data e ora dello slot ghost
         openMod('cale', dateStr, timeStr, endTimeStr);
 
+        // 2. Popoliamo i campi in modo sicuro dopo l'apertura del modale
         setTimeout(() => {
+            // A. Cliente
             const sInput = document.getElementById('f-a-search'); 
-            if (sInput) sInput.value = window.pendingSmartPreview.custName || '';
+            if (sInput) sInput.value = previewData.custName || '';
             
+            // B. Operatore
             const uSelect = document.getElementById('f-a-user'); 
-            if (uSelect) uSelect.value = window.pendingSmartPreview.assigned_user || 'admin';
+            if (uSelect) {
+                uSelect.value = previewData.assigned_user || 'admin';
+            }
             
+            // C. Note
             const nInput = document.getElementById('f-a-notes'); 
-            if (nInput) nInput.value = window.pendingSmartPreview.notes || '';
+            if (nInput) nInput.value = previewData.notes || '';
             
+            // D. Servizi (Multi-select)
             const itemSelect = document.getElementById('f-a-item-select');
-            if (itemSelect && window.pendingSmartPreview.selectedServices) {
+            if (itemSelect && previewData.selectedServices && previewData.selectedServices.length > 0) {
                 Array.from(itemSelect.options).forEach(opt => {
-                    if (window.pendingSmartPreview.selectedServices.includes(opt.text)) {
+                    // Controlliamo se il testo dell'opzione è contenuto o corrisponde ai servizi salvati
+                    const isMatched = previewData.selectedServices.some(s => 
+                        opt.text.trim().toLowerCase() === s.trim().toLowerCase()
+                    );
+                    if (isMatched) {
                         opt.selected = true;
                     }
                 });
             }
 
+            // E. Eseguiamo la validazione dei turni e delle sovrapposizioni sul modale pre-compilato
             if (typeof checkOperatorScheduleValidity === 'function') {
                 checkOperatorScheduleValidity();
             }
-        }, 150);
+        }, 200);
 
-        // Puliamo la preview e nascondiamo il banner
+        // 3. Puliamo la preview e nascondiamo il banner
         window.pendingSmartPreview = null;
         const banner = document.getElementById('smart-preview-banner');
         if (banner) banner.style.display = 'none';
@@ -5259,6 +5273,15 @@ async function registerOperatorPushNotifications() {
             const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
             const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
 
+
+
+             let selectedServiceNames = [];
+            if (select) {
+                selectedServiceNames = Array.from(select.selectedOptions).map(opt => opt.text);
+            }
+            if (selectedServiceNames.length === 0 && finalService) {
+                selectedServiceNames = [finalService];
+            }
             // 👻 SALVIAMO LO STATO DELLA PREVIEW TEMPORANEA (Inclusi i servizi)
             window.pendingSmartPreview = {
                 custName: custName,
