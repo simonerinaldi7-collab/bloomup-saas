@@ -214,8 +214,8 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
             }
             return { changes: 1 };
         }
-    } catch (err) {
-        console.error("Errore operazione di scrittura offline/online:", err);
+   } catch (err) {
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err); // 👈 STAMPA L'ERRORE REALE
         return null;
     }
 }
