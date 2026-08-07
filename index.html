@@ -6152,16 +6152,22 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         };
         
         await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
-        // 🛡️ PULIZIA E SANITIZZAZIONE RIGOROSA DEL NUMERO E DEL TESTO PER EVITARE CRASH DI WHATSAPP WEB
+        // 🛡️ FORMULAZIONE E PULIZIA ESTREMA DEL TESTO PER EVITARE I LOG DI ERRORE DI META/WHATSAPP
+        let rawMessage = (sysSettings['template_' + tk] || "")
+            .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
+            .replace(/{{DATA}}/g, a.date || '')
+            .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
+            .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
+
+        // Sostituiamo eventuali newline multipli o spazi anomali con spazi puliti per WhatsApp Web
+        const cleanMessage = rawMessage.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-        const safeMessage = String(m || '').trim();
 
         let url = '';
         if (type === 'wa') {
-            // Usiamo wa.me con codifica URI pulita
-            url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(safeMessage)}`;
+            url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMessage)}`;
         } else {
-            url = `sms:${cleanPhone}?body=${encodeURIComponent(safeMessage)}`;
+            url = `sms:${cleanPhone}?body=${encodeURIComponent(cleanMessage)}`;
         }
         window.api.openExternal(url); 
         refreshAllData();
