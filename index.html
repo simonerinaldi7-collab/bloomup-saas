@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>BloomUp - Gestionale Beauty & Retail</title>
+    <title>VaiMUp - Gestionale Beauty & Retail</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root { --p: #6C5CE7; --s: #00B894; --d: #E17055; --bg: #F4F7FE; --txt: #2D3436; --border: #DFE6E9; --sidebar: #2D3436; --grey: #b2bec3; }
@@ -407,7 +407,7 @@
     <div class="login-card">
         <div class="login-logo-container">
             <div class="login-icon-badge">✨</div>
-            <h1>BloomUp</h1>
+            <h1>VaiMUp</h1>
             <p>Gestionale Avanzato Retail & Beauty</p>
         </div>
 
@@ -585,7 +585,7 @@
     <!-- SHELL PRINCIPALE DELL'APPLICAZIONE -->
     <div id="app-shell">
         <nav class="sidebar">
-    <div class="sidebar-brand">BloomUp 🚀</div>
+    <div class="sidebar-brand">VaiMUp 🚀</div>
     <div class="sidebar-nav-container">
         <a href="#" class="nav-item active" id="n-dash" onclick="changePageMobileWrapper('dashboard')">🏠 Dashboard</a>
         <a href="#" class="nav-item" id="n-sale" onclick="changePageMobileWrapper('sales')">🛒 Cassa POS</a>
@@ -1037,7 +1037,7 @@
             <div>
                 <label>Colore Agenda</label>
                 <select id="new-user-color" style="margin:0">
-                    <option value="#6C5CE7">Viola BloomUp</option>
+                    <option value="#6C5CE7">Viola VaiMUp</option>
                     <option value="#00B894">Verde Smeraldo</option>
                     <option value="#E17055">Corallo</option>
                     <option value="#0984e3">Blu Oceano</option>
@@ -1125,8 +1125,8 @@
     <div id="pwa-install-banner">
         <div style="font-size: 24px;">📱</div>
         <div class="pwa-install-info">
-            <h4>Installa BloomUp</h4>
-            <p>Accedi rapidamente dai dispositivi del salone.</p>
+            <h4>Installa VaiMUp</h4>
+            <p>Accedi rapidamente dai dispositivi del negozio.</p>
         </div>
         <button class="pwa-btn-install" id="pwa-install-trigger">Installa</button>
         <button class="pwa-btn-close" id="pwa-install-close">✕</button>
@@ -3683,7 +3683,7 @@ function triggerLocalOperatorAlert(appointment) {
             function renderActiveView() {
                 const active = document.querySelector('.view.active').id;
                 const t = { 'v-dashboard':'Riepilogo', 'v-sales':'Cassa POS', 'v-calendar':'Agenda', 'v-customers':'Clienti', 'v-services':'Listino servizi','v-products':'Magazzino Prodotti','v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni',  'v-users': 'Gestione Utenti','v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff','v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'};
-                document.getElementById('page-title').innerText = t[active] || 'BloomUp';
+                document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
                 if(active === 'v-dashboard') {
             refreshDashboard();      // Carica i grafici
             loadSleepingClients();   // Carica i clienti dormienti
@@ -4793,7 +4793,7 @@ async function registerOperatorPushNotifications() {
         console.log("Service Worker pronto per la sottoscrizione Push.");
         
         // Salviamo lo stato nel localStorage per evitare richieste continue
-        localStorage.setItem('bloomup_push_enabled', 'true');
+        localStorage.setItem('VaiMUp_push_enabled', 'true');
     } catch (err) {
         console.error("Errore durante la registrazione delle notifiche push:", err);
     }
@@ -5546,9 +5546,9 @@ async function doLogin() {
 
             // Gestione spunta "Ricordami"
             if (remember) {
-                localStorage.setItem('bloomup_remember_user', user);
+                localStorage.setItem('VaiMUp_remember_user', user);
             } else {
-                localStorage.removeItem('bloomup_remember_user');
+                localStorage.removeItem('VaiMUp_remember_user');
             }
 
             const mustChange = parseInt(account.must_change_password);
@@ -5760,17 +5760,17 @@ async function requestNativeNotificationPermission() {
 // --- CENTRO ALLARMI IMMINENTI PROFESSIONALE (CON SUPABASE REALTIME SYNC) ---
 
 if (typeof window.activeSnoozes === 'undefined') {
-    window.activeSnoozes = JSON.parse(localStorage.getItem('bloomup_active_snoozes') || '{}');
+    window.activeSnoozes = JSON.parse(localStorage.getItem('VaiMUp_active_snoozes') || '{}');
 }
 
 let realtimeAlertChannel = null;
 
 function getOperatorImminentLeadTime() {
-    return parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15; 
+    return parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15; 
 }
 
 function setOperatorImminentLeadTime(minutes) {
-    localStorage.setItem('bloomup_imminent_lead_time', minutes);
+    localStorage.setItem('VaiMUp_imminent_lead_time', minutes);
 }
 
 // 🌐 Inizializzazione del canale di sincronizzazione Realtime tra i dispositivi dell'operatore
@@ -5796,7 +5796,7 @@ function initRealtimeAlertChannel(username) {
             .on('broadcast', { event: 'snooze_alarm' }, payload => {
                 console.log("📡 Ricevuto comando remoto: posticipa allarme per app ID:", payload.appId);
                 window.activeSnoozes[payload.appId] = payload.snoozeTime;
-                localStorage.setItem('bloomup_active_snoozes', JSON.stringify(window.activeSnoozes));
+                localStorage.setItem('bVaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
                 closeLocalAlarmModal();
             })
             .subscribe((status) => {
@@ -5839,7 +5839,7 @@ async function checkImminentAppointmentsNow() {
 
         const now = new Date();
         const currentUsername = currentUser.username.trim().toLowerCase();
-        const leadTimeMinutes = parseInt(localStorage.getItem('bloomup_imminent_lead_time')) || 15;
+        const leadTimeMinutes = parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15;
 
         apps.forEach(app => {
             const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
@@ -6008,7 +6008,7 @@ async function requestDismissBroadcast(appId) {
 async function requestSnoozeBroadcast(appId, minutes) {
     const snoozeTime = new Date(new Date().getTime() + minutes * 60000).toISOString();
     window.activeSnoozes[appId] = snoozeTime;
-    localStorage.setItem('bloomup_active_snoozes', JSON.stringify(window.activeSnoozes));
+    localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
     
     closeLocalAlarmModal();
     if (realtimeAlertChannel) {
@@ -8052,7 +8052,7 @@ const nowTimestamp = new Date().toISOString();
         const installBtn = document.getElementById('pwa-install-trigger');
         const closeBtn = document.getElementById('pwa-install-close');
         const banner = document.getElementById('pwa-install-banner');
-        const savedUser = localStorage.getItem('bloomup_remember_user');
+        const savedUser = localStorage.getItem('VaiMUp_remember_user');
 
 
 
@@ -8120,7 +8120,7 @@ const nowTimestamp = new Date().toISOString();
     <div id="pwa-install-banner">
         <div style="font-size: 24px;">📱</div>
         <div class="pwa-install-info">
-            <h4>Installa BloomUp</h4>
+            <h4>Installa VaiMUp</h4>
             <p>Accedi rapidamente dai dispositivi del salone.</p>
         </div>
         <button class="pwa-btn-install" id="pwa-install-trigger">Installa</button>
