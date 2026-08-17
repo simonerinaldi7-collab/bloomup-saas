@@ -345,7 +345,7 @@ async function handleSpecialAction(action, data, id) {
                 try {
                     const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${data.user}&select=*`, {
                         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
-                        signal: AbortSignal.timeout(4000)
+                        signal: AbortSignal.timeout(1500)
                     });
                     
                     if (res.ok) {
