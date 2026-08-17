@@ -983,7 +983,20 @@
             <input type="text" id="src-c" onkeyup="renderCust()" placeholder="Cerca cliente..." style="max-width:300px; margin:0;">
             <button class="btn btn-p" onclick="openMod('cust')">+ Nuovo Cliente</button>
         </div>
-        <div class="card" style="padding:0"><table><thead><tr><th>Nome e Cognome</th><th>Tel / Email</th><th>Compleanno</th><th>Note</th><th style="text-align:right">Azioni</th></tr></thead><tbody id="list-c"></tbody></table></div>
+        <div class="card" style="padding:0; overflow-x: auto;">
+            <table style="min-width: 600px;">
+                <thead>
+                    <tr>
+                        <th>Nome e Cognome</th>
+                        <th>Tel / Email</th>
+                        <th>Compleanno</th>
+                        <th>Note</th>
+                        <th style="text-align:right">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="list-c"></tbody>
+            </table>
+        </div>
     </section>
 
    <section id="v-products" class="view">
@@ -1087,7 +1100,25 @@
                 <input type="date" id="d-end-report" onchange="renderSalesReport()">
                 <button class="btn btn-d" onclick="clearFilters()">Pulisci</button>
             </div>
-            <table><thead><tr><th>Data</th><th>Articolo</th><th>Cliente</th><th>Prezzo</th><th>Sconto</th><th>Totale</th><th>Costo</th><th>Fornitori</th><th>Margine Netto</th><th>Venditore</th></tr></thead><tbody id="list-report"></tbody></table>
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
+                <table style="min-width: 950px;">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Articolo</th>
+                            <th>Cliente</th>
+                            <th>Prezzo</th>
+                            <th>Sconto</th>
+                            <th>Totale</th>
+                            <th>Costo</th>
+                            <th>Fornitori</th>
+                            <th>Margine Netto</th>
+                            <th>Venditore</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-report"></tbody>
+                </table>
+            </div>
         </div>
     </section>
 
@@ -1097,20 +1128,47 @@
                 <h3>Comunicazioni & Promemoria</h3>
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     <select id="filter-log-status" onchange="renderLogs()" style="width:130px; margin:0;"><option value="all">Tutti</option><option value="pending">Da inviare</option><option value="sent">Inviati</option></select>
-                    <input type="text" id="filter-log-cust" placeholder="Cerca cliente..." onkeyup="renderLogs()" style="width:160px; margin:0;">
+                    <input type="text" id="filter-log-cust" placeholder="Cerca cliente..." onkeyup="renderLogs()" style="width:160px; margin:0;" autocomplete="off">
                     <input type="date" id="filter-log-date" onchange="renderLogs()" style="width:150px; margin:0;">
                     <button class="btn btn-w" onclick="sendSelectedReminders()">Invia Selezionati</button>
                 </div>
             </div>
             <h4 style="font-size:11px; color:var(--d); margin-bottom:10px">Promemoria da inviare</h4>
-            <table><thead><tr><th style="width:40px"><input type="checkbox" onclick="toggleAllLogs(this.checked)"></th><th>Stato</th><th>Cliente</th><th>Tel</th><th>Appunt.</th><th>Azione</th></tr></thead><tbody id="list-logs"></tbody></table>
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px;">
+                <table style="min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="width:40px"><input type="checkbox" onclick="toggleAllLogs(this.checked)"></th>
+                            <th>Stato</th>
+                            <th>Cliente</th>
+                            <th>Tel</th>
+                            <th>Appunt.</th>
+                            <th>Azione</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-logs"></tbody>
+                </table>
+            </div>
         </div>
         <div class="card">
             <h4 style="font-size:11px; color:var(--s); margin-bottom:10px">Storico Comunicazioni</h4>
-            <table><thead><tr><th>Data Invio</th><th>Tipo</th><th>Cliente</th><th>Tel</th><th>Rif. Appuntamento</th><th>Autore</th></tr></thead><tbody id="list-archive-logs"></tbody></table>
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px;">
+                <table style="min-width: 650px;">
+                    <thead>
+                        <tr>
+                            <th>Data Invio</th>
+                            <th>Tipo</th>
+                            <th>Cliente</th>
+                            <th>Tel</th>
+                            <th>Rif. Appuntamento</th>
+                            <th>Autore</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-archive-logs"></tbody>
+                </table>
+            </div>
         </div>
     </section>
-
     <section id="v-users" class="view">
     <div class="card">
         <h3>Gestione Utenti & Operatori</h3>
@@ -1121,11 +1179,11 @@
             <input type="hidden" id="edit-user-id" value="-1">
             <div>
                 <label>Username</label>
-                <input type="text" id="new-user" placeholder="Es. mario" style="margin:0">
+                <input type="text" id="new-user" placeholder="Es. mario" style="margin:0" autocomplete="off">
             </div>
             <div>
                 <label>Password</label>
-                <input type="password" id="new-pass" placeholder="••••••••" style="margin:0">
+                <input type="password" id="new-pass" placeholder="••••••••" style="margin:0" autocomplete="new-password">
             </div>
             <div>
                 <label>Ruolo</label>
@@ -1151,25 +1209,33 @@
         </div>
         
         <!-- Tabella Utenti -->
-        <table id="table-users">
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Ruolo</th>
-                    <th>Colore Agenda</th>
-                    <th style="text-align: right;">Azioni</th>
-                </tr>
-            </thead>
-            <tbody id="list-users"></tbody>
-        </table>
+        <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px;">
+            <table id="table-users" style="min-width: 450px;">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Ruolo</th>
+                        <th>Colore Agenda</th>
+                        <th style="text-align: right;">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="list-users"></tbody>
+            </table>
+        </div>
     </div>
 </section>
 
     <section id="v-schedules" class="view">
         <div class="card">
             <h3>Orari e Turni Staff</h3>
+            <p style="color:#666; font-size:13px; margin-bottom:15px;">Imposta i giorni lavorativi e le fasce orarie dei turni per ogni operatore.</p>
             <select id="sch-user-select" onchange="loadOperatorSchedule()" style="max-width:300px; margin-bottom:20px;"></select>
-            <div id="schedule-days-container"></div>
+            
+            <!-- Contenitore protetto con scroll orizzontale per mobile -->
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 20px;">
+                <div id="schedule-days-container" style="min-width: 650px;"></div>
+            </div>
+
             <button class="btn btn-p" onclick="saveOperatorSchedules()">Salva Orari</button>
         </div>
     </section>
@@ -1715,31 +1781,30 @@ console.error = function(...args) {
             };
 
             html += `
-                <div style="background:#f8f9fa; padding:15px; border-radius:10px; border:1px solid var(--border); display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-                    <div style="width:120px; font-weight:bold;">${DAYS_OF_WEEK[dayIndex]}</div>
-                    <div>
-                        <label style="font-size:10px;">Lavorativo</label>
-                        <input type="checkbox" id="sch-work-${dayIndex}" ${sched.is_working ? 'checked' : ''}>
+                <div style="background:#f8f9fa; padding:12px 15px; border-radius:10px; border:1px solid var(--border); display:flex; align-items:center; gap:12px; min-width: 620px;">
+                    <div style="width: 110px; font-weight: bold; flex-shrink: 0;">${DAYS_OF_WEEK[dayIndex]}</div>
+                    <div style="flex-shrink: 0; text-align: center; width: 60px;">
+                        <label style="font-size: 9px; margin-bottom: 2px;">Lavorativo</label>
+                        <input type="checkbox" id="sch-work-${dayIndex}" ${sched.is_working ? 'checked' : ''} style="width: 18px; height: 18px; margin: 0 auto; cursor: pointer;">
                     </div>
-                    <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="display:flex; gap:8px; align-items:center; flex-grow: 1;">
                         <div>
-                            <label style="font-size:10px;">Inizio Turno</label>
-                            <input type="time" id="sch-s1-${dayIndex}" value="${sched.start_time_1 || ''}">
+                            <label style="font-size:9px; margin:0 0 2px 0;">Inizio Turno</label>
+                            <input type="time" id="sch-s1-${dayIndex}" value="${sched.start_time_1 || ''}" style="margin:0; padding:8px; font-size:13px; width: 100px;">
                         </div>
                         <div>
-                            <label style="font-size:10px;">Fine 1° Blocco / Inizio Pausa</label>
-                            <input type="time" id="sch-e1-${dayIndex}" value="${sched.end_time_1 || ''}">
+                            <label style="font-size:9px; margin:0 0 2px 0;">Inizio Pausa</label>
+                            <input type="time" id="sch-e1-${dayIndex}" value="${sched.end_time_1 || ''}" style="margin:0; padding:8px; font-size:13px; width: 100px;">
                         </div>
                         <div>
-                            <label style="font-size:10px;">Inizio 2° Blocco (Opzionale)</label>
-                            <input type="time" id="sch-s2-${dayIndex}" value="${sched.start_time_2 || ''}">
+                            <label style="font-size:9px; margin:0 0 2px 0;">Fine Pausa</label>
+                            <input type="time" id="sch-s2-${dayIndex}" value="${sched.start_time_2 || ''}" style="margin:0; padding:8px; font-size:13px; width: 100px;">
                         </div>
                         <div>
-                            <label style="font-size:10px;">Fine Turno</label>
-                            <input type="time" id="sch-e2-${dayIndex}" value="${sched.end_time_2 || ''}">
+                            <label style="font-size:9px; margin:0 0 2px 0;">Fine Turno</label>
+                            <input type="time" id="sch-e2-${dayIndex}" value="${sched.end_time_2 || ''}" style="margin:0; padding:8px; font-size:13px; width: 100px;">
                         </div>
                     </div>
-                    <small style="color:#666; font-style:italic;">(Per orario continuato o part-time senza pausa, compila solo Inizio Turno e Fine Turno, oppure lascia vuoti i campi centrali)</small>
                 </div>
             `;
         }
