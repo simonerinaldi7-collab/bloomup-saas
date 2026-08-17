@@ -824,15 +824,26 @@
             </div>
         </div>
 
-        <!-- Foglio Analisi RFM -->
+       <!-- Foglio Analisi RFM -->
         <div id="sheet-rfm" class="dash-sheet">
             <div class="card">
                 <h3>Segmentazione Clienti (RFM)</h3>
                 <input type="text" id="src-rfm" placeholder="Cerca cliente..." onkeyup="loadRFM()">
-                <table>
-                    <thead><tr><th>Cliente</th><th>Ultimo acquisto</th><th>Visite</th><th>Totale Speso</th><th>Stato</th><th>Suggerimento</th></tr></thead>
-                    <tbody id="rfm-body"></tbody>
-                </table>
+                <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
+                    <table style="min-width: 650px;">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Ultimo acquisto</th>
+                                <th>Visite</th>
+                                <th>Totale Speso</th>
+                                <th>Stato</th>
+                                <th>Suggerimento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rfm-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -862,10 +873,19 @@
             </div>
             <div class="card">
                 <h3>Storico Spese</h3>
-                <table>
-                    <thead><tr><th>Data</th><th>Descrizione</th><th>Importo</th><th>Azioni</th></tr></thead>
-                    <tbody id="expenses-body"></tbody>
-                </table>
+                <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
+                    <table style="min-width: 450px;">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrizione</th>
+                                <th>Importo</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenses-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
