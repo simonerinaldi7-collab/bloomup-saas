@@ -487,11 +487,6 @@
             <div style="font-size: 11px; color: var(--p); margin-top: 4px;" id="lots-prod-total-stock">Giacenza Totale: 0 Pz</div>
         </div>
 
-<!-- Footer con pulsante di scarico manuale e chiusura -->
-        <div style="flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <button class="btn btn-d" style="padding: 8px 14px; font-size: 12px;" onclick="if(window.currentInspectedProductId) decrementInventoryFIFO(window.currentInspectedProductId)">📉 Scarico Manuale (FIFO)</button>
-            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 14px; font-size: 12px;" onclick="closeMod()">Chiudi</button>
-        </div>
 
 
         <div style="flex-grow: 1; overflow-y: auto; margin-bottom: 15px;">
@@ -6642,10 +6637,11 @@ async function renderProducts() {
             </td>
             <td>${supplierHtml}</td>
             <td style="text-align:right">
-                <div style="display: inline-flex; gap: 5px;">
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="openStockLoadModal('${item.id}')" title="Carico Merce">📦</button>
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')" title="Modifica">Edit</button>
-                    <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')" title="Elimina">✕</button>
+                <div style="display: inline-flex; gap: 4px;">
+                    <button class="btn btn-s" style="padding:4px 8px; font-size: 12px;" onclick="openStockLoadModal('${item.id}')" title="Carico Merce">📦</button>
+                    <button class="btn" style="padding:4px 8px; font-size: 12px; background: #fee2e2; color: #dc2626; border: none;" onclick="decrementInventoryFIFO('${item.id}')" title="Scarico Manuale (FIFO)">📉</button>
+                    <button class="btn btn-s" style="padding:4px 8px; font-size: 12px;" onclick="editInv('${item.id}')" title="Modifica">✎</button>
+                    <button class="btn btn-d" style="padding:4px 8px; font-size: 12px;" onclick="delItem('inventory', '${item.id}')" title="Elimina">✕</button>
                 </div>
             </td>
         </tr>`;
