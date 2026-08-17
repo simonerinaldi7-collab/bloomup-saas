@@ -777,10 +777,20 @@
             <div class="card">
                 <h3>🚀 Analisi "Spesso comprati insieme"</h3>
                 <input type="text" id="src-cross" onkeyup="loadCrossSelling()" placeholder="Filtra per prodotto...">
-                <table>
-                    <thead><tr><th>Prodotto A</th><th>Prodotto B</th><th>Insieme</th><th>Affinità</th><th>Strategia</th></tr></thead>
-                    <tbody id="cross-body"></tbody>
-                </table>
+                <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
+                    <table style="min-width: 600px;">
+                        <thead>
+                            <tr>
+                                <th>Prodotto A</th>
+                                <th>Prodotto B</th>
+                                <th>Insieme</th>
+                                <th>Affinità</th>
+                                <th>Strategia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cross-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
