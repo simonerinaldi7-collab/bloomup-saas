@@ -716,13 +716,17 @@
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:15px; margin-bottom:20px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:15px; margin-bottom:20px;">
                 <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
                     <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Spese Fisse del Mese</small>
                     <div id="target-monthly-expenses" style="font-size:20px; font-weight:bold; color:#e17055; margin-top:4px;">€ 0.00</div>
                 </div>
                 <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
-                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi (calcolato su 26 gg lavorativi)</small>
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Incasso del Mese</small>
+                    <div id="target-monthly-revenue" style="font-size:20px; font-weight:bold; color:#0984e3; margin-top:4px;">€ 0.00</div>
+                </div>
+                <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
+                    <small style="color:#b2bec3; font-weight:bold; font-size:10px; text-transform:uppercase;">Target Richiesto Oggi</small>
                     <div id="target-daily-goal" style="font-size:20px; font-weight:bold; color:#6c5ce7; margin-top:4px;">€ 0.00</div>
                 </div>
                 <div style="background:white; padding:12px 15px; border-radius:10px; border:1px solid var(--border);">
@@ -3962,11 +3966,11 @@ function triggerLocalOperatorAlert(appointment) {
             const remainingExpensesToCover = Math.max(totalMonthlyExpenses - monthTotalRevenue, 0);
             const dailyGoal = remainingExpensesToCover / workingDaysRemaining;
 
-            // 5. Aggiorniamo i testi nell'HTML
+            // 4. Aggiorniamo i testi nell'HTML (inclusa la nuova card Incasso del Mese)
             document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
+            document.getElementById('target-monthly-revenue').innerText = `€ ${monthTotalRevenue.toFixed(2)}`; // 👈 Popola l'incasso mensile
             document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)} (su ${workingDaysRemaining} gg residui)`;
             document.getElementById('target-today-revenue').innerText = `€ ${todaySalonRevenue.toFixed(2)}`;
-
             const badge = document.getElementById('target-status-badge');
             if (monthTotalRevenue >= totalMonthlyExpenses) {
                 badge.style.background = '#00b894';
