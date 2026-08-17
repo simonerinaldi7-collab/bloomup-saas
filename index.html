@@ -597,7 +597,7 @@
         <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
         <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
         <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
-        <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings'); toggleSidebar();">⚙️ Configurazione</a>
+        <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
         <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
         <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
     </div>
@@ -3115,17 +3115,18 @@ function toggleInvFields() {
     }
 }
 
-// Funzione unificata che cambia pagina E chiude sempre la sidebar su qualsiasi schermo
 function changePageMobileWrapper(page, force) {
-    changePage(page, force);
-    
-    // Forza SEMPRE la chiusura del menu laterale su qualsiasi dispositivo (PC e Mobile)
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    
-    if (sidebar) sidebar.classList.remove('active');
-    if (overlay) overlay.classList.remove('active');
-}
+        if (typeof changePage === 'function') {
+            changePage(page, force);
+        }
+        
+        // 🛡️ CHIUSURA FORZATA E PULITA (Usa remove anziché toggle per evitare inversioni di stato)
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+    }
 
 
 // Esempio di attivazione notifica locale mirata all'operatore loggato
