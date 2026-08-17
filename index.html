@@ -3844,18 +3844,17 @@ function triggerLocalOperatorAlert(appointment) {
             const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
             const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-            // 2. Calcolo dei giorni del mese
+            // 2. Calcolo dei giorni del mese e dei giorni lavorativi (Totali e Residui)
             const year = parseInt(currentMonthPrefix.split('-')[0]);
             const month = parseInt(currentMonthPrefix.split('-')[1]);
             const daysInMonth = new Date(year, month, 0).getDate();
 
-            // A. Schedulazioni dello staff (orari impostati per operatore)
+            // A. Schedulazioni dello staff
             const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
             
-            // B. Appuntamenti di chiusura straordinaria registrati in agenda
+            // B. Chiusure straordinarie in agenda
             const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
             const closureDaysSet = new Set();
-            
             appointments.forEach(a => {
                 if (a.date && a.date.startsWith(currentMonthPrefix)) {
                     const srv = (a.service || '').toLowerCase();
@@ -3866,58 +3865,64 @@ function triggerLocalOperatorAlert(appointment) {
                 }
             });
 
-            let workingDaysInMonth = 0;
+            let workingDaysRemaining = 0;
+            const todayObj = new Date(todayStr + 'T00:00:00');
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month - 1, d);
                 const dayOfWeek = dateObj.getDay(); // 0 = Dom, 1 = Lun, ..., 6 = Sab
                 const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
+                // Consideriamo solo i giorni da oggi in poi (giorni residui del mese)
+                if (dateObj < todayObj) {
+                    continue;
+                }
+
                 // Se il giorno è segnato in agenda come chiusura straordinaria, lo scartiamo
                 if (closureDaysSet.has(dStr)) {
                     continue;
                 }
 
-                // Verifichiamo se il giorno è lavorativo per lo staff in base alle schedulazioni
+                // Verifichiamo se il giorno è lavorativo per lo staff
                 let isWorkingDayForStaff = false;
 
                 if (schedules.length > 0) {
-                    // Il giorno è lavorativo se almeno un operatore ha is_working === 1 in quel giorno della settimana
-                    const activeWorkers = schedules.filter(s => Number(s.day_of_week) === dayOfWeek && Number(s.is_working) === 1);
+                    // Controlliamo se almeno un operatore lavora in questo giorno (is_working == 1 o '1' o true)
+                    const activeWorkers = schedules.filter(s => Number(s.day_of_week) === dayOfWeek && (Number(s.is_working) === 1 || s.is_working === true));
                     if (activeWorkers.length > 0) {
                         isWorkingDayForStaff = true;
                     }
                 } else {
-                    // Fallback di default se non ci sono schedulazioni salvate: Aperto da Lunedì a Sabato (1-6)
+                    // Fallback standard se non ci sono schedulazioni: Aperto Lun-Sab
                     if (dayOfWeek !== 0) {
                         isWorkingDayForStaff = true;
                     }
                 }
 
                 if (isWorkingDayForStaff) {
-                    workingDaysInMonth++;
+                    workingDaysRemaining++;
                 }
             }
 
-            if (workingDaysInMonth <= 0) workingDaysInMonth = 1;
+            // Sicurezza anti-divisione per zero (se finiscono i giorni lavorativi nel mese, poniamo a 1)
+            if (workingDaysRemaining <= 0) workingDaysRemaining = 1;
 
-            // Target giornaliero per coprire le spese mensili
-            const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
-
-            // 3. Calcoliamo l'INCASSO DI COMPETENZA DEL NEGOZIO di OGGI
+            // 3. Calcolo del fatturato accumulato dall'inizio del mese fino a ieri/oggi
             const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-            const todaySales = sales.filter(s => s.date === todayStr);
-            const todaySalesIds = todaySales.map(s => s.id);
+            const monthSales = sales.filter(s => s.date && s.date.startsWith(currentMonthPrefix) && s.date <= todayStr);
+            const monthSalesIds = monthSales.map(s => s.id);
 
             const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
             const inventory = allInventory || [];
             const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
             const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
+            let monthTotalRevenue = 0;
             let todaySalonRevenue = 0;
 
             for (let si of saleItems) {
-                if (!todaySalesIds.includes(si.sale_id)) continue;
+                const sale = monthSales.find(s => s.id === si.sale_id);
+                if (!sale) continue;
 
                 const soldPrice = parseFloat(si.price) || 0;
                 const discount = parseFloat(si.discount) || 0;
@@ -3927,7 +3932,8 @@ function triggerLocalOperatorAlert(appointment) {
                 let salonShare = finalItemRev;
 
                 if (prod && prod.is_consignment) {
-                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
+                    const saleDate = sale.date;
+                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
                     const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
                     const links = productSuppliers.filter(l => l.product_id === prod.id);
@@ -3941,26 +3947,37 @@ function triggerLocalOperatorAlert(appointment) {
                     salonShare = finalItemRev - supplierPayout;
                 }
 
-                todaySalonRevenue += salonShare;
+                monthTotalRevenue += salonShare;
+                if (sale.date === todayStr) {
+                    todaySalonRevenue += salonShare;
+                }
             }
 
-            if (saleItems.length === 0 && todaySales.length > 0) {
-                todaySalonRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
+            if (saleItems.length === 0 && monthSales.length > 0) {
+                monthTotalRevenue = monthSales.reduce((s, x) => s + (x.total || 0), 0);
+                todaySalonRevenue = monthSales.filter(s => s.date === todayStr).reduce((s, x) => s + (x.total || 0), 0);
             }
 
-            // 4. Aggiorniamo i testi nell'HTML
+            // 4. Ricalcolo mirato: (Spese Mensili - Già Incassato) / Giorni Lavorativi Residui
+            const remainingExpensesToCover = Math.max(totalMonthlyExpenses - monthTotalRevenue, 0);
+            const dailyGoal = remainingExpensesToCover / workingDaysRemaining;
+
+            // 5. Aggiorniamo i testi nell'HTML
             document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
-            document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)} (su ${workingDaysInMonth} gg lav.)`;
+            document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)} (su ${workingDaysRemaining} gg residui)`;
             document.getElementById('target-today-revenue').innerText = `€ ${todaySalonRevenue.toFixed(2)}`;
 
             const badge = document.getElementById('target-status-badge');
-            if (todaySalonRevenue >= dailyGoal) {
+            if (monthTotalRevenue >= totalMonthlyExpenses) {
+                badge.style.background = '#00b894';
+                badge.innerText = '🚀 Spese Mensili Interamente CopriTe!';
+            } else if (todaySalonRevenue >= dailyGoal) {
                 badge.style.background = '#00b894';
                 badge.innerText = '🚀 Target Giornaliero Raggiunto!';
             } else {
                 const diff = dailyGoal - todaySalonRevenue;
                 badge.style.background = '#e17055';
-                badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
+                badge.innerText = `Mancano €${diff.toFixed(2)} a target oggi`;
             }
 
             // Disegno del grafico
@@ -3976,13 +3993,13 @@ function triggerLocalOperatorAlert(appointment) {
                     labels: ['Copertura Spese Oggi'],
                     datasets: [
                         {
-                            label: 'Incassato (€)',
+                            label: 'Incassato Oggi (€)',
                             data: [todaySalonRevenue],
                             backgroundColor: '#00b894',
                             borderRadius: 6
                         },
                         {
-                            label: 'Mancante a Target (€)',
+                            label: 'Mancante a Target Oggi (€)',
                             data: [Math.max(dailyGoal - todaySalonRevenue, 0)],
                             backgroundColor: '#dfe6e9',
                             borderRadius: 6
