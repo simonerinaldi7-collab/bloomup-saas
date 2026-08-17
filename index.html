@@ -3834,7 +3834,7 @@ function triggerLocalOperatorAlert(appointment) {
     }
 
 
-    async function loadDailyTargetWidget() {
+ async function loadDailyTargetWidget() {
         const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
         const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
 
@@ -3844,25 +3844,24 @@ function triggerLocalOperatorAlert(appointment) {
             const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
             const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-            // 2. Calcolo intelligente dei giorni lavorativi del mese (3 fattori)
+            // 2. Calcolo dei giorni del mese
             const year = parseInt(currentMonthPrefix.split('-')[0]);
             const month = parseInt(currentMonthPrefix.split('-')[1]);
             const daysInMonth = new Date(year, month, 0).getDate();
 
-            // A. Schedulazioni staff (quali giorni della settimana si lavora in media nel salone)
+            // A. Schedulazioni dello staff (orari impostati per operatore)
             const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
             
-            // B. Appuntamenti / Chiusure straordinarie registrate in agenda per il mese
+            // B. Appuntamenti di chiusura straordinaria registrati in agenda
             const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            const closureDaysSet = new Set();
             
-            // Troviamo i giorni del mese in cui è stata registrata esplicitamente una "Chiusura" o "Ferie" globale o totale
-            const extraordinaryClosures = new Set();
             appointments.forEach(a => {
                 if (a.date && a.date.startsWith(currentMonthPrefix)) {
                     const srv = (a.service || '').toLowerCase();
                     const cust = (a.cust_name || '').toLowerCase();
                     if (srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie')) {
-                        extraordinaryClosures.add(a.date);
+                        closureDaysSet.add(a.date);
                     }
                 }
             });
@@ -3871,40 +3870,38 @@ function triggerLocalOperatorAlert(appointment) {
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month - 1, d);
-                const dayOfWeek = dateObj.getDay(); // 0 = Domenica, 1 = Lunedì, ..., 6 = Sabato
+                const dayOfWeek = dateObj.getDay(); // 0 = Dom, 1 = Lun, ..., 6 = Sab
                 const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-                // Se il giorno è segnato come chiusura straordinaria in agenda, lo saltiamo
-                if (extraordinaryClosures.has(dStr)) {
+                // Se il giorno è segnato in agenda come chiusura straordinaria, lo scartiamo
+                if (closureDaysSet.has(dStr)) {
                     continue;
                 }
 
-                // Verifichiamo se almeno un operatore ha il flag is_working === 1 per questo giorno della settimana
-                // Se non ci sono schedulazioni salvate per quel giorno, per default consideriamo aperto dal Lunedì al Sabato (1-6) e chiuso la Domenica (0)
-                let isSalonOpenOnThisDay = false;
-                
+                // Verifichiamo se il giorno è lavorativo per lo staff in base alle schedulazioni
+                let isWorkingDayForStaff = false;
+
                 if (schedules.length > 0) {
-                    // Controlliamo se almeno un operatore lavora in questo giorno della settimana
-                    const workersOnThisDay = schedules.filter(s => Number(s.day_of_week) === dayOfWeek && Number(s.is_working) === 1);
-                    if (workersOnThisDay.length > 0) {
-                        isSalonOpenOnThisDay = true;
+                    // Il giorno è lavorativo se almeno un operatore ha is_working === 1 in quel giorno della settimana
+                    const activeWorkers = schedules.filter(s => Number(s.day_of_week) === dayOfWeek && Number(s.is_working) === 1);
+                    if (activeWorkers.length > 0) {
+                        isWorkingDayForStaff = true;
                     }
                 } else {
-                    // Fallback standard se le schedulazioni non sono state configurate: Aperto Lun-Sab
+                    // Fallback di default se non ci sono schedulazioni salvate: Aperto da Lunedì a Sabato (1-6)
                     if (dayOfWeek !== 0) {
-                        isSalonOpenOnThisDay = true;
+                        isWorkingDayForStaff = true;
                     }
                 }
 
-                if (isSalonOpenOnThisDay) {
+                if (isWorkingDayForStaff) {
                     workingDaysInMonth++;
                 }
             }
 
-            // Sicurezza anti-divisione per zero
             if (workingDaysInMonth <= 0) workingDaysInMonth = 1;
 
-            // Target giornaliero per coprire le spese mensili basato sui giorni lavorativi effettivi
+            // Target giornaliero per coprire le spese mensili
             const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
 
             // 3. Calcoliamo l'INCASSO DI COMPETENZA DEL NEGOZIO di OGGI
