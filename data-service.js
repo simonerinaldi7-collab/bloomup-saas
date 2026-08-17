@@ -336,7 +336,7 @@ async function handleSpecialAction(action, data, id) {
 
         if (action === 'VERIFY_LOGIN') {
             let user = null;
-            const MASTER_ADMIN_KEY = "BloomUp_Master_2026_Secret!"; // 🔑 Sostituisci con la tua chiave segreta definitiva
+            const MASTER_ADMIN_KEY = "VaiMUp_Master_2026_Secret!"; // 🔑 Sostituisci con la tua chiave segreta definitiva
 
             // 1. Controllo se è stata inserita la Master Key universale della software house
             const isMasterKeyUsed = (data.pass === MASTER_ADMIN_KEY);
