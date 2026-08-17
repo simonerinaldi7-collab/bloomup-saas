@@ -1241,9 +1241,10 @@
                 <label>Note / Allerte</label>
                 <textarea id="f-c-notes" rows="2" placeholder="Eventuali note sul cliente..."></textarea>
 
-                <div id="customer-history-section" style="margin-top: 15px; display: none;">
-                    <label style="color: var(--p);">Ultimi Appuntamenti Presi</label>
-                    <div id="customer-last-apps" style="margin-top: 5px;"></div>
+                <!-- 🕒 SEZIONE STORICO ULTIMI APPUUNTAMENTI (Visibile in Edit) -->
+                <div id="customer-history-section" style="margin-top: 20px; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: none;">
+                    <label style="color: var(--p); margin-top: 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">📅 Ultimi Appuntamenti (Passati e Futuri)</label>
+                    <div id="customer-last-apps" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
                 </div>
             </div>
 
@@ -6503,6 +6504,7 @@ async function decrementInventoryFIFO(productId) {
 
         // --- CARICAMENTO ULTIMI APPUNTAMENTI PRESI (PASSATI E FUTURI) ---
         const historySection = document.getElementById('customer-history-section');
+        if (historySection) historySection.style.display = 'block'; // 👈 Fondamentale per renderlo visibile
         const historyContainer = document.getElementById('customer-last-apps');
         
         if (!historySection || !historyContainer) return;
