@@ -4250,9 +4250,9 @@ window.loadSettingsFields = function() {
         
         let html = `<div style="display:flex; flex-direction:column; width:100%; min-height:100%;">`;
 
-        // 1. HEADER GIORNI
-        html += `<div class="time-grid-container ${containerClass}">`;
-        html += `<div class="slot-header" style="border-right:1px solid #dadce0;"></div>`;
+        /// 1. HEADER GIORNI (📌 Bloccato in alto con sticky)
+        html += `<div class="time-grid-container ${containerClass}" style="position: sticky; top: 0; z-index: 60; background: #fff;">`;
+        html += `<div class="slot-header" style="border-right:1px solid #dadce0; position: sticky; left: 0; z-index: 61; background: #fff;"></div>`;
 
         let startDate = new Date(viewDate);
         if (cols === 7) {
