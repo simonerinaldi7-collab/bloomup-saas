@@ -1082,9 +1082,11 @@
             <div style="margin: 20px 0 5px 0;">
                 <label>Template Messaggio Conferma</label>
                 <!-- BARRA PLACEHOLDER INTERATTIVI -->
+                <!-- BARRA PLACEHOLDER INTERATTIVI (CONFERMA) -->
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
                     <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{CLIENTE}}')">{{CLIENTE}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{NOME}}')">{{NOME}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{COGNOME}}')">{{COGNOME}}</button>
                     <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
                     <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
                     <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
@@ -1095,12 +1097,14 @@
             <div style="margin: 20px 0 5px 0;">
                 <label>Template Messaggio Reminder</label>
                 <!-- BARRA PLACEHOLDER INTERATTIVI -->
+                <!-- BARRA PLACEHOLDER INTERATTIVI (CONFERMA) -->
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
                     <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{CLIENTE}}')">{{CLIENTE}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{DATA}}')">{{DATA}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{ORA}}')">{{ORA}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{NOME}}')">{{NOME}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{COGNOME}}')">{{COGNOME}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
                 </div>
                 <textarea id="set-msg-reminder" rows="3" placeholder="Scrivi il messaggio promemoria..."></textarea>
             </div>
@@ -6171,6 +6175,8 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
             
         async function sendAndLogGeneric(appId, type, tk) {
         const a = allAppointments.find(x => x.id == appId);
+        if (!a) return alert("Appuntamento non trovato!");
+
         const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
         
         const matchedCust = allCustomers.find(c => {
@@ -6180,20 +6186,34 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         });
 
         const phone = matchedCust ? matchedCust.phone : "";
-        if(!phone) return alert("Nessun numero di telefono trovato per questo cliente!");
-        if(!phone) return alert("No tel!");
+        if (!phone) return alert("Nessun numero di telefono trovato per questo cliente!");
         
+        // Estrazione separata di Nome e Cognome con fallback intelligente
+        let firstName = matchedCust ? (matchedCust.first_name || '') : '';
+        let lastName = matchedCust ? (matchedCust.last_name || '') : '';
+
+        if (!firstName && a.cust_name) {
+            const parts = a.cust_name.trim().split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+        }
+
         // NUOVA CHIAVE: salon_id + cliente + data + ora + servizio
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
         const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
         
-        const m = (sysSettings['template_' + tk] || "")
-            .replace(/{{CLIENTE}}/g, a.cust_name)
-            .replace(/{{DATA}}/g, a.date)
-            .replace(/{{ORA}}/g, a.time)
-            .replace(/{{SERVIZIO}}/g, a.service);
+        // 🛡️ FORMULAZIONE DEL MESSAGGIO CON SUPPORTO A {{NOME}}, {{COGNOME}} E RETROCOMPATIBILITÀ
+        let rawMessage = (sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
+            .replace(/{{NOME}}/g, firstName || 'Cliente')
+            .replace(/{{COGNOME}}/g, lastName || '')
+            .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
+            .replace(/{{DATA}}/g, a.date || '')
+            .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
+            .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
         
         let logData = { 
+            id: crypto.randomUUID(),
+            salon_id: salonId,
             cust_name: a.cust_name, 
             phone: phone, 
             msg_type: type.toUpperCase()+'_'+tk.toUpperCase(), 
@@ -6203,28 +6223,23 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         };
         
         await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
-        // 🛡️ FORMULAZIONE E PULIZIA COMPATTA PER EVITARE IL CRASH DEL PARSER DI WHATSAPP
-        let rawMessage = (sysSettings['template_' + tk] || "Gentile {{CLIENTE}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
-            .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
-            .replace(/{{DATA}}/g, a.date || '')
-            .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
-            .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
 
-        // Rimuoviamo caratteri di controllo, tabulazioni e spazi multipli che fanno fallire il parsing di Meta
+        // Rimuoviamo caratteri di controllo o spazi multipli per la massima compatibilità
         const cleanMessage = rawMessage.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-        const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+        const cleanPhone = phone.replace(/\D/g, '');
 
         let url = '';
         if (type === 'wa') {
-            // Usiamo l'endpoint standard e compatto di wa.me
             url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMessage)}`;
         } else {
             url = `sms:${cleanPhone}?body=${encodeURIComponent(cleanMessage)}`;
         }
-        window.api.openExternal(url); 
-        refreshAllData();
         
+        window.api.openExternal(url); 
+        await refreshAllData();
+        if (typeof renderLogs === 'function') renderLogs();
     }
+    
             function sendAndLog(t, k) { if(currentViewApp) sendAndLogGeneric(currentViewApp.id, t, k); }
             function sendIndividualRem(id, type) { sendAndLogGeneric(id, type, 'reminder'); }
             async function sendSelectedReminders() {
