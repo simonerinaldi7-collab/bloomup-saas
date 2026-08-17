@@ -3871,6 +3871,7 @@ function triggerLocalOperatorAlert(appointment) {
             const activeUsers = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
             const activeUsernames = new Set(activeUsers.map(u => (u.username || '').trim().toLowerCase()));
 
+
             // Scartiamo i turni di operatori eliminati
             const schedules = schedulesRaw.filter(s => activeUsernames.has((s.username || '').trim().toLowerCase()));
             
