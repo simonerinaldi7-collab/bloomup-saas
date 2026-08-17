@@ -3835,154 +3835,200 @@ function triggerLocalOperatorAlert(appointment) {
 
 
     async function loadDailyTargetWidget() {
-    const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
-    const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
+        const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+        const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
 
-    try {
-        // 1. Recuperiamo le spese del mese corrente
-        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
-        const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
-        const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        try {
+            // 1. Recuperiamo le spese del mese corrente
+            const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthPrefix));
+            const totalMonthlyExpenses = monthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-        // 2. Calcolo dei giorni lavorativi del mese
-        const year = parseInt(currentMonthPrefix.split('-')[0]);
-        const month = parseInt(currentMonthPrefix.split('-')[1]);
-        const daysInMonth = new Date(year, month, 0).getDate();
-        
-        let workingDaysInMonth = 0;
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateObj = new Date(year, month - 1, d);
-            if (dateObj.getDay() !== 0) { // Escludiamo la domenica
-                workingDaysInMonth++;
-            }
-        }
-        if (workingDaysInMonth === 0) workingDaysInMonth = 25;
+            // 2. Calcolo intelligente dei giorni lavorativi del mese (3 fattori)
+            const year = parseInt(currentMonthPrefix.split('-')[0]);
+            const month = parseInt(currentMonthPrefix.split('-')[1]);
+            const daysInMonth = new Date(year, month, 0).getDate();
 
-        // Target giornaliero per coprire le spese mensili
-        const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
+            // A. Schedulazioni staff (quali giorni della settimana si lavora in media nel salone)
+            const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+            
+            // B. Appuntamenti / Chiusure straordinarie registrate in agenda per il mese
+            const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            
+            // Troviamo i giorni del mese in cui è stata registrata esplicitamente una "Chiusura" o "Ferie" globale o totale
+            const extraordinaryClosures = new Set();
+            appointments.forEach(a => {
+                if (a.date && a.date.startsWith(currentMonthPrefix)) {
+                    const srv = (a.service || '').toLowerCase();
+                    const cust = (a.cust_name || '').toLowerCase();
+                    if (srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie')) {
+                        extraordinaryClosures.add(a.date);
+                    }
+                }
+            });
 
-        // 3. Calcoliamo l'INCASSO DI COMPETENZA DEL NEGOZIO di OGGI
-        const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-        const todaySales = sales.filter(s => s.date === todayStr);
-        const todaySalesIds = todaySales.map(s => s.id);
+            let workingDaysInMonth = 0;
 
-        const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
-        const inventory = allInventory || [];
-        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                const dayOfWeek = dateObj.getDay(); // 0 = Domenica, 1 = Lunedì, ..., 6 = Sabato
+                const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-        let todaySalonRevenue = 0;
+                // Se il giorno è segnato come chiusura straordinaria in agenda, lo saltiamo
+                if (extraordinaryClosures.has(dStr)) {
+                    continue;
+                }
 
-        for (let si of saleItems) {
-            if (!todaySalesIds.includes(si.sale_id)) continue;
-
-            const soldPrice = parseFloat(si.price) || 0;
-            const discount = parseFloat(si.discount) || 0;
-            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
-
-            const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-            let salonShare = finalItemRev;
-
-            if (prod && prod.is_consignment) {
-                const phList = priceHistory.filter(ph => ph.product_id === prod.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
-                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
-                const links = productSuppliers.filter(l => l.product_id === prod.id);
-                let totalPct = 0;
-                if (links.length > 0) {
-                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                // Verifichiamo se almeno un operatore ha il flag is_working === 1 per questo giorno della settimana
+                // Se non ci sono schedulazioni salvate per quel giorno, per default consideriamo aperto dal Lunedì al Sabato (1-6) e chiuso la Domenica (0)
+                let isSalonOpenOnThisDay = false;
+                
+                if (schedules.length > 0) {
+                    // Controlliamo se almeno un operatore lavora in questo giorno della settimana
+                    const workersOnThisDay = schedules.filter(s => Number(s.day_of_week) === dayOfWeek && Number(s.is_working) === 1);
+                    if (workersOnThisDay.length > 0) {
+                        isSalonOpenOnThisDay = true;
+                    }
                 } else {
-                    totalPct = parseFloat(prod.consignment_split_pct) || 0;
+                    // Fallback standard se le schedulazioni non sono state configurate: Aperto Lun-Sab
+                    if (dayOfWeek !== 0) {
+                        isSalonOpenOnThisDay = true;
+                    }
                 }
-                const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
-                salonShare = finalItemRev - supplierPayout;
+
+                if (isSalonOpenOnThisDay) {
+                    workingDaysInMonth++;
+                }
             }
 
-            todaySalonRevenue += salonShare;
-        }
+            // Sicurezza anti-divisione per zero
+            if (workingDaysInMonth <= 0) workingDaysInMonth = 1;
 
-        if (saleItems.length === 0 && todaySales.length > 0) {
-            todaySalonRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
-        }
+            // Target giornaliero per coprire le spese mensili basato sui giorni lavorativi effettivi
+            const dailyGoal = totalMonthlyExpenses / workingDaysInMonth;
 
-        // 4. Aggiorniamo i testi nell'HTML
-        document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
-        document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)}`;
-        document.getElementById('target-today-revenue').innerText = `€ ${todaySalonRevenue.toFixed(2)}`;
+            // 3. Calcoliamo l'INCASSO DI COMPETENZA DEL NEGOZIO di OGGI
+            const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+            const todaySales = sales.filter(s => s.date === todayStr);
+            const todaySalesIds = todaySales.map(s => s.id);
 
-        const badge = document.getElementById('target-status-badge');
-        if (todaySalonRevenue >= dailyGoal) {
-            badge.style.background = '#00b894';
-            badge.innerText = '🚀 Target Giornaliero Raggiunto!';
-        } else {
-            const diff = dailyGoal - todaySalonRevenue;
-            badge.style.background = '#e17055';
-            badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
-        }
+            const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
+            const inventory = allInventory || [];
+            const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+            const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
-        // Disegno del grafico con il valore pulito
-        const ctx = document.getElementById('dailyTargetChart').getContext('2d');
-        if (window.targetChartInstance) window.targetChartInstance.destroy();
+            let todaySalonRevenue = 0;
 
-        const rawMax = Math.max(dailyGoal * 1.2, todaySalonRevenue * 1.1, 100);
-        const cleanMax = Math.ceil(rawMax); 
+            for (let si of saleItems) {
+                if (!todaySalesIds.includes(si.sale_id)) continue;
 
-        window.targetChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Copertura Spese Oggi'],
-                datasets: [
-                    {
-                        label: 'Incassato (€)',
-                        data: [todaySalonRevenue],
-                        backgroundColor: '#00b894',
-                        borderRadius: 6
-                    },
-                    {
-                        label: 'Mancante a Target (€)',
-                        data: [Math.max(dailyGoal - todaySalonRevenue, 0)],
-                        backgroundColor: '#dfe6e9',
-                        borderRadius: 6
+                const soldPrice = parseFloat(si.price) || 0;
+                const discount = parseFloat(si.discount) || 0;
+                const finalItemRev = (soldPrice - discount) * (si.qty || 1);
+
+                const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+                let salonShare = finalItemRev;
+
+                if (prod && prod.is_consignment) {
+                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
+                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+
+                    const links = productSuppliers.filter(l => l.product_id === prod.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                    } else {
+                        totalPct = parseFloat(prod.consignment_split_pct) || 0;
                     }
-                ]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        stacked: true,
-                        max: cleanMax,
-                        grid: { display: false },
-                        ticks: {
-                            callback: function(value) {
-                                return '€ ' + Math.round(value);
-                            }
+                    const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                    salonShare = finalItemRev - supplierPayout;
+                }
+
+                todaySalonRevenue += salonShare;
+            }
+
+            if (saleItems.length === 0 && todaySales.length > 0) {
+                todaySalonRevenue = todaySales.reduce((s, x) => s + (x.total || 0), 0);
+            }
+
+            // 4. Aggiorniamo i testi nell'HTML
+            document.getElementById('target-monthly-expenses').innerText = `€ ${totalMonthlyExpenses.toFixed(2)}`;
+            document.getElementById('target-daily-goal').innerText = `€ ${dailyGoal.toFixed(2)} (su ${workingDaysInMonth} gg lav.)`;
+            document.getElementById('target-today-revenue').innerText = `€ ${todaySalonRevenue.toFixed(2)}`;
+
+            const badge = document.getElementById('target-status-badge');
+            if (todaySalonRevenue >= dailyGoal) {
+                badge.style.background = '#00b894';
+                badge.innerText = '🚀 Target Giornaliero Raggiunto!';
+            } else {
+                const diff = dailyGoal - todaySalonRevenue;
+                badge.style.background = '#e17055';
+                badge.innerText = `Mancano €${diff.toFixed(2)} a target`;
+            }
+
+            // Disegno del grafico
+            const ctx = document.getElementById('dailyTargetChart').getContext('2d');
+            if (window.targetChartInstance) window.targetChartInstance.destroy();
+
+            const rawMax = Math.max(dailyGoal * 1.2, todaySalonRevenue * 1.1, 100);
+            const cleanMax = Math.ceil(rawMax); 
+
+            window.targetChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Copertura Spese Oggi'],
+                    datasets: [
+                        {
+                            label: 'Incassato (€)',
+                            data: [todaySalonRevenue],
+                            backgroundColor: '#00b894',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Mancante a Target (€)',
+                            data: [Math.max(dailyGoal - todaySalonRevenue, 0)],
+                            backgroundColor: '#dfe6e9',
+                            borderRadius: 6
                         }
-                    },
-                    y: {
-                        stacked: true,
-                        display: false
-                    }
+                    ]
                 },
-                plugins: {
-                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': € ' + context.raw.toFixed(2);
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            max: cleanMax,
+                            grid: { display: false },
+                            ticks: {
+                                callback: function(value) {
+                                    return '€ ' + Math.round(value);
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            display: false
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': € ' + context.raw.toFixed(2);
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
 
-    } catch (err) {
-        console.error("Errore nel calcolo del widget obiettivo giornaliero:", err);
+        } catch (err) {
+            console.error("Errore nel calcolo del widget obiettivo giornaliero:", err);
+        }
     }
-}
 
 
 
