@@ -487,6 +487,13 @@
             <div style="font-size: 11px; color: var(--p); margin-top: 4px;" id="lots-prod-total-stock">Giacenza Totale: 0 Pz</div>
         </div>
 
+<!-- Footer con pulsante di scarico manuale e chiusura -->
+        <div style="flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn btn-d" style="padding: 8px 14px; font-size: 12px;" onclick="if(window.currentInspectedProductId) decrementInventoryFIFO(window.currentInspectedProductId)">📉 Scarico Manuale (FIFO)</button>
+            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 14px; font-size: 12px;" onclick="closeMod()">Chiudi</button>
+        </div>
+
+
         <div style="flex-grow: 1; overflow-y: auto; margin-bottom: 15px;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
@@ -6271,6 +6278,80 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         await refreshAllData();
         if (typeof renderLogs === 'function') renderLogs();
     }
+
+
+async function decrementInventoryFIFO(productId) {
+        const inputVal = prompt("Inserisci la quantità da scaricare manualmente (es. merce rotta o inventario):");
+        if (!inputVal) return;
+
+        const qtyToSubtract = parseFloat(String(inputVal).replace(',', '.'));
+        if (isNaN(qtyToSubtract) || qtyToSubtract <= 0) {
+            return alert("Inserisci una quantità valida maggiore di zero.");
+        }
+
+        const prod = allInventory.find(p => p.id === productId);
+        if (!prod) return alert("Prodotto non trovato.");
+
+        // Calcoliamo la giacenza attuale dai lotti
+        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const prodLots = allLots.filter(l => l.product_id === productId);
+        const currentTotalStock = prodLots.reduce((sum, l) => sum + (parseFloat(l.qty_remaining) || 0), 0);
+
+        if (qtyToSubtract > currentTotalStock) {
+            return alert(`Impossibile scaricare ${qtyToSubtract} ${prod.unit || 'Pz'}: la giacenza totale disponibile nei lotti è di soli ${currentTotalStock} ${prod.unit || 'Pz'}.`);
+        }
+
+        // Ordiniamo i lotti dal più vecchio al più recente (FIFO) con qty_remaining > 0
+        const activeLots = prodLots
+            .filter(l => (parseFloat(l.qty_remaining) || 0) > 0)
+            .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+        let remainingToSub = qtyToSubtract;
+
+        for (let lot of activeLots) {
+            if (remainingToSub <= 0) break;
+
+            const lotRemaining = parseFloat(lot.qty_remaining) || 0;
+            const take = Math.min(lotRemaining, remainingToSub);
+            
+            lot.qty_remaining = lotRemaining - take;
+            remainingToSub -= take;
+
+            // Aggiorniamo il lotto nel database locale e cloud
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'stock_lots',
+                data: { qty_remaining: lot.qty_remaining },
+                id: lot.id
+            });
+        }
+
+        // Ricalcoliamo il totale e aggiorniamo l'inventario principale
+        const refreshedLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const updatedProdLots = refreshedLots.filter(l => l.product_id === productId);
+        const newTotalStock = updatedProdLots.reduce((sum, l) => sum + (parseFloat(l.qty_remaining) || 0), 0);
+
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { stock: newTotalStock },
+            id: productId
+        });
+
+        alert(`✅ Scarico manuale completato!\n- Quantità scaricata: ${qtyToSubtract}\n- Nuova giacenza totale: ${newTotalStock}`);
+
+        // Aggiorniamo la vista e il modale lotti
+        await refreshAllData();
+        if (typeof openStockLotsModal === 'function') {
+            await openStockLotsModal(productId);
+        }
+        if (typeof renderProducts === 'function') {
+            renderProducts();
+        }
+    }
+
+
+
             function renderCust() { 
         const f = document.getElementById('src-c').value.toLowerCase(); 
 
