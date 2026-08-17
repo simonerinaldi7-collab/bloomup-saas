@@ -418,6 +418,34 @@
         .pwa-btn-install { background: #6366f1; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; }
         .pwa-btn-close { background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 0 4px; }
 
+
+/* 📱 RESPONSIVE AGENDA SETTIMANA SU MOBILE */
+        @media screen and (max-width: 768px) {
+            .time-grid-week {
+                min-width: 100% !important; /* Via la larghezza forzata di 900px, si adatta allo schermo */
+            }
+            .time-grid-week .slot-header {
+                font-size: 10px !important;
+                padding: 6px 2px !important;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .time-label {
+                font-size: 9px !important;
+                padding-right: 4px !important;
+            }
+            /* Riduciamo il font e i padding degli eventi per farli entrare perfettamente */
+            .absolute-event {
+                padding: 3px 4px !important;
+                font-size: 9px !important;
+            }
+            .absolute-event div:nth-child(3) {
+                display: none !important; /* Nasconde il servizio su mobile per mostrare solo orario e nome cliente ed evitare affollamento */
+            }
+        }
+
+
         @media screen and (max-width: 600px) {
             .modal-box { width: 95% !important; padding: 20px !important; }
             .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
@@ -4374,9 +4402,8 @@ window.loadSettingsFields = function() {
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
                         title="${isGhost ? 'Clicca per confermare e aprire il modale di prenotazione' : ''}">
-                        <div style="font-size:10px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)} - ${ev.end_time || ''}</div>
-                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
-                        <div style="font-size:9px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.service || ''}</div>
+                        <div style="font-size:9px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}</div>
+                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">${ev.cust_name}</div>
                     </div>
                 `;
             });
