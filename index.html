@@ -2683,6 +2683,14 @@ async function deleteUser(userId) {
                 await window.universalQuery({ action: 'DELETE', table: 'appointments', id: app.id });
             }
 
+
+// 🕒 ELIMINAZIONE DI TUTTI I TURNI ASSOCIATI A QUESTO UTENTE
+            const allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+            const userSchedules = allSchedules.filter(s => (s.username || '').trim().toLowerCase() === username.toLowerCase());
+            for (let sch of userSchedules) {
+                await window.universalQuery({ action: 'DELETE', table: 'operator_schedules', id: sch.id });
+            }
+
             // 2. Rimuoviamo l'utente
             await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
             await refreshAllData();
@@ -2770,7 +2778,12 @@ async function executeSafeUserDeletion() {
                 }
             }
         }
-
+// 🕒 ELIMINAZIONE DI TUTTI I TURNI ASSOCIATI A QUESTO UTENTE
+            const allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+            const userSchedules = allSchedules.filter(s => (s.username || '').trim().toLowerCase() === username.toLowerCase());
+            for (let sch of userSchedules) {
+                await window.universalQuery({ action: 'DELETE', table: 'operator_schedules', id: sch.id });
+            }
         // Eliminazione definitiva dell'utente
         await window.universalQuery({ action: 'DELETE', table: 'users', id: userId });
 
@@ -3853,12 +3866,13 @@ function triggerLocalOperatorAlert(appointment) {
             const month = parseInt(currentMonthPrefix.split('-')[1]);
             const daysInMonth = new Date(year, month, 0).getDate();
 
-            // A. Schedulazioni dello staff (usiamo la cache globale o carichiamole in sicurezza)
-            let schedules = window.cachedOperatorSchedules;
-            if (!schedules || schedules.length === 0) {
-                schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-                window.cachedOperatorSchedules = schedules;
-            }
+            // A. Schedulazioni dello staff valide (filtrate solo per gli utenti attualmente esistenti)
+            const schedulesRaw = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+            const activeUsers = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+            const activeUsernames = new Set(activeUsers.map(u => (u.username || '').trim().toLowerCase()));
+
+            // Scartiamo i turni di operatori eliminati
+            const schedules = schedulesRaw.filter(s => activeUsernames.has((s.username || '').trim().toLowerCase()));
             
             // B. Chiusure straordinarie in agenda
             const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
