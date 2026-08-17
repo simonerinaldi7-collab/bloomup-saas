@@ -296,7 +296,38 @@
     height: calc(100vh - 160px) !important; /* 👈 Blocca l'altezza esatta dell'area visibile */
     max-height: calc(100vh - 160px) !important;
 }
-.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: #dadce0; gap: 1px; border: 1px solid #dadce0; min-width: 800px; }
+.month-grid { 
+            display: grid; 
+            grid-template-columns: repeat(7, 1fr); 
+            background: #dadce0; 
+            gap: 1px; 
+            border: 1px solid #dadce0; 
+            min-width: 800px; 
+        }
+
+
+        
+   .month-grid .cal-day-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: #fff;
+            padding: 8px;
+            font-weight: 500;
+            text-align: center;
+            border-bottom: 1px solid #dadce0;
+            font-size: 11px;
+            color: #70757a;
+        }
+
+/* Blocca la colonna delle ore a sinistra durante lo scroll orizzontale (Settimana/Giorno) */
+        .time-label-column {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: #fff;
+        }
+
         .day-cell { background: white; height: 120px; padding: 6px; overflow-y: auto; border-right: 1px solid #f1f3f4; border-bottom: 1px solid #f1f3f4; cursor: pointer; transition: background 0.1s; }
         .day-cell:hover { background: #f8f9fa; }
         .day-num { font-weight: 500; font-size: 12px; color: #3c4043; margin-bottom: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
@@ -4091,8 +4122,11 @@ function triggerLocalOperatorAlert(appointment) {
         const shiftFirst = (firstDayIndex === 0 ? 6 : firstDayIndex - 1);
         const days = new Date(y, m + 1, 0).getDate();
         
-        ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].forEach(d => html += `<div style="text-align:center; padding:8px; font-weight:500; background:#fff; border-bottom:1px solid #dadce0; font-size:11px; color:#70757a;">${d}</div>`);
-        
+        // 📌 Header giorni con classe sticky per il Mese
+        ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].forEach(d => {
+            html += `<div class="cal-day-header">${d}</div>`;
+        });
+
         for (let i = 0; i < shiftFirst; i++) html += '<div class="day-cell" style="background:#f8f9fa;"></div>';
         
         for (let d = 1; d <= days; d++) {
@@ -4233,10 +4267,11 @@ window.loadSettingsFields = function() {
         }
         html += `</div>`;
 
-        // 2. CORPO GRIGLIA TEMPORALE (Ore + Colonne)
+        // 2. CORPO GRIGLIA TEMPORALE (Ore fisse a sinistra + Colonne giorni)
         html += `<div class="time-grid-container ${containerClass}">`;
         
-        html += `<div>`;
+        // Colonna delle ore bloccata a sinistra (Sticky Left)
+        html += `<div class="time-label-column">`;
         for (let h = 7; h < 22; h++) {
             html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
         }
