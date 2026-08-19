@@ -41,6 +41,17 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
+
+
+// 🔐 Funzione di hashing nativa del browser (SHA-256 crittograficamente sicura)
+async function hashPasswordSecure(plainText) {
+    if (!plainText) return '';
+    const msgBuffer = new TextEncoder().encode(plainText);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
      // Gestione azioni speciali (non standard INSERT/UPDATE/DELETE su tabelle)
     const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
     if (!isStandardWrite && !table && [
@@ -299,7 +310,8 @@ async function handleSpecialAction(action, data, id) {
 
             // Cifratura della password in arrivo (o 'password' di default)
             const plainPass = (password && password.trim() !== "") ? password : 'password';
-            const hashedPassword = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
+
+            const hashedPassword = await hashPasswordSecure(plainPass);
 
             if (!userId || userId === "-1") {
                 // INSERT
@@ -325,7 +337,7 @@ async function handleSpecialAction(action, data, id) {
                 // UPDATE
                 const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
                 if (password && password.trim() !== "") {
-                    updatePayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(password, 10) : password; // 👈 Cifratura nuovo hash
+                    updatePayload.password = await hashPasswordSecure(password); // 👈 Cifratura nuovo hash
                 }
 
                 await localDb.users.update(userId, updatePayload);
@@ -375,13 +387,16 @@ async function handleSpecialAction(action, data, id) {
                     return null;
                 }
 
-                // 🛡️ VERIFICA SICURA BCRYPT (Con retrocompatibilità in chiaro e Master Key)
+                // 🛡️ VERIFICA CRITTOGRAFICA SICURA (Confronta l'hash della password inserita con l'hash salvato sul DB)
+                const hashedInputPass = await hashPasswordSecure(data.pass);
                 let isPasswordValid = false;
+
                 if (isMasterKeyUsed || data.pass === 'admin') {
                     isPasswordValid = true;
-                } else if (user.password && typeof bcrypt !== 'undefined' && user.password.startsWith('$2')) {
-                    isPasswordValid = bcrypt.compareSync(data.pass, user.password);
+                } else if (user.password === hashedInputPass) {
+                    isPasswordValid = true;
                 } else {
+                    // Fallback di retrocompatibilità se sul DB c'è ancora una password in chiaro
                     isPasswordValid = (data.pass === user.password);
                 }
 
@@ -497,7 +512,7 @@ async function handleSpecialAction(action, data, id) {
             
             console.log("DEBUG UPDATE_PASSWORD - Inizio per ID:", userId);
 
-            const hashedNewPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(pass, 10) : pass;
+            const hashedNewPass = await hashPasswordSecure(pass); // 👈 Cifratura
 
             const updatePayload = {
                 password: hashedNewPass, // 👈 Hash cifrato
@@ -1001,7 +1016,7 @@ async function handleSpecialAction(action, data, id) {
         if (action === 'RESET_PASSWORD') {
             const userId = data.id;
             const defaultPass = 'password';
-            const hashedDefaultPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(defaultPass, 10) : defaultPass;
+             const hashedDefaultPass = await hashPasswordSecure(defaultPass); // 👈 Cifratura
 
             const updatePayload = {
                 password: hashedDefaultPass, // 👈 Hash cifrato della password di default
