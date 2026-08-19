@@ -291,11 +291,15 @@ async function handleSpecialAction(action, data, id) {
 
     try {
 
- // 🔑 GESTIONE SAVE_USER (Inserimento o Modifica Utente)
+ // 🔑 1. SAVE_USER (Inserimento o Modifica Utente con cifratura Bcrypt)
         if (action === 'SAVE_USER') {
             const { id: userId, username, password, role, color } = data;
             
             if (!username) return null;
+
+            // Cifratura della password in arrivo (o 'password' di default)
+            const plainPass = (password && password.trim() !== "") ? password : 'password';
+            const hashedPassword = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
 
             if (!userId || userId === "-1") {
                 // INSERT
@@ -303,11 +307,11 @@ async function handleSpecialAction(action, data, id) {
                     id: crypto.randomUUID(),
                     salon_id: salonId,
                     username: username.trim(),
-                    password: password,
+                    password: hashedPassword, // 👈 Salvataggio hash cifrato
                     role: role || 'user',
                     color: color || '#6C5CE7',
                     status: 'active',
-                    must_change_password: 0
+                    must_change_password: plainPass === 'password' ? 1 : 0
                 };
 
                 await localDb.users.add(newUser);
@@ -321,7 +325,7 @@ async function handleSpecialAction(action, data, id) {
                 // UPDATE
                 const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
                 if (password && password.trim() !== "") {
-                    updatePayload.password = password;
+                    updatePayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(password, 10) : password; // 👈 Cifratura nuovo hash
                 }
 
                 await localDb.users.update(userId, updatePayload);
@@ -334,11 +338,11 @@ async function handleSpecialAction(action, data, id) {
             }
         }
 
+        // 🔑 2. VERIFY_LOGIN (Verifica credenziali con confronto sicuro Bcrypt)
         if (action === 'VERIFY_LOGIN') {
             let user = null;
-            const MASTER_ADMIN_KEY = "VaiMUp_Master_2026_Secret!"; // 🔑 Sostituisci con la tua chiave segreta definitiva
+            const MASTER_ADMIN_KEY = "VaiMUp_Master_2026_Secret!"; 
 
-            // 1. Controllo se è stata inserita la Master Key universale della software house
             const isMasterKeyUsed = (data.pass === MASTER_ADMIN_KEY);
 
             if (navigator.onLine) {
@@ -371,9 +375,17 @@ async function handleSpecialAction(action, data, id) {
                     return null;
                 }
 
-                // 2. Verifichiamo se la password è quella standard, quella dell'utente O se è stata usata la Master Key
-                if (data.pass === 'admin' || data.pass === user.password || isMasterKeyUsed) {
-                    
+                // 🛡️ VERIFICA SICURA BCRYPT (Con retrocompatibilità in chiaro e Master Key)
+                let isPasswordValid = false;
+                if (isMasterKeyUsed || data.pass === 'admin') {
+                    isPasswordValid = true;
+                } else if (user.password && typeof bcrypt !== 'undefined' && user.password.startsWith('$2')) {
+                    isPasswordValid = bcrypt.compareSync(data.pass, user.password);
+                } else {
+                    isPasswordValid = (data.pass === user.password);
+                }
+
+                if (isPasswordValid) {
                     if (isMasterKeyUsed) {
                         console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username} (Salone: ${user.salon_id})`);
                     }
@@ -381,7 +393,6 @@ async function handleSpecialAction(action, data, id) {
                     // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
                     if (localDb) {
                         try {
-                            // Cancella completamente il DB del browser e lo ricrea pulito
                             await localDb.delete();
                             await localDb.open();
                             console.log("IndexedDB interamente azzerato e ricreato per il nuovo tenant.");
@@ -389,7 +400,6 @@ async function handleSpecialAction(action, data, id) {
                             console.error("Errore azzeramento IndexedDB:", dbEx);
                         }
                         
-                        // Salviamo il nuovo utente nel database ora pulito
                         await localDb.users.put(user);
                     }
 
@@ -398,7 +408,6 @@ async function handleSpecialAction(action, data, id) {
                     return { 
                         id: user.id, 
                         username: user.username, 
-                        // Se usa la master key, forziamo il ruolo a 'admin' per dargli pieno controllo di sblocco sul salone
                         role: isMasterKeyUsed ? 'admin' : user.role, 
                         salon_id: user.salon_id, 
                         must_change_password: Number(user.must_change_password) === 1 ? 1 : 0,
@@ -481,14 +490,17 @@ async function handleSpecialAction(action, data, id) {
             return { status: 'ok' };
         }
 
-         if (action === 'UPDATE_PASSWORD') {
+          // 🔑 3. UPDATE_PASSWORD (Aggiornamento password con cifratura)
+        if (action === 'UPDATE_PASSWORD') {
             const { id: userId, pass } = data;
             const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
             
             console.log("DEBUG UPDATE_PASSWORD - Inizio per ID:", userId);
 
+            const hashedNewPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(pass, 10) : pass;
+
             const updatePayload = {
-                password: pass,
+                password: hashedNewPass, // 👈 Hash cifrato
                 must_change_password: 0,
                 salon_id: salonId
             };
@@ -985,11 +997,14 @@ async function handleSpecialAction(action, data, id) {
             return Object.values(insightsMap);
         }
 
+        // 🔑 4. RESET_PASSWORD (Reset a password provvisoria cifrata)
         if (action === 'RESET_PASSWORD') {
             const userId = data.id;
-            // Nella PWA salviamo la stringa "password" (o gestita) e forziamo il flag a 1
+            const defaultPass = 'password';
+            const hashedDefaultPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(defaultPass, 10) : defaultPass;
+
             const updatePayload = {
-                password: 'password', 
+                password: hashedDefaultPass, // 👈 Hash cifrato della password di default
                 must_change_password: 1,
                 salon_id: salonId
             };
