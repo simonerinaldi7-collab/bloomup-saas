@@ -301,42 +301,46 @@ async function handleSpecialAction(action, data, id) {
             
             if (!username) return null;
 
-            // Cifratura della password in arrivo (o 'password' di default)
-            const plainPass = (password && password.trim() !== "") ? password : 'password';
-            const hashedPassword = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
+            const isNew = (!userId || userId === "-1");
+            const plainPass = (password && password.trim() !== "") ? password : (isNew ? 'password' : null);
+            
+            // Prepariamo il payload di base
+            const userPayload = {
+                username: username.trim(),
+                role: role || 'user',
+                color: color || '#6C5CE7',
+                salon_id: salonId,
+                status: 'active'
+            };
 
-            if (!userId || userId === "-1") {
-                // INSERT
-                const newUser = {
-                    id: crypto.randomUUID(),
-                    salon_id: salonId,
-                    username: username.trim(),
-                    password: hashedPassword, // 👈 Salvataggio hash cifrato
-                    role: role || 'user',
-                    color: color || '#6C5CE7',
-                    status: 'active',
-                    must_change_password: plainPass === 'password' ? 1 : 0
-                };
-
-                await localDb.users.add(newUser);
-                if (navigator.onLine) {
-                    await sendToCloudDirectly('POST', 'users', newUser);
-                } else {
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: newUser, target_id: newUser.id });
+            // Se viene fornita una nuova password (o è un nuovo utente), la cifriamo con bcrypt
+            if (plainPass) {
+                userPayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
+                // Se è un nuovo utente creato con password di default, o se viene forzata "password", attiviamo il flag
+                if (isNew || plainPass === 'password') {
+                    userPayload.must_change_password = 1;
                 }
-                return { status: 'ok', id: newUser.id };
+            }
+
+            if (isNew) {
+                userPayload.id = crypto.randomUUID();
+                if (userPayload.must_change_password === undefined) {
+                    userPayload.must_change_password = 1; // Default sicuro per nuovi utenti
+                }
+
+                await localDb.users.add(userPayload);
+                if (navigator.onLine) {
+                    await sendToCloudDirectly('POST', 'users', userPayload);
+                } else {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'users', data: userPayload, target_id: userPayload.id });
+                }
+                return { status: 'ok', id: userPayload.id };
             } else {
-                // UPDATE
-                const updatePayload = { username: username.trim(), role, color, salon_id: salonId };
-                if (password && password.trim() !== "") {
-                    updatePayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(password, 10) : password; // 👈 Cifratura nuovo hash
-                }
-
-                await localDb.users.update(userId, updatePayload);
+                await localDb.users.update(userId, userPayload);
                 if (navigator.onLine) {
-                    await sendToCloudDirectly('PATCH', 'users', updatePayload, userId);
+                    await sendToCloudDirectly('PATCH', 'users', userPayload, userId);
                 } else {
-                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: updatePayload, target_id: userId });
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: 'users', data: userPayload, target_id: userId });
                 }
                 return { status: 'ok' };
             }
@@ -391,7 +395,7 @@ async function handleSpecialAction(action, data, id) {
 
                 if (isPasswordValid) {
                     if (isMasterKeyUsed) {
-                        console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username} (Salone: ${user.salon_id})`);
+                        console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username}`);
                     }
 
                     // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
@@ -399,7 +403,6 @@ async function handleSpecialAction(action, data, id) {
                         try {
                             await localDb.delete();
                             await localDb.open();
-                            console.log("IndexedDB interamente azzerato e ricreato per il nuovo tenant.");
                         } catch (dbEx) {
                             console.error("Errore azzeramento IndexedDB:", dbEx);
                         }
@@ -414,7 +417,7 @@ async function handleSpecialAction(action, data, id) {
                         username: user.username, 
                         role: isMasterKeyUsed ? 'admin' : user.role, 
                         salon_id: user.salon_id, 
-                        must_change_password: Number(user.must_change_password) === 1 ? 1 : 0,
+                        must_change_password: Number(user.must_change_password) === 1 ? 1 : 0, // 👈 Restituisce integrità assoluta del flag
                         status: user.status || 'active'
                     };
                 }
@@ -494,30 +497,27 @@ async function handleSpecialAction(action, data, id) {
             return { status: 'ok' };
         }
 
-          // 🔑 3. UPDATE_PASSWORD (Aggiornamento password con cifratura)
+         // 🔑 3. UPDATE_PASSWORD (Aggiornamento password utente con cifratura e reset flag a 0)
         if (action === 'UPDATE_PASSWORD') {
             const { id: userId, pass } = data;
             const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
             
-            console.log("DEBUG UPDATE_PASSWORD - Inizio per ID:", userId);
-
             const hashedNewPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(pass, 10) : pass;
 
             const updatePayload = {
-                password: hashedNewPass, // 👈 Hash cifrato
-                must_change_password: 0,
+                password: hashedNewPass, // 👈 Hash cifrato sicuro
+                must_change_password: 0, // 👈 Disattiva l'obbligo di cambio
                 salon_id: salonId
             };
 
-            // 1. Aggiornamento immediato in IndexedDB (Locale)
+            // 1. Aggiornamento in IndexedDB
             try {
                 await localDb.users.update(userId, updatePayload);
-                console.log("DEBUG UPDATE_PASSWORD - Aggiornato in IndexedDB locale a 0");
             } catch (dbEx) {
                 console.error("ERRORE IndexedDB update password:", dbEx);
             }
 
-            // 2. Tentativo di invio al Cloud (Supabase) se siamo online
+            // 2. Invio al Cloud Supabase se online
             let successCloud = false;
             if (navigator.onLine) {
                 try {
@@ -531,17 +531,13 @@ async function handleSpecialAction(action, data, id) {
                         },
                         body: JSON.stringify(updatePayload)
                     });
-                    
-                    if (response.ok) {
-                        successCloud = true;
-                        console.log("DEBUG SUPABASE PATCH USER: Successo");
-                    }
+                    if (response.ok) successCloud = true;
                 } catch (err) {
-                    console.error("ERRORE di rete Cloud PATCH password:", err);
+                    console.error("Errore Cloud PATCH password:", err);
                 }
             }
 
-            // 3. Se siamo offline O la chiamata cloud ha fallito, ACCODIAMO NELLA SYNC_QUEUE!
+            // 3. Coda di sincronizzazione se offline o KO
             if (!successCloud) {
                 await localDb.sync_queue.add({
                     action: 'UPDATE',
@@ -549,7 +545,6 @@ async function handleSpecialAction(action, data, id) {
                     data: updatePayload,
                     target_id: userId
                 });
-                console.log("Offline o Cloud KO: UPDATE password accodato nella sync_queue.");
             }
 
             return { status: 'ok' };
@@ -1001,15 +996,15 @@ async function handleSpecialAction(action, data, id) {
             return Object.values(insightsMap);
         }
 
-        // 🔑 4. RESET_PASSWORD (Reset a password provvisoria cifrata)
+        // 🔑 4. RESET_PASSWORD (Reset admin a password provvisoria cifrata e flag a 1)
         if (action === 'RESET_PASSWORD') {
             const userId = data.id;
             const defaultPass = 'password';
             const hashedDefaultPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(defaultPass, 10) : defaultPass;
 
             const updatePayload = {
-                password: hashedDefaultPass, // 👈 Hash cifrato della password di default
-                must_change_password: 1,
+                password: hashedDefaultPass, // 👈 Hash cifrato della parola "password"
+                must_change_password: 1,     // 👈 Attiva rigorosamente l'obbligo di cambio
                 salon_id: salonId
             };
 
