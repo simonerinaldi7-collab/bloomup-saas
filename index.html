@@ -1299,11 +1299,21 @@
         <button class="pwa-btn-close" id="pwa-install-close">✕</button>
     </div>
 
-    <!-- MODALI DI SISTEMA -->
-    <div id="mod-monthly-expense-reminder" class="modal"><div class="modal-box"><h3>Spese Mensili</h3><div id="suggested-expenses-list"></div><div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
-        <button type="button" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
-        <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Chiudi alert e vai a Spese</button>
-    </div></div></div>
+   <!-- MODALE GESTIONE SPESE MENSILI -->
+<div id="mod-monthly-expense-reminder" class="modal">
+    <div class="modal-box">
+        <h3 style="color: var(--p); margin-top: 0;">📊 Promemoria Spese Mensili</h3>
+        <p id="expense-reminder-subtitle" style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 15px;">
+            Non risulta ancora registrata alcuna spesa per il mese in corso. Gestisci le tue spese fisse per mantenere il bilancio predittivo accurato.
+        </p>
+        <div id="suggested-expenses-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px;"></div>
+        
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
+            <button type="button" id="btn-confirm-suggested" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
+            <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Vai alla Sezione Spese</button>
+        </div>
+    </div>
+</div>
     <div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
         <div class="modal-box" style="width: 500px; max-height: 90vh; display: flex; flex-direction: column;">
             
@@ -3501,44 +3511,35 @@ function triggerLocalOperatorAlert(appointment) {
             container.innerHTML = `<div style="color:red; padding:20px;">Errore nel calcolo: ${err.message}</div>`;
         }
     }
-    // --- LOGICA INTELLIGENTE GESTIONE SPESE MENSILI ---
-    async function checkMonthlyExpenseReminder() {
-        if (!currentUser || currentUser.role !== 'admin') return;
+    // --- LOGICA INTELLIGENTE GESTIONE SPESE MENSILI (AGGIORNATA) ---
+async function checkMonthlyExpenseReminder() {
+    if (!currentUser || currentUser.role !== 'admin') return;
 
-        const now = new Date();
-        const day = now.getDate(); // Giorno del mese (1-31)
-        const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // es. '2026-08'
-        
-        const salonId = currentUser.salon_id || 'SALON_001';
-        const storageKeyDismissed = `expense_reminder_dismissed_${salonId}`;
-        const lastDismissedMonth = localStorage.getItem(storageKeyDismissed);
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // es. '2026-06'
+    
+    try {
+        // 1. Verifichiamo se sono state inserite spese nel mese corrente
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentYearMonth));
+        const hasExpensesThisMonth = monthExpenses.length > 0;
 
-        try {
-            // 1. Verifichiamo se sono già state inserite spese nel mese corrente
-            const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
-            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentYearMonth));
-            const hasExpensesThisMonth = monthExpenses.length > 0;
-
-            // CASO A: È il 1° del mese (o successivo) e l'utente non ha ancora gestito il promemoria per questo mese
-            if (day >= 1 && lastDismissedMonth !== currentYearMonth) {
-                await prepareExpenseSuggestions(currentYearMonth);
-                const modal = document.getElementById('mod-monthly-expense-reminder');
-                if (modal) modal.classList.add('active');
-                return; // Esibiamo l'interattivo e stoppiamo i controlli successivi
-            }
-
-            // CASO B: Siamo tra il 2 e il 10 del mese, NON ci sono spese inserite e non ha ancora chiuso l'avviso informativo
-            const storageKeyInfo = `expense_warning_info_${salonId}_${currentYearMonth}`;
-            const infoDismissed = localStorage.getItem(storageKeyInfo);
-
-            if (day >= 2 && day <= 10 && !hasExpensesThisMonth && !infoDismissed) {
-                showSoftExpenseWarningBanner(currentYearMonth);
-            }
-
-        } catch (err) {
-            console.error("Errore nel controllo promemoria spese:", err);
+        // 2. REQUISITO: L'alert deve comparire ad ogni accesso finché non viene inserita almeno una spesa nel mese in corso.
+        if (!hasExpensesThisMonth) {
+            console.log("📊 [SPESE] Nessuna spesa registrata per il mese corrente. Mostro il promemoria.");
+            await prepareExpenseSuggestions(currentYearMonth);
+            const modal = document.getElementById('mod-monthly-expense-reminder');
+            if (modal) modal.classList.add('active');
+        } else {
+            console.log("✅ [SPESE] Spese del mese già registrate. Salto il promemoria.");
+            const modal = document.getElementById('mod-monthly-expense-reminder');
+            if (modal) modal.classList.remove('active');
         }
+
+    } catch (err) {
+        console.error("Errore nel controllo promemoria spese:", err);
     }
+}
 
     // Mostra il secondo alert informativo skippabile (entro il 10 del mese)
     function showSoftExpenseWarningBanner(currentYearMonth) {
@@ -3573,16 +3574,16 @@ function triggerLocalOperatorAlert(appointment) {
         if (banner) banner.remove();
     }
 
-    // Azione: Chiudi l'alert principale del 1° del mese e vai dritto alla sezione spese
-    function dismissExpenseReminderAndGoToExpenses() {
-        markReminderAsDismissed();
-        const modal = document.getElementById('mod-monthly-expense-reminder');
-        if (modal) modal.classList.remove('active');
-        
-        // Sposta l'utente direttamente al tab delle spese
-        changePage('dashboard');
-        showSheet('sheet-spese', 'btn-spese');
-    }
+   // Azione: Chiudi l'alert e vai dritto alla sezione spese
+function dismissExpenseReminderAndGoToExpenses() {
+    const modal = document.getElementById('mod-monthly-expense-reminder');
+    if (modal) modal.classList.remove('active');
+    
+    // Sposta l'utente direttamente al tab delle spese
+    changePage('dashboard');
+    showSheet('sheet-spese', 'btn-spese');
+}
+
 
     function markReminderAsDismissed() {
         if (!currentUser) return;
@@ -3592,124 +3593,138 @@ function triggerLocalOperatorAlert(appointment) {
     }
 
     async function prepareExpenseSuggestions(currentYearMonth) {
-        const container = document.getElementById('suggested-expenses-list');
-        if (!container) return;
+    const container = document.getElementById('suggested-expenses-list');
+    const confirmBtn = document.getElementById('btn-confirm-suggested');
+    const subtitleEl = document.getElementById('expense-reminder-subtitle');
+    
+    if (!container) return;
 
-        container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Analisi spese storiche in corso...</div>`;
+    container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Analisi spese storiche in corso...</div>`;
 
-        try {
-            const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+    try {
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        
+        // CASO A: Storico spese completamente vuoto
+        if (expenses.length === 0) {
+            if (subtitleEl) subtitleEl.innerText = "Non ci sono spese nello storico da cui generare suggerimenti. Vai alla sezione spese per inserire la prima spesa del mese.";
+            container.innerHTML = `<div style="text-align:center; color:#e17055; background:#fff1f0; padding:15px; border-radius:8px; font-size:13px; border:1px solid #ffccd5;">⚠️ Nessuno storico trovato. Impossibile selezionare spese automatiche.</div>`;
             
-            if (expenses.length === 0) {
-                container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Nessuno storico spese trovato. Inizia inserendo la prima spesa dal foglio Bilancio/Spese.</div>`;
-                return;
+            // Disabilitiamo o nascondiamo il pulsante di conferma automatica
+            if (confirmBtn) {
+                confirmBtn.style.display = 'none';
             }
+            return;
+        }
 
-            const expenseGroups = {};
-            expenses.forEach(e => {
-                const desc = (e.description || '').trim();
-                const amt = parseFloat(e.amount) || 0;
-                if (!desc || amt <= 0) return;
+        // Se ci sono spese nello storico, riabilitiamo il tasto di conferma
+        if (confirmBtn) {
+            confirmBtn.style.display = 'inline-flex';
+        }
+        if (subtitleEl) {
+            subtitleEl.innerText = "Seleziona le spese fisse ricorrenti dal tuo storico da importare rapidamente per il mese in corso:";
+        }
 
-                if (!expenseGroups[desc]) {
-                    expenseGroups[desc] = { totalAmount: 0, count: 0, lastDate: e.date };
-                }
-                expenseGroups[desc].totalAmount += amt;
-                expenseGroups[desc].count += 1;
-                if (e.date > expenseGroups[desc].lastDate) {
-                    expenseGroups[desc].lastDate = e.date;
-                }
-            });
+        const expenseGroups = {};
+        expenses.forEach(e => {
+            const desc = (e.description || '').trim();
+            const amt = parseFloat(e.amount) || 0;
+            if (!desc || amt <= 0) return;
 
-            const suggestions = Object.keys(expenseGroups).map(desc => {
-                const item = expenseGroups[desc];
-                const avgAmount = item.totalAmount / item.count;
-                return {
-                    description: desc,
-                    amount: avgAmount.toFixed(2),
-                    isFrequent: item.count > 1
-                };
-            }).sort((a, b) => b.amount - a.amount);
-
-            const defaultDate = `${currentYearMonth}-01`;
-
-            if (suggestions.length === 0) {
-                container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Nessun suggerimento disponibile.</div>`;
-                return;
+            if (!expenseGroups[desc]) {
+                expenseGroups[desc] = { totalAmount: 0, count: 0, lastDate: e.date };
             }
+            expenseGroups[desc].totalAmount += amt;
+            expenseGroups[desc].count += 1;
+            if (e.date > expenseGroups[desc].lastDate) {
+                expenseGroups[desc].lastDate = e.date;
+            }
+        });
 
-            // 💡 ORA GENERIAMO INPUT DI TESTO E NUMERO MODIFICABILI DIRETTAMENTE DAL MODALE
-            container.innerHTML = suggestions.map((s, index) => `
-                <div class="suggested-expense-row" style="background:white; padding:10px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width:18px; height:18px; cursor:pointer; flex-shrink:0;">
-                    <div style="flex:1; display:grid; grid-template-columns: 1fr 120px; gap:8px; align-items:center;">
-                        <div>
-                            <input type="text" id="sug-desc-${index}" value="${s.description}" style="margin:0; padding:6px 10px; font-size:13px; font-weight:bold;" placeholder="Descrizione spesa">
-                            ${s.isFrequent ? '<span style="font-size:9px; background:#e17055; color:white; padding:2px 5px; border-radius:3px;">Ricorrente</span>' : ''}
-                        </div>
-                        <div>
-                            <div style="position:relative;">
-                                <span style="position:absolute; left:8px; top:8px; font-size:12px; color:#666;">€</span>
-                                <input type="number" id="sug-amt-${index}" value="${s.amount}" step="0.01" style="margin:0; padding:6px 6px 6px 22px; font-size:13px; font-weight:bold; color:var(--d);" placeholder="0.00">
-                            </div>
+        const suggestions = Object.keys(expenseGroups).map(desc => {
+            const item = expenseGroups[desc];
+            const avgAmount = item.totalAmount / item.count;
+            return {
+                description: desc,
+                amount: avgAmount.toFixed(2),
+                isFrequent: item.count > 1
+            };
+        }).sort((a, b) => b.amount - a.amount);
+
+        if (suggestions.length === 0) {
+            if (confirmBtn) confirmBtn.style.display = 'none';
+            container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Nessun suggerimento disponibile.</div>`;
+            return;
+        }
+
+        container.innerHTML = suggestions.map((s, index) => `
+            <div class="suggested-expense-row" style="background:white; padding:10px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:10px; margin-bottom: 8px;">
+                <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width:18px; height:18px; cursor:pointer; flex-shrink:0;">
+                <div style="flex:1; display:grid; grid-template-columns: 1fr 120px; gap:8px; align-items:center;">
+                    <div>
+                        <input type="text" id="sug-desc-${index}" value="${s.description}" style="margin:0; padding:6px 10px; font-size:13px; font-weight:bold;" placeholder="Descrizione spesa">
+                        ${s.isFrequent ? '<span style="font-size:9px; background:#e17055; color:white; padding:2px 5px; border-radius:3px; margin-left:4px;">Ricorrente</span>' : ''}
+                    </div>
+                    <div>
+                        <div style="position:relative;">
+                            <span style="position:absolute; left:8px; top:8px; font-size:12px; color:#666;">€</span>
+                            <input type="number" id="sug-amt-${index}" value="${s.amount}" step="0.01" style="margin:0; padding:6px 6px 6px 22px; font-size:13px; font-weight:bold; color:var(--d);" placeholder="0.00">
                         </div>
                     </div>
                 </div>
-            `).join('');
+            </div>
+        `).join('');
 
-        } catch (err) {
-            console.error("Errore preparazione suggerimenti spese:", err);
-            container.innerHTML = `<div style="color:red; padding:10px;">Errore nel caricamento dello storico.</div>`;
-        }
+    } catch (err) {
+        console.error("Errore preparazione suggerimenti spese:", err);
+        container.innerHTML = `<div style="color:red; padding:10px;">Errore nel caricamento dello storico.</div>`;
+    }
+}
+
+
+
+
+   // Conferma e inserisce le spese spuntate nel database
+async function confirmSuggestedExpenses() {
+    const checkboxes = document.querySelectorAll('.sug-cb:checked');
+    if (checkboxes.length === 0) {
+        return alert("Seleziona almeno una spesa da inserire o clicca 'Vai alla Sezione Spese'.");
     }
 
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const defaultDate = `${currentYearMonth}-01`;
 
+    let insertedCount = 0;
+    for (let cb of checkboxes) {
+        const index = cb.getAttribute('data-index');
+        const descInput = document.getElementById(`sug-desc-${index}`);
+        const amtInput = document.getElementById(`sug-amt-${index}`);
 
+        if (descInput && amtInput) {
+            const description = descInput.value.trim();
+            const amount = parseFloat(amtInput.value);
 
-    // 3. Azione: Conferma e inserisce le spese spuntate nel database
-    async function confirmSuggestedExpenses() {
-        const checkboxes = document.querySelectorAll('.sug-cb:checked');
-        if (checkboxes.length === 0) {
-            return alert("Seleziona almeno una spesa da inserire o clicca 'Fai più tardi'.");
-        }
-
-        const now = new Date();
-        const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const defaultDate = `${currentYearMonth}-01`;
-
-        let insertedCount = 0;
-        for (let cb of checkboxes) {
-            const index = cb.getAttribute('data-index');
-            const descInput = document.getElementById(`sug-desc-${index}`);
-            const amtInput = document.getElementById(`sug-amt-${index}`);
-
-            if (descInput && amtInput) {
-                const description = descInput.value.trim();
-                const amount = parseFloat(amtInput.value);
-
-                if (description && !isNaN(amount) && amount > 0) {
-                    const expenseData = {
-                        date: defaultDate,
-                        description: description,
-                        amount: amount
-                    };
-                    await window.api.query({ action: 'INSERT', table: 'expenses', data: expenseData });
-                    insertedCount++;
-                }
+            if (description && !isNaN(amount) && amount > 0) {
+                const expenseData = {
+                    date: defaultDate,
+                    description: description,
+                    amount: amount
+                };
+                await window.api.query({ action: 'INSERT', table: 'expenses', data: expenseData });
+                insertedCount++;
             }
         }
-
-        markReminderAsDismissed();
-
-        const modal = document.getElementById('mod-monthly-expense-reminder');
-        if (modal) modal.classList.remove('active');
-
-        alert(`✅ Registrate con successo ${insertedCount} spese fisse per il nuovo mese!`);
-        
-        if (typeof loadExpenses === 'function') await loadExpenses();
-        if (typeof loadBalance === 'function') await loadBalance();
-        if (typeof loadDailyTargetWidget === 'function') await loadDailyTargetWidget();
     }
+
+    const modal = document.getElementById('mod-monthly-expense-reminder');
+    if (modal) modal.classList.remove('active');
+
+    alert(`✅ Registrate con successo ${insertedCount} spese fisse per il mese corrente!`);
+    
+    if (typeof loadExpenses === 'function') await loadExpenses();
+    if (typeof loadBalance === 'function') await loadBalance();
+    if (typeof loadDailyTargetWidget === 'function') await loadDailyTargetWidget();
+}
 
     // 4. Azione: Rimanda a domani / salta per questo mese
     function dismissExpenseReminderForNow() {
