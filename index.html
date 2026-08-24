@@ -2171,19 +2171,41 @@ async function submitPasswordReset() {
 
     function updateCustomerChart() {
         const filter = document.getElementById('src-cust-name').value.toLowerCase();
+        
+        let baseList = [...currentCustomerData];
+        if (filter !== "") {
+            baseList = baseList.filter(d => d.customer_name.toLowerCase().includes(filter));
+        }
+
         let chartData = [];
 
         if (filter === "") {
-            const top5 = currentCustomerData.slice(0, 5);
-            const bottom5 = currentCustomerData.slice(-5).reverse();
-            chartData = [...top5, ...bottom5];
+            const totalItems = baseList.length;
+
+            if (totalItems <= 1) {
+                chartData = baseList;
+            } else if (totalItems < 10) {
+                // Sotto i 10 elementi: ordiniamo per spesa totale decrescente e dividiamo a metà (Verde sopra, Rosso sotto)
+                baseList.sort((a, b) => b.total_spent - a.total_spent);
+                chartData = baseList;
+            } else {
+                const top5 = baseList.slice(0, 5);
+                const bottom5 = baseList.slice(-5).reverse();
+                
+                const topNames = new Set(top5.map(x => x.customer_name));
+                const uniqueBottom5 = bottom5.filter(x => !topNames.has(x.customer_name));
+                
+                chartData = [...top5, ...uniqueBottom5];
+            }
         } else {
-            chartData = currentCustomerData.filter(d => d.customer_name.toLowerCase().includes(filter));
+            chartData = baseList;
         }
         
         const ctx = document.getElementById('customerChart').getContext('2d');
         if (window.custChart) window.custChart.destroy();
         
+        const totalItemsInChart = chartData.length;
+
         window.custChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2193,7 +2215,13 @@ async function submitPasswordReset() {
                     data: chartData.map(d => d.total_spent),
                     backgroundColor: chartData.map((d, index) => {
                         if (filter !== "") return '#6C5CE7';
-                        return index < 5 ? '#00B894' : '#E17055';
+                        
+                        if (totalItemsInChart < 10) {
+                            const mid = totalItemsInChart / 2;
+                            return index < mid ? '#00B894' : '#E17055';
+                        } else {
+                            return index < 5 ? '#00B894' : '#E17055';
+                        }
                     })
                 }]
             },
@@ -2201,6 +2229,16 @@ async function submitPasswordReset() {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '€ ' + value.toFixed(0);
+                            }
+                        }
+                    }
+                },
                 onClick: (e, el) => { if(el.length > 0) showCustomerDetails(chartData[el[0].index]); }
             }
         });
@@ -3815,43 +3853,59 @@ function dismissExpenseReminderAndGoToExpenses() {
         updateMarginChart(); // Chiama la funzione che disegna
     }
 
-    // 2. Disegna il grafico filtrato (senza ricaricare dal DB)
-    function updateMarginChart() {
+   function updateMarginChart() {
         const filter = document.getElementById('src-margin-prod').value.toLowerCase();
         
-        // 1. Definiamo la variabile che conterrà i dati da visualizzare
-        let filteredData = [];
+        let baseList = [...currentMarginData];
+        if (filter !== "") {
+            baseList = baseList.filter(d => d.item_name.toLowerCase().includes(filter));
+        }
 
-        // 2. Logica: se c'è un filtro, cerchiamo. Se non c'è, prendiamo Top/Bottom
+        let chartData = [];
+
         if (filter === "") {
-            // Mostra Top 5 e Bottom 5 dalla lista completa (currentMarginData)
-            const top5 = currentMarginData.slice(0, 5);
-            const bottom5 = currentMarginData.slice(-5).reverse();
-            filteredData = [...top5, ...bottom5];
+            const totalItems = baseList.length;
+
+            if (totalItems <= 1) {
+                chartData = baseList;
+            } else if (totalItems < 10) {
+                // Sotto i 10 elementi: ordiniamo per margine decrescente e dividiamo a metà (Verde sopra, Rosso sotto)
+                baseList.sort((a, b) => b.total_margin - a.total_margin);
+                chartData = baseList;
+            } else {
+                const top5 = baseList.slice(0, 5);
+                const bottom5 = baseList.slice(-5).reverse();
+                
+                const topNames = new Set(top5.map(x => x.item_name));
+                const uniqueBottom5 = bottom5.filter(x => !topNames.has(x.item_name));
+                
+                chartData = [...top5, ...uniqueBottom5];
+            }
         } else {
-            // Mostra tutto ciò che corrisponde al filtro
-            filteredData = currentMarginData.filter(d => 
-                d.item_name.toLowerCase().includes(filter)
-            );
+            chartData = baseList;
         }
         
-        // 3. Ora 'filteredData' esiste ed è accessibile qui sotto
         const ctx = document.getElementById('marginChart').getContext('2d');
         if (window.myChart) window.myChart.destroy();
         
+        const totalItemsInChart = chartData.length;
+
         window.myChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: filteredData.map(d => d.item_name),
+                labels: chartData.map(d => d.item_name),
                 datasets: [{
                     label: 'Margine Totale (€)',
-                    data: filteredData.map(d => d.total_margin),
-                    backgroundColor: filteredData.map((d, index) => {
+                    data: chartData.map(d => d.total_margin),
+                    backgroundColor: chartData.map((d, index) => {
                         if (filter !== "") return '#6C5CE7';
-                        const totalItems = filteredData.length;
-                        if (index < 5) return '#00B894'; 
-                        if (index >= totalItems - 5) return '#E17055'; 
-                        return '#B2BEC3';
+                        
+                        if (totalItemsInChart < 10) {
+                            const mid = totalItemsInChart / 2;
+                            return index < mid ? '#00B894' : '#E17055';
+                        } else {
+                            return index < 5 ? '#00B894' : '#E17055';
+                        }
                     })
                 }]
             },
@@ -3859,9 +3913,19 @@ function dismissExpenseReminderAndGoToExpenses() {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '€ ' + value.toFixed(0);
+                            }
+                        }
+                    }
+                },
                 onClick: (event, elements) => {
                     if (elements.length > 0) {
-                        showDetails(filteredData[elements[0].index]); 
+                        showDetails(chartData[elements[0].index]); 
                     }
                 }
             }
