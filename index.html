@@ -7573,7 +7573,18 @@ const nowTimestamp = new Date().toISOString();
     }
            async function updateStats() {
     document.getElementById('st-c').innerText = allCustomers.length;
-    document.getElementById('st-a').innerText = allAppointments.length;
+    // 🎯 FILTRO RIGOROSO APPUNTAMENTI REALI (Esclude pause, ferie, chiusure)
+    const validAppointments = (allAppointments || []).filter(a => {
+        const cust = (a.cust_name || '').toLowerCase();
+        const srv = (a.service || '').toLowerCase();
+        
+        const isPausa = cust.includes('pausa') || cust.includes('pranzo') || srv.includes('pausa') || srv.includes('pranzo');
+        const isChiusura = cust.includes('chiusura') || cust.includes('ferie') || srv.includes('chiusura') || srv.includes('ferie');
+        
+        return !isPausa && !isChiusura;
+    });
+
+    document.getElementById('st-a').innerText = validAppointments.length; // 👈 Mostra solo gli appuntamenti effettivi con i clienti
     
     const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
     document.getElementById('st-i').innerText = lowStockCount;
