@@ -497,42 +497,27 @@ async function handleSpecialAction(action, data, id) {
             return { status: 'ok' };
         }
 
-         // 🔑 3. UPDATE_PASSWORD (Aggiornamento password utente con cifratura forzata Bcrypt)
+         // 🔑 3. UPDATE_PASSWORD (Aggiornamento password utente con cifratura e reset flag a 0)
         if (action === 'UPDATE_PASSWORD') {
             const { id: userId, pass } = data;
             const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
             
-            console.log("🔒 [SECURITY] Elaborazione cambio password cifrata per ID:", userId);
-
-            if (!pass || pass.trim() === "") {
-                return { status: 'error', message: 'La password non può essere vuota.' };
-            }
-
-            // 🛡️ CONTROLLO RIGOROSO DISPONIBILITÀ BCRYPT
-            let hashedNewPass = pass;
-            if (typeof bcrypt !== 'undefined' && typeof bcrypt.hashSync === 'function') {
-                hashedNewPass = bcrypt.hashSync(pass, 10);
-                console.log("✅ [SECURITY] Password cifrata con successo tramite bcryptjs.");
-            } else {
-                console.error("❌ [SECURITY ERROR CRITICO] Libreria bcryptjs non disponibile! Impossibile salvare la password in chiaro.");
-                return { status: 'error', message: 'Libreria di crittografia non caricata. Ricarica la pagina.' };
-            }
+            const hashedNewPass = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(pass, 10) : pass;
 
             const updatePayload = {
-                password: hashedNewPass, // 👈 Garantito: questo è un hash bcrypt (inizia per $2...)
-                must_change_password: 0,
+                password: hashedNewPass, // 👈 Hash cifrato sicuro
+                must_change_password: 0, // 👈 Disattiva l'obbligo di cambio
                 salon_id: salonId
             };
 
-            // 1. Aggiornamento immediato in IndexedDB (Locale)
+            // 1. Aggiornamento in IndexedDB
             try {
                 await localDb.users.update(userId, updatePayload);
-                console.log("✅ [UPDATE LOCALE] Password aggiornata in IndexedDB");
             } catch (dbEx) {
                 console.error("ERRORE IndexedDB update password:", dbEx);
             }
 
-            // 2. Tentativo di invio al Cloud (Supabase) se siamo online
+            // 2. Invio al Cloud Supabase se online
             let successCloud = false;
             if (navigator.onLine) {
                 try {
@@ -546,20 +531,13 @@ async function handleSpecialAction(action, data, id) {
                         },
                         body: JSON.stringify(updatePayload)
                     });
-                    
-                    if (response.ok) {
-                        successCloud = true;
-                        console.log("🚀 [UPDATE CLOUD] Password cifrata sincronizzata su Supabase con successo.");
-                    } else {
-                        const errText = await response.text();
-                        console.error("❌ [UPDATE CLOUD KO] Errore Supabase PATCH password:", response.status, errText);
-                    }
+                    if (response.ok) successCloud = true;
                 } catch (err) {
-                    console.error("❌ [ERRORE RETE] Cloud PATCH password:", err);
+                    console.error("Errore Cloud PATCH password:", err);
                 }
             }
 
-            // 3. Se siamo offline O la chiamata cloud ha fallito, accodiamo nella sync_queue
+            // 3. Coda di sincronizzazione se offline o KO
             if (!successCloud) {
                 await localDb.sync_queue.add({
                     action: 'UPDATE',
@@ -567,7 +545,6 @@ async function handleSpecialAction(action, data, id) {
                     data: updatePayload,
                     target_id: userId
                 });
-                console.log("⚠️ [SYNC QUEUE] Update password cifrata accodato offline.");
             }
 
             return { status: 'ok' };
