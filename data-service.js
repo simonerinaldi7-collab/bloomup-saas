@@ -295,8 +295,7 @@ async function handleSpecialAction(action, data, id) {
 
     try {
 
- // 🔑 1. SAVE_USER (Inserimento o Modifica Utente con cifratura Bcrypt)
-        if (action === 'SAVE_USER') {
+ if (action === 'SAVE_USER') {
             const { id: userId, username, password, role, color } = data;
             
             if (!username) return null;
@@ -304,7 +303,20 @@ async function handleSpecialAction(action, data, id) {
             const isNew = (!userId || userId === "-1");
             const plainPass = (password && password.trim() !== "") ? password : (isNew ? 'password' : null);
             
-            // Prepariamo il payload di base
+            let bcryptInstance = null;
+            if (typeof bcrypt !== 'undefined' && typeof bcrypt.hashSync === 'function') {
+                bcryptInstance = bcrypt;
+            } else if (window.bcrypt && typeof window.bcrypt.hashSync === 'function') {
+                bcryptInstance = window.bcrypt;
+            } else if (window.dcodeIO && window.dcodeIO.bcrypt && typeof window.dcodeIO.bcrypt.hashSync === 'function') {
+                bcryptInstance = window.dcodeIO.bcrypt;
+            }
+
+            let hashedPassword = plainPass;
+            if (plainPass && bcryptInstance) {
+                hashedPassword = bcryptInstance.hashSync(plainPass, 10);
+            }
+
             const userPayload = {
                 username: username.trim(),
                 role: role || 'user',
@@ -313,10 +325,8 @@ async function handleSpecialAction(action, data, id) {
                 status: 'active'
             };
 
-            // Se viene fornita una nuova password (o è un nuovo utente), la cifriamo con bcrypt
             if (plainPass) {
-                userPayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
-                // Se è un nuovo utente creato con password di default, o se viene forzata "password", attiviamo il flag
+                userPayload.password = hashedPassword; // 👈 Hash cifrato
                 if (isNew || plainPass === 'password') {
                     userPayload.must_change_password = 1;
                 }
@@ -325,7 +335,7 @@ async function handleSpecialAction(action, data, id) {
             if (isNew) {
                 userPayload.id = crypto.randomUUID();
                 if (userPayload.must_change_password === undefined) {
-                    userPayload.must_change_password = 1; // Default sicuro per nuovi utenti
+                    userPayload.must_change_password = 1;
                 }
 
                 await localDb.users.add(userPayload);
@@ -497,31 +507,34 @@ async function handleSpecialAction(action, data, id) {
             return { status: 'ok' };
         }
 
-         // 🔑 3. UPDATE_PASSWORD (Aggiornamento password utente con cifratura e reset flag a 0)
-        if (action === 'UPDATE_PASSWORD') {
+         if (action === 'UPDATE_PASSWORD') {
             const { id: userId, pass } = data;
             const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
             
             console.log("🔒 [UPDATE_PASSWORD] Elaborazione per ID:", userId);
 
-            // 🛡️ Generazione sicura dell'hash Bcrypt con controllo di presenza della libreria
-            let hashedNewPass = pass;
+            // 🛡️ RESOLVER UNIVERSALE DI SICUREZZA PER BCRYPTJS
+            let bcryptInstance = null;
             if (typeof bcrypt !== 'undefined' && typeof bcrypt.hashSync === 'function') {
-                hashedNewPass = bcrypt.hashSync(pass, 10);
-                console.log("✅ [BCRYPT] Password cifrata con successo.");
+                bcryptInstance = bcrypt;
+            } else if (window.bcrypt && typeof window.bcrypt.hashSync === 'function') {
+                bcryptInstance = window.bcrypt;
+            } else if (window.dcodeIO && window.dcodeIO.bcrypt && typeof window.dcodeIO.bcrypt.hashSync === 'function') {
+                bcryptInstance = window.dcodeIO.bcrypt;
+            }
+
+            let hashedNewPass = pass;
+            if (bcryptInstance) {
+                hashedNewPass = bcryptInstance.hashSync(pass, 10);
+                console.log("✅ [BCRYPT] Password cifrata con successo via resolver.");
             } else {
-                console.warn("⚠️ [BCRYPT WARNING] Libreria non ancora pronta o mancante, verifico caricamento globale...");
-                // Tentativo di recupero d'emergenza se bcrypt è agganciato a window
-                if (window.bcrypt && typeof window.bcrypt.hashSync === 'function') {
-                    hashedNewPass = window.bcrypt.hashSync(pass, 10);
-                } else {
-                    console.error("❌ [ERRORE CRITICO] Impossibile cifrare la password: bcryptjs non è definito!");
-                }
+                console.error("❌ [ERRORE CRITICO DI SICUREZZA] Nessuna istanza di bcrypt trovata nel contesto globale!");
+                return { status: 'error', message: 'Libreria di cifratura non disponibile nel browser.' };
             }
 
             const updatePayload = {
-                password: hashedNewPass, // 👈 Hash cifrato sicuro (es. $2a$10$...)
-                must_change_password: 0, // 👈 Disattiva l'obbligo di cambio
+                password: hashedNewPass, // 👈 Ora sarà un hash cifrato al 100%
+                must_change_password: 0,
                 salon_id: salonId
             };
 
