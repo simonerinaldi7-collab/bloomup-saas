@@ -8,9 +8,7 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/dexie/dist/dexie.js'
 ];
 
-// --- SERVICE WORKER PWA CON GESTIONE NOTIFICHE E CLICK ---
 
-const CACHE_NAME = 'retailmaster-cache-v1';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
