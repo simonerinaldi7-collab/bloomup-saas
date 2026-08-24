@@ -6169,10 +6169,33 @@ async function checkImminentAppointmentsNow() {
     }
 }
 
-// Mostra il modale centrale bloccante con suoni ed enfasi
-function triggerProfessionalAlarmModal(app, minutesLeft) {
+async function triggerProfessionalAlarmModal(app, minutesLeft) {
+    // 1. 📲 ATTIVAZIONE NOTIFICA NATIVA DI SISTEMA (Blocco schermo / Centro notifiche)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const notifTitle = `⏰ Appuntamento tra ${minutesLeft} min`;
+            const notifBody = `Cliente: ${app.cust_name}\nServizio: ${app.service || 'Trattamento'}\nOrario: ${app.time.substring(0, 5)}`;
+            
+            await registration.showNotification(notifTitle, {
+                body: notifBody,
+                icon: './icon-192.png',
+                badge: './icon-192.png',
+                vibrate: [400, 200, 400],
+                tag: `appointment-alert-${app.id}`, // Evita duplicati di notifiche identiche
+                requireInteraction: true,
+                data: { url: './index.html' }
+            });
+            console.log("📲 Notifiche push nativa di sistema inviata con successo.");
+        } catch (pushErr) {
+            console.warn("Impossibile mostrare la notifica nativa di sistema:", pushErr);
+        }
+    }
+
+    // Se il modale è già aperto a schermo, evitiamo di aprirne un secondo sopra
     if (document.getElementById('pro-alarm-overlay')) return;
 
+    // 2. 🔔 RIProduzione Audio di Avviso (Suono sintetico web audio)
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTone(freq, timeOffset) {
@@ -6191,6 +6214,7 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
         playTone(880.00, 0.25);
     } catch (e) {}
 
+    // 3. 🖼️ APERTURA MODALE IN-APP (Se l'utente ha l'app aperta davanti)
     const overlay = document.createElement('div');
     overlay.id = 'pro-alarm-overlay';
     overlay.style.cssText = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeInScale 0.3s ease-out;";
@@ -6218,7 +6242,6 @@ function triggerProfessionalAlarmModal(app, minutesLeft) {
 
     document.body.appendChild(overlay);
 }
-
 
 
 // Funzione per aprire il modale dei lotti di un prodotto specifico

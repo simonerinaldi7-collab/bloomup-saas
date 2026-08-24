@@ -18,7 +18,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
 
-// Ricezione dell'evento di notifica imminente
+// sw.js - Gestione notifiche native di sistema
 self.addEventListener('push', function (event) {
     let data = { 
         title: '⏰ Appuntamento Imminente', 
@@ -39,8 +39,8 @@ self.addEventListener('push', function (event) {
         body: data.body,
         icon: data.icon || './icon-192.png',
         badge: './icon-192.png',
-        vibrate: [400, 200, 400, 200, 400],
-        requireInteraction: true, // Mantiene la notifica attiva sullo schermo
+        vibrate: [300, 100, 300, 100, 300], // 📳 Pattern di vibrazione stile Google Calendar
+        requireInteraction: true,          // 📌 Mantiene la notifica attiva finché l'utente non la legge
         data: { url: data.url || './index.html' }
     };
 
@@ -49,20 +49,18 @@ self.addEventListener('push', function (event) {
     );
 });
 
-// ⚡ GESTIONE DEL CLICK SULLA NOTIFICA (Apre l'app se era chiusa)
+// Click sulla notifica nativa: apre o porta in primo piano la PWA
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            // Se l'app è già aperta in qualche scheda, la portiamo in primo piano (focus)
             for (let i = 0; i < clientList.length; i++) {
                 let client = clientList[i];
                 if ('focus' in client) {
                     return client.focus();
                 }
             }
-            // Se l'app era completamente chiusa, apriamo la PWA da zero
             if (clients.openWindow) {
                 return clients.openWindow(event.notification.data.url || './index.html');
             }
