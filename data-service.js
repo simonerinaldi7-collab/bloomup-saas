@@ -393,13 +393,23 @@ async function handleSpecialAction(action, data, id) {
                     return null;
                 }
 
-                // 🛡️ VERIFICA SICURA BCRYPT (Con retrocompatibilità in chiaro e Master Key)
+                // 🛡️ RISOLUZIONE DINAMICA PER IL CONFRONTO BCRYPT
+                let bcryptLib = null;
+                if (typeof bcrypt !== 'undefined' && typeof bcrypt.compareSync === 'function') {
+                    bcryptLib = bcrypt;
+                } else if (window.bcrypt && typeof window.bcrypt.compareSync === 'function') {
+                    bcryptLib = window.bcrypt;
+                } else if (window.dcodeIO && window.dcodeIO.bcrypt && typeof window.dcodeIO.bcrypt.compareSync === 'function') {
+                    bcryptLib = window.dcodeIO.bcrypt;
+                }
+
                 let isPasswordValid = false;
                 if (isMasterKeyUsed || data.pass === 'admin') {
                     isPasswordValid = true;
-                } else if (user.password && typeof bcrypt !== 'undefined' && user.password.startsWith('$2')) {
-                    isPasswordValid = bcrypt.compareSync(data.pass, user.password);
+                } else if (user.password && bcryptLib && user.password.startsWith('$2')) {
+                    isPasswordValid = bcryptLib.compareSync(data.pass, user.password);
                 } else {
+                    // Fallback di compatibilità se la password nel DB è in chiaro
                     isPasswordValid = (data.pass === user.password);
                 }
 
