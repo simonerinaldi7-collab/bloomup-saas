@@ -3607,25 +3607,24 @@ function dismissExpenseReminderAndGoToExpenses() {
 
     try {
         const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
-        
+        const todayStr = new Date().toISOString().split('T')[0]; // Data odierna di default per le spese pregresse
+
         // CASO A: Storico spese completamente vuoto
         if (expenses.length === 0) {
-            if (subtitleEl) subtitleEl.innerText = "Non ci sono spese nello storico da cui generare suggerimenti. Vai alla sezione spese per inserire la prima spesa del mese.";
+            if (subtitleEl) subtitleEl.innerText = "Non ci sono spese nello storico da cui generare suggerimenti. Vai alla sezione spese per inserire la prima spesa.";
             container.innerHTML = `<div style="text-align:center; color:#e17055; background:#fff1f0; padding:15px; border-radius:8px; font-size:13px; border:1px solid #ffccd5;">⚠️ Nessuno storico trovato. Impossibile selezionare spese automatiche.</div>`;
             
-            // Disabilitiamo o nascondiamo il pulsante di conferma automatica
             if (confirmBtn) {
                 confirmBtn.style.display = 'none';
             }
             return;
         }
 
-        // Se ci sono spese nello storico, riabilitiamo il tasto di conferma
         if (confirmBtn) {
             confirmBtn.style.display = 'inline-flex';
         }
         if (subtitleEl) {
-            subtitleEl.innerText = "Seleziona le spese fisse ricorrenti dal tuo storico da importare rapidamente per il mese in corso:";
+            subtitleEl.innerText = "Seleziona o personalizza le spese fisse dal tuo storico. Puoi modificare descrizione, importo e data esatta della spesa:";
         }
 
         const expenseGroups = {};
@@ -3660,19 +3659,35 @@ function dismissExpenseReminderAndGoToExpenses() {
             return;
         }
 
+        // 💡 AGGIUNTO L'INPUT DATA (type="date") PER OGNI RIGA DI SPESA
         container.innerHTML = suggestions.map((s, index) => `
-            <div class="suggested-expense-row" style="background:white; padding:10px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; gap:10px; margin-bottom: 8px;">
-                <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width:18px; height:18px; cursor:pointer; flex-shrink:0;">
-                <div style="flex:1; display:grid; grid-template-columns: 1fr 120px; gap:8px; align-items:center;">
+            <div class="suggested-expense-row" style="background:white; padding:12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:8px; margin-bottom: 10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer; font-weight:bold; color:var(--txt); text-transform:none;">
+                        <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width:18px; height:18px; cursor:pointer; margin:0;">
+                        <span>Includi spesa</span>
+                    </label>
+                    ${s.isFrequent ? '<span style="font-size:9px; background:#e17055; color:white; padding:2px 6px; border-radius:4px; font-weight:bold;">Ricorrente</span>' : ''}
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 110px 140px; gap:8px; align-items:center;">
+                    <!-- Descrizione -->
                     <div>
+                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Descrizione</small>
                         <input type="text" id="sug-desc-${index}" value="${s.description}" style="margin:0; padding:6px 10px; font-size:13px; font-weight:bold;" placeholder="Descrizione spesa">
-                        ${s.isFrequent ? '<span style="font-size:9px; background:#e17055; color:white; padding:2px 5px; border-radius:3px; margin-left:4px;">Ricorrente</span>' : ''}
                     </div>
+                    <!-- Importo -->
                     <div>
+                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Importo (€)</small>
                         <div style="position:relative;">
-                            <span style="position:absolute; left:8px; top:8px; font-size:12px; color:#666;">€</span>
+                            <span style="position:absolute; left:8px; top:6px; font-size:12px; color:#666;">€</span>
                             <input type="number" id="sug-amt-${index}" value="${s.amount}" step="0.01" style="margin:0; padding:6px 6px 6px 22px; font-size:13px; font-weight:bold; color:var(--d);" placeholder="0.00">
                         </div>
+                    </div>
+                    <!-- Data della Spesa -->
+                    <div>
+                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Data Spesa</small>
+                        <input type="date" id="sug-date-${index}" value="${todayStr}" style="margin:0; padding:6px 8px; font-size:12px; font-weight:bold; background:#f8fafc;">
                     </div>
                 </div>
             </div>
@@ -3687,30 +3702,27 @@ function dismissExpenseReminderAndGoToExpenses() {
 
 
 
-   // Conferma e inserisce le spese spuntate nel database
-async function confirmSuggestedExpenses() {
+ async function confirmSuggestedExpenses() {
     const checkboxes = document.querySelectorAll('.sug-cb:checked');
     if (checkboxes.length === 0) {
         return alert("Seleziona almeno una spesa da inserire o clicca 'Vai alla Sezione Spese'.");
     }
-
-    const now = new Date();
-    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const defaultDate = `${currentYearMonth}-01`;
 
     let insertedCount = 0;
     for (let cb of checkboxes) {
         const index = cb.getAttribute('data-index');
         const descInput = document.getElementById(`sug-desc-${index}`);
         const amtInput = document.getElementById(`sug-amt-${index}`);
+        const dateInput = document.getElementById(`sug-date-${index}`); // 👈 Legge la data scelta
 
-        if (descInput && amtInput) {
+        if (descInput && amtInput && dateInput) {
             const description = descInput.value.trim();
             const amount = parseFloat(amtInput.value);
+            const expenseDate = dateInput.value; // 👈 Data personalizzata
 
-            if (description && !isNaN(amount) && amount > 0) {
+            if (description && !isNaN(amount) && amount > 0 && expenseDate) {
                 const expenseData = {
-                    date: defaultDate,
+                    date: expenseDate, // 👈 Registra la data esatta specificata
                     description: description,
                     amount: amount
                 };
@@ -3723,7 +3735,7 @@ async function confirmSuggestedExpenses() {
     const modal = document.getElementById('mod-monthly-expense-reminder');
     if (modal) modal.classList.remove('active');
 
-    alert(`✅ Registrate con successo ${insertedCount} spese fisse per il mese corrente!`);
+    alert(`✅ Registrate con successo ${insertedCount} spese!`);
     
     if (typeof loadExpenses === 'function') await loadExpenses();
     if (typeof loadBalance === 'function') await loadBalance();
