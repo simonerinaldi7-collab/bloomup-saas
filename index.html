@@ -1990,27 +1990,52 @@ console.error = function(...args) {
         });
     }
 
-    function updateVolumeChart() {
+function updateVolumeChart() {
         const filter = document.getElementById('src-vol-prod').value.toLowerCase();
         
         let chartData = [];
 
+        // 1. Applichiamo prima il filtro testuale se l'utente sta cercando qualcosa
+        let baseList = [...currentVolumeData];
+        if (filter !== "") {
+            baseList = baseList.filter(d => d.item_name.toLowerCase().includes(filter));
+        }
+
+        // 2. Logica intelligente per evitare duplicati quando ci sono pochi prodotti (< 10)
         if (filter === "") {
-            // MODALITÀ DEFAULT: Mostriamo solo Top 5 e Bottom 5 per mantenere il grafico leggibile
-            const top5 = currentVolumeData.slice(0, 5);
-            const bottom5 = currentVolumeData.slice(-5).reverse();
-            chartData = [...top5, ...bottom5];
+            const totalItems = baseList.length;
+
+            if (totalItems <= 1) {
+                // Se c'è 1 solo prodotto o zero, mostriamo quello che c'è
+                chartData = baseList;
+            } else if (totalItems < 10) {
+                // 🟢 / 🔴 Sotto i 10 prodotti: dividiamo equamente la lista per evitare sovrapposizioni
+                // Supponiamo di ordinare dal più venduto al meno venduto
+                baseList.sort((a, b) => b.total_sold - a.total_sold);
+                
+                const midPoint = Math.ceil(totalItems / 2);
+                chartData = baseList; // Mostriamo l'intera lista senza troncare, ma colorandola intelligentemente a metà
+            } else {
+                // Modalità standard: Top 5 e Bottom 5 distinti
+                const top5 = baseList.slice(0, 5);
+                const bottom5 = baseList.slice(-5).reverse();
+                
+                // Verifichiamo che non ci siano ID/nomi duplicati nel caso di liste a cavallo tra 10 e 11 elementi
+                const topNames = new Set(top5.map(x => x.item_name));
+                const uniqueBottom5 = bottom5.filter(x => !topNames.has(x.item_name));
+                
+                chartData = [...top5, ...uniqueBottom5];
+            }
         } else {
-            // MODALITÀ FILTRO: Mostriamo tutto ciò che corrisponde, senza limiti
-            chartData = currentVolumeData.filter(d => 
-                d.item_name.toLowerCase().includes(filter)
-            );
+            chartData = baseList;
         }
         
-        // Ora usiamo chartData per disegnare il grafico
+        // Ora usiamo chartData per disegnare il grafico con colori dinamici e senza doppioni
         const ctx = document.getElementById('volumeChart').getContext('2d');
         if (window.volChart) window.volChart.destroy();
         
+        const totalItemsInChart = chartData.length;
+
         window.volChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2018,10 +2043,17 @@ console.error = function(...args) {
                 datasets: [{
                     label: 'Pezzi Venduti',
                     data: chartData.map(d => d.total_sold),
-                    // Coloriamo di verde i Top e di rosso i Bottom (solo se siamo in modalità default)
                     backgroundColor: chartData.map((d, index) => {
-                        if (filter !== "") return '#6C5CE7'; // Viola se stiamo filtrando
-                        return index < 5 ? '#00B894' : '#E17055'; // Verde/Rosso se siamo in default
+                        if (filter !== "") return '#6C5CE7'; // Viola se stiamo filtrando testualmente
+                        
+                        if (totalItemsInChart < 10) {
+                            // Sotto i 10 elementi: la prima metà (più venduti) è verde, la seconda metà è rossa
+                            const mid = totalItemsInChart / 2;
+                            return index < mid ? '#00B894' : '#E17055';
+                        } else {
+                            // Standard: primi 5 verdi, ultimi 5 rossi
+                            return index < 5 ? '#00B894' : '#E17055';
+                        }
                     })
                 }]
             },
@@ -2029,6 +2061,14 @@ console.error = function(...args) {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0 // Mostra solo numeri interi per i pezzi venduti
+                        }
+                    }
+                },
                 onClick: (e, el) => { if(el.length > 0) showVolumeDetails(chartData[el[0].index]); }
             }
         });
