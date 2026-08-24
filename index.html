@@ -8385,32 +8385,93 @@ const nowTimestamp = new Date().toISOString();
             </div>`;
     }
 
-    function renderCart() { 
+async function renderCart() { 
         console.log("Stato carrello attuale:", cart); 
         let total = 0; 
         const container = document.getElementById('cart-items');
         
-        container.innerHTML = cart.map((item, i) => { 
+        let html = "";
+        
+        for (let i = 0; i < cart.length; i++) {
+            const item = cart[i];
             const discVal = item.discountVal || 0;
             const discType = item.discountType || 'euro';
             const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
             const finalPrice = item.price - discountAmount;
             total += finalPrice; 
+
+            // 🧮 CALCOLO DEL MARGINE IN TEMPO REALE (Con logica Report Vendite)
+            let unitCostOrPayout = 0;
+            let isConsignment = false;
             
-            return `
+            if (item.id) {
+                const productDb = allInventory.find(p => p.id === item.id);
+                if (productDb) {
+                    isConsignment = productDb.is_consignment;
+                    if (isConsignment) {
+                        // In Conto Vendita il "costo" per il negozio è la quota dovuta al fornitore
+                        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+                        const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                        let totalPct = 0;
+                        if (links.length > 0) {
+                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                        } else {
+                            totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        }
+                        unitCostOrPayout = (item.price * totalPct) / 100; // Calcolato sul listino pieno
+                    } else {
+                        // Prodotto di proprietà: cerchiamo il costo unitario FIFO dallo stock_lots o price_history
+                        const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+                        const prodLots = lots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
+                        
+                        if (prodLots.length > 0) {
+                            // Prende il costo del lotto più vecchio (FIFO)
+                            prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                            unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                        } else {
+                            // Fallback sullo storico prezzi
+                            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                            unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                        }
+                    }
+                }
+            }
+
+            // Calcolo Margine Netto per questo articolo nel carrello
+            const itemMarginEuro = finalPrice - unitCostOrPayout;
+            const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
+
+            // 🎨 SOGLIE COLORE ALERT MARGINE
+            let marginBadgeColor = '#00B894'; // Verde (> 10%)
+            let marginText = 'Ottimale';
+            if (itemMarginEuro <= 0) {
+                marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
+                marginText = 'In Perdita!';
+            } else if (itemMarginPct < 10) {
+                marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
+                marginText = 'Margine Basso';
+            }
+
+            html += `
                 <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div style="flex:1;">
                             <div style="font-weight:600;">${item.name}</div>
                             <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                             
-                            
-                            <!-- Riquadro Sconto ottimizzato su due righe per massima leggibilità -->
-                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px; background: #f8fafc; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                                <span class="discount-label" style="font-size: 10px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Modifica Sconto</span>
+                            <!-- 💡 INFO MARGINE IN TEMPO REALE -->
+                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                                    Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
+                                </span>
+                            </div>
+
+                            <!-- Riquadro Sconto -->
+                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                                <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
                                 <div style="display: flex; align-items: center; gap: 6px;">
-                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 70px; padding: 8px; margin: 0; font-size: 14px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
-                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 70px; padding: 8px; margin: 0; font-size: 14px; font-weight: bold; background: white;">
+                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
                                         <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
                                         <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
                                     </select>
@@ -8419,12 +8480,13 @@ const nowTimestamp = new Date().toISOString();
                         </div>
                         <div style="text-align:right;">
                             <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                            <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px;">Rimuovi</button>
+                            <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
                         </div>
                     </div>
                 </div>`; 
-        }).join(''); 
-        
+        }
+
+        container.innerHTML = html; 
         document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
     }
 
