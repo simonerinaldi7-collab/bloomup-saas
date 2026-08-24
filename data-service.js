@@ -125,25 +125,12 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
 
     try {
         if (action === 'INSERT') {
-            let recordToSave = { 
+            const recordToSave = { 
                 ...data, 
                 id: data.id || crypto.randomUUID(), 
                 salon_id: salonId 
             };
             
-            // 🔒 CRittografia automatica password se stiamo inserendo/aggiornando la tabella users
-            if (table === 'users' && recordToSave.password) {
-                const plainPass = recordToSave.password;
-                // Se non è già un hash bcrypt (non inizia per $2), lo cifriamo
-                if (!plainPass.startsWith('$2')) {
-                    recordToSave.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
-                    // Impostiamo il flag di cambio password se è quella temporanea di default
-                    if (plainPass === 'password' && recordToSave.must_change_password === undefined) {
-                        recordToSave.must_change_password = 1;
-                    }
-                }
-            }
-
             // 1. Scrittura locale su Dexie
             await localDb.table(table).add(recordToSave);
             console.log(`✅ [INSERT LOCALE] Salvato in ${table}:`, recordToSave.id);
@@ -163,19 +150,7 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
             return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
         }
         else if (action === 'UPDATE') {
-            let updatePayload = { ...data, salon_id: salonId };
-
-            // 🔒 Cifratura password in caso di UPDATE sulla tabella users
-            if (table === 'users' && updatePayload.password) {
-                const plainPass = updatePayload.password;
-                if (plainPass.trim() !== "" && !plainPass.startsWith('$2')) {
-                    updatePayload.password = typeof bcrypt !== 'undefined' ? bcrypt.hashSync(plainPass, 10) : plainPass;
-                } else if (plainPass.trim() === "") {
-                    // Se la password è vuota nell'update, la rimuoviamo dal payload per non sovrascrivere l'hash esistente con stringhe vuote
-                    delete updatePayload.password;
-                }
-            }
-
+            const updatePayload = { ...data, salon_id: salonId };
             await localDb.table(table).update(id, updatePayload);
             console.log(`✅ [UPDATE LOCALE] Aggiornato in ${table} ID: ${id}`);
 
@@ -186,6 +161,20 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
                 }
             } else {
                 await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+            }
+            return { changes: 1 };
+        }
+        else if (action === 'DELETE') {
+            await localDb.table(table).delete(id);
+            console.log(`✅ [DELETE LOCALE] Eliminato da ${table} ID: ${id}`);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
             }
             return { changes: 1 };
         }
@@ -390,23 +379,14 @@ async function handleSpecialAction(action, data, id) {
                     return null;
                 }
 
-                // 🛡️ VERIFICA SICURA BCRYPT (Con retrocompatibilità e Master Key)
+                // 🛡️ VERIFICA SICURA BCRYPT (Con retrocompatibilità in chiaro e Master Key)
                 let isPasswordValid = false;
                 if (isMasterKeyUsed || data.pass === 'admin') {
                     isPasswordValid = true;
                 } else if (user.password && typeof bcrypt !== 'undefined' && user.password.startsWith('$2')) {
                     isPasswordValid = bcrypt.compareSync(data.pass, user.password);
                 } else {
-                    // Fallback temporaneo se nel DB c'era una vecchia password in chiaro: la cifriamo al volo!
-                    if (data.pass === user.password) {
-                        isPasswordValid = true;
-                        // Aggiorniamo subito l'hash nel DB per sicurezza
-                        const upgradedHash = bcrypt.hashSync(data.pass, 10);
-                        await localDb.users.update(user.id, { password: upgradedHash });
-                        if (navigator.onLine) {
-                            await sendToCloudDirectly('PATCH', 'users', { password: upgradedHash }, user.id);
-                        }
-                    }
+                    isPasswordValid = (data.pass === user.password);
                 }
 
                 if (isPasswordValid) {

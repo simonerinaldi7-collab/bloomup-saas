@@ -5813,20 +5813,9 @@ async function doLogin() {
                 localStorage.removeItem('VaiMUp_remember_user');
             }
 
-            const mustChange = Number(account.must_change_password) === 1;
-            
-            if (mustChange) {
-                console.log("🔒 Cambio password obbligatorio intercettato per l'utente:", currentUser.username);
-                
-                // 1. Apriamo il modale di cambio password
-                const changePassModal = document.getElementById('mod-change-pass');
-                if (changePassModal) {
-                    changePassModal.classList.add('active');
-                }
-                
-                // 2. 🛑 INTERRUZIONE ASSOLUTA DEL FLUSSO: 
-                // Evitiamo categoricamente che venga chiamato loginSuccess() o che l'app venga sbloccata
-                return; 
+            const mustChange = parseInt(account.must_change_password);
+            if (mustChange === 1) {
+                document.getElementById('mod-change-pass').classList.add('active');
             } else {
                 await loginSuccess();
             }
