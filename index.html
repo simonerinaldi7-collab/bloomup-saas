@@ -3511,12 +3511,17 @@ function triggerLocalOperatorAlert(appointment) {
             container.innerHTML = `<div style="color:red; padding:20px;">Errore nel calcolo: ${err.message}</div>`;
         }
     }
-    // --- LOGICA INTELLIGENTE GESTIONE SPESE MENSILI (AGGIORNATA) ---
+// Variabile di stato in memoria per evitare il loop continuo dei log
+window._expenseReminderShownThisSession = window._expenseReminderShownThisSession || false;
+
 async function checkMonthlyExpenseReminder() {
     if (!currentUser || currentUser.role !== 'admin') return;
 
+    // Se è già stato mostrato in questa sessione, non lo rispammiamo in alcun modo
+    if (window._expenseReminderShownThisSession) return;
+
     const now = new Date();
-    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // es. '2026-06'
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // es. '2026-08'
     
     try {
         // 1. Verifichiamo se sono state inserite spese nel mese corrente
@@ -3524,14 +3529,13 @@ async function checkMonthlyExpenseReminder() {
         const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentYearMonth));
         const hasExpensesThisMonth = monthExpenses.length > 0;
 
-        // 2. REQUISITO: L'alert deve comparire ad ogni accesso finché non viene inserita almeno una spesa nel mese in corso.
         if (!hasExpensesThisMonth) {
             console.log("📊 [SPESE] Nessuna spesa registrata per il mese corrente. Mostro il promemoria.");
+            window._expenseReminderShownThisSession = true; // 👈 Blocca i loop futuri nella stessa sessione
             await prepareExpenseSuggestions(currentYearMonth);
             const modal = document.getElementById('mod-monthly-expense-reminder');
             if (modal) modal.classList.add('active');
         } else {
-            console.log("✅ [SPESE] Spese del mese già registrate. Salto il promemoria.");
             const modal = document.getElementById('mod-monthly-expense-reminder');
             if (modal) modal.classList.remove('active');
         }
