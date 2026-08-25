@@ -3248,12 +3248,17 @@ async function executeSafeUserDeletion() {
         editInv(prodId); 
     }
 
-    function filterProductSelect() {
-        const filter = document.getElementById('f-c-search-prod').value.toLowerCase();
+   function filterProductSelect() {
+        const searchInput = document.getElementById('f-c-search-prod');
         const select = document.getElementById('f-c-prod-select');
         
+        // 🛡️ CONTROLLO DI SICUREZZA ANTI-NULL
+        if (!select) return;
+        
+        const filter = searchInput ? searchInput.value.toLowerCase() : '';
+        
         // Filtriamo tra i prodotti (i servizi non possono essere consumabili di altri servizi)
-        const filteredProducts = allInventory.filter(p => 
+        const filteredProducts = (allInventory || []).filter(p => 
             p.type === 'prodotto' && 
             p.name.toLowerCase().includes(filter)
         );
