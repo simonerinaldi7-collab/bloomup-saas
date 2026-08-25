@@ -8316,64 +8316,89 @@ const nowTimestamp = new Date().toISOString();
 
 
     async function refreshDashboardInsights() {
-        const seasonalData = await window.api.query({ action: 'GET_SEASONAL_INSIGHTS' });
         const container = document.getElementById('seasonal-insights-list');
         if (!container) return;
 
-        
-        let html = '';
-        const now = new Date();
-        const nextMonth = (now.getMonth() + 2 > 12) ? 1 : now.getMonth() + 2;
-        const monthStr = nextMonth.toString().padStart(2, '0');
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:10px; font-size:12px;">Analisi forecast in corso...</div>`;
 
-        // 1. Prepara il "Carico Agenda" per i prossimi 30 giorni
-        const next30Days = new Date();
-        next30Days.setDate(now.getDate() + 30);
-        const agendaApps = allAppointments.filter(a => new Date(a.date) >= now && new Date(a.date) <= next30Days);
+        try {
+            const seasonalData = await window.api.query({ action: 'GET_SEASONAL_INSIGHTS' }) || [];
+            console.log("📊 [FORECAST] Dati stagionali ricevuti:", seasonalData);
 
-        // 2. Analizziamo ogni elemento nel magazzino (Prodotti e Servizi)
-        for (let item of allInventory) {
-            // --- CALCOLO DOMANDA (Agenda vs Stagionalità) ---
-            // A) Domanda da Agenda
-            const agendaCount = agendaApps.filter(a => a.service.includes(item.name)).length;
-            
-            // B) Domanda Stagionale (Storico)
-            const history = seasonalData.find(d => d.name === item.name && d.mese === monthStr);
-            const seasonalVol = history ? history.volume : 0;
-            
-            // C) Prendiamo il massimo tra le due previsioni (Priorità Agenda se è alta)
-            const expectedDemand = Math.max(agendaCount, seasonalVol);
+            let html = '';
+            const now = new Date();
+            const nextMonth = (now.getMonth() + 2 > 12) ? 1 : now.getMonth() + 2;
+            const monthStr = String(nextMonth).padStart(2, '0');
 
-            if (expectedDemand === 0) continue;
+            // Carico agenda per i prossimi 30 giorni
+            const next30Days = new Date();
+            next30Days.setDate(now.getDate() + 30);
+            const agendaApps = (allAppointments || []).filter(a => new Date(a.date) >= now && new Date(a.date) <= next30Days);
 
-            // --- ANALISI PRODOTTO ---
-            if (item.type === 'prodotto') {
-                if (item.stock < expectedDemand) {
-                    html += cardInsight(item.name, '📦 Prodotto', `Previsto consumo di <b>${Math.round(expectedDemand)}</b> unità (Agenda: ${agendaCount}, Storico: ${seasonalVol}). Ne hai solo <b>${item.stock}</b>.`, '#E17055');
-                }
-            } 
-            // --- ANALISI SERVIZIO ---
-            else if (item.type === 'servizio') {
-                // Usiamo la action corretta e aggiungiamo la protezione anti-crash
-                let consumables = await window.api.query({ action: 'GET_CONSUMABLES_BY_SERVICE', id: item.id });
+            let checkedItemsCount = 0;
+
+            for (let item of allInventory) {
+                checkedItemsCount++;
+                // A) Domanda da Agenda
+                const agendaCount = agendaApps.filter(a => (a.service || '').toLowerCase().includes(item.name.toLowerCase())).length;
                 
-                // 🛡️ PROTEZIONE CRitICA: Se non è un array, lo forziamo a [] per evitare TypeError
-                if (!Array.isArray(consumables)) {
-                    consumables = [];
-                }
+                // B) Domanda Stagionale (Storico)
+                const history = seasonalData.find(d => d.name && d.name.toLowerCase() === item.name.toLowerCase() && d.mese === monthStr);
+                const seasonalVol = history ? history.volume : 0;
                 
-                for (let c of consumables) {
-                    const prod = allInventory.find(p => p.name === c.prod_name);
-                    const needed = c.qty * expectedDemand;
-                    
-                    if (prod && prod.stock < needed) {
-                        html += cardInsight(item.name, '📅 Servizio', `Previsti ${Math.round(expectedDemand)} servizi. Ti servono <b>${Math.round(needed)} ${c.prod_name}</b>, in magazzino ne hai <b>${prod.stock}</b>.`, '#00B894');
+                const expectedDemand = Math.max(agendaCount, seasonalVol);
+
+                // --- 1. ANALISI PRODOTTI ---
+                if (item.type === 'prodotto') {
+                    if (item.stock <= (expectedDemand > 0 ? expectedDemand : item.min_stock)) {
+                        html += cardInsight(
+                            item.name, 
+                            '📦 Riassortimento Consigliato', 
+                            `Previsto consumo/richiesta di <b>${Math.max(Math.round(expectedDemand), 1)}</b> unità per il prossimo mese (Agenda: ${agendaCount}, Storico mese: ${seasonalVol}). Attualmente hai in stock: <b>${item.stock} ${item.unit || 'Pz'}</b>.`, 
+                            '#E17055'
+                        );
+                    } else {
+                        html += cardInsight(
+                            item.name, 
+                            '📦 Scorte OK', 
+                            `Previsione richiesta: ${Math.round(expectedDemand)} unità. Magazzino coperto (${item.stock} ${item.unit || 'Pz'} disponibili).`, 
+                            '#00B894'
+                        );
+                    }
+                } 
+                // --- 2. ANALISI SERVIZI ---
+                else if (item.type === 'servizio') {
+                    let consumables = await window.api.query({ action: 'GET_CONSUMABLES_BY_SERVICE', id: item.id }) || [];
+                    if (!Array.isArray(consumables)) consumables = [];
+
+                    if (consumables.length > 0) {
+                        for (let c of consumables) {
+                            const prod = allInventory.find(p => p.name === c.prod_name);
+                            const needed = c.qty * Math.max(expectedDemand, 1);
+                            
+                            if (prod && prod.stock < needed) {
+                                html += cardInsight(
+                                    item.name, 
+                                    '✂️ Materiale Servizio', 
+                                    `Per i trattamenti previsti (${Math.max(Math.round(expectedDemand), 1)} appuntamenti) ti servono <b>${Math.round(needed)} ${c.prod_name}</b>, ma in magazzino ne risultano solo <b>${prod.stock}</b>.`, 
+                                    '#E17055'
+                                );
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        container.innerHTML = html || '<div class="card" style="text-align:center; color:var(--s);">✅ Nessun alert: il magazzino copre sia le prenotazioni in agenda che il trend stagionale.</div>';
+            if (checkedItemsCount === 0) {
+                container.innerHTML = `<div class="card" style="text-align:center; color:#666; padding:15px; font-size:13px;">Nessun prodotto o servizio censito in magazzino per generare il forecast.</div>`;
+            } else {
+                container.innerHTML = html || '<div class="card" style="text-align:center; color:var(--s); padding:15px; font-size:13px;">✅ Magazzino perfettamente in linea: le scorte coprono interamente la domanda stimata per il prossimo mese.</div>';
+            }
+
+        } catch (err) {
+            console.error("❌ Errore critico nel calcolo del forecast operativo:", err);
+            container.innerHTML = `<div class="card" style="color:red; text-align:center; padding:15px;">Errore nel calcolo del forecast operativo.</div>`;
+        }
     }
 
     // Funzione helper per mantenere il codice pulito
