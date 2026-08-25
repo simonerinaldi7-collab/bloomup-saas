@@ -615,6 +615,45 @@
     </div>
 </div>
 
+<!-- MODALE ASSOCIAZIONE MATERIALI CONSUMABILI A SERVIZIO -->
+<div id="mod-consumables" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 500px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; color: var(--p);">📦 Materiali Consumabili per Servizio</h3>
+            <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+        </div>
+
+        <input type="hidden" id="edit-service-id">
+
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); flex-shrink: 0;">
+            <label style="margin-top:0;">Cerca Prodotto di Magazzino</label>
+            <input type="text" id="f-c-search-prod" placeholder="Filtra prodotti..." onkeyup="filterProductSelect()" style="margin: 4px 0 10px 0;">
+            
+            <div style="display:grid; grid-template-columns: 1fr 100px; gap: 8px; align-items: end;">
+                <div>
+                    <label style="margin-top:0;">Seleziona Prodotto</label>
+                    <select id="f-c-prod-select" style="margin:0;"></select>
+                </div>
+                <div>
+                    <label style="margin-top:0;">Qtà Consumo</label>
+                    <input type="number" id="f-c-qty" value="1" step="0.1" min="0.1" style="margin:0;">
+                </div>
+            </div>
+            <button class="btn btn-s" style="width:100%; justify-content:center; margin-top: 10px;" onclick="saveConsumable()">+ Associa Consumabile</button>
+        </div>
+
+        <label style="margin-top:0;">Materiali già associati a questo servizio:</label>
+        <div style="flex-grow: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: white; min-height: 120px;" id="consumables-list">
+            <!-- Popolato dinamicamente -->
+        </div>
+
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border); flex-shrink: 0; text-align: right;">
+            <button class="btn" style="background: #f1f5f9; color: #475569;" onclick="closeMod()">Chiudi</button>
+        </div>
+    </div>
+</div>
+
+
 <!-- MODALE INSERIMENTO NUOVA PASSWORD (POST-LINK EMAIL) -->
 <div id="mod-update-new-pass" class="modal">
     <div class="modal-box" style="text-align: left;">
