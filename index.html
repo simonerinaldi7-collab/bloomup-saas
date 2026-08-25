@@ -8315,21 +8315,22 @@ const nowTimestamp = new Date().toISOString();
 
 
 
-    async function refreshDashboardInsights() {
+   async function refreshDashboardInsights() {
         const container = document.getElementById('seasonal-insights-list');
         if (!container) return;
 
-        container.innerHTML = `<div style="text-align:center; color:#888; padding:10px; font-size:12px;">Elaborazione forecast predittivo in corso...</div>`;
+        container.innerHTML = `<div style="text-align:center; color:#888; padding:10px; font-size:12px;">Elaborazione forecast predittivo (Servizi & Prodotti) in corso...</div>`;
 
         try {
             const seasonalData = await window.api.query({ action: 'GET_SEASONAL_INSIGHTS' }) || [];
             const salesItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
             const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+            const allConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
 
             let html = '';
             const now = new Date();
             const nextMonthNum = (now.getMonth() + 2 > 12) ? 1 : now.getMonth() + 2;
-            const targetMonthStr = String(nextMonthNum).padStart(2, '0'); // Es. '09' per settembre
+            const targetMonthStr = String(nextMonthNum).padStart(2, '0'); // Es. '09'
 
             // Carico agenda per i prossimi 30 giorni
             const next30Days = new Date();
@@ -8338,74 +8339,113 @@ const nowTimestamp = new Date().toISOString();
 
             let analyzedCount = 0;
 
-            for (let item of allInventory) {
-                if (item.type !== 'prodotto') continue; // Analizziamo i prodotti di magazzino
+            // 1. ANALISI PREdittiva DEI SERVIZI
+            const servicesList = allInventory.filter(p => p.type === 'servizio');
+            for (let serv of servicesList) {
                 analyzedCount++;
 
-                // 1. Domanda diretta da Agenda (prenotazioni future che contengono il nome del prodotto)
-                const agendaCount = agendaApps.filter(a => (a.service || '').toLowerCase().includes(item.name.toLowerCase())).length;
+                // A) Prenotazioni dirette in agenda nei prossimi 30 giorni per questo servizio
+                const agendaCount = agendaApps.filter(a => (a.service || '').toLowerCase().includes(serv.name.toLowerCase())).length;
 
-                // 2. Storico Stagionale: vendite registrate nello stesso mese negli anni passati
-                const matchingSeasonalRecords = seasonalData.filter(d => d.name && d.name.toLowerCase() === item.name.toLowerCase() && d.mese === targetMonthStr);
-                const historicalMonthlyVolume = matchingSeasonalRecords.reduce((sum, r) => sum + (parseFloat(r.volume) || 0), 0);
+                // B) Storico stagionale dello stesso mese negli anni passati
+                const matchingSeasonal = seasonalData.filter(d => d.name && d.name.toLowerCase() === serv.name.toLowerCase() && d.mese === targetMonthStr);
+                const historicalMonthlyVolume = matchingSeasonal.reduce((sum, r) => sum + (parseFloat(r.volume) || 0), 0);
 
-                // 3. Trend Recente (Sales Velocity ultimi 60 giorni)
+                // C) Trend recente (ultimi 60 giorni proiettati a 30)
                 const sixtyDaysAgo = new Date();
                 sixtyDaysAgo.setDate(now.getDate() - 60);
                 const recentSales = sales.filter(s => new Date(s.date) >= sixtyDaysAgo);
                 const recentSalesIds = new Set(recentSales.map(s => s.id));
-
-                const productRecentItems = salesItems.filter(si => recentSalesIds.has(si.sale_id) && (si.item_name || '').toLowerCase() === item.name.toLowerCase());
-                const totalRecentSold = productRecentItems.reduce((sum, si) => sum + (parseFloat(si.qty) || 1), 0);
-                
-                // Consumo stimato mensile basato sugli ultimi 2 mesi (proiettato a 30 giorni)
+                const serviceRecentItems = salesItems.filter(si => recentSalesIds.has(si.sale_id) && (si.item_name || '').toLowerCase() === serv.name.toLowerCase());
+                const totalRecentSold = serviceRecentItems.reduce((sum, si) => sum + (parseFloat(si.qty) || 1), 0);
                 const recentVelocityMonthly = (totalRecentSold / 60) * 30;
 
-                // 🧠 CALCOLO FINALE PONDERATO DELLA DOMANDA PREVISTA (Expected Demand)
-                // Diamo priorità alla stagionalità storica se presente, altrimenti usiamo il trend recente o l'agenda
+                // Calcolo domanda stimata del servizio
+                let expectedServiceDemand = 0;
+                if (historicalMonthlyVolume > 0) {
+                    expectedServiceDemand = Math.round((historicalMonthlyVolume * 0.7) + (recentVelocityMonthly * 0.3));
+                } else {
+                    expectedServiceDemand = Math.round(Math.max(agendaCount, recentVelocityMonthly));
+                }
+
+                if (expectedServiceDemand > 0) {
+                    html += cardInsight(
+                        serv.name, 
+                        '✂️ Forecast Servizio', 
+                        `Stimati circa <b>${expectedServiceDemand} trattamenti</b> per il prossimo mese (Agenda: ${agendaCount}, Trend/Storico: ${Math.round(expectedServiceDemand)}). Verifica la copertura turni dello staff.`, 
+                        '#6C5CE7'
+                    );
+
+                    // D) Controllo Consumabili associati al servizio
+                    const serviceCons = allConsumables.filter(c => c.service_id === serv.id);
+                    for (let sc of serviceCons) {
+                        const consumedProd = allInventory.find(p => p.id === sc.product_id);
+                        if (consumedProd) {
+                            const totalNeeded = (parseFloat(sc.quantity_per_service) || 0) * expectedServiceDemand;
+                            if (consumedProd.stock < totalNeeded) {
+                                html += cardInsight(
+                                    `${serv.name} ➔ Consumabile: ${consumedProd.name}`, 
+                                    '⚠️ Rischio Esaurimento Materiale', 
+                                    `Per coprire i ${expectedServiceDemand} servizi stimati serviranno ${totalNeeded} ${consumedProd.unit || 'unità'} di <b>${consumedProd.name}</b>. In magazzino ne hai solo <b>${consumedProd.stock}</b>!`, 
+                                    '#E17055'
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. ANALISI PREDITTIVA DEI PRODOTTI (Rivendita)
+            const productsList = allInventory.filter(p => p.type === 'prodotto');
+            for (let item of productsList) {
+                analyzedCount++;
+
+                const agendaCount = agendaApps.filter(a => (a.service || '').toLowerCase().includes(item.name.toLowerCase())).length;
+                const matchingSeasonalRecords = seasonalData.filter(d => d.name && d.name.toLowerCase() === item.name.toLowerCase() && d.mese === targetMonthStr);
+                const historicalMonthlyVolume = matchingSeasonalRecords.reduce((sum, r) => sum + (parseFloat(r.volume) || 0), 0);
+
+                const sixtyDaysAgo = new Date();
+                sixtyDaysAgo.setDate(now.getDate() - 60);
+                const recentSales = sales.filter(s => new Date(s.date) >= sixtyDaysAgo);
+                const recentSalesIds = new Set(recentSales.map(s => s.id));
+                const productRecentItems = salesItems.filter(si => recentSalesIds.has(si.sale_id) && (si.item_name || '').toLowerCase() === item.name.toLowerCase());
+                const totalRecentSold = productRecentItems.reduce((sum, si) => sum + (parseFloat(si.qty) || 1), 0);
+                const recentVelocityMonthly = (totalRecentSold / 60) * 30;
+
                 let expectedDemand = 0;
                 if (historicalMonthlyVolume > 0) {
-                    // Media ponderata tra storico dello stesso mese e trend recente
                     expectedDemand = Math.round((historicalMonthlyVolume * 0.7) + (recentVelocityMonthly * 0.3));
                 } else {
                     expectedDemand = Math.round(Math.max(agendaCount, recentVelocityMonthly));
                 }
 
-                // Se la domanda prevista è 0, non generiamo allarmi fittizi ma lo segnaliamo come stock stabile o a rotazione nulla
-                if (expectedDemand <= 0) {
-                    if (item.stock > 0) {
+                if (expectedDemand > 0) {
+                    if (item.stock < expectedDemand) {
                         html += cardInsight(
                             item.name, 
-                            '📦 Rotazione Lenta / Stabile', 
-                            `Nessuna richiesta prevista dal trend recente o dallo storico per il prossimo mese. Scorte attuali: <b>${item.stock} ${item.unit || 'Pz'}</b>.`, 
-                            '#b2bec3'
+                            '📦 Previsione Sottosoglia (Rivendita)', 
+                            `Il forecast stima una richiesta di <b>${expectedDemand} unità</b>. Disponibilità in stock: <b style="color:#e17055;">${item.stock} ${item.unit || 'Pz'}</b>. Si consiglia il riassortimento.`, 
+                            '#E17055'
+                        );
+                    } else {
+                        html += cardInsight(
+                            item.name, 
+                            '📦 Forecast Rivendita Coperto', 
+                            `Domanda stimata: <b>${expectedDemand} unità</b>. Magazzino sufficiente (${item.stock} ${item.unit || 'Pz'} in stock).`, 
+                            '#00B894'
                         );
                     }
-                    continue;
-                }
-
-                // Confronto con le scorte attuali in magazzino
-                if (item.stock < expectedDemand) {
-                    html += cardInsight(
-                        item.name, 
-                        '📦 Previsione Sottosoglia', 
-                        `Il forecast stima una richiesta di <b>${expectedDemand} unità</b> per il mese entrante (basato su storico/trend). Disponibilità attuale: <b style="color:#e17055;">${item.stock} ${item.unit || 'Pz'}</b>. Si consiglia il riassortimento.`, 
-                        '#E17055'
-                    );
-                } else {
-                    html += cardInsight(
-                        item.name, 
-                        '📦 Forecast Coperto', 
-                        `Domanda stimata mese prossimo: <b>${expectedDemand} unità</b>. Magazzino sufficiente (${item.stock} ${item.unit || 'Pz'} in stock).`, 
-                        '#00B894'
-                    );
                 }
             }
 
-            container.innerHTML = html || '<div class="card" style="text-align:center; color:#666; padding:15px; font-size:13px;">Nessun prodotto analizzabile trovato in magazzino.</div>';
+            if (analyzedCount === 0) {
+                container.innerHTML = `<div class="card" style="text-align:center; color:#666; padding:15px; font-size:13px;">Nessun articolo o servizio censito in magazzino/listino per generare il forecast.</div>`;
+            } else {
+                container.innerHTML = html || '<div class="card" style="text-align:center; color:var(--s); padding:15px; font-size:13px;">✅ Operatività in regola: agenda e scorte coprono interamente la domanda stimata per il mese entrante.</div>';
+            }
 
         } catch (err) {
-            console.error("❌ Errore nel calcolo del forecast:", err);
+            console.error("❌ Errore nel calcolo del forecast servizi/prodotti:", err);
             container.innerHTML = `<div class="card" style="color:red; text-align:center; padding:15px;">Errore nel calcolo del forecast operativo.</div>`;
         }
     }
