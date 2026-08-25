@@ -8507,9 +8507,16 @@ async function renderCart() {
         console.log("Stato carrello attuale:", cart); 
         let total = 0; 
         const container = document.getElementById('cart-items');
+        if (!container) return;
         
         let html = "";
         
+        // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
+        const allInventoryData = allInventory || [];
+        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+
         for (let i = 0; i < cart.length; i++) {
             const item = cart[i];
             const discVal = item.discountVal || 0;
@@ -8518,44 +8525,64 @@ async function renderCart() {
             const finalPrice = item.price - discountAmount;
             total += finalPrice; 
 
-            // 🧮 CALCOLO DEL MARGINE IN TEMPO REALE (Con logica Report Vendite)
+            // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
             let unitCostOrPayout = 0;
             let isConsignment = false;
             
             if (item.id) {
-                const productDb = allInventory.find(p => p.id === item.id);
+                const productDb = allInventoryData.find(p => p.id === item.id);
                 if (productDb) {
-                    isConsignment = productDb.is_consignment;
-                    if (isConsignment) {
-                        // In Conto Vendita il "costo" per il negozio è la quota dovuta al fornitore
-                        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-                        const links = productSuppliers.filter(l => l.product_id === productDb.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    if (productDb.type === 'servizio') {
+                        // ✂️ SE È UN SERVIZIO: Il costo è la somma dei costi FIFO dei materiali consumabili associati
+                        const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
+                        let totalConsumablesCost = 0;
+
+                        for (let sc of serviceCons) {
+                            const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
+                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+
+                            if (consumedProd) {
+                                // Troviamo il costo unitario FIFO del prodotto consumabile
+                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                let unitCost = 0;
+                                if (prodLots.length > 0) {
+                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                    unitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                } else {
+                                    const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: consumedProd.id });
+                                    unitCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                                }
+                                totalConsumablesCost += (unitCost * qtyNeeded);
+                            }
                         }
-                        unitCostOrPayout = (item.price * totalPct) / 100; // Calcolato sul listino pieno
+                        unitCostOrPayout = totalConsumablesCost;
+
                     } else {
-                        // Prodotto di proprietà: cerchiamo il costo unitario FIFO dallo stock_lots o price_history
-                        const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
-                        const prodLots = lots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
-                        
-                        if (prodLots.length > 0) {
-                            // Prende il costo del lotto più vecchio (FIFO)
-                            prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                            unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                        // PRODOTTO FISICO (Proprietà o Conto Vendita)
+                        isConsignment = productDb.is_consignment;
+                        if (isConsignment) {
+                            const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                            let totalPct = 0;
+                            if (links.length > 0) {
+                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                            } else {
+                                totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                            }
+                            unitCostOrPayout = (item.price * totalPct) / 100;
                         } else {
-                            // Fallback sullo storico prezzi
-                            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
-                            unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                            const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
+                            if (prodLots.length > 0) {
+                                prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                            } else {
+                                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                                unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                            }
                         }
                     }
                 }
             }
 
-            // Calcolo Margine Netto per questo articolo nel carrello
             const itemMarginEuro = finalPrice - unitCostOrPayout;
             const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
 
@@ -8577,9 +8604,9 @@ async function renderCart() {
                             <div style="font-weight:600;">${item.name}</div>
                             <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                             
-                            <!-- 💡 INFO MARGINE IN TEMPO REALE -->
+                            <!-- 💡 INFO MARGINE CON CONSUMABILI INCLUSE -->
                             <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato (inclusi materiali di consumo)">
                                     Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
                                 </span>
                             </div>
