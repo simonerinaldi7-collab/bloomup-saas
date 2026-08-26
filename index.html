@@ -937,10 +937,17 @@
                 <div class="stat-card"><h4>Incassi Medi</h4><p id="kpi-avg-rev">€ 0.00</p></div>
                 <div class="stat-card"><h4>Spese Medie</h4><p id="kpi-avg-exp">€ 0.00</p></div>
             </div>
-            <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
-                <label>Da:</label><select id="m-start" onchange="loadBalance()"></select>
-                <label>A:</label><select id="m-end" onchange="loadBalance()"></select>
-            </div>
+            <div style="display:flex; gap:15px; margin-bottom:20px; align-items:center; flex-wrap:wrap; background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid var(--border);">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <label style="margin:0; font-weight:bold; color:var(--txt);">Da Mese:</label>
+        <input type="month" id="m-start" onchange="loadBalance()" style="margin:0; padding:10px; background:white; font-weight:bold;">
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <label style="margin:0; font-weight:bold; color:var(--txt);">A Mese:</label>
+        <input type="month" id="m-end" onchange="loadBalance()" style="margin:0; padding:10px; background:white; font-weight:bold;">
+    </div>
+    <button class="btn" style="padding:10px 14px; background:white; font-size:12px;" onclick="resetBalanceFilters()">Mesi Correnti</button>
+</div>
             <table>
                 <thead><tr style="background: #f8f9fa;"><th style="padding:10px;">Mese</th><th style="padding:10px;">Incassi</th><th style="padding:10px;">Spese</th><th style="padding:10px;">Guadagno</th></tr></thead>
                 <tbody id="bilancio-body"></tbody>
@@ -2302,25 +2309,38 @@ async function submitPasswordReset() {
     }
 
     async function setupBalanceFilters() {
+        console.log("Inizio setupBalanceFilters...");
         const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' });
-        const selectStart = document.getElementById('m-start');
-        const selectEnd = document.getElementById('m-end');
         
-        // Memorizziamo i valori correnti se già selezionati per non resettare l'utente
-        const currentStart = selectStart.value;
-        const currentEnd = selectEnd.value;
+        const inputStart = document.getElementById('m-start');
+        const inputEnd = document.getElementById('m-end');
         
-        let options = data.map(d => `<option value="${d.m_label}">${d.m_label}</option>`).join('');
-        
-        selectStart.innerHTML = options;
-        selectEnd.innerHTML = options;
-        
-        // Ripristiniamo i valori se esistevano, altrimenti mettiamo i default
-        if (currentStart) selectStart.value = currentStart;
-        else selectStart.selectedIndex = selectEnd.options.length - 1;
-        
-        if (currentEnd) selectEnd.value = currentEnd;
-        else selectEnd.selectedIndex = 0;
+        if (!inputStart || !inputEnd) return;
+
+        // Se i campi sono già valorizzati dall'utente, non li sovrascriviamo
+        if (inputStart.value && inputEnd.value) return;
+
+        if (Array.isArray(data) && data.length > 0) {
+            // Ordiniamo le etichette mese (formato 'YYYY-MM')
+            const sortedLabels = data.map(d => d.m_label).sort();
+            
+            // Impostiamo il primo mese disponibile come default di inizio, e l'ultimo come fine
+            inputStart.value = sortedLabels[0];
+            inputEnd.value = sortedLabels[sortedLabels.length - 1];
+            
+            // Impostiamo i limiti min e max basati sullo storico effettivo del database
+            inputStart.min = sortedLabels[0];
+            inputStart.max = sortedLabels[sortedLabels.length - 1];
+            inputEnd.min = sortedLabels[0];
+            inputEnd.max = sortedLabels[sortedLabels.length - 1];
+        } else {
+            // Fallback sul mese corrente se non c'è storico
+            const nowStr = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
+            inputStart.value = nowStr;
+            inputEnd.value = nowStr;
+        }
+
+        await loadBalance();
     }
 
     // Analisi Clienti Dormienti
@@ -2484,44 +2504,48 @@ async function submitPasswordReset() {
         }).join('');
     }
 
-    // Funzione per popolare le select dei mesi
+     // Funzione rapida per resettare ai mesi correnti o estremi
+    async function resetBalanceFilters() {
+        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' });
+        const inputStart = document.getElementById('m-start');
+        const inputEnd = document.getElementById('m-end');
+        
+        if (Array.isArray(data) && data.length > 0) {
+            const sortedLabels = data.map(d => d.m_label).sort();
+            inputStart.value = sortedLabels[0];
+            inputEnd.value = sortedLabels[sortedLabels.length - 1];
+        }
+        await loadBalance();
+    }
+
     async function loadBalance() {
         console.log("Inizio loadBalance...");
-        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' });
+        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' }) || [];
         
-        // 1. Popola le tendine SOLO SE sono vuote (per evitare che si resettino sempre)
-        const selectStart = document.getElementById('m-start');
-        const selectEnd = document.getElementById('m-end');
+        const inputStart = document.getElementById('m-start');
+        const inputEnd = document.getElementById('m-end');
         
-        if (selectStart.options.length === 0) {
-            let options = data.map(d => `<option value="${d.m_label}">${d.m_label}</option>`).join('');
-            selectStart.innerHTML = options;
-            selectEnd.innerHTML = options;
-            
-            // CORREZIONE: 
-            // Selezioniamo il più vecchio in "Da" (indice 0)
-            selectStart.selectedIndex = selectEnd.options.length - 1;; 
-            // Selezioniamo il più recente in "A" (ultimo indice)
-            selectEnd.selectedIndex = 0;  
+        if (!inputStart || !inputEnd) return;
+
+        // Se gli input sono vuoti all'avvio, inizializziamo i filtri
+        if (!inputStart.value || !inputEnd.value) {
+            await setupBalanceFilters();
+            return;
         }
 
-        // 2. Leggi i filtri
-        const start = selectStart.value;
-        const end = selectEnd.value;
+        let start = inputStart.value; // Formato 'YYYY-MM'
+        let end = inputEnd.value;     // Formato 'YYYY-MM'
 
-        // CONTROLLO DI SICUREZZA: 
-        // Se l'utente inverte per errore le date, scambiamole noi o avvisiamo
+        // Controllo di sicurezza se l'utente inverte le date
         if (start > end) {
-            // Opzione A: Avviso
-            alert("Attenzione: La data di inizio deve essere precedente alla data di fine");
-            // Opzione B: Scambio automatico (consigliata per user-friendly)
             const temp = start;
             start = end;
             end = temp;
+            inputStart.value = start;
+            inputEnd.value = end;
         }
 
         const filtered = data.filter(d => d.m_label >= start && d.m_label <= end);
-
 
         const tbody = document.getElementById('bilancio-body');
         if (!tbody) return;
@@ -2534,17 +2558,19 @@ async function submitPasswordReset() {
             const exp = parseFloat(m.total_expenses) || 0;
             const net = rev - exp;
             
-            totalNet += net; totalRev += rev; totalExp += exp;
+            totalNet += net; 
+            totalRev += rev; 
+            totalExp += exp;
 
             tbody.innerHTML += `<tr>
-                <td style="padding: 10px;">${m.m_label}</td>
+                <td style="padding: 10px;"><b>${m.m_label}</b></td>
                 <td style="padding: 10px;">€${rev.toFixed(2)}</td>
                 <td style="padding: 10px; color:red;">€${exp.toFixed(2)}</td>
                 <td style="font-weight:bold; color:${net >= 0 ? 'var(--s)' : 'var(--d)'}">€${net.toFixed(2)}</td>
             </tr>`;
         });
 
-        // 4. Aggiorna KPI
+        // Aggiorna KPI nel foglio bilancio
         const count = filtered.length || 1;
         document.getElementById('kpi-avg-net').innerText = `€ ${(totalNet / count).toFixed(2)}`;
         document.getElementById('kpi-avg-rev').innerText = `€ ${(totalRev / count).toFixed(2)}`;
