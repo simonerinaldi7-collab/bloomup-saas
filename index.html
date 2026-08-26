@@ -7742,79 +7742,118 @@ const nowTimestamp = new Date().toISOString();
         } 
         document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); 
     }
-           async function updateStats() {
-    document.getElementById('st-c').innerText = allCustomers.length;
-    // 🎯 FILTRO RIGOROSO APPUNTAMENTI REALI (Esclude pause, ferie, chiusure)
-    const validAppointments = (allAppointments || []).filter(a => {
-        const cust = (a.cust_name || '').toLowerCase();
-        const srv = (a.service || '').toLowerCase();
+          async function updateStats() {
+        document.getElementById('st-c').innerText = allCustomers.length;
         
-        const isPausa = cust.includes('pausa') || cust.includes('pranzo') || srv.includes('pausa') || srv.includes('pranzo');
-        const isChiusura = cust.includes('chiusura') || cust.includes('ferie') || srv.includes('chiusura') || srv.includes('ferie');
+        // 🎯 FILTRO RIGOROSO APPUNTAMENTI REALI (Esclude pause, ferie, chiusure)
+        const validAppointments = (allAppointments || []).filter(a => {
+            const cust = (a.cust_name || '').toLowerCase();
+            const srv = (a.service || '').toLowerCase();
+            const isPausa = cust.includes('pausa') || cust.includes('pranzo') || srv.includes('pausa') || srv.includes('pranzo');
+            const isChiusura = cust.includes('chiusura') || cust.includes('ferie') || srv.includes('chiusura') || srv.includes('ferie');
+            return !isPausa && !isChiusura;
+        });
+
+        document.getElementById('st-a').innerText = validAppointments.length;
         
-        return !isPausa && !isChiusura;
-    });
+        const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
+        document.getElementById('st-i').innerText = lowStockCount;
+        
+        // --- 💰 CALCOLO INCASSO DEL MESE CORRENTE (Invece del cumulativo storico) ---
+        let currentMonthRevenue = 0;
+        let previousMonthRevenue = 0;
 
-    document.getElementById('st-a').innerText = validAppointments.length; // 👈 Mostra solo gli appuntamenti effettivi con i clienti
-    
-    const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
-    document.getElementById('st-i').innerText = lowStockCount;
-    
-    // --- CALCOLO DELL'INCASSO DI COMPETENZA DEL NEGOZIO ---
-    let totalSalonRevenue = 0;
-
-    try {
-        const saleItems = allSales.length > 0 ? await window.api.query({ action: 'GET_ALL', table: 'sale_items' }) || [] : [];
-        const inventory = allInventory || [];
-        const priceHistory = await window.api.query({ action: 'GET_ALL', table: 'price_history' }) || [];
-        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-
-        for (let si of saleItems) {
-            const sale = allSales.find(s => s.id === si.sale_id);
-            if (!sale) continue;
-
-            const saleDate = sale.date || new Date().toISOString().split('T')[0];
-            const soldPrice = parseFloat(si.price) || 0;
-            const discount = parseFloat(si.discount) || 0;
-            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
-
-            const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+        try {
+            const now = new Date();
+            const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // 'YYYY-MM'
             
-            let salonShare = finalItemRev;
+            // Mese precedente
+            const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const prevYearMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
-            if (prod && prod.is_consignment) {
-                const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+            const salesData = (allSales && allSales.length > 0) ? allSales : (await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || []);
+            const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
+            const inventory = allInventory || [];
+            const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+            const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
-                const links = productSuppliers.filter(l => l.product_id === prod.id);
-                let totalPct = 0;
-                if (links.length > 0) {
-                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                } else {
-                    totalPct = parseFloat(prod.consignment_split_pct) || 0;
+            for (let si of saleItems) {
+                const sale = salesData.find(s => s.id === si.sale_id);
+                if (!sale || !sale.date) continue;
+
+                const saleMonth = sale.date.substring(0, 7); // 'YYYY-MM'
+                if (saleMonth !== currentYearMonth && saleMonth !== prevYearMonth) continue;
+
+                const saleDate = sale.date;
+                const soldPrice = parseFloat(si.price) || 0;
+                const discount = parseFloat(si.discount) || 0;
+                const finalItemRev = (soldPrice - discount) * (si.qty || 1);
+
+                const prod = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+                let salonShare = finalItemRev;
+
+                if (prod && prod.is_consignment) {
+                    const phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+
+                    const links = productSuppliers.filter(l => l.product_id === prod.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                    } else {
+                        totalPct = parseFloat(prod.consignment_split_pct) || 0;
+                    }
+                    const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                    salonShare = finalItemRev - supplierPayout;
                 }
-                
-                // Quota spettante al fornitore calcolata sul listino pieno
-                const supplierPayout = (listinoPienoOriginale * totalPct) / 100;
-                
-                // Il ricavo effettivo del negozio sul conto vendita assorbe lo sconto ed è depurato dal payout fornitore
-                salonShare = finalItemRev - supplierPayout;
+
+                if (saleMonth === currentYearMonth) {
+                    currentMonthRevenue += salonShare;
+                } else if (saleMonth === prevYearMonth) {
+                    previousMonthRevenue += salonShare;
+                }
             }
 
-            totalSalonRevenue += salonShare;
+            // Fallback se saleItems è vuoto ma abbiamo il totale nelle sales
+            if (saleItems.length === 0 && salesData.length > 0) {
+                salesData.forEach(s => {
+                    if (!s.date) return;
+                    const sMonth = s.date.substring(0, 7);
+                    const sTotal = parseFloat(s.total) || 0;
+                    if (sMonth === currentYearMonth) currentMonthRevenue += sTotal;
+                    if (sMonth === prevYearMonth) previousMonthRevenue += sTotal;
+                });
+            }
+
+        } catch (err) {
+            console.warn("Errore nel calcolo dell'incasso mensile per i KPI:", err);
         }
 
-        if (saleItems.length === 0 && allSales.length > 0) {
-            totalSalonRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
+        // Aggiorniamo la card KPI in alto con etichetta e valore del mese in corso
+        const revElement = document.getElementById('st-rev');
+        if (revElement) {
+            revElement.innerText = `€ ${currentMonthRevenue.toFixed(2)}`;
+            
+            // Troviamo la card madre per aggiungere un piccolo sottotitolo descrittivo di confronto
+            const statCard = revElement.closest('.stat-card');
+            if (statCard) {
+                let subText = statCard.querySelector('.kpi-subtitle');
+                let diffPct = 0;
+                if (previousMonthRevenue > 0) {
+                    diffPct = ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100;
+                }
+                const sign = diffPct >= 0 ? '+' : '';
+                
+                if (!subText) {
+                    subText = document.createElement('div');
+                    subText.className = 'kpi-subtitle';
+                    subText.style.cssText = "font-size: 11px; margin-top: 4px; font-weight: 600;";
+                    statCard.appendChild(subText);
+                }
+                subText.innerHTML = `Mese Corrente <span style="color: ${diffPct >= 0 ? '#00b894' : '#e17055'}">(${sign}${diffPct.toFixed(1)}% vs prec.)</span>`;
+            }
         }
-
-    } catch (err) {
-        console.warn("Errore calcolo incasso di competenza, fallback sul totale sales:", err);
-        totalSalonRevenue = allSales.reduce((s, x) => s + (x.total || 0), 0);
     }
-
-    document.getElementById('st-rev').innerText = `€ ${totalSalonRevenue.toFixed(2)}`;
-}
             
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
