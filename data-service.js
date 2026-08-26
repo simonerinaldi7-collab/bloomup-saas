@@ -281,18 +281,18 @@ async function processBrowserSyncQueue() {
 
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine) return;
-    console.log("Idratazione dal Cloud per il salon_id:", salonId);
+    console.log("🚀 [FAST SYNC] Avvio idratazione parallela dal Cloud per il salon_id:", salonId);
     
     const tables = ['customers', 'inventory', 'appointments', 'sales', 'sale_items', 'message_logs', 'expenses', 'price_history', 'service_consumables', 'suppliers','product_suppliers', 'settings'];
     
-    for (let table of tables) {
-        try {
-            // Sfruttiamo la stessa logica di backgroundPullFromSupabase per garantire la sincronizzazione completa oltre i 1000 record
-            await backgroundPullFromSupabase(table, salonId);
-            console.log(`Tabella ${table} idratata e sincronizzata completamente.`);
-        } catch (err) {
-            console.warn(`Errore idratazione tabella ${table}:`, err);
-        }
+    // ⚡ Eseguiamo il download di TUTTE le tabelle in parallelo contemporaneamente
+    const promises = tables.map(table => backgroundPullFromSupabase(table, salonId));
+    
+    try {
+        await Promise.all(promises);
+        console.log("⚡ [FAST SYNC] Idratazione parallela completata con successo!");
+    } catch (err) {
+        console.warn("⚠️ Alcune tabelle non sono state idratate completamente:", err);
     }
 }
 

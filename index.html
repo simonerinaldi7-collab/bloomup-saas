@@ -6173,12 +6173,7 @@ async function doLogin() {
     async function loginSuccess() {
         const isAdmin = (currentUser.role === 'admin');
 
-        // 1. Mostriamo subito l'overlay di caricamento professionale
-        const loadingOverlay = document.getElementById('login-loading-overlay');
-        const loadingText = document.getElementById('login-loading-text');
-        if (loadingOverlay) loadingOverlay.classList.add('active');
-
-        // 2. Setup visibilità menu laterale
+        // 1. Setup visibilità menu laterale
         document.getElementById('n-dash').style.display = isAdmin ? 'flex' : 'none';
         document.getElementById('n-sett').style.display = isAdmin ? 'flex' : 'none';
         document.getElementById('n-repo').style.display = isAdmin ? 'flex' : 'none';
@@ -6186,44 +6181,15 @@ async function doLogin() {
         document.getElementById('n-schedules').style.display = isAdmin ? 'flex' : 'none';
         document.getElementById('n-payouts').style.display = isAdmin ? 'flex' : 'none';
 
-        try {
-            if (loadingText) loadingText.innerText = "Sincronizzazione tabelle dal cloud...";
-            
-            // 3. Idratazione sincrona dal Cloud (scarica tutto prima di sbloccare)
-            if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
-                await window.hydrateLocalDatabase(currentUser.salon_id);
-            }
-
-            if (loadingText) loadingText.innerText = "Aggiornamento agende e turni...";
-            
-            // 4. Caricamento dati locali in memoria
-            await refreshAllData();
-
-            // 5. Generazione pause staff in background
-            const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
-            if (Array.isArray(users)) {
-                for (let u of users) {
-                    await generateBreakAppointments(u.username);
-                }
-            }
-            if (typeof checkAndRollBreakAppointments === 'function') {
-                await checkAndRollBreakAppointments();
-            }
-            await refreshAllData();
-
-        } catch (initErr) {
-            console.error("Errore durante l'idratazione post-login:", initErr);
-        }
-
-        if (loadingText) loadingText.innerText = "Preparazione interfaccia...";
-        await new Promise(resolve => setTimeout(resolve, 300)); // Breve pausa estetica
-
-        // 6. Sblocchiamo l'app principale
+        // 2. ⚡ INGRESSO ISTANTANEO: Spegniamo subito il login e mostriamo l'app
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app-shell').style.display = 'flex';
-        if (loadingOverlay) loadingOverlay.classList.remove('active'); // 👈 Spegne il caricamento
+        
+        // Spegniamo anche l'eventuale overlay di caricamento se era rimasto attivo
+        const loadingOverlay = document.getElementById('login-loading-overlay');
+        if (loadingOverlay) loadingOverlay.classList.remove('active');
 
-        // 7. Rotta iniziale
+        // 3. Impostiamo subito la rotta iniziale
         if (isAdmin) {
             const startV = document.getElementById('d-start-v');
             const endV = document.getElementById('d-end-v');
@@ -6236,7 +6202,35 @@ async function doLogin() {
             await changePage('sales');
         }
 
+        // 4. Caricamento immediato dai dati locali (0 attese)
+        await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
+
+        // 5. 🚀 IDRATAZIONE IN BACKGROUND NON BLOCCANTE (Silenziosa)
+        // Scarica dal cloud le novità mentre l'utente sta già lavorando
+        setTimeout(async () => {
+            if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
+                await window.hydrateLocalDatabase(currentUser.salon_id);
+                await refreshAllData();
+                if (typeof renderCalendar === 'function') renderCalendar();
+            }
+            
+            try {
+                const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
+                if (Array.isArray(users)) {
+                    for (let u of users) {
+                        await generateBreakAppointments(u.username);
+                    }
+                }
+                if (typeof checkAndRollBreakAppointments === 'function') {
+                    await checkAndRollBreakAppointments();
+                }
+                await refreshAllData();
+                if (typeof renderCalendar === 'function') renderCalendar();
+            } catch (breakErr) {
+                console.error("Errore background pause:", breakErr);
+            }
+        }, 300);
 
         requestNativeNotificationPermission();
         startProfessionalOperatorAlertSystem();
