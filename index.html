@@ -917,19 +917,21 @@
                 <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9; color: #475569;" onclick="clearExpenseFilters()">Pulisci Filtri</button>
             </div>
 
-            <!-- Box dei Filtri di Ricerca -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); align-items: end;">
-                <div>
-                    <label style="margin-top:0;">Da Data</label>
-                    <input type="date" id="filter-exp-start" onchange="loadExpenses()" style="margin:0; padding:10px; background:white;">
+            <!-- Box dei Filtri di Ricerca Ottimizzato Mobile-First -->
+            <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="margin-top:0; font-size: 10px;">Da Data</label>
+                        <input type="date" id="filter-exp-start" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label style="margin-top:0; font-size: 10px;">A Data</label>
+                        <input type="date" id="filter-exp-end" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
+                    </div>
                 </div>
                 <div>
-                    <label style="margin-top:0;">A Data</label>
-                    <input type="date" id="filter-exp-end" onchange="loadExpenses()" style="margin:0; padding:10px; background:white;">
-                </div>
-                <div style="grid-column: span 2;">
-                    <label style="margin-top:0;">Cerca per Descrizione</label>
-                    <input type="text" id="filter-exp-desc" placeholder="Es. Enel, Affitto..." onkeyup="loadExpenses()" style="margin:0; padding:10px; background:white;" autocomplete="off">
+                    <label style="margin-top:0; font-size: 10px;">Cerca per Descrizione</label>
+                    <input type="text" id="filter-exp-desc" placeholder="Es. Enel, Affitto..." onkeyup="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;" autocomplete="off">
                 </div>
             </div>
 
