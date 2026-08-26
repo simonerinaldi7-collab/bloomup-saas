@@ -912,21 +912,41 @@
                 </div>
             </div>
             <div class="card">
-                <h3>Storico Spese</h3>
-                <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
-                    <table style="min-width: 450px;">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Descrizione</th>
-                                <th>Importo</th>
-                                <th>Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody id="expenses-body"></tbody>
-                    </table>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 12px;">
+                <h3 style="margin: 0;">Storico Spese</h3>
+                <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9; color: #475569;" onclick="clearExpenseFilters()">Pulisci Filtri</button>
+            </div>
+
+            <!-- Box dei Filtri di Ricerca -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); align-items: end;">
+                <div>
+                    <label style="margin-top:0;">Da Data</label>
+                    <input type="date" id="filter-exp-start" onchange="loadExpenses()" style="margin:0; padding:10px; background:white;">
+                </div>
+                <div>
+                    <label style="margin-top:0;">A Data</label>
+                    <input type="date" id="filter-exp-end" onchange="loadExpenses()" style="margin:0; padding:10px; background:white;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="margin-top:0;">Cerca per Descrizione</label>
+                    <input type="text" id="filter-exp-desc" placeholder="Es. Enel, Affitto..." onkeyup="loadExpenses()" style="margin:0; padding:10px; background:white;" autocomplete="off">
                 </div>
             </div>
+
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="min-width: 450px;">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrizione</th>
+                            <th>Importo</th>
+                            <th style="text-align: right;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-body"></tbody>
+                </table>
+            </div>
+        </div>
         </div>
 
         <!-- Sheet Bilancio -->
@@ -8714,25 +8734,64 @@ async function renderCart() {
 
 
 
-    // Carica lo storico spese
     async function loadExpenses() {
-        const expenses = await window.api.query({ action: 'GET_ALL', table: 'expenses' });
+        const expenses = await window.api.query({ action: 'GET_ALL', table: 'expenses' }) || [];
         const tbody = document.getElementById('expenses-body');
-        
-        // Forza la conversione in formato data ISO per l'ordinamento
-        // Se la tua data nel DB è '2026-06-17', new Date() la interpreta correttamente
-        const sorted = expenses.sort((a,b) => {
+        if (!tbody) return;
+
+        // Leggiamo i valori dai filtri
+        const startDate = document.getElementById('filter-exp-start')?.value || '';
+        const endDate = document.getElementById('filter-exp-end')?.value || '';
+        const searchDesc = document.getElementById('filter-exp-desc')?.value.toLowerCase().trim() || '';
+
+        // Applichiamo i filtri in memoria
+        const filtered = expenses.filter(e => {
+            if (!e.date) return false;
+            
+            // Filtro Data Inizio
+            if (startDate && e.date < startDate) return false;
+            // Filtro Data Fine
+            if (endDate && e.date > endDate) return false;
+            
+            // Filtro Descrizione (Cerca per sottostringa)
+            if (searchDesc) {
+                const desc = (e.description || '').toLowerCase();
+                if (!desc.includes(searchDesc)) return false;
+            }
+
+            return true;
+        });
+
+        // Ordinamento decrescente per data (dal più recente al più vecchio)
+        filtered.sort((a, b) => {
             return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
 
-        tbody.innerHTML = sorted.map(e => `
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 20px;">Nessuna spesa trovata con i filtri selezionati.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(e => `
             <tr>
                 <td>${formatDateIt(e.date)}</td>
-                <td>${e.description}</td>
-                <td>€${parseFloat(e.amount || 0).toFixed(2)}</td>
-                <td><button class="btn btn-d" style="padding:2px 8px;" onclick="deleteExpense('${e.id}')">✕</button></td>
+                <td><b>${e.description}</b></td>
+                <td style="color: var(--d); font-weight: bold;">€${parseFloat(e.amount || 0).toFixed(2)}</td>
+                <td style="text-align: right;"><button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="deleteExpense('${e.id}')">✕</button></td>
             </tr>
         `).join('');
+    }
+
+    function clearExpenseFilters() {
+        const startInput = document.getElementById('filter-exp-start');
+        const endInput = document.getElementById('filter-exp-end');
+        const descInput = document.getElementById('filter-exp-desc');
+
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+        if (descInput) descInput.value = '';
+
+        loadExpenses();
     }
 
     // --- GESTIONE INSTALLAZIONE PWA (PROMPT NATIVO) ---
