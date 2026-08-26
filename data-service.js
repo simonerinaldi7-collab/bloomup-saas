@@ -85,7 +85,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
-// Sincronizzazione in background con supporto paginazione oltre i 1000 record
+// Sincronizzazione in background universale con supporto paginazione per TUTTE le tabelle oltre i 1000 record
 async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
@@ -118,6 +118,7 @@ async function backgroundPullFromSupabase(table, salonId) {
                     for (let record of cloudRecords) {
                         await localDb.table(table).put(record);
                     }
+                    // Se il numero di record ricevuti è inferiore al limite, significa che siamo arrivati alla fine
                     if (cloudRecords.length < limit) {
                         hasMore = false;
                     } else {
@@ -127,10 +128,11 @@ async function backgroundPullFromSupabase(table, salonId) {
                     hasMore = false;
                 }
             } else {
+                console.warn(`⚠️ Pull fallito per ${table} (Status: ${response.status})`);
                 hasMore = false;
             }
         } catch (err) {
-            console.warn(`Errore durante il pull paginato di ${table}:`, err);
+            console.warn(`❌ Errore di rete durante il pull di ${table}:`, err);
             hasMore = false;
         }
 
