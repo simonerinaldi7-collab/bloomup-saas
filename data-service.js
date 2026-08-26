@@ -85,37 +85,56 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
-// Sincronizzazione in background (Scarica dal Cloud e aggiorna Dexie)
+// Sincronizzazione in background con supporto paginazione oltre i 1000 record
 async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
-    // FORﺯIAMO IL FILTRO RIGOROSO SUL SALON_ID
-    let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
-    
-    // Per la tabella users, filtriamo per id o salon_id in modo sicuro
-    if (table === 'users') {
-        url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
-    }
+    let limit = 1000;
+    let offset = 0;
+    let hasMore = true;
 
-    const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+    while (hasMore) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
+        
+        // Per la tabella users, non serve la paginazione massiva
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
         }
-    });
-    
-    if (response.ok) {
-        const cloudRecords = await response.json();
-        if (Array.isArray(cloudRecords)) {
-            // Puliamo prima i dati locali di QUELLA tabella per quel salonId per evitare mix
-            // (Anche se il localDb viene già svuotato al login, questo protegge i refresh)
-            const localExisting = await localDb.table(table).where('salon_id').equals(salonId).toArray();
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`
+                }
+            });
             
-            for (let record of cloudRecords) {
-                await localDb.table(table).put(record);
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    for (let record of cloudRecords) {
+                        await localDb.table(table).put(record);
+                    }
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
             }
+        } catch (err) {
+            console.warn(`Errore durante il pull paginato di ${table}:`, err);
+            hasMore = false;
         }
+
+        if (table === 'users') break;
     }
 }
 
@@ -266,23 +285,9 @@ window.hydrateLocalDatabase = async function(salonId) {
     
     for (let table of tables) {
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`, {
-                method: 'GET',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
-                }
-            });
-            
-            if (response.ok) {
-                const records = await response.json();
-                if (Array.isArray(records) && records.length > 0) {
-                    for (let record of records) {
-                        await localDb.table(table).put(record);
-                    }
-                    console.log(`Tabella ${table} sincronizzata in locale (${records.length} record).`);
-                }
-            }
+            // Sfruttiamo la stessa logica di backgroundPullFromSupabase per garantire la sincronizzazione completa oltre i 1000 record
+            await backgroundPullFromSupabase(table, salonId);
+            console.log(`Tabella ${table} idratata e sincronizzata completamente.`);
         } catch (err) {
             console.warn(`Errore idratazione tabella ${table}:`, err);
         }
