@@ -611,7 +611,8 @@ async function handleSpecialAction(action, data, id) {
             const salesIds = sales.filter(s => s.date >= startDate && s.date <= endDate).map(s => s.id);
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
 
-            const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id));
+              // 🛑 Escludiamo il fatturato storico fittizio dalle analisi di volume
+            const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id) && si.item_name !== 'Fatturato Storico / Chiusura');
             const counts = {};
             filteredItems.forEach(si => {
                 counts[si.item_name] = (counts[si.item_name] || 0) + (si.qty || 1);
@@ -623,7 +624,7 @@ async function handleSpecialAction(action, data, id) {
             })).sort((a, b) => b.total_sold - a.total_sold);
         }
 
-        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
+        
        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
          if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
@@ -634,7 +635,8 @@ async function handleSpecialAction(action, data, id) {
             const salesIds = salesInRange.map(s => s.id);
 
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
-            const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id));
+             // 🛑 Escludiamo il fatturato storico fittizio
+            const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id) && si.item_name !== 'Fatturato Storico / Chiusura');
 
             const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray();
             const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.where('salon_id').equals(salonId).toArray() : [];
@@ -911,10 +913,10 @@ async function handleSpecialAction(action, data, id) {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
 
-            const sales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+            // 🛑 Escludiamo le vendite associate a CLIENTE_STORICO
+            const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray() || []).filter(s => s.cust_id !== 'CLIENTE_STORICO');
             const salesInRange = sales.filter(s => s.date >= startDate && s.date <= endDate);
             const customers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
-
             const customerMap = {};
             salesInRange.forEach(s => {
                 if (!s.cust_id) return;
@@ -935,8 +937,8 @@ async function handleSpecialAction(action, data, id) {
         if (action === 'GET_RFM_ANALYSIS') {
             const nameFilter = (data?.nameFilter || '').toLowerCase();
             const customers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
-            const sales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
-
+            // 🛑 Escludiamo CLIENTE_STORICO
+            const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray() || []).filter(s => s.cust_id !== 'CLIENTE_STORICO');
             const now = new Date();
             const stats = customers
                 .map(c => {
