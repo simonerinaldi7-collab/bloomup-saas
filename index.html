@@ -484,7 +484,10 @@
 
         <div class="login-input-group">
             <label>Password</label>
-            <input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password">
+            <div style="position: relative;">
+                <input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 45px; margin: 0;">
+                <button type="button" onclick="togglePasswordVisibility('l-pass', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+            </div>
         </div>
 
         <!-- Opzioni extra: Ricordami e Password Dimenticata -->
@@ -679,9 +682,15 @@
             Il token di recupero è valido. Digita la tua nuova password per completare il reset.
         </p>
         <label>Nuova Password</label>
-        <input type="password" id="update-pass-1" placeholder="••••••••">
+        <div style="position: relative; margin-bottom: 12px;">
+            <input type="password" id="update-pass-1" placeholder="••••••••" autocomplete="new-password" style="padding-right: 45px; margin: 0; width: 100%;">
+            <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+        </div>
         <label>Conferma Nuova Password</label>
-        <input type="password" id="update-pass-2" placeholder="••••••••">
+        <div style="position: relative; margin-bottom: 12px;">
+            <input type="password" id="update-pass-2" placeholder="••••••••" autocomplete="new-password" style="padding-right: 45px; margin: 0; width: 100%;">
+            <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+        </div>
         <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:14px;" onclick="executePasswordUpdate()">Aggiorna Password</button>
     </div>
 </div>
@@ -1269,8 +1278,11 @@
             </div>
             <div>
                 <label>Password</label>
-                <input type="password" id="new-pass" placeholder="••••••••" style="margin:0" autocomplete="new-password">
-            </div>
+                <div style="position: relative; margin-bottom: 12px;">
+            <input type="password" id="new-pass" placeholder="••••••••" autocomplete="new-password" style="padding-right: 45px; margin: 0; width: 100%;">
+            <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+        </div>
+    </div>
             <div>
                 <label>Ruolo</label>
                 <select id="new-role" style="margin:0">
@@ -2073,6 +2085,23 @@ console.error = function(...args) {
             console.log("Appuntamento:", a.cust_name, "Assegnato a:", user);
             return selectedUser === 'all' || user === selectedUser;
         });
+    }
+
+
+// Funzione universale per mostrare/nascondere la password al tocco dell'occhiolino
+    function togglePasswordVisibility(inputId, btnElement) {
+        const inputField = document.getElementById(inputId);
+        if (!inputField) return;
+
+        if (inputField.type === "password") {
+            inputField.type = "text";
+            btnElement.innerText = "🙈"; // Icona scimmia/occhio sbarrato
+            btnElement.title = "Nascondi password";
+        } else {
+            inputField.type = "password";
+            btnElement.innerText = "👁️"; // Icona occhio aperto
+            btnElement.title = "Mostra password";
+        }
     }
 
 function updateVolumeChart() {
