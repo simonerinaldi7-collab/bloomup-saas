@@ -8387,11 +8387,23 @@ const nowTimestamp = new Date().toISOString();
         const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
         const nowObj = getNowLocal(); 
         
+        // 🛡️ ASSICURIAMO CHE L'ID CLIENTE SIA VALORIZZATO CORRETTAMENTE (Se è 0 o nullo, cerchiamo per nome o salviamo '')
+        let finalCustId = currentCheckoutCustomer?.id;
+        if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
+            // Tentativo di recupero ID dall'anagrafica se abbiamo almeno il nome
+            const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
+            const foundC = allCustomers.find(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
+            });
+            finalCustId = foundC ? foundC.id : null; // Se non esiste, salviamo null o evitiamo 0 fittizi
+        }
+
         // 1. Inserimento testata vendita
         const res = await window.api.query({ 
             action:'INSERT', table:'sales', 
             data: { 
-                cust_id: currentCheckoutCustomer?.id || 0, 
+                cust_id: finalCustId || null, // 👈 Salvataggio ID cliente reale o null se occasionale
                 total: total, 
                 date: nowObj.split(' ')[0], 
                 time: nowObj.split(' ')[1], 
