@@ -1279,8 +1279,11 @@
             <div>
                 <label>Password</label>
                 <div style="position: relative; margin-bottom: 12px;">
+            <div style="position: relative; margin-bottom: 12px;">
             <input type="password" id="new-pass" placeholder="••••••••" autocomplete="new-password" style="padding-right: 45px; margin: 0; width: 100%;">
             <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+        </div>
+        <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
         </div>
     </div>
             <div>
@@ -1582,7 +1585,10 @@
         </div>
     </div>
 </div>
-   <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><input type="password" id="new-pass-val" placeholder="Nuova password"><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
+   <div id="mod-change-pass" class="modal"><div class="modal-box"><h3>Cambio Password</h3><div style="position: relative; margin-bottom: 12px;">
+            <input type="password" id="new-pass-val" placeholder="••••••••" autocomplete="new-password" style="padding-right: 45px; margin: 0; width: 100%;">
+            <button type="button" onclick="togglePasswordVisibility('new-pass-val', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
+        </div><button class="btn btn-p" onclick="applyNewPassword()">Conferma</button></div></div>
     <div id="mod-quick-supp" class="modal"><div class="modal-box"><h3>Nuovo Fornitore Rapido</h3><input type="text" id="q-supp-name" placeholder="Nome"><button class="btn btn-p" onclick="saveQuickSupplier()">Crea</button></div></div>
     
     
