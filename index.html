@@ -1507,13 +1507,14 @@
         </div>
         
         <label>Servizi del Trattamento</label>
-        <div style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 15px;">
+        <div style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 15px; position: relative;">
             
-            <!-- Riga di selezione rapida e tendina -->
-            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                <select id="service-quick-dropdown" style="margin: 0; flex-grow: 1; padding: 10px; font-size: 14px; background: white;" onchange="addServiceFromDropdown(this)">
-                    <option value="">-- Seleziona e aggiungi servizio --</option>
-                </select>
+            <!-- Input di ricerca testuale per filtrare e aggiungere al volo -->
+            <div style="position: relative; margin-bottom: 8px;">
+                <input type="text" id="service-autocomplete-input" placeholder="🔍 Cerca e aggiungi servizio..." onkeyup="filterCustomServiceDropdown(this.value)" onfocus="openCustomServiceDropdown()" style="margin: 0; padding: 10px 14px; font-size: 14px; background: white;" autocomplete="off">
+                
+                <!-- Lista a tendina fluttuante dei risultati filtrati -->
+                <div id="service-autocomplete-results" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 8px; max-height: 150px; overflow-y: auto; z-index: 25000; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.1); margin-top: 2px;"></div>
             </div>
 
             <!-- Contenitore delle "Pillole" (Tag) dei servizi selezionati -->
@@ -4100,58 +4101,117 @@ function dismissExpenseReminderAndGoToExpenses() {
 
 
 
-// Array in memoria per tenere traccia dei servizi scelti nel modale corrente
-    let currentSelectedServices = [];
+let currentSelectedServices = [];
 
-    // Popola la tendina di selezione rapida dei servizi
-    async function renderServiceDropdown(selectedIds = []) {
-        const dropdown = document.getElementById('service-quick-dropdown');
-        if (!dropdown) return;
-
+    // 1. Inizializzazione / Reset all'apertura del modale
+    async function initServiceAutocomplete(selectedIds = []) {
+        currentSelectedServices = [];
         const services = (allInventory || []).filter(i => i.type === 'servizio');
 
-        let html = '<option value="">-- Seleziona e aggiungi servizio --</option>';
-        for (let s of services) {
-            // Evitiamo di rimettere in tendina quelli già selezionati
-            if (!selectedIds.includes(s.id)) {
-                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
-                const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
-                html += `<option value="${s.id}" data-price="${price}" data-name="${s.name}">${s.name} (€ ${price.toFixed(2)})</option>`;
+        // Se stiamo modificando un appuntamento, precarichiamo i servizi associati
+        if (selectedIds.length > 0) {
+            for (let id of selectedIds) {
+                const s = services.find(x => x.id === id);
+                if (s) {
+                    const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+                    const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+                    currentSelectedServices.push({ id: s.id, name: s.name, price: price });
+                }
             }
         }
-        dropdown.innerHTML = html;
-        renderSelectedServiceTags(selectedIds);
+        renderSelectedServiceTags();
     }
 
-    // Aggiunge un servizio quando viene selezionato dalla tendina
-    async function addServiceFromDropdown(selectEl) {
-        const selectedOpt = selectEl.options[selectEl.selectedIndex];
-        const serviceId = selectEl.value;
-        if (!serviceId) return;
+    // 2. Mostra la tendina con tutti i servizi (esclusi quelli già scelti)
+    async function openCustomServiceDropdown() {
+        const resultsBox = document.getElementById('service-autocomplete-results');
+        if (!resultsBox) return;
 
-        const serviceName = selectedOpt.getAttribute('data-name');
-        const servicePrice = parseFloat(selectedOpt.getAttribute('data-price')) || 0;
+        const services = (allInventory || []).filter(i => i.type === 'servizio');
+        const selectedIds = currentSelectedServices.map(s => s.id);
+        const available = services.filter(s => !selectedIds.includes(s.id));
 
-        // Aggiungiamo alla lista locale
-        currentSelectedServices.push({ id: serviceId, name: serviceName, price: servicePrice });
+        if (available.length === 0) {
+            resultsBox.innerHTML = `<div style="padding: 10px; color: #888; font-size: 12px; text-align: center;">Tutti i servizi sono stati selezionati</div>`;
+            resultsBox.style.display = 'block';
+            return;
+        }
 
-        // Reset della tendina e re-render
-        selectEl.value = "";
-        const activeIds = currentSelectedServices.map(s => s.id);
-        await renderServiceDropdown(activeIds);
+        let html = '';
+        for (let s of available) {
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+            
+            html += `
+                <div onclick="selectServiceFromAutocomplete('${s.id}', '${s.name.replace(/'/g, "\\'")}', ${price})" 
+                    style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500;"
+                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <span>${s.name}</span>
+                    <span style="color: var(--p); font-weight: bold;">€ ${price.toFixed(2)}</span>
+                </div>
+            `;
+        }
+        resultsBox.innerHTML = html;
+        resultsBox.style.display = 'block';
     }
 
-    // Rimuove un servizio cliccando sulla "✕" della pillola
-    async function removeServiceTag(serviceId) {
+    // 3. Filtra la tendina in base a ciò che l'utente digita
+    async function filterCustomServiceDropdown(query) {
+        const resultsBox = document.getElementById('service-autocomplete-results');
+        if (!resultsBox) return;
+
+        const q = query.toLowerCase().trim();
+        const services = (allInventory || []).filter(i => i.type === 'servizio');
+        const selectedIds = currentSelectedServices.map(s => s.id);
+        const available = services.filter(s => !selectedIds.includes(s.id) && s.name.toLowerCase().includes(q));
+
+        if (available.length === 0) {
+            resultsBox.innerHTML = `<div style="padding: 10px; color: #888; font-size: 12px; text-align: center;">Nessun servizio trovato</div>`;
+            resultsBox.style.display = 'block';
+            return;
+        }
+
+        let html = '';
+        for (let s of available) {
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+            
+            html += `
+                <div onclick="selectServiceFromAutocomplete('${s.id}', '${s.name.replace(/'/g, "\\'")}', ${price})" 
+                    style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500;"
+                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <span>${s.name}</span>
+                    <span style="color: var(--p); font-weight: bold;">€ ${price.toFixed(2)}</span>
+                </div>
+            `;
+        }
+        resultsBox.innerHTML = html;
+        resultsBox.style.display = 'block';
+    }
+
+    // 4. Seleziona il servizio dalla tendina e lo trasforma in "Pillola"
+    function selectServiceFromAutocomplete(id, name, price) {
+        currentSelectedServices.push({ id, name, price });
+        
+        // Pulisce l'input di ricerca e chiude la tendina
+        const input = document.getElementById('service-autocomplete-input');
+        if (input) input.value = '';
+        
+        const resultsBox = document.getElementById('service-autocomplete-results');
+        if (resultsBox) resultsBox.style.display = 'none';
+
+        renderSelectedServiceTags();
+    }
+
+    // 5. Rimuove il servizio cliccando sulla "×" della pillola
+    function removeServiceTag(serviceId) {
         currentSelectedServices = currentSelectedServices.filter(s => s.id !== serviceId);
-        const activeIds = currentSelectedServices.map(s => s.id);
-        await renderServiceDropdown(activeIds);
+        renderSelectedServiceTags();
     }
 
-    // Disegna le "Pillole" (Tag) nel box dedicato e aggiorna i totali
-    function renderSelectedServiceTags(selectedIds) {
+    // 6. Renderizza le pillole e calcola il totale
+    function renderSelectedServiceTags() {
         const container = document.getElementById('selected-services-tags-container');
-        const placeholder = document.getElementById('no-services-placeholder');
         const countEl = document.getElementById('selected-services-count');
         const totalEl = document.getElementById('selected-services-total');
 
@@ -4179,12 +4239,17 @@ function dismissExpenseReminderAndGoToExpenses() {
 
         container.innerHTML = tagsHtml;
         if (countEl) countEl.innerText = `${currentSelectedServices.length} servizi selezionati`;
-        if (totalEl) totalEl.innerText = `Totale stimato: € 0.00`; // Verrà aggiornato col prezzo reale
-        
-        // Calcoliamo il totale reale sommando i prezzi correnti
-        let finalTot = currentSelectedServices.reduce((sum, item) => sum + item.price, 0);
-        if (totalEl) totalEl.innerText = `Totale stimato: € ${finalTot.toFixed(2)}`;
+        if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
     }
+
+    // Chiusura della tendina se si clicca fuori dal box di ricerca
+    document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('service-autocomplete-input');
+        const resultsBox = document.getElementById('service-autocomplete-results');
+        if (wrapper && resultsBox && !wrapper.contains(e.target) && !resultsBox.contains(e.target)) {
+            resultsBox.style.display = 'none';
+        }
+    });
 
 
     async function performLogout() {
@@ -5988,6 +6053,7 @@ async function registerOperatorPushNotifications() {
             return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
         }
 
+        // 🎯 LETTURA DIRETTA DAL MEMORANDUM A PILLOLE (currentSelectedServices)
         let totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
         let selectedServiceNames = currentSelectedServices.map(s => s.name);
 
@@ -6030,22 +6096,11 @@ async function registerOperatorPushNotifications() {
             const baseDate = new Date(date);
             baseDate.setDate(baseDate.getDate() + avgDays);
 
-            // Cerchiamo il primo slot libero reale rispettando i turni dell'operatore
             const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
             const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
             const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
             const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
 
-
-
-             let selectedServiceNames = [];
-            if (select) {
-                selectedServiceNames = Array.from(select.selectedOptions).map(opt => opt.text);
-            }
-            if (selectedServiceNames.length === 0 && finalService) {
-                selectedServiceNames = [finalService];
-            }
-            // 👻 SALVIAMO LO STATO DELLA PREVIEW TEMPORANEA (Inclusi i servizi)
             window.pendingSmartPreview = {
                 custName: custName,
                 date: targetDate,
@@ -6054,10 +6109,9 @@ async function registerOperatorPushNotifications() {
                 service: finalService,
                 assigned_user: assignedUser,
                 notes: notes,
-                selectedServices: selectedServices // Array dei nomi dei servizi
+                selectedServices: selectedServiceNames 
             };
 
-            // Spostiamo la vista dell'Agenda sulla data della preview
             viewDate = new Date(targetDate);
             
             const userFilter = document.getElementById('user-filter');
@@ -6801,25 +6855,21 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
 }
 
 
-           async function editApp(id) { 
+        async function editApp(id) { 
         const event = window.event; 
         if (event) event.stopPropagation();
         const a = allAppointments.find(x => x.id === id); 
         if (!a) return;
 
-        currentSelectedServices = [];
+        // 🎯 ESTRAZIONE DEGLI ID DEI SERVIZI SALVATI NELL'APPUNTAMENTO
         const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
-        
-        const matchedServices = allInventory.filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)));
-        
-        for (let s of matchedServices) {
-            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
-            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
-            currentSelectedServices.push({ id: s.id, name: s.name, price: price });
-        }
+        const matchedIds = allInventory
+            .filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)))
+            .map(i => i.id);
 
-        const activeIds = currentSelectedServices.map(s => s.id);
-        await renderServiceDropdown(activeIds);
+        if (typeof initServiceAutocomplete === 'function') {
+            await initServiceAutocomplete(matchedIds);
+        }
 
         // Mappatura campi base
         document.getElementById('edit-a-id').value = id;
@@ -6829,11 +6879,11 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         document.getElementById('f-a-end').value = a.end_time || "";
         document.getElementById('f-a-notes').value = a.notes || '';
         
-        const userSelect = document.getElementById('f-a-user');
         const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
-        if(userSelect) {
+        const userSelect = document.getElementById('f-a-user');
+        if (userSelect) {
             userSelect.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
-            userSelect.value = a.assigned_user || 'admin';
+            userSelect.value = a.assigned_user || 'admin'; 
         }
 
         const titleEl = document.getElementById('mod-cale-title');
@@ -8047,20 +8097,11 @@ const nowTimestamp = new Date().toISOString();
     }
             
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
-    // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     async function openMod(t, targetDate = null, targetTime = null, targetEnd = null) {
         if (t === 'cale') {
-             currentSelectedServices = []; // Reset array locale
-            await renderServiceDropdown([]);
-            const select = document.getElementById('f-a-item-select');
-            if (select) {
-                let optionsHtml = ''; 
-                for (let i of allInventory) {
-                    const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: i.id });
-                    const price = pInfo ? pInfo.price : 0;
-                    optionsHtml += `<option value="${i.id}" data-price="${price}">${i.name}</option>`;
-                }
-                select.innerHTML = optionsHtml;
+            // 🎯 INIZIALIZZAZIONE AUTOCOMPLETE SERVIZI A PILLOLE VUOTO
+            if (typeof initServiceAutocomplete === 'function') {
+                await initServiceAutocomplete([]);
             }
 
             const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
@@ -8075,7 +8116,7 @@ const nowTimestamp = new Date().toISOString();
 
             const elSearch = document.getElementById('f-a-search'); if (elSearch) elSearch.value = "";
             
-            // 🎯 APPLICAZIONE DATA E ORA RICEVUTE DAL CLICK SULLA GRIGLIA
+            // APPLICAZIONE DATA E ORA RICEVUTE DAL CLICK SULLA GRIGLIA
             const elDate = document.getElementById('f-a-date'); 
             if (elDate) elDate.value = targetDate ? targetDate : new Date().toLocaleDateString('en-CA');
             
@@ -8099,7 +8140,6 @@ const nowTimestamp = new Date().toISOString();
             const schedAlert = document.getElementById('operator-schedule-alert');
             if (schedAlert) schedAlert.style.display = 'none';
 
-            // 🔍 ESEGUIT SUBITO ALL'APERTURA DEL MODALE PER VALUTARE IL TURNO INIZIALE
             if (typeof checkOperatorScheduleValidity === 'function') {
                 await checkOperatorScheduleValidity();
             }
