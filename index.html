@@ -1508,16 +1508,21 @@
         
         <label>Servizi del Trattamento</label>
         <div style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 15px;">
-            <!-- Barra di ricerca rapida servizi -->
-            <input type="text" id="service-search-filter" placeholder="🔍 Cerca servizio per nome..." onkeyup="filterServiceCheckboxes()" style="margin: 0 0 10px 0; padding: 10px 14px; font-size: 14px; background: white;">
             
-            <!-- Contenitore scrollabile delle checkbox dei servizi -->
-            <div id="service-checkboxes-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
-                <!-- Popolato dinamicamente -->
+            <!-- Riga di selezione rapida e tendina -->
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <select id="service-quick-dropdown" style="margin: 0; flex-grow: 1; padding: 10px; font-size: 14px; background: white;" onchange="addServiceFromDropdown(this)">
+                    <option value="">-- Seleziona e aggiungi servizio --</option>
+                </select>
             </div>
 
-            <!-- Box di riepilogo selezione e prezzo stimato -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 12px; font-weight: bold; color: var(--p);">
+            <!-- Contenitore delle "Pillole" (Tag) dei servizi selezionati -->
+            <div id="selected-services-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 6px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                <span style="color: #94a3b8; font-size: 12px; align-self: center; padding-left: 4px;" id="no-services-placeholder">Nessun servizio selezionato</span>
+            </div>
+
+            <!-- Box di riepilogo prezzo stimato -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px; font-size: 12px; font-weight: bold; color: var(--p);">
                 <span id="selected-services-count">0 servizi selezionati</span>
                 <span id="selected-services-total">Totale stimato: € 0.00</span>
             </div>
@@ -4095,68 +4100,90 @@ function dismissExpenseReminderAndGoToExpenses() {
 
 
 
-// Funzione per popolare e renderizzare la lista interattiva dei servizi a spunta nel modale appuntamento
-    async function renderServiceCheckboxes(selectedServiceIds = []) {
-        const container = document.getElementById('service-checkboxes-container');
-        if (!container) return;
+// Array in memoria per tenere traccia dei servizi scelti nel modale corrente
+    let currentSelectedServices = [];
 
-        // Filtriamo solo i servizi dal listino magazzino/servizi
+    // Popola la tendina di selezione rapida dei servizi
+    async function renderServiceDropdown(selectedIds = []) {
+        const dropdown = document.getElementById('service-quick-dropdown');
+        if (!dropdown) return;
+
         const services = (allInventory || []).filter(i => i.type === 'servizio');
 
-        if (services.length === 0) {
-            container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; padding: 10px;">Nessun servizio disponibile nel listino.</div>`;
-            return;
-        }
-
-        let html = '';
+        let html = '<option value="">-- Seleziona e aggiungi servizio --</option>';
         for (let s of services) {
-            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
-            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
-            const isChecked = selectedServiceIds.includes(s.id) ? 'checked' : '';
-
-            html += `
-                <label class="service-chk-label" data-name="${s.name.toLowerCase()}" style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer; margin: 0; text-transform: none; font-weight: normal; transition: 0.15s;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" class="service-checkbox-item" value="${s.id}" data-price="${price}" data-name="${s.name}" ${isChecked} onchange="updateSelectedServicesSummary()" style="width: 18px; height: 18px; accent-color: var(--p); cursor: pointer; margin: 0;">
-                        <span style="font-weight: 600; color: var(--txt); font-size: 13px;">${s.name}</span>
-                    </div>
-                    <span style="font-size: 13px; font-weight: bold; color: var(--p);">€ ${price.toFixed(2)}</span>
-                </label>
-            `;
-        }
-
-        container.innerHTML = html;
-        updateSelectedServicesSummary();
-    }
-
-    // Filtro di ricerca rapida in tempo reale dei servizi
-    function filterServiceCheckboxes() {
-        const query = document.getElementById('service-search-filter')?.value.toLowerCase().trim() || '';
-        const labels = document.querySelectorAll('.service-chk-label');
-
-        labels.forEach(lbl => {
-            const name = lbl.getAttribute('data-name') || '';
-            if (name.includes(query)) {
-                lbl.style.display = 'flex';
-            } else {
-                lbl.style.display = 'none';
+            // Evitiamo di rimettere in tendina quelli già selezionati
+            if (!selectedIds.includes(s.id)) {
+                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+                const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+                html += `<option value="${s.id}" data-price="${price}" data-name="${s.name}">${s.name} (€ ${price.toFixed(2)})</option>`;
             }
-        });
+        }
+        dropdown.innerHTML = html;
+        renderSelectedServiceTags(selectedIds);
     }
 
-    // Calcolo in tempo reale del conteggio e del prezzo totale stimato
-    function updateSelectedServicesSummary() {
-        const checkboxes = document.querySelectorAll('.service-checkbox-item:checked');
+    // Aggiunge un servizio quando viene selezionato dalla tendina
+    async function addServiceFromDropdown(selectEl) {
+        const selectedOpt = selectEl.options[selectEl.selectedIndex];
+        const serviceId = selectEl.value;
+        if (!serviceId) return;
+
+        const serviceName = selectedOpt.getAttribute('data-name');
+        const servicePrice = parseFloat(selectedOpt.getAttribute('data-price')) || 0;
+
+        // Aggiungiamo alla lista locale
+        currentSelectedServices.push({ id: serviceId, name: serviceName, price: servicePrice });
+
+        // Reset della tendina e re-render
+        selectEl.value = "";
+        const activeIds = currentSelectedServices.map(s => s.id);
+        await renderServiceDropdown(activeIds);
+    }
+
+    // Rimuove un servizio cliccando sulla "✕" della pillola
+    async function removeServiceTag(serviceId) {
+        currentSelectedServices = currentSelectedServices.filter(s => s.id !== serviceId);
+        const activeIds = currentSelectedServices.map(s => s.id);
+        await renderServiceDropdown(activeIds);
+    }
+
+    // Disegna le "Pillole" (Tag) nel box dedicato e aggiorna i totali
+    function renderSelectedServiceTags(selectedIds) {
+        const container = document.getElementById('selected-services-tags-container');
+        const placeholder = document.getElementById('no-services-placeholder');
         const countEl = document.getElementById('selected-services-count');
         const totalEl = document.getElementById('selected-services-total');
 
+        if (!container) return;
+
+        if (currentSelectedServices.length === 0) {
+            container.innerHTML = `<span style="color: #94a3b8; font-size: 12px; align-self: center; padding-left: 4px;" id="no-services-placeholder">Nessun servizio selezionato</span>`;
+            if (countEl) countEl.innerText = `0 servizi selezionati`;
+            if (totalEl) totalEl.innerText = `Totale stimato: € 0.00`;
+            return;
+        }
+
+        let tagsHtml = '';
         let total = 0;
-        checkboxes.forEach(cb => {
-            total += parseFloat(cb.getAttribute('data-price')) || 0;
+
+        currentSelectedServices.forEach(s => {
+            total += s.price;
+            tagsHtml += `
+                <span style="background: #ede9fe; color: #6d28d9; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #ddd6fe;">
+                    ${s.name} (€ ${s.price.toFixed(2)})
+                    <button type="button" onclick="removeServiceTag('${s.id}')" style="background: none; border: none; cursor: pointer; color: #7c3aed; font-weight: bold; font-size: 14px; padding: 0; line-height: 1;" title="Rimuovi">×</button>
+                </span>
+            `;
         });
 
-        if (countEl) countEl.innerText = `${checkboxes.length} servizi selezionati`;
-        if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
+        container.innerHTML = tagsHtml;
+        if (countEl) countEl.innerText = `${currentSelectedServices.length} servizi selezionati`;
+        if (totalEl) totalEl.innerText = `Totale stimato: € 0.00`; // Verrà aggiornato col prezzo reale
+        
+        // Calcoliamo il totale reale sommando i prezzi correnti
+        let finalTot = currentSelectedServices.reduce((sum, item) => sum + item.price, 0);
+        if (totalEl) totalEl.innerText = `Totale stimato: € ${finalTot.toFixed(2)}`;
     }
 
 
@@ -5961,19 +5988,10 @@ async function registerOperatorPushNotifications() {
             return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
         }
 
-        // 🎯 LECO LE CHECKBOX SPUNTATE
-        const checkedBoxes = document.querySelectorAll('.service-checkbox-item:checked');
-        let totalPrice = 0;
-        const selectedServices = [];
+        let totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
+        let selectedServiceNames = currentSelectedServices.map(s => s.name);
 
-        checkedBoxes.forEach(cb => {
-            const serviceName = cb.getAttribute('data-name');
-            const price = parseFloat(cb.getAttribute('data-price')) || 0;
-            selectedServices.push(serviceName);
-            totalPrice += price;
-        });
-
-        let finalService = selectedServices.join(', ') || "Servizio";
+        let finalService = selectedServiceNames.join(', ') || "Servizio";
         if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
             finalService = "Pausa Pranzo";
             totalPrice = 0;
@@ -6789,14 +6807,19 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         const a = allAppointments.find(x => x.id === id); 
         if (!a) return;
 
-        // Troviamo gli ID dei servizi salvati nell'appuntamento confrontando i nomi
+        currentSelectedServices = [];
         const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
-        const matchedIds = allInventory
-            .filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)))
-            .map(i => i.id);
+        
+        const matchedServices = allInventory.filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)));
+        
+        for (let s of matchedServices) {
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+            currentSelectedServices.push({ id: s.id, name: s.name, price: price });
+        }
 
-        // Popoliamo le checkbox spuntando quelle corrispondenti
-        await renderServiceCheckboxes(matchedIds);
+        const activeIds = currentSelectedServices.map(s => s.id);
+        await renderServiceDropdown(activeIds);
 
         // Mappatura campi base
         document.getElementById('edit-a-id').value = id;
@@ -8027,7 +8050,8 @@ const nowTimestamp = new Date().toISOString();
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     async function openMod(t, targetDate = null, targetTime = null, targetEnd = null) {
         if (t === 'cale') {
-             await renderServiceCheckboxes([]);
+             currentSelectedServices = []; // Reset array locale
+            await renderServiceDropdown([]);
             const select = document.getElementById('f-a-item-select');
             if (select) {
                 let optionsHtml = ''; 
