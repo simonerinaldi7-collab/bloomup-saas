@@ -826,6 +826,8 @@ async function handleSpecialAction(action, data, id) {
                 const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
                 const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
+                const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
+                const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
                 
                 let productSuppliers = [];
                 try {
@@ -853,34 +855,70 @@ async function handleSpecialAction(action, data, id) {
                     const discount = item.discount || 0;
                     const finalPrice = item.price - discount;
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
+                    const itemQty = parseFloat(item.qty) || 1;
 
                     let unitCost = 0;
-                    if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
-                        unitCost = parseFloat(item.unit_cost) || 0;
-                    } else if (inv) {
-                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                    }
-
                     let supplierPayout = 0;
                     let salonRevenue = finalPrice;
 
-                    if (inv && inv.is_consignment) {
-                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                        const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+                    if (inv) {
+                        if (inv.type === 'servizio') {
+                            // ✂️ SE È UN SERVIZIO: Calcoliamo il costo dei materiali consumabili associati (FIFO)
+                            const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                            let totalConsumablesCost = 0;
 
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        if (links.length > 0) {
-                            let totalPct = 0;
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                            supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                            for (let sc of serviceCons) {
+                                const consumedProd = inventory.find(p => p.id === sc.product_id);
+                                const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+
+                                if (consumedProd) {
+                                    const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                    let prodUnitCost = 0;
+                                    if (prodLots.length > 0) {
+                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                    } else {
+                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
+                                    }
+                                    totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                                }
+                            }
+                            unitCost = totalConsumablesCost;
+                            salonRevenue = finalPrice - (unitCost * itemQty);
+
+                        } else if (inv.is_consignment) {
+                            // PRODOTTO IN CONTO VENDITA
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+
+                            const links = productSuppliers.filter(l => l.product_id === inv.id);
+                            if (links.length > 0) {
+                                let totalPct = 0;
+                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                                supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                            } else {
+                                const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                supplierPayout = (listinoPienoOriginale * pct) / 100;
+                            }
+                            salonRevenue = finalPrice - supplierPayout;
+
                         } else {
-                            const pct = parseFloat(inv.consignment_split_pct) || 0;
-                            supplierPayout = (listinoPienoOriginale * pct) / 100;
+                            // PRODOTTO FISICO DI PROPRIETÀ (FIFO)
+                            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
+                                unitCost = parseFloat(item.unit_cost) || 0;
+                            } else {
+                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
+                            }
+                            salonRevenue = finalPrice - (unitCost * itemQty);
                         }
-                        salonRevenue = finalPrice - supplierPayout;
                     } else {
-                        salonRevenue = finalPrice - unitCost;
+                        // Servizio o articolo non censito a magazzino
+                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
+                            unitCost = parseFloat(item.unit_cost) || 0;
+                        }
+                        salonRevenue = finalPrice - (unitCost * itemQty);
                     }
 
                     report.push({
@@ -893,7 +931,7 @@ async function handleSpecialAction(action, data, id) {
                         final_price: finalPrice,
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue,
+                        salon_revenue: salonRevenue, // Margine netto effettivo (inclusi consumabili per i servizi)
                         seller: sale.created_by || 'Admin'
                     });
                 }
@@ -901,12 +939,11 @@ async function handleSpecialAction(action, data, id) {
                 report.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
                 return report;
 
-            } catch (err) { // 👈 Corretto con la dichiarazione esplicita del parametro err
+            } catch (err) {
                 console.error("Errore critico in GET_SALES_REPORT:", err);
                 return [];
             }
         }
-
         // --- 9. GET_CUSTOMER_INSIGHTS (PWA) ---
         if (action === 'GET_CUSTOMER_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
