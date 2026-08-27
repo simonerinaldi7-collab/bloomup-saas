@@ -816,97 +816,95 @@ async function handleSpecialAction(action, data, id) {
         }
 
         // --- 8. GET_SALES_REPORT ---
-      if (action === 'GET_SALES_REPORT') {
-    try {
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        
-        // Recuperiamo i dati con controlli di sicurezza individuali per ogni tabella
-        const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
-        const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
-        const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
-        const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
-        const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
-        
-        // Tabella protetta nel caso non esista ancora nello storage del browser
-        let productSuppliers = [];
-        try {
-            if (localDb.product_suppliers) {
-                productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
-            }
-        } catch (e) {
-            console.warn("Tabella product_suppliers non ancora attiva nello store locale:", e);
-        }
-
-        const report = [];
-        
-        for (let item of saleItems) {
-            const sale = sales.find(s => s.id === item.sale_id);
-            if (!sale) continue;
-            
-            const cust = customers.find(c => c.id === sale.cust_id);
-            const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
-            
-            const discount = item.discount || 0;
-            const finalPrice = item.price - discount;
-            const saleDate = sale.date || new Date().toISOString().split('T')[0];
-
-            let unitCost = 0;
-            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
-                unitCost = parseFloat(item.unit_cost) || 0;
-            } else if (inv) {
-                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-            }
-
-            let supplierPayout = 0;
-            let salonRevenue = finalPrice;
-
-            if (inv && inv.is_consignment) {
-                // 1. Recuperiamo il vero prezzo di listino pieno dalla tabella price_history (o usiamo item.price se non c'è storico)
-                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
-
-                const links = productSuppliers.filter(l => l.product_id === inv.id);
-                if (links.length > 0) {
-                    let totalPct = 0;
-                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                    
-                    // 🛑 BLINDATO: Calcolato RIGOROSAMENTE sul listino pieno originale
-                    supplierPayout = (listinoPienoOriginale * totalPct) / 100;
-                } else {
-                    const pct = parseFloat(inv.consignment_split_pct) || 0;
-                    supplierPayout = (listinoPienoOriginale * pct) / 100;
-                }
+        if (action === 'GET_SALES_REPORT') {
+            try {
+                const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
                 
-                // Il negozio assorbe lo sconto sulla sua parte
-                salonRevenue = finalPrice - supplierPayout;
-            } else {
-                salonRevenue = finalPrice - unitCost;
+                const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
+                const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
+                const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
+                const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
+                const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
+                
+                let productSuppliers = [];
+                try {
+                    if (localDb.product_suppliers) {
+                        productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
+                    }
+                } catch (e) {}
+
+                const report = [];
+                
+                for (let item of saleItems) {
+                    const sale = sales.find(s => s.id === item.sale_id);
+                    if (!sale) continue;
+                    
+                    // 🛡️ RICERCA CLIENTE BLINDATA (Per ID diretto o fallback sul nome se salvato come stringa)
+                    let cust = customers.find(c => c.id === sale.cust_id);
+                    if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
+                        cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
+                    }
+
+                    const custDisplayName = cust ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() : (sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO' ? sale.cust_id : 'Occasionale');
+
+                    const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+                    
+                    const discount = item.discount || 0;
+                    const finalPrice = item.price - discount;
+                    const saleDate = sale.date || new Date().toISOString().split('T')[0];
+
+                    let unitCost = 0;
+                    if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
+                        unitCost = parseFloat(item.unit_cost) || 0;
+                    } else if (inv) {
+                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                        if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
+                    }
+
+                    let supplierPayout = 0;
+                    let salonRevenue = finalPrice;
+
+                    if (inv && inv.is_consignment) {
+                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                        const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+
+                        const links = productSuppliers.filter(l => l.product_id === inv.id);
+                        if (links.length > 0) {
+                            let totalPct = 0;
+                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                            supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                        } else {
+                            const pct = parseFloat(prod.consignment_split_pct) || 0;
+                            supplierPayout = (listinoPienoOriginale * pct) / 100;
+                        }
+                        salonRevenue = finalPrice - supplierPayout;
+                    } else {
+                        salonRevenue = finalPrice - unitCost;
+                    }
+
+                    report.push({
+                        date: sale.date,
+                        time: sale.time || '00:00',
+                        item_name: item.item_name || 'Articolo',
+                        customer_name: custDisplayName, // 👈 Nome cliente corretto stampato a report
+                        sold_price: item.price || 0,
+                        discount: discount,
+                        final_price: finalPrice,
+                        unit_cost: unitCost,
+                        supplier_payout: supplierPayout,
+                        salon_revenue: salonRevenue,
+                        seller: sale.created_by || 'Admin'
+                    });
+                }
+
+                report.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+                return report;
+
+            } catch {
+                console.error("Errore critico in GET_SALES_REPORT:", err);
+                return [];
             }
-
-            report.push({
-                date: sale.date,
-                time: sale.time || '00:00',
-                item_name: item.item_name || 'Articolo',
-                customer_name: cust ? cust.name : 'Occasionale',
-                sold_price: item.price || 0,
-                discount: discount,
-                final_price: finalPrice,
-                unit_cost: unitCost,
-                supplier_payout: supplierPayout,
-                salon_revenue: salonRevenue,
-                seller: sale.created_by || 'Admin'
-            });
         }
-
-        report.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-        return report;
-
-    } catch (err) {
-        console.error("Errore critico in GET_SALES_REPORT:", err);
-        return [];
-    }
-}
 
         // --- 9. GET_CUSTOMER_INSIGHTS (PWA) ---
         if (action === 'GET_CUSTOMER_INSIGHTS') {
