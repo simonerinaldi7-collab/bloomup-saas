@@ -6801,29 +6801,48 @@ async function updateReminderBadgeCount() {
         <b>NOTE:</b> ${a.notes || '-'}
     `;
 
-    // Protezione elementi null con controllo condizionale
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
         btnCheckout.onclick = async () => { 
             const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
             cart = []; 
             for (let servizio of cartServices) {
+                // Evitiamo di inserire la pausa pranzo nel carrello della cassa
+                if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
+
                 const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
                 if (product) {
                     const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
                     const price = pInfo ? parseFloat(pInfo.price) : 0;
-                    cart.push({ name: servizio, price: price, id: product.id });
+                    cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
                 } else {
-                    cart.push({ name: servizio, price: 0, id: null });
+                    cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
                 }
             }
+
+            // 🛡️ ESTRAZIONE PULITA E ROBUSTA DEL NOME CLIENTE (Escludendo eventuali tag di preview)
+            let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
+
             const fc = allCustomers.find(c => {
-    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-    const target = (currentViewApp.cust_name || '').trim().toLowerCase();
-    return fullName === target || (c.name && c.name.trim().toLowerCase() === target);
-});
-currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
-            document.getElementById('cart-selected-cust').innerText = currentCheckoutCustomer.name;
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                const legacyName = (c.name || "").trim().toLowerCase();
+                return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
+            });
+
+            if (fc) {
+                // Ricomponiamo la stringa nome e cognome in modo sicuro
+                const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
+                currentCheckoutCustomer = { id: fc.id, name: formattedName };
+            } else {
+                currentCheckoutCustomer = { id: 0, name: rawCustName };
+            }
+
+            // Assegnazione visiva sicura al box cassa
+            const custDisplayEl = document.getElementById('cart-selected-cust');
+            if (custDisplayEl) {
+                custDisplayEl.innerText = currentCheckoutCustomer.name;
+            }
+
             renderCart(); 
             closeMod(); 
             changePage('sales', true); 
