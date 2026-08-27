@@ -1506,8 +1506,22 @@
             <div style="flex:1"><label>Fine</label><input type="time" id="f-a-end" onchange="checkOperatorScheduleValidity()"></div>
         </div>
         
-        <label>Servizi (CTRL per selezione multipla da PC o tap su tutti i servizi inclusi da dispositivo mobile)</label>
-        <select id="f-a-item-select" multiple style="height: 100px;"></select>
+        <label>Servizi del Trattamento</label>
+        <div style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 15px;">
+            <!-- Barra di ricerca rapida servizi -->
+            <input type="text" id="service-search-filter" placeholder="🔍 Cerca servizio per nome..." onkeyup="filterServiceCheckboxes()" style="margin: 0 0 10px 0; padding: 10px 14px; font-size: 14px; background: white;">
+            
+            <!-- Contenitore scrollabile delle checkbox dei servizi -->
+            <div id="service-checkboxes-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+                <!-- Popolato dinamicamente -->
+            </div>
+
+            <!-- Box di riepilogo selezione e prezzo stimato -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 12px; font-weight: bold; color: var(--p);">
+                <span id="selected-services-count">0 servizi selezionati</span>
+                <span id="selected-services-total">Totale stimato: € 0.00</span>
+            </div>
+        </div>
         
         <label>Note Trattamento</label>
         <textarea id="f-a-notes" rows="2"></textarea>
@@ -2508,6 +2522,9 @@ async function submitPasswordReset() {
             `;
         }).join('');
     }
+
+
+
 
 
     function getCrossSellingStrategy(confidence, occurrences) {
@@ -4075,6 +4092,73 @@ function dismissExpenseReminderAndGoToExpenses() {
             }
         });
     }
+
+
+
+// Funzione per popolare e renderizzare la lista interattiva dei servizi a spunta nel modale appuntamento
+    async function renderServiceCheckboxes(selectedServiceIds = []) {
+        const container = document.getElementById('service-checkboxes-container');
+        if (!container) return;
+
+        // Filtriamo solo i servizi dal listino magazzino/servizi
+        const services = (allInventory || []).filter(i => i.type === 'servizio');
+
+        if (services.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; padding: 10px;">Nessun servizio disponibile nel listino.</div>`;
+            return;
+        }
+
+        let html = '';
+        for (let s of services) {
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
+            const isChecked = selectedServiceIds.includes(s.id) ? 'checked' : '';
+
+            html += `
+                <label class="service-chk-label" data-name="${s.name.toLowerCase()}" style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer; margin: 0; text-transform: none; font-weight: normal; transition: 0.15s;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="service-checkbox-item" value="${s.id}" data-price="${price}" data-name="${s.name}" ${isChecked} onchange="updateSelectedServicesSummary()" style="width: 18px; height: 18px; accent-color: var(--p); cursor: pointer; margin: 0;">
+                        <span style="font-weight: 600; color: var(--txt); font-size: 13px;">${s.name}</span>
+                    </div>
+                    <span style="font-size: 13px; font-weight: bold; color: var(--p);">€ ${price.toFixed(2)}</span>
+                </label>
+            `;
+        }
+
+        container.innerHTML = html;
+        updateSelectedServicesSummary();
+    }
+
+    // Filtro di ricerca rapida in tempo reale dei servizi
+    function filterServiceCheckboxes() {
+        const query = document.getElementById('service-search-filter')?.value.toLowerCase().trim() || '';
+        const labels = document.querySelectorAll('.service-chk-label');
+
+        labels.forEach(lbl => {
+            const name = lbl.getAttribute('data-name') || '';
+            if (name.includes(query)) {
+                lbl.style.display = 'flex';
+            } else {
+                lbl.style.display = 'none';
+            }
+        });
+    }
+
+    // Calcolo in tempo reale del conteggio e del prezzo totale stimato
+    function updateSelectedServicesSummary() {
+        const checkboxes = document.querySelectorAll('.service-checkbox-item:checked');
+        const countEl = document.getElementById('selected-services-count');
+        const totalEl = document.getElementById('selected-services-total');
+
+        let total = 0;
+        checkboxes.forEach(cb => {
+            total += parseFloat(cb.getAttribute('data-price')) || 0;
+        });
+
+        if (countEl) countEl.innerText = `${checkboxes.length} servizi selezionati`;
+        if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
+    }
+
 
     async function performLogout() {
         resetGlobalState();
@@ -5877,28 +5961,22 @@ async function registerOperatorPushNotifications() {
             return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
         }
 
-        const select = document.getElementById('f-a-item-select');
-        const selectedOptions = select ? Array.from(select.selectedOptions) : [];
-        
+        // 🎯 LECO LE CHECKBOX SPUNTATE
+        const checkedBoxes = document.querySelectorAll('.service-checkbox-item:checked');
         let totalPrice = 0;
         const selectedServices = [];
 
-        for (const opt of selectedOptions) {
-            const itemId = opt.value; 
-            const item = allInventory.find(i => i.id === itemId);
-            if (item) {
-                selectedServices.push(item.name);
-                const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
-                totalPrice += (pInfo && pInfo.price ? parseFloat(pInfo.price) : 0);
-            } else {
-                selectedServices.push(opt.text);
-                totalPrice += parseFloat(opt.getAttribute('data-price') || 0);
-            }
-        }
+        checkedBoxes.forEach(cb => {
+            const serviceName = cb.getAttribute('data-name');
+            const price = parseFloat(cb.getAttribute('data-price')) || 0;
+            selectedServices.push(serviceName);
+            totalPrice += price;
+        });
 
         let finalService = selectedServices.join(', ') || "Servizio";
         if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
             finalService = "Pausa Pranzo";
+            totalPrice = 0;
         }
 
         const data = { 
@@ -6705,31 +6783,22 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
 }
 
 
-            async function editApp(id) { 
-                const event = window.event; 
+           async function editApp(id) { 
+        const event = window.event; 
         if (event) event.stopPropagation();
         const a = allAppointments.find(x => x.id === id); 
         if (!a) return;
 
-        // 1. Popola la select dei servizi prima di tutto
-        const select = document.getElementById('f-a-item-select');
-        let optionsHtml = '';
-        for (let i of allInventory) {
-            // Verifica se questo servizio è salvato nell'appuntamento
-            const isSelected = a.service.includes(i.name) ? 'selected' : '';
-            optionsHtml += `<option value="${i.id}" data-price="${i.price}" ${isSelected}>${i.name}</option>`;
-        }
-        select.innerHTML = optionsHtml;
+        // Troviamo gli ID dei servizi salvati nell'appuntamento confrontando i nomi
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+        const matchedIds = allInventory
+            .filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)))
+            .map(i => i.id);
 
-        // 2. NUOVA PARTE: Popola la select degli operatori e seleziona quello corretto
-        const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
-        const userSelect = document.getElementById('f-a-user');
-        userSelect.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
-        
-        // Imposta l'operatore salvato nell'appuntamento (se esiste, altrimenti default admin)
-        userSelect.value = a.assigned_user || 'admin'; 
+        // Popoliamo le checkbox spuntando quelle corrispondenti
+        await renderServiceCheckboxes(matchedIds);
 
-        // 2. Mappatura campi base
+        // Mappatura campi base
         document.getElementById('edit-a-id').value = id;
         document.getElementById('f-a-search').value = a.cust_name;
         document.getElementById('f-a-date').value = a.date;
@@ -6737,7 +6806,13 @@ currentCheckoutCustomer = fc ? fc : { id: 0, name: currentViewApp.cust_name };
         document.getElementById('f-a-end').value = a.end_time || "";
         document.getElementById('f-a-notes').value = a.notes || '';
         
-        // Titolo modale
+        const userSelect = document.getElementById('f-a-user');
+        const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
+        if(userSelect) {
+            userSelect.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+            userSelect.value = a.assigned_user || 'admin';
+        }
+
         const titleEl = document.getElementById('mod-cale-title');
         if (titleEl) titleEl.innerText = "Modifica Appuntamento";
 
@@ -7952,6 +8027,7 @@ const nowTimestamp = new Date().toISOString();
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     async function openMod(t, targetDate = null, targetTime = null, targetEnd = null) {
         if (t === 'cale') {
+             await renderServiceCheckboxes([]);
             const select = document.getElementById('f-a-item-select');
             if (select) {
                 let optionsHtml = ''; 
