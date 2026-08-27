@@ -816,6 +816,7 @@ async function handleSpecialAction(action, data, id) {
         }
 
         // --- 8. GET_SALES_REPORT ---
+        // --- 8. GET_SALES_REPORT ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -839,7 +840,7 @@ async function handleSpecialAction(action, data, id) {
                     const sale = sales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
                     
-                    // 🛡️ RICERCA CLIENTE BLINDATA (Per ID diretto o fallback sul nome se salvato come stringa)
+                    // 🛡️ RICERCA CLIENTE BLINDATA
                     let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
                         cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
@@ -865,7 +866,7 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
 
                     if (inv && inv.is_consignment) {
-                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                        const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                         const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
 
                         const links = productSuppliers.filter(l => l.product_id === inv.id);
@@ -874,7 +875,7 @@ async function handleSpecialAction(action, data, id) {
                             links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
                             supplierPayout = (listinoPienoOriginale * totalPct) / 100;
                         } else {
-                            const pct = parseFloat(prod.consignment_split_pct) || 0;
+                            const pct = parseFloat(inv.consignment_split_pct) || 0;
                             supplierPayout = (listinoPienoOriginale * pct) / 100;
                         }
                         salonRevenue = finalPrice - supplierPayout;
@@ -886,7 +887,7 @@ async function handleSpecialAction(action, data, id) {
                         date: sale.date,
                         time: sale.time || '00:00',
                         item_name: item.item_name || 'Articolo',
-                        customer_name: custDisplayName, // 👈 Nome cliente corretto stampato a report
+                        customer_name: custDisplayName,
                         sold_price: item.price || 0,
                         discount: discount,
                         final_price: finalPrice,
@@ -900,7 +901,7 @@ async function handleSpecialAction(action, data, id) {
                 report.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
                 return report;
 
-            } catch {
+            } catch (err) { // 👈 Corretto con la dichiarazione esplicita del parametro err
                 console.error("Errore critico in GET_SALES_REPORT:", err);
                 return [];
             }
