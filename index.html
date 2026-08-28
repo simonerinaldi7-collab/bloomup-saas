@@ -2712,6 +2712,7 @@ async function submitPasswordReset() {
     // Sostituisci tutte le versioni precedenti di refreshDashboard con questa:
     async function refreshDashboard() {
         console.log("Aggiornamento dashboard in corso...");
+        loadVolumeChart();
         loadMarginChart();
         loadSleepingClients();
         loadBalance();
