@@ -1296,40 +1296,42 @@
             </div>
             
             <div>
+                <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <label style="margin: 0;">Colore Agenda</label>
                     <!-- 🎨 Badge di anteprima che assume L'ESATTO colore HEX selezionato -->
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span id="color-preview-circle" style="width: 16px; height: 16px; border-radius: 50%; background: #FF6B8B; border: 1.5px solid #cbd5e1; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.2s ease;"></span>
-                        <small id="color-hex-label" style="font-size: 11px; font-weight: bold; color: #64748b;">#FF6B8B</small>
+                        <span id="color-preview-circle" style="width: 16px; height: 16px; border-radius: 50%; background: #6C5CE7; border: 1.5px solid #cbd5e1; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.2s ease;"></span>
+                        <small id="color-hex-label" style="font-size: 11px; font-weight: bold; color: #64748b;">#6C5CE7</small>
                     </div>
                 </div>
 
                 <select id="new-user-color" onchange="syncColorPreview(this.value)" style="margin:0; width:100%; font-weight: 600; background: white;">
-                    <!-- Tonalità Femminili & Pastello -->
-                    <option value="#FF6B8B" selected>● Rosa Confetto (#FF6B8B)</option>
-                    <option value="#E84393">● Magenta Brillante (#E84393)</option>
-                    <option value="#FD79A8">● Rosa Orchidea (#FD79A8)</option>
-                    <option value="#FF85A2">● Rosa Cipria (#FF85A2)</option>
-                    <option value="#E056FD">● Malva Intenso (#E056FD)</option>
-                    <option value="#D6A2E8">● Lilla Pastello (#D6A2E8)</option>
-                    <option value="#A29BFE">● Lavanda Delicato (#A29BFE)</option>
-                    <option value="#FF7675">● Pesca Caldo (#FF7675)</option>
-                    <option value="#FAB1A0">● Sabbia Rosata (#FAB1A0)</option>
+                    <!-- 🌸 Tonalità Femminili / Vivaci ad Alto Contrasto -->
+                    <option value="#E84393" selected>● Magenta Intenso (#E84393)</option>
+                    <option value="#D63031">● Rosso Rubino (#D63031)</option>
+                    <option value="#E17055">● Corallo Vivace (#E17055)</option>
+                    <option value="#FF7675">● Rosa Corallo (#FF7675)</option>
+                    <option value="#FD79A8">● Rosa confetto scuro (#FD79A8)</option>
+                    <option value="#A29BFE">● Lavanda Elettrico (#A29BFE)</option>
+                    <option value="#6C5CE7">● Viola Scuro VaiMUp (#6C5CE7)</option>
                     
-                    <!-- Tonalità Classiche Professionali -->
-                    <option value="#6C5CE7">● Viola VaiMUp (#6C5CE7)</option>
+                    <!-- 🌿 Tonalità Fredde e Brillanti ad Alto Contrasto -->
                     <option value="#00B894">● Verde Smeraldo (#00B894)</option>
-                    <option value="#0984E3">● Blu Oceano (#0984E3)</option>
-                    <option value="#00CEC9">● Turchese Tiffany (#00CEC9)</option>
-                    <option value="#E17055">● Corallo Intenso (#E17055)</option>
-                    <option value="#FDCB6E">● Giallo Sole (#FDCB6E)</option>
-                    <option value="#2D3436">● Antracite Scuro (#2D3436)</option>
+                    <option value="#00CEC9">● Turchese Brillante (#00CEC9)</option>
+                    <option value="#0984E3">● Blu Elettrico (#0984E3)</option>
+                    <option value="#0984E3">● Blu Indaco (#3b82f6)</option>
+                    
+                    <!-- ☀️ Tonalità Calde e Scuri -->
+                    <option value="#F39C12">● Arancio Zucca (#F39C12)</option>
+                    <option value="#FDCB6E">● Giallo Oro (#FDCB6E)</option>
+                    <option value="#2D3436">● Antracite Profondo (#2D3436)</option>
+                    <option value="#636E72">● Grigio Ardesia (#636E72)</option>
                 </select>
 
-                <!-- Mini Palette di quadratini/cerchietti ad accesso rapido per cliccare direttamente il colore -->
-                <div id="quick-swatches" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; padding: 4px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <!-- Popolato dinamicamente da JS per mostrare i tondini esatti -->
+                <!-- Mini Palette di quadratini/cerchietti ad accesso rapido -->
+                <div id="quick-swatches" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding: 6px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <!-- Popolato dinamicamente da JS -->
                 </div>
             </div>
 
