@@ -626,7 +626,7 @@ async function handleSpecialAction(action, data, id) {
 
         
        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
-         if (action === 'GET_MARGIN_INSIGHTS') {
+        if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
 
@@ -635,11 +635,15 @@ async function handleSpecialAction(action, data, id) {
             const salesIds = salesInRange.map(s => s.id);
 
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
-             // 🛑 Escludiamo il fatturato storico fittizio
+            
+            // 🛑 Escludiamo il fatturato storico fittizio dalle analisi
             const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id) && si.item_name !== 'Fatturato Storico / Chiusura');
 
             const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray();
             const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.where('salon_id').equals(salonId).toArray() : [];
+            const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
+            const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
+            const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
 
             const margins = {};
 
@@ -648,24 +652,59 @@ async function handleSpecialAction(action, data, id) {
                 
                 const soldPrice = parseFloat(si.price) || 0;
                 const discount = parseFloat(si.discount) || 0;
-                const finalRev = (soldPrice - discount) * (si.qty || 1);
+                const itemQty = parseFloat(si.qty) || 1;
+                const finalRev = (soldPrice - discount) * itemQty;
+                const saleDate = sales.find(s => s.id === si.sale_id)?.date || new Date().toISOString().split('T')[0];
 
                 let totalCostOrPayout = 0;
 
-                if (inv && inv.is_consignment) {
-                    const links = productSuppliers.filter(l => l.product_id === inv.id);
-                    let totalPct = 0;
-                    if (links.length > 0) {
-                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                if (inv) {
+                    if (inv.type === 'servizio') {
+                        // ✂️ SE È UN SERVIZIO: Sommiamo il costo FIFO dei materiali consumabili associati
+                        const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                        let totalConsumablesCost = 0;
+
+                        for (let sc of serviceCons) {
+                            const consumedProd = inventory.find(p => p.id === sc.product_id);
+                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+
+                            if (consumedProd) {
+                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                let prodUnitCost = 0;
+                                if (prodLots.length > 0) {
+                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                    prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                } else {
+                                    const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                    prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
+                                }
+                                totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                            }
+                        }
+                        totalCostOrPayout = totalConsumablesCost * itemQty;
+
+                    } else if (inv.is_consignment) {
+                        const links = productSuppliers.filter(l => l.product_id === inv.id);
+                        let totalPct = 0;
+                        if (links.length > 0) {
+                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                        } else {
+                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
+                        }
+                        const unitPayout = (soldPrice * totalPct) / 100;
+                        totalCostOrPayout = unitPayout * itemQty;
                     } else {
-                        totalPct = parseFloat(inv.consignment_split_pct) || 0;
+                        // 💰 PRELEVAMENTO DEL COSTO REALE SALVATO NELLA VENDITA O FIFO
+                        const unitCost = (si.unit_cost !== undefined && si.unit_cost !== null && !isNaN(si.unit_cost) && parseFloat(si.unit_cost) > 0) 
+                            ? parseFloat(si.unit_cost) 
+                            : (priceHistory.find(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to))?.cost || 0);
+                        
+                        totalCostOrPayout = unitCost * itemQty;
                     }
-                    const unitPayout = (soldPrice * totalPct) / 100;
-                    totalCostOrPayout = unitPayout * (si.qty || 1);
                 } else {
-                    // 💰 PRELEVAMENTO DIRETTO DEL COSTO REALE SALVATO NELLA VENDITA (FIFO)
+                    // Fallback se il servizio/articolo non è censito a magazzino
                     const unitCost = parseFloat(si.unit_cost) || 0;
-                    totalCostOrPayout = unitCost * (si.qty || 1);
+                    totalCostOrPayout = unitCost * itemQty;
                 }
 
                 const totalMargin = finalRev - totalCostOrPayout;
@@ -673,7 +712,7 @@ async function handleSpecialAction(action, data, id) {
                 if (!margins[si.item_name]) {
                     margins[si.item_name] = { item_name: si.item_name, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
                 }
-                margins[si.item_name].total_sold += (si.qty || 1);
+                margins[si.item_name].total_sold += itemQty;
                 margins[si.item_name].total_revenue += finalRev;
                 margins[si.item_name].total_cost += totalCostOrPayout;
                 margins[si.item_name].total_margin += totalMargin;
