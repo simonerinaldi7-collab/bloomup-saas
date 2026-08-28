@@ -983,6 +983,7 @@ async function handleSpecialAction(action, data, id) {
                 return [];
             }
         }
+        
         // --- 9. GET_CUSTOMER_INSIGHTS (PWA) ---
         if (action === 'GET_CUSTOMER_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
