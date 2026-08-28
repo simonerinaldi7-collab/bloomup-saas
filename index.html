@@ -8840,16 +8840,20 @@ const nowTimestamp = new Date().toISOString();
         renderCart(); 
     }
 
-    function updateCalendarUI() {
-        const users = window.allUsers || [];
+    async function updateCalendarUI() {
+        const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
         const select = document.getElementById('user-filter');
         const legend = document.getElementById('dynamic-legend');
         
         if (select) {
+            // 🛡️ SALVIAMO L'OPERATORE ATTUALMENTE SELEZIONATO PRIMA DEL REFRESH
             const currentSelectedUser = select.value || 'all';
+
+            // 1. Aggiorna Tendina mantenendo la struttura
             select.innerHTML = '<option value="all">Tutti (Globale)</option>' + 
                             users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
             
+            // 🔄 RIPRISTINIAMO LA SCELTA DELL'UTENTE (Se esiste ancora nell'elenco)
             if (currentSelectedUser && [...select.options].some(opt => opt.value === currentSelectedUser)) {
                 select.value = currentSelectedUser;
             } else {
@@ -8857,18 +8861,19 @@ const nowTimestamp = new Date().toISOString();
             }
         }
         
-        // 2. Leggenda Aggiornata con i nuovi indicatori ad alto contrasto
+        // 2. Aggiorna Leggenda Operatori e Stati
         if (legend) {
             legend.innerHTML = `
-                <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:15px; flex-wrap:wrap;">
                     <strong>Operatori:</strong>
                     ${users.map(u => `<div class="lg-item"><div class="lg-dot" style="background:${u.color || '#6C5CE7'}"></div> ${u.username}</div>`).join('')}
                 </div>
-                <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; align-items:center; border-top: 1px dashed #e2e8f0; padding-top:6px;">
+                <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top:5px;">
                     <strong>Stati Comunicazioni:</strong>
                     <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #047857; background: #f1f5f9; width: 16px;"></div> <b>Conferma Inviata</b> (Bordo Verde ✓)</div>
                     <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #C2410C; background: #f1f5f9; width: 16px;"></div> <b>Promemoria Inviato</b> (Bordo Arancione 🔔)</div>
                 </div>
+                
             `;
         }
     }
