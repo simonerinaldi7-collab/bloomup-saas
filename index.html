@@ -1727,8 +1727,9 @@
             let currentUser = null;
             const GEMINI_KEY = "INSERISCI_CHIAVE_QUI";
             let allCustomers=[], allInventory=[], allAppointments=[], allSales=[], allLogs=[],allUsers=[],  sysSettings={};
-            let cart=[], currentCheckoutCustomer=null, currentViewApp=null, calView='week', viewDate=new Date();
+            let cart=[], currentCheckoutCustomer=null, currentViewApp=null, calView='week', viewDate=new Date(); currentCheckoutAppointmentId = null;
             let inventoryFilter = "all"; // "all" o "lowstock"
+            
             
 // 🛡️ FILTRO CONSOLE: Ignora i log di telemetria interna di terze parti (WhatsApp/Meta)
 const originalConsoleError = console.error;
@@ -6825,10 +6826,28 @@ async function updateReminderBadgeCount() {
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
         btnCheckout.onclick = async () => { 
+            // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
+            const targetAppId = currentViewApp.id;
+
+            // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
+            try {
+                const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+                const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
+
+                if (alreadyPaid) {
+                    const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
+                    if (!proceed) return;
+                }
+            } catch (e) {
+                console.warn("Controllo appuntamento già pagato non riuscito:", e);
+            }
+
+            // Impostiamo l'ID dell'appuntamento da passare alla cassa
+            currentCheckoutAppointmentId = targetAppId;
+
             const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
             cart = []; 
             for (let servizio of cartServices) {
-                // Evitiamo di inserire la pausa pranzo nel carrello della cassa
                 if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
 
                 const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
@@ -6841,7 +6860,6 @@ async function updateReminderBadgeCount() {
                 }
             }
 
-            // 🛡️ ESTRAZIONE PULITA E ROBUSTA DEL NOME CLIENTE (Escludendo eventuali tag di preview)
             let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
 
             const fc = allCustomers.find(c => {
@@ -6851,14 +6869,12 @@ async function updateReminderBadgeCount() {
             });
 
             if (fc) {
-                // Ricomponiamo la stringa nome e cognome in modo sicuro
                 const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
                 currentCheckoutCustomer = { id: fc.id, name: formattedName };
             } else {
                 currentCheckoutCustomer = { id: 0, name: rawCustName };
             }
 
-            // Assegnazione visiva sicura al box cassa
             const custDisplayEl = document.getElementById('cart-selected-cust');
             if (custDisplayEl) {
                 custDisplayEl.innerText = currentCheckoutCustomer.name;
@@ -8366,9 +8382,32 @@ const nowTimestamp = new Date().toISOString();
     function resetCassa() { cart = []; currentCheckoutCustomer = null; document.getElementById('cart-selected-cust').innerText = "Occas."; renderCart(); }
         
 
-    function addToCart(n, p, id) { 
-
+    // Funzione aggiornata per aggiungere al carrello con controllo doppie vendite giornaliere
+    async function addToCart(n, p, id) { 
         const cleanPrice = parseFloat(p) || 0;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const currentCustId = currentCheckoutCustomer?.id;
+
+        // 🛡️ CONTROLLO ANTIDOPPIO: Verifichiamo se oggi questo cliente ha già comprato lo stesso articolo
+        if (currentCustId && currentCustId !== 0 && currentCustId !== '0') {
+            try {
+                const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+                const todaySalesIds = sales.filter(s => s.cust_id === currentCustId && s.date === todayStr).map(s => s.id);
+                
+                if (todaySalesIds.length > 0) {
+                    const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
+                    const alreadyBought = saleItems.some(si => todaySalesIds.includes(si.sale_id) && (si.item_name || '').toLowerCase().trim() === n.toLowerCase().trim());
+
+                    if (alreadyBought) {
+                        const confirmDouble = confirm(`⚠️ ATTENZIONE DOPPIA VENDITA:\n\nRisulta già un pagamento registrato oggi per il cliente "${currentCheckoutCustomer.name}" relativo all'articolo "${n}".\n\nSei sicuro di volerlo inserire di nuovo nel carrello?`);
+                        if (!confirmDouble) return; // Annulla l'aggiunta
+                    }
+                }
+            } catch (err) {
+                console.warn("Controllo doppie vendite saltato per errore di rete/db:", err);
+            }
+        }
+
         cart.push({ 
             name: n, 
             price: cleanPrice, 
@@ -8396,7 +8435,7 @@ const nowTimestamp = new Date().toISOString();
         }
     }
 
-    async function completeSale() { 
+   async function completeSale() { 
         if(!cart.length) return alert("Carrello vuoto!"); 
         
         const cartWithDiscounts = cart.map(item => {
@@ -8408,23 +8447,25 @@ const nowTimestamp = new Date().toISOString();
         const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
         const nowObj = getNowLocal(); 
         
-        // 🛡️ ASSICURIAMO CHE L'ID CLIENTE SIA VALORIZZATO CORRETTAMENTE (Se è 0 o nullo, cerchiamo per nome o salviamo '')
         let finalCustId = currentCheckoutCustomer?.id;
         if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
-            // Tentativo di recupero ID dall'anagrafica se abbiamo almeno il nome
             const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
             const foundC = allCustomers.find(c => {
                 const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
                 return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
             });
-            finalCustId = foundC ? foundC.id : null; // Se non esiste, salviamo null o evitiamo 0 fittizi
+            finalCustId = foundC ? foundC.id : null;
         }
 
-        // 1. Inserimento testata vendita
+        // 🎯 L'ID DELL'APPUNTAMENTO VIENE ASSOCIATO SOLO ORA, AL MOMENTO DEL REALE PAGAMENTO!
+        const linkedAppointmentId = currentCheckoutAppointmentId || null;
+
+        // 1. Inserimento testata vendita con il legame diretto all'appuntamento (se proveniva dall'agenda)
         const res = await window.api.query({ 
             action:'INSERT', table:'sales', 
             data: { 
-                cust_id: finalCustId || null, // 👈 Salvataggio ID cliente reale o null se occasionale
+                cust_id: finalCustId || null, 
+                appointment_id: linkedAppointmentId, // 👈 Collegamento scritto SOLO al click su Paga
                 total: total, 
                 date: nowObj.split(' ')[0], 
                 time: nowObj.split(' ')[1], 
@@ -8456,7 +8497,6 @@ const nowTimestamp = new Date().toISOString();
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;
 
-                    // Recuperiamo i lotti del conto vendita ordinati in FIFO
                     const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
                     const prodLots = (Array.isArray(lots) ? lots : [])
                         .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
@@ -8466,8 +8506,6 @@ const nowTimestamp = new Date().toISOString();
                         if (qtyToProcess <= 0) break;
 
                         const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                        
-                        // Leggiamo le percentuali salvate in quel lotto specifico
                         let lotSplits = [];
                         try {
                             lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
@@ -8486,7 +8524,6 @@ const nowTimestamp = new Date().toISOString();
 
                         totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
 
-                        // Scala la giacenza dal lotto
                         lot.qty_remaining -= takeFromLot;
                         qtyToProcess -= takeFromLot;
 
@@ -8498,7 +8535,6 @@ const nowTimestamp = new Date().toISOString();
                         });
                     }
 
-                    // Fallback se non ci sono lotti registrati
                     if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
                         const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
                         totalSupplierPayoutForThisSale = (listinoPieno * fallbackPct / 100) * (item.qty || 1);
@@ -8508,11 +8544,9 @@ const nowTimestamp = new Date().toISOString();
                     salonRevenue = finalItemPrice - supplierPayout;
                 
                 } else if (productDb && productDb.type === 'prodotto') {
-                    // 🔄 APPLICAZIONE LOGICA FIFO SUI LOTTI DI MAGAZZINO
                     let qtyToProcess = item.qty || 1;
                     let totalCostForThisSale = 0;
 
-                    // Recuperiamo tutti i lotti del prodotto ordinati dal più vecchio al più recente (FIFO)
                     const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
                     const prodLots = (Array.isArray(lots) ? lots : [])
                         .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
@@ -8524,7 +8558,6 @@ const nowTimestamp = new Date().toISOString();
                         const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
                         totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
                         
-                        // Aggiorniamo la quantità residua del lotto
                         lot.qty_remaining -= takeFromLot;
                         qtyToProcess -= takeFromLot;
 
@@ -8536,7 +8569,6 @@ const nowTimestamp = new Date().toISOString();
                         });
                     }
 
-                    // Se non ci sono lotti registrati (es. prodotti creati senza carico), usiamo lo storico prezzi o 0
                     if (totalCostForThisSale === 0 && prodLots.length === 0) {
                         const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
                         totalCostForThisSale = fallbackCost * (item.qty || 1);
@@ -8545,7 +8577,6 @@ const nowTimestamp = new Date().toISOString();
                     unitCostUsed = totalCostForThisSale / (item.qty || 1);
                     salonRevenue = finalItemPrice - totalCostForThisSale;
                 } else {
-                    // Servizi o altro
                     salonRevenue = finalItemPrice;
                 }
 
@@ -8557,13 +8588,12 @@ const nowTimestamp = new Date().toISOString();
                         qty: item.qty || 1, 
                         price: listinoPieno,
                         discount: discountApplied,
-                        unit_cost: unitCostUsed, // 👈 Salviamo il costo FIFO esatto del lotto
+                        unit_cost: unitCostUsed,
                         supplier_payout: supplierPayout,
                         salon_revenue: salonRevenue
                     } 
                 });
                 
-                // Aggiornamento stock generale inventario
                 if (productDb && productDb.type === 'prodotto') {
                     await window.universalQuery({ 
                         action:'UPDATE', table:'inventory', 
@@ -8588,6 +8618,9 @@ const nowTimestamp = new Date().toISOString();
             } 
         } 
         
+        // 🧹 RESETTA IL PUNTATORE DELL'APPUNTAMENTO SUBITO DOPO IL PAGAMENTO
+        currentCheckoutAppointmentId = null;
+
         alert("Pagato e stock aggiornato!"); 
         await resetCassa(); 
         await refreshAllData(); 
