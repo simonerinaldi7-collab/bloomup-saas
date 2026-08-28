@@ -53,16 +53,32 @@
 
 
 /* 🎨 STILI E BORDI EVIDENTI PER EVENTI IN AGENDA (Conferme e Reminder) */
+        /* 🎨 STILI E BORDI EVIDENTI E ACCESSIBILI PER EVENTI IN AGENDA (Conferme e Reminder) */
+        
+        /* 1. Stato: Conferma Inviata -> Bordo Verde Smeraldo Scuro e Raffinato */
         .event.st-confirm, .absolute-event.st-confirm {
-            border-left: 7px solid #000000 !important;
-            box-shadow: inset 3px 0 0 rgba(0, 0, 0, 0.4), 0 2px 5px rgba(0,0,0,0.2) !important;
+            border-left: 7px solid #047857 !important; /* Verde Smeraldo Scuro */
+            background-image: linear-gradient(to right, rgba(4, 120, 87, 0.08), transparent 40%) !important;
+            box-shadow: inset 3px 0 0 rgba(4, 120, 87, 0.3), 0 2px 6px rgba(0,0,0,0.15) !important;
             font-weight: 600 !important;
         }
+        .event.st-confirm::after, .absolute-event.st-confirm::after {
+            content: " ✓";
+            color: #047857;
+            font-weight: bold;
+            font-size: 10px;
+        }
         
+        /* 2. Stato: Reminder Inviato -> Bordo Arancione / Ambra ad Altissima Visibilità */
         .event.st-remind, .absolute-event.st-remind {
-            border-left: 7px solid #FF00FF !important;
-            box-shadow: inset 3px 0 0 rgba(255, 0, 255, 0.4), 0 2px 5px rgba(0,0,0,0.2) !important;
+            border-left: 7px solid #C2410C !important; /* Arancione Zafferano / Ambra Scuro */
+            background-image: linear-gradient(to right, rgba(194, 65, 12, 0.08), transparent 40%) !important;
+            box-shadow: inset 3px 0 0 rgba(194, 65, 12, 0.3), 0 2px 6px rgba(0,0,0,0.15) !important;
             font-weight: 600 !important;
+        }
+        .event.st-remind::after, .absolute-event.st-remind::after {
+            content: " 🔔";
+            font-size: 9px;
         }
         @keyframes pulseAlarm {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
@@ -8824,20 +8840,16 @@ const nowTimestamp = new Date().toISOString();
         renderCart(); 
     }
 
-    async function updateCalendarUI() {
-        const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
+    function updateCalendarUI() {
+        const users = window.allUsers || [];
         const select = document.getElementById('user-filter');
         const legend = document.getElementById('dynamic-legend');
         
         if (select) {
-            // 🛡️ SALVIAMO L'OPERATORE ATTUALMENTE SELEZIONATO PRIMA DEL REFRESH
             const currentSelectedUser = select.value || 'all';
-
-            // 1. Aggiorna Tendina mantenendo la struttura
             select.innerHTML = '<option value="all">Tutti (Globale)</option>' + 
                             users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
             
-            // 🔄 RIPRISTINIAMO LA SCELTA DELL'UTENTE (Se esiste ancora nell'elenco)
             if (currentSelectedUser && [...select.options].some(opt => opt.value === currentSelectedUser)) {
                 select.value = currentSelectedUser;
             } else {
@@ -8845,17 +8857,17 @@ const nowTimestamp = new Date().toISOString();
             }
         }
         
-        // 2. Aggiorna Leggenda Operatori e Stati
+        // 2. Leggenda Aggiornata con i nuovi indicatori ad alto contrasto
         if (legend) {
             legend.innerHTML = `
-                <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
                     <strong>Operatori:</strong>
                     ${users.map(u => `<div class="lg-item"><div class="lg-dot" style="background:${u.color || '#6C5CE7'}"></div> ${u.username}</div>`).join('')}
                 </div>
-                <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top:5px;">
-                    <strong>Stati:</strong>
-                    <div class="lg-item"><div class="lg-dot" style="border: 3px solid #000000; background: transparent;"></div> Conferma Inviata</div>
-                    <div class="lg-item"><div class="lg-dot" style="border: 3px solid #FF00FF; background: transparent;"></div> Remind Inviato</div>
+                <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; align-items:center; border-top: 1px dashed #e2e8f0; padding-top:6px;">
+                    <strong>Stati Comunicazioni:</strong>
+                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #047857; background: #f1f5f9; width: 16px;"></div> <b>Conferma Inviata</b> (Bordo Verde ✓)</div>
+                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #C2410C; background: #f1f5f9; width: 16px;"></div> <b>Promemoria Inviato</b> (Bordo Arancione 🔔)</div>
                 </div>
             `;
         }
