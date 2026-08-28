@@ -2469,34 +2469,61 @@ async function submitPasswordReset() {
         await loadBalance();
     }
 
-    // Analisi Clienti Dormienti
     async function loadSleepingClients() {
-        const clients = await window.api.query({ action: 'GET_ALL', table: 'customers' });
-        const sales = await window.api.query({ action: 'GET_ALL', table: 'sales' });
+        const clients = await window.api.query({ action: 'GET_ALL', table: 'customers' }) || [];
+        const sales = await window.api.query({ action: 'GET_ALL', table: 'sales' }) || [];
         
         // Se non c'è data selezionata, usiamo 30 giorni fa
-        const limitDateStr = document.getElementById('d-limit-dormienti').value;
+        const limitDateStr = document.getElementById('d-limit-dormienti')?.value;
         const limitDate = limitDateStr ? new Date(limitDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         
-        const sleeping = clients.filter(c => {
-            const lastSale = sales.filter(s => s.cust_id === c.id)
-                                .sort((a,b) => new Date(b.date) - new Date(a.date))[0];
-            return !lastSale || new Date(lastSale.date) < limitDate;
+        // Filtriamo i clienti escludendo record di sistema o fittizi
+        const validClients = clients.filter(c => {
+            if (!c.id || c.id === 'CLIENTE_STORICO') return false;
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+            return fullName !== '';
         });
 
+        const sleeping = validClients.filter(c => {
+            const custSales = sales.filter(s => s.cust_id === c.id);
+            if (custSales.length === 0) return true; // Mai acquistato o senza vendite collegate
 
-        console.log("Dati Clienti:", sleeping); // Controlla in console
+            const lastSale = custSales.sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+            return lastSale && new Date(lastSale.date) < limitDate;
+        });
+
+        console.log("Dati Clienti Dormienti filtrati:", sleeping);
 
         const list = document.getElementById('sleeping-clients-list');
+        if (!list) return;
+
         if (sleeping.length === 0) {
-            list.innerHTML = "<p>Nessun cliente dormiente trovato per questa data!</p>";
+            list.innerHTML = "<div class='card' style='text-align:center; color:var(--s);'>✅ Ottimo lavoro! Non ci sono clienti dormienti per il periodo selezionato.</div>";
         } else {
-            list.innerHTML = sleeping.map(c => `
-                <div class="card" style="margin:10px 0; border-left: 4px solid var(--d)">
-                    <b>${c.name}</b> - Nessun acquisto dal ${formatDateIt(limitDate.toISOString().split('T')[0])}
-                    <br><small style="color:var(--p)">Consiglio: Invia un messaggio personalizzato su WhatsApp per riattivalo.</small>
-                </div>
-            `).join('');
+            list.innerHTML = sleeping.map(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente';
+                const phone = c.phone ? c.phone.trim() : '';
+                
+                // Generazione link rapido WhatsApp se il cliente ha un telefono valido
+                let waButtonHtml = '';
+                if (phone) {
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    const msg = encodeURIComponent(`Ciao ${c.first_name || ''}! È un po' che non ci vieni a trovare in salone, ti aspettiamo presto per coccolarti un po'! ✨`);
+                    waButtonHtml = `<a href="https://wa.me/${cleanPhone}?text=${msg}" target="_blank" class="btn btn-w" style="padding:4px 10px; font-size:11px; margin-top:8px; text-decoration:none;">💬 Invia WhatsApp "Ci manchi"</a>`;
+                }
+
+                return `
+                    <div class="card" style="margin:10px 0; border-left: 4px solid var(--d); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <b>${fullName}</b> (${phone || 'Tel non pervenuto'})<br>
+                            <small style="color:#666;">Nessun acquisto registrato dal ${formatDateIt(limitDate.toISOString().split('T')[0])}</small>
+                        </div>
+                        <div>
+                            ${waButtonHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
     }
 
