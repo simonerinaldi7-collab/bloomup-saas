@@ -1296,17 +1296,41 @@
             </div>
             
             <div>
-                <label>Colore Agenda</label>
-                <select id="new-user-color" style="margin:0; width:100%;">
-                    <option value="#6C5CE7">Viola VaiMUp</option>
-                    <option value="#00B894">Verde Smeraldo</option>
-                    <option value="#E17055">Corallo</option>
-                    <option value="#0984e3">Blu Oceano</option>
-                    <option value="#e17055">Arancio Caldo</option>
-                    <option value="#fdcb6e">Giallo Sole</option>
-                    <option value="#e84393">Fucsia</option>
-                    <option value="#2d3436">Antracite</option>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0;">Colore Agenda</label>
+                    <!-- 🎨 Badge di anteprima che assume L'ESATTO colore HEX selezionato -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span id="color-preview-circle" style="width: 16px; height: 16px; border-radius: 50%; background: #FF6B8B; border: 1.5px solid #cbd5e1; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.2s ease;"></span>
+                        <small id="color-hex-label" style="font-size: 11px; font-weight: bold; color: #64748b;">#FF6B8B</small>
+                    </div>
+                </div>
+
+                <select id="new-user-color" onchange="syncColorPreview(this.value)" style="margin:0; width:100%; font-weight: 600; background: white;">
+                    <!-- Tonalità Femminili & Pastello -->
+                    <option value="#FF6B8B" selected>● Rosa Confetto (#FF6B8B)</option>
+                    <option value="#E84393">● Magenta Brillante (#E84393)</option>
+                    <option value="#FD79A8">● Rosa Orchidea (#FD79A8)</option>
+                    <option value="#FF85A2">● Rosa Cipria (#FF85A2)</option>
+                    <option value="#E056FD">● Malva Intenso (#E056FD)</option>
+                    <option value="#D6A2E8">● Lilla Pastello (#D6A2E8)</option>
+                    <option value="#A29BFE">● Lavanda Delicato (#A29BFE)</option>
+                    <option value="#FF7675">● Pesca Caldo (#FF7675)</option>
+                    <option value="#FAB1A0">● Sabbia Rosata (#FAB1A0)</option>
+                    
+                    <!-- Tonalità Classiche Professionali -->
+                    <option value="#6C5CE7">● Viola VaiMUp (#6C5CE7)</option>
+                    <option value="#00B894">● Verde Smeraldo (#00B894)</option>
+                    <option value="#0984E3">● Blu Oceano (#0984E3)</option>
+                    <option value="#00CEC9">● Turchese Tiffany (#00CEC9)</option>
+                    <option value="#E17055">● Corallo Intenso (#E17055)</option>
+                    <option value="#FDCB6E">● Giallo Sole (#FDCB6E)</option>
+                    <option value="#2D3436">● Antracite Scuro (#2D3436)</option>
                 </select>
+
+                <!-- Mini Palette di quadratini/cerchietti ad accesso rapido per cliccare direttamente il colore -->
+                <div id="quick-swatches" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; padding: 4px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <!-- Popolato dinamicamente da JS per mostrare i tondini esatti -->
+                </div>
             </div>
 
             <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 5px;">
@@ -2987,17 +3011,24 @@ async function voidSaleTransaction(saleId) {
 
 
    function editUserRecord(id) {
-    const u = allUsers.find(x => x.id === id);
-    if (!u) return;
+        const u = allUsers.find(x => x.id === id);
+        if (!u) return;
 
-    document.getElementById('edit-user-id').value = u.id;
-    document.getElementById('new-user').value = u.username;
-    document.getElementById('new-pass').value = ""; // Vuoto per sicurezza
-    document.getElementById('new-role').value = u.role || 'user';
-    document.getElementById('new-user-color').value = u.color || '#6C5CE7';
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+        document.getElementById('edit-user-id').value = u.id;
+        document.getElementById('new-user').value = u.username;
+        document.getElementById('new-pass').value = "";
+        document.getElementById('new-role').value = u.role || 'user';
+        
+        const userColor = u.color || '#6C5CE7';
+        document.getElementById('new-user-color').value = userColor;
+        
+        // 👈 Sincronizza l'anteprima del colore esatto al caricamento dei dati utente
+        if (typeof syncColorPreview === 'function') {
+            syncColorPreview(userColor);
+        }
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     
 
@@ -4426,6 +4457,53 @@ let currentSelectedServices = [];
             </tr>
         `).join('');
     }
+
+
+
+// 🎨 Funzione che sincronizza in tempo reale l'anteprima esatta con il colore HEX
+    function syncColorPreview(hexColor) {
+        const circle = document.getElementById('color-preview-circle');
+        const label = document.getElementById('color-hex-label');
+        const select = document.getElementById('new-user-color');
+
+        if (circle) circle.style.background = hexColor;
+        if (label) label.innerText = hexColor.toUpperCase();
+        if (select && select.value !== hexColor) select.value = hexColor;
+
+        // Evidenzia visivamente il cerchietto cliccato nella palette rapida
+        document.querySelectorAll('.swatch-dot').forEach(dot => {
+            if (dot.getAttribute('data-color').toUpperCase() === hexColor.toUpperCase()) {
+                dot.style.transform = 'scale(1.25)';
+                dot.style.boxShadow = '0 0 0 2px #4f46e5';
+            } else {
+                dot.style.transform = 'scale(1)';
+                dot.style.boxShadow = 'none';
+            }
+        });
+    }
+
+    // Inizializza la barra dei campioni colore (Swatches) esatti al 100%
+    function initColorSwatches() {
+        const swatchesContainer = document.getElementById('quick-swatches');
+        const select = document.getElementById('new-user-color');
+        if (!swatchesContainer || !select) return;
+
+        const options = Array.from(select.options);
+        swatchesContainer.innerHTML = options.map(opt => `
+            <span class="swatch-dot" data-color="${opt.value}" onclick="syncColorPreview('${opt.value}')" 
+                  title="${opt.text}" 
+                  style="width: 18px; height: 18px; border-radius: 50%; background: ${opt.value}; cursor: pointer; border: 1px solid rgba(0,0,0,0.15); transition: all 0.15s ease; display: inline-block;">
+            </span>
+        `).join('');
+
+        // Imposta il colore iniziale
+        syncColorPreview(select.value || '#FF6B8B');
+    }
+
+    // Chiamata di avvio swatches al caricamento della pagina o cambio vista
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initColorSwatches, 300);
+    });
 
 
  async function loadDailyTargetWidget() {
