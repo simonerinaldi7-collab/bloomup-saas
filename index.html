@@ -1271,12 +1271,14 @@
         <p style="color:#666; font-size:13px; margin-bottom:20px;">Crea o modifica gli operatori del salone, assegna i ruoli e il colore identificativo per l'agenda.</p>
         
         <!-- Form di Creazione / Modifica Utente -->
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:25px; align-items: end; background: #f8f9fa; padding: 20px; border-radius: 14px; border: 1px solid var(--border);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; align-items: end; background: #f8f9fa; padding: 20px; border-radius: 16px; border: 1px solid var(--border);">
             <input type="hidden" id="edit-user-id" value="-1">
+            
             <div>
                 <label>Username</label>
-                <input type="text" id="new-user" placeholder="Es. mario" style="margin:0" autocomplete="off">
+                <input type="text" id="new-user" placeholder="Es. mario" style="margin:0; width:100%;" autocomplete="off">
             </div>
+            
             <div>
                 <label>Password</label>
                 <div style="position: relative; margin: 0;">
@@ -1284,17 +1286,18 @@
                     <button type="button" onclick="togglePasswordVisibility('new-pass', this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 0; color: #64748b;" title="Mostra/Nascondi password">👁️</button>
                 </div>
             </div>
-    </div>
+            
             <div>
                 <label>Ruolo</label>
-                <select id="new-role" style="margin:0">
+                <select id="new-role" style="margin:0; width:100%;">
                     <option value="user">User (Operatore)</option>
                     <option value="admin">Admin (Titolare)</option>
                 </select>
             </div>
+            
             <div>
                 <label>Colore Agenda</label>
-                <select id="new-user-color" style="margin:0">
+                <select id="new-user-color" style="margin:0; width:100%;">
                     <option value="#6C5CE7">Viola VaiMUp</option>
                     <option value="#00B894">Verde Smeraldo</option>
                     <option value="#E17055">Corallo</option>
@@ -1305,7 +1308,10 @@
                     <option value="#2d3436">Antracite</option>
                 </select>
             </div>
-            <button class="btn btn-p" style="margin:0; justify-content:center;" onclick="saveUserRecord()">Salva Utente</button>
+
+            <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 5px;">
+                <button class="btn btn-p" style="margin:0; min-width: 180px; justify-content: center; padding: 12px 24px;" onclick="saveUserRecord()">Salva Utente</button>
+            </div>
         </div>
         
         <!-- Tabella Utenti -->
