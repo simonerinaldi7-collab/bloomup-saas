@@ -962,6 +962,7 @@ async function handleSpecialAction(action, data, id) {
                     }
 
                     report.push({
+                        sale_id: sale.id, // 👈 AGGIUNTO: ID fondamentale per lo storno
                         date: sale.date,
                         time: sale.time || '00:00',
                         item_name: item.item_name || 'Articolo',
