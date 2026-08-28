@@ -1128,15 +1128,14 @@ async function handleSpecialAction(action, data, id) {
             return Object.values(insightsMap);
         }
 
-        // 🔑 5. VOID_SALE (Storno / Annullamento Vendita con effetto retroattivo)
+        // 🔑 5. VOID_SALE (Storno / Annullamento Vendita con effetto retroattivo corretto per Consumabili e FIFO)
         if (action === 'VOID_SALE') {
-            const saleId = id; // Passiamo l'ID della vendita (sale_id)
+            const saleId = id; 
             if (!saleId) return { status: 'error', message: 'ID vendita non specificato.' };
 
             console.log(`🔄 [STORN] Avvio storno retroattivo per la vendita ID: ${saleId}`);
 
             try {
-                // 1. Recuperiamo la vendita e i suoi items
                 const sales = await localDb.sales.where('salon_id').equals(salonId).toArray();
                 const targetSale = sales.find(s => s.id === saleId);
                 
@@ -1151,21 +1150,19 @@ async function handleSpecialAction(action, data, id) {
                 const allConsumables = await localDb.service_consumables.where('salon_id').equals(salonId).toArray();
                 const allLots = await localDb.stock_lots.where('salon_id').equals(salonId).toArray();
 
-                // 2. Ripristino retroattivo dello Stock e dei Lotti FIFO per ogni articolo stornato
                 for (let item of targetItems) {
                     const qtyToRestore = parseFloat(item.qty) || 1;
                     const prod = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
 
                     if (prod) {
                         if (prod.type === 'prodotto') {
-                            // A. Ripristino magazzino fisico
+                            // A. Ripristino magazzino fisico prodotto rivenduto
                             const newStock = (parseFloat(prod.stock) || 0) + qtyToRestore;
                             await localDb.inventory.update(prod.id, { stock: newStock });
 
-                            // B. Ripristino sul lotto FIFO più recente o riapertura lotto
+                            // B. Ripristino sul lotto FIFO più recente
                             const prodLots = allLots.filter(l => l.product_id === prod.id);
                             if (prodLots.length > 0) {
-                                // Ordiniamo dal più recente per restituire i pezzi al lotto di origine o recente
                                 prodLots.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
                                 const latestLot = prodLots[0];
                                 const newLotRemaining = (parseFloat(latestLot.qty_remaining) || 0) + qtyToRestore;
@@ -1181,8 +1178,9 @@ async function handleSpecialAction(action, data, id) {
                             }
 
                         } else if (prod.type === 'servizio') {
-                            // C. Se era un servizio, restituiamo i materiali consumabili scalati
+                            // ✂️ D. SE ERA UN SERVIZIO: Ripristiniamo i magazzini di TUTTI i materiali consumabili associati!
                             const serviceCons = allConsumables.filter(sc => sc.service_id === prod.id);
+                            
                             for (let sc of serviceCons) {
                                 const consumedProd = inventory.find(p => p.id === sc.product_id);
                                 const qtyConsumableToRestore = (parseFloat(sc.quantity_per_service) || 0) * qtyToRestore;
@@ -1190,9 +1188,23 @@ async function handleSpecialAction(action, data, id) {
                                 if (consumedProd) {
                                     const newConsStock = (parseFloat(consumedProd.stock) || 0) + qtyConsumableToRestore;
                                     await localDb.inventory.update(consumedProd.id, { stock: newConsStock });
+
+                                    // Ripristiniamo anche sul lotto FIFO del consumabile se tracciato
+                                    const consLots = allLots.filter(l => l.product_id === consumedProd.id);
+                                    if (consLots.length > 0) {
+                                        consLots.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+                                        const latestConsLot = consLots[0];
+                                        const newConsLotRem = (parseFloat(latestConsLot.qty_remaining) || 0) + qtyConsumableToRestore;
+                                        await localDb.stock_lots.update(latestConsLot.id, { qty_remaining: newConsLotRem });
+                                        if (navigator.onLine) {
+                                            await sendToCloudDirectly('PATCH', 'stock_lots', { qty_remaining: newConsLotRem }, latestConsLot.id);
+                                        }
+                                    }
+
                                     if (navigator.onLine) {
                                         await sendToCloudDirectly('PATCH', 'inventory', { stock: newConsStock }, consumedProd.id);
                                     }
+                                    console.log(`✅ [STORN CONSUMABILE] Ripristinati ${qtyConsumableToRestore} di ${consumedProd.name} per storno servizio ${prod.name}`);
                                 }
                             }
                         }
@@ -1217,7 +1229,7 @@ async function handleSpecialAction(action, data, id) {
                     });
                 }
 
-                console.log(`✅ [STORN] Vendita ${saleId} stornata con successo. Stock e dati economici ripristinati.`);
+                console.log(`✅ [STORN] Vendita ${saleId} stornata con successo. Consumabili, stock e dati economici ripristinati.`);
                 return { status: 'ok' };
 
             } catch (err) {
