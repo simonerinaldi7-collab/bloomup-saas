@@ -65,7 +65,8 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'UPDATE_PASSWORD',
         'UPSERT_SETTING',
         'RESET_PASSWORD',
-        'SAVE_USER'
+        'SAVE_USER',
+        'VOID_SALE'
         ].includes(action)) {
         return await handleSpecialAction(action, data, id);
     }
@@ -983,7 +984,7 @@ async function handleSpecialAction(action, data, id) {
                 return [];
             }
         }
-        
+
         // --- 9. GET_CUSTOMER_INSIGHTS (PWA) ---
         if (action === 'GET_CUSTOMER_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
@@ -1125,6 +1126,107 @@ async function handleSpecialAction(action, data, id) {
 
             return Object.values(insightsMap);
         }
+
+        // 🔑 5. VOID_SALE (Storno / Annullamento Vendita con effetto retroattivo)
+        if (action === 'VOID_SALE') {
+            const saleId = id; // Passiamo l'ID della vendita (sale_id)
+            if (!saleId) return { status: 'error', message: 'ID vendita non specificato.' };
+
+            console.log(`🔄 [STORN] Avvio storno retroattivo per la vendita ID: ${saleId}`);
+
+            try {
+                // 1. Recuperiamo la vendita e i suoi items
+                const sales = await localDb.sales.where('salon_id').equals(salonId).toArray();
+                const targetSale = sales.find(s => s.id === saleId);
+                
+                const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
+                const targetItems = saleItems.filter(si => si.sale_id === saleId);
+
+                if (!targetSale) {
+                    return { status: 'error', message: 'Vendita non trovata nel database.' };
+                }
+
+                const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray();
+                const allConsumables = await localDb.service_consumables.where('salon_id').equals(salonId).toArray();
+                const allLots = await localDb.stock_lots.where('salon_id').equals(salonId).toArray();
+
+                // 2. Ripristino retroattivo dello Stock e dei Lotti FIFO per ogni articolo stornato
+                for (let item of targetItems) {
+                    const qtyToRestore = parseFloat(item.qty) || 1;
+                    const prod = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+
+                    if (prod) {
+                        if (prod.type === 'prodotto') {
+                            // A. Ripristino magazzino fisico
+                            const newStock = (parseFloat(prod.stock) || 0) + qtyToRestore;
+                            await localDb.inventory.update(prod.id, { stock: newStock });
+
+                            // B. Ripristino sul lotto FIFO più recente o riapertura lotto
+                            const prodLots = allLots.filter(l => l.product_id === prod.id);
+                            if (prodLots.length > 0) {
+                                // Ordiniamo dal più recente per restituire i pezzi al lotto di origine o recente
+                                prodLots.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+                                const latestLot = prodLots[0];
+                                const newLotRemaining = (parseFloat(latestLot.qty_remaining) || 0) + qtyToRestore;
+                                await localDb.stock_lots.update(latestLot.id, { qty_remaining: newLotRemaining });
+                                
+                                if (navigator.onLine) {
+                                    await sendToCloudDirectly('PATCH', 'stock_lots', { qty_remaining: newLotRemaining }, latestLot.id);
+                                }
+                            }
+
+                            if (navigator.onLine) {
+                                await sendToCloudDirectly('PATCH', 'inventory', { stock: newStock }, prod.id);
+                            }
+
+                        } else if (prod.type === 'servizio') {
+                            // C. Se era un servizio, restituiamo i materiali consumabili scalati
+                            const serviceCons = allConsumables.filter(sc => sc.service_id === prod.id);
+                            for (let sc of serviceCons) {
+                                const consumedProd = inventory.find(p => p.id === sc.product_id);
+                                const qtyConsumableToRestore = (parseFloat(sc.quantity_per_service) || 0) * qtyToRestore;
+
+                                if (consumedProd) {
+                                    const newConsStock = (parseFloat(consumedProd.stock) || 0) + qtyConsumableToRestore;
+                                    await localDb.inventory.update(consumedProd.id, { stock: newConsStock });
+                                    if (navigator.onLine) {
+                                        await sendToCloudDirectly('PATCH', 'inventory', { stock: newConsStock }, consumedProd.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Eliminazione del singolo sale_item (locale e cloud)
+                    await localDb.sale_items.delete(item.id);
+                    if (navigator.onLine) {
+                        await fetch(`${SUPABASE_URL}/rest/v1/sale_items?id=eq.${item.id}`, {
+                            method: 'DELETE',
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                        });
+                    }
+                }
+
+                // 3. Eliminazione della testata vendita (sales)
+                await localDb.sales.delete(saleId);
+                if (navigator.onLine) {
+                    await fetch(`${SUPABASE_URL}/rest/v1/sales?id=eq.${saleId}`, {
+                        method: 'DELETE',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    });
+                }
+
+                console.log(`✅ [STORN] Vendita ${saleId} stornata con successo. Stock e dati economici ripristinati.`);
+                return { status: 'ok' };
+
+            } catch (err) {
+                console.error("❌ Errore critico durante lo storno della vendita:", err);
+                return { status: 'error', message: err.message };
+            }
+        }
+
+
+
 
         // 🔑 4. RESET_PASSWORD (Reset admin a password provvisoria cifrata e flag a 1)
         if (action === 'RESET_PASSWORD') {

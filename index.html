@@ -1187,7 +1187,7 @@
 
     <section id="v-sales-report" class="view">
         <div class="card">
-            <h3>Report Vendite</h3>
+            <h3>Report Vendite & Gestione Storni</h3>
             <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
                 <input type="text" id="src-report-cust" placeholder="Cliente..." onkeyup="renderSalesReport()" style="max-width:200px;">
                 <input type="text" id="src-report-prod" placeholder="Prodotto..." onkeyup="renderSalesReport()" style="max-width:200px;">
@@ -1196,7 +1196,7 @@
                 <button class="btn btn-d" onclick="clearFilters()">Pulisci</button>
             </div>
             <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
-                <table style="min-width: 950px;">
+                <table style="min-width: 1050px;">
                     <thead>
                         <tr>
                             <th>Data</th>
@@ -1209,6 +1209,7 @@
                             <th>Fornitori</th>
                             <th>Margine Netto</th>
                             <th>Venditore</th>
+                            <th style="text-align: right;">Azioni</th> <!-- 👈 Colonna storno -->
                         </tr>
                     </thead>
                     <tbody id="list-report"></tbody>
@@ -2804,6 +2805,23 @@ async function submitPasswordReset() {
         return true;
     }
 
+
+async function voidSaleTransaction(saleId) {
+        if (!confirm("⚠️ ATTENZIONE: Stai per stornare questa vendita.\n\nQuesta operazione avrà un EFFETTO RETROATTIVO:\n- Il magazzino e i lotti FIFO verranno ripristinati.\n- Gli incassi e i margini verranno ricalcolati ed eliminati dal bilancio.\n\nVuoi procedere con lo storno?")) {
+            return;
+        }
+
+        const res = await window.universalQuery({ action: 'VOID_SALE', id: saleId });
+        
+        if (res && res.status === 'ok') {
+            alert("✅ Vendita stornata con successo. Magazzino e bilancio aggiornati.");
+            await refreshAllData();
+            renderSalesReport(); // Ricarica il report
+        } else {
+            alert("❌ Errore durante lo storno della vendita.");
+        }
+    }
+
     async function renderSalesReport() {
         const fCust = document.getElementById('src-report-cust').value.toLowerCase();
         const fProd = document.getElementById('src-report-prod').value.toLowerCase();
@@ -2910,6 +2928,9 @@ async function submitPasswordReset() {
                     <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
                     <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
                     <td>${r.seller || '-'}</td>
+                    <td style="text-align: right;">
+    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+</td>
                 </tr>
             `;
         }).join('');
