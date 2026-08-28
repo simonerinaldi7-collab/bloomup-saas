@@ -1296,13 +1296,12 @@
             </div>
             
             <div>
-                <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <label style="margin: 0;">Colore Agenda</label>
                     <!-- 🎨 Badge di anteprima che assume L'ESATTO colore HEX selezionato -->
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span id="color-preview-circle" style="width: 16px; height: 16px; border-radius: 50%; background: #6C5CE7; border: 1.5px solid #cbd5e1; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.2s ease;"></span>
-                        <small id="color-hex-label" style="font-size: 11px; font-weight: bold; color: #64748b;">#6C5CE7</small>
+                        <span id="color-preview-circle" style="width: 16px; height: 16px; border-radius: 50%; background: #FF6B8B; border: 1.5px solid #cbd5e1; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: background 0.2s ease;"></span>
+                        <small id="color-hex-label" style="font-size: 11px; font-weight: bold; color: #64748b;">#FF6B8B</small>
                     </div>
                 </div>
 
@@ -1329,9 +1328,9 @@
                     <option value="#636E72">● Grigio Ardesia (#636E72)</option>
                 </select>
 
-                <!-- Mini Palette di quadratini/cerchietti ad accesso rapido -->
-                <div id="quick-swatches" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding: 6px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <!-- Popolato dinamicamente da JS -->
+                <!-- Mini Palette di quadratini/cerchietti ad accesso rapido per cliccare direttamente il colore -->
+                <div id="quick-swatches" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; padding: 4px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <!-- Popolato dinamicamente da JS per mostrare i tondini esatti -->
                 </div>
             </div>
 
