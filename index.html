@@ -1506,10 +1506,18 @@
                 <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
             </div>
 
+            
             <!-- Area scrollabile dei campi -->
             <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
                 <input type="hidden" id="edit-c-id" value="-1">
                 
+<!-- 📱 Pulsante di Importazione Rapida da Rubrica del Telefono -->
+                <div id="contact-picker-wrapper" style="display: none; margin-bottom: 15px;">
+                    <button type="button" class="btn" style="width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="importPhoneContact()">
+                        📱 Importa contatto dalla rubrica del telefono
+                    </button>
+                </div>
+
                 <label>Nome</label>
                 <input type="text" id="f-c-firstname" placeholder="Nome">
                 
@@ -6020,6 +6028,74 @@ async function registerOperatorPushNotifications() {
             }
             
 
+
+
+// 1. All'apertura del modale cliente, verifichiamo se il browser supporta la rubrica nativa
+    const originalOpenMod = window.openMod;
+    // Intercettiamo l'apertura del modale cliente per mostrare/nascondere il tasto rubrica
+    window.openMod = async function(t, targetDate = null, targetTime = null, targetEnd = null) {
+        if (typeof originalOpenMod === 'function') {
+            await originalOpenMod(t, targetDate, targetTime, targetEnd);
+        }
+        
+        if (t === 'cust') {
+            const pickerWrapper = document.getElementById('contact-picker-wrapper');
+            if (pickerWrapper) {
+                // Controlla se la Contact Picker API è supportata dal browser (es. Chrome Android)
+                if ('contacts' in navigator && 'Navigator' in window) {
+                    pickerWrapper.style.display = 'block';
+                } else {
+                    pickerWrapper.style.display = 'none';
+                }
+            }
+        }
+    };
+
+    // 2. Funzione che apre la rubrica nativa del telefono e importa i dati
+    async function importPhoneContact() {
+        const supportedProps = ['name', 'tel', 'email'];
+        const options = { multiple: false };
+
+        try {
+            if (!('contacts' in navigator)) {
+                return alert("Il tuo browser non supporta l'accesso diretto alla rubrica del telefono.");
+            }
+
+            const contacts = await navigator.contacts.select(supportedProps, options);
+            
+            if (contacts && contacts.length > 0) {
+                const contact = contacts[0];
+                
+                // Estrazione Nome e Cognome
+                let fullName = (contact.name && contact.name.length > 0) ? contact.name[0] : '';
+                let firstName = '';
+                let lastName = '';
+
+                if (fullName) {
+                    const parts = fullName.trim().split(' ');
+                    firstName = parts[0] || '';
+                    lastName = parts.slice(1).join(' ') || '';
+                }
+
+                // Estrazione Telefono
+                let phone = (contact.tel && contact.tel.length > 0) ? contact.tel[0] : '';
+
+                // Valorizziamo i campi del form cliente
+                const fFirst = document.getElementById('f-c-firstname');
+                const fLast = document.getElementById('f-c-lastname');
+                const fPhone = document.getElementById('f-c-phone');
+
+                if (fFirst && firstName) fFirst.value = firstName;
+                if (fLast && lastName) fLast.value = lastName;
+                if (fPhone && phone) fPhone.value = phone;
+
+                console.log("📱 Contatto importato con successo dalla rubrica:", { firstName, lastName, phone });
+            }
+        } catch (err) {
+            console.error("Errore durante l'importazione del contatto dalla rubrica:", err);
+            // Se l'utente annulla la selezione non facciamo nulla
+        }
+    }
 
 
             async function checkAndRollBreakAppointments() {
