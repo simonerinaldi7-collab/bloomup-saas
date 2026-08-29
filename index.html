@@ -6804,19 +6804,27 @@ async function checkImminentAppointmentsNow() {
         const currentUsername = currentUser.username.trim().toLowerCase();
         const leadTimeMinutes = parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15;
 
+        // Recuperiamo gli ID degli allarmi definitivamente chiusi (cliccato "Ho capito") in questa sessione/giornata
+        const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+        const todayKeyDate = now.toISOString().split('T')[0];
+
         apps.forEach(app => {
             const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
             if (assigned !== currentUsername) return;
 
             const srv = (app.service || '').toLowerCase();
             if (srv.includes('pausa') || srv.includes('pranzo')) return;
-
             if (!app.date || !app.time) return;
+
+            // 🛑 SE L'UTENTE HA GIÀ CLICCATO "HO CAPITO" PER QUESTO APPUNTAMENTO OGGI, SALTIAMO DEFINITIVAMENTE
+            const uniqueAlertId = `${app.id}_${app.date}`;
+            if (dismissedAlerts[uniqueAlertId] === todayKeyDate) return;
 
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-            if (window.activeSnoozes[app.id]) {
+            // Gestione Snooze (Posticipa)
+            if (window.activeSnoozes && window.activeSnoozes[app.id]) {
                 const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                 if (now < snoozeUntil) return;
             }
@@ -6824,23 +6832,23 @@ async function checkImminentAppointmentsNow() {
             const diffMs = appDateTime - now;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-            // Se l'appuntamento è imminente (es. da 0 a 15 minuti prima) O è iniziato da pochissimo (es. fino a -5 minuti fa, utile se ha aperto l'app in ritardo)
+            // Finestra di allarme: da 0 a X minuti prima dell'inizio (o fino a 5 minuti dopo se aperto in ritardo)
             if (diffMinutes >= -5 && diffMinutes <= leadTimeMinutes) {
-                const trackingKey = `pro_alert_sent_${app.id}_${app.date}_${timeClean}`;
+                const sessionKey = `pro_alert_notified_${uniqueAlertId}`;
                 
-                if (!sessionStorage.getItem(trackingKey)) {
-                    sessionStorage.setItem(trackingKey, 'true');
+                if (!sessionStorage.getItem(sessionKey)) {
+                    sessionStorage.setItem(sessionKey, 'true');
                     triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
                 }
             }
         });
     } catch (e) {
-        console.error("Errore nel controllo imminente al risveglio:", e);
+        console.error("Errore nel controllo imminente:", e);
     }
 }
 
 async function triggerProfessionalAlarmModal(app, minutesLeft) {
-    // 1. 📲 ATTIVAZIONE NOTIFICA NATIVA DI SISTEMA (Blocco schermo / Centro notifiche)
+    // 1. 📲 NOTIFICA NATIVA DI SISTEMA (Con suono e vibrazione integrati dal sistema operativo)
     if ('Notification' in window && Notification.permission === 'granted') {
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -6851,40 +6859,59 @@ async function triggerProfessionalAlarmModal(app, minutesLeft) {
                 body: notifBody,
                 icon: './icon-192.png',
                 badge: './icon-192.png',
-                vibrate: [400, 200, 400],
-                tag: `appointment-alert-${app.id}`, // Evita duplicati di notifiche identiche
+                vibrate: [500, 200, 500, 200, 500],
+                tag: `appointment-alert-${app.id}`,
                 requireInteraction: true,
                 data: { url: './index.html' }
             });
-            console.log("📲 Notifiche push nativa di sistema inviata con successo.");
         } catch (pushErr) {
-            console.warn("Impossibile mostrare la notifica nativa di sistema:", pushErr);
+            console.warn("Notifica nativa non riuscita:", pushErr);
         }
     }
 
-    // Se il modale è già aperto a schermo, evitiamo di aprirne un secondo sopra
     if (document.getElementById('pro-alarm-overlay')) return;
 
-    // 2. 🔔 RIProduzione Audio di Avviso (Suono sintetico web audio)
+    // 2. 🔔 SUONO DI ALLARME (Web Audio API a doppio tono ripetuto)
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playTone(freq, timeOffset) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + timeOffset);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + timeOffset);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + timeOffset + 0.35);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime + timeOffset);
-            osc.stop(audioCtx.currentTime + timeOffset + 0.35);
-        }
-        playTone(587.33, 0);
-        playTone(880.00, 0.25);
-    } catch (e) {}
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+            const audioCtx = new AudioContext();
+            
+            // Sblocca l'audio context se bloccato dalle policy del browser
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
 
-    // 3. 🖼️ APERTURA MODALE IN-APP (Se l'utente ha l'app aperta davanti)
+            function playAlarmBeep(delay) {
+                setTimeout(() => {
+                    if (audioCtx.state === 'closed') return;
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'square'; // Onda quadra per un suono di allarme netto e udibile in salone
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota La (880Hz)
+                    
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                    
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }, delay);
+            }
+
+            // Suona tre volte in sequenza all'apparire dell'avviso
+            playAlarmBeep(0);
+            playAlarmBeep(300);
+            playAlarmBeep(600);
+        }
+    } catch (e) {
+        console.warn("Riproduzione audio browser non consentita senza interazione utente:", e);
+    }
+
+    // 3. 🖼️ MODALE A SCHERMO
     const overlay = document.createElement('div');
     overlay.id = 'pro-alarm-overlay';
     overlay.style.cssText = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeInScale 0.3s ease-out;";
@@ -6979,10 +7006,18 @@ function closeLocalAlarmModal() {
     if (overlay) overlay.remove();
 }
 
-// 🌐 Funzioni di trasmissione comando a tutti gli altri dispositivi dell'operatore
 async function requestDismissBroadcast(appId) {
+    // Troviamo la data dell'appuntamento corrente dal DOM o dall'array globale per blindare il blocco giornaliero
+    const app = (allAppointments || []).find(x => x.id === appId);
+    if (app && app.date) {
+        const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+        dismissedAlerts[`${appId}_${app.date}`] = new Date().toISOString().split('T')[0];
+        localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+    }
+
     closeLocalAlarmModal();
-    if (realtimeAlertChannel) {
+
+    if (typeof realtimeAlertChannel !== 'undefined' && realtimeAlertChannel) {
         await realtimeAlertChannel.send({
             type: 'broadcast',
             event: 'dismiss_alarm',
