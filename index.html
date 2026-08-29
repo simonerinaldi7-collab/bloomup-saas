@@ -5009,8 +5009,12 @@ let currentSelectedServices = [];
                 ${apps.map(a => {
                     const userColor = getUserColor(a.assigned_user);
                     const statusClass = getEventStyles(a);
+                    // 💰 Verifichiamo se l'appuntamento è pagato (controllando in allSales)
+                    const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
+                    const paidIcon = isPaid ? ' 💶' : '';
+
                     return `<div class="event ${statusClass}" style="background-color: ${userColor}; color: #fff;" onclick="event.stopPropagation(); viewApp('${a.id}')">
-                        <b>${a.time ? a.time.substring(0,5) : ''}</b> ${a.cust_name}
+                        <b>${a.time ? a.time.substring(0,5) : ''}</b> ${a.cust_name}${paidIcon}
                     </div>`;
                 }).join('')}
             </div>`;
@@ -5228,6 +5232,10 @@ window.loadSettingsFields = function() {
                 const leftPct = ev.leftPct;
                 const statusClass = getEventStyles(ev);
 
+                // 💰 Verifichiamo se l'appuntamento è pagato
+                const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
+                const paidIcon = isPaid ? ' 💶' : '';
+
                 const isGhost = ev.isGhost === true;
                 const ghostStyle = isGhost 
                     ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold; cursor: pointer;' 
@@ -5238,12 +5246,12 @@ window.loadSettingsFields = function() {
                     ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
                     : `viewApp('${ev.id}')`;
 
-                html += `
+                hhtml += `
                     <div class="absolute-event ${statusClass}" 
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare e aprire il modale di prenotazione' : ''}">
-                        <div style="font-size:9px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}</div>
+                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : '')}">
+                        <div style="font-size:9px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
                         <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">${ev.cust_name}</div>
                     </div>
                 `;
@@ -6964,38 +6972,42 @@ async function updateReminderBadgeCount() {
     const a = allAppointments.find(x => x.id === id); 
     if(!a) return; 
     currentViewApp = a;
+
+    // Verifichiamo se l'appuntamento è pagato
+        const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
     
     const services = (a.service || "").split(',').map(s => s.trim());
-    let calculatedTotalPrice = 0;
+        let calculatedTotalPrice = 0;
 
-    for (let servName of services) {
-        const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
-        if (product) {
-            try {
-                const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
-                const validPriceRow = historyRecords.find(ph => 
-                    a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
-                );
-                if (validPriceRow && validPriceRow.price) {
-                    calculatedTotalPrice += parseFloat(validPriceRow.price);
-                } else if (historyRecords.length > 0) {
-                    calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
+        for (let servName of services) {
+            const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
+            if (product) {
+                try {
+                    const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
+                    const validPriceRow = historyRecords.find(ph => 
+                        a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
+                    );
+                    if (validPriceRow && validPriceRow.price) {
+                        calculatedTotalPrice += parseFloat(validPriceRow.price);
+                    } else if (historyRecords.length > 0) {
+                        calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
+                    }
+                } catch (e) {
+                    console.error("Errore recupero storico prezzi:", e);
                 }
-            } catch (e) {
-                console.error("Errore recupero storico prezzi:", e);
             }
         }
-    }
 
-    const finalDisplayPrice = calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0);
+        const finalDisplayPrice = calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0);
 
-    document.getElementById('v-app-content').innerHTML = `
-        <b>CLIENTE:</b> ${a.cust_name}<br>
-        <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
-        <b>SERVIZIO:</b> ${a.service}<br>
-        <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
-        <b>NOTE:</b> ${a.notes || '-'}
-    `;
+        document.getElementById('v-app-content').innerHTML = `
+            <b>STATO:</b> ${isPaid ? '<span style="color:#047857; font-weight:bold;">💶 Pagato in Cassa</span>' : '<span style="color:#d97706; font-weight:bold;">⏳ Da Saldare</span>'}<br>
+            <b>CLIENTE:</b> ${a.cust_name}<br>
+            <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
+            <b>SERVIZIO:</b> ${a.service}<br>
+            <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
+            <b>NOTE:</b> ${a.notes || '-'}
+        `;
 
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
@@ -8864,16 +8876,16 @@ const nowTimestamp = new Date().toISOString();
         // 2. Aggiorna Leggenda Operatori e Stati
         if (legend) {
             legend.innerHTML = `
-                <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
                     <strong>Operatori:</strong>
                     ${users.map(u => `<div class="lg-item"><div class="lg-dot" style="background:${u.color || '#6C5CE7'}"></div> ${u.username}</div>`).join('')}
                 </div>
-                <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top:5px;">
-                    <strong>Stati Comunicazioni:</strong>
+                <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; align-items:center; border-top: 1px dashed #e2e8f0; padding-top:6px;">
+                    <strong>Stati e Pagamenti:</strong>
                     <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #047857; background: #f1f5f9; width: 16px;"></div> <b>Conferma Inviata</b> (Bordo Verde ✓)</div>
                     <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #C2410C; background: #f1f5f9; width: 16px;"></div> <b>Promemoria Inviato</b> (Bordo Arancione 🔔)</div>
+                    <div class="lg-item"><span>💶 <b>Pagato in Cassa</b></span></div>
                 </div>
-                
             `;
         }
     }
