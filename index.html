@@ -6794,7 +6794,7 @@ function startProfessionalOperatorAlertSystem() {
 }
 
 async function checkImminentAppointmentsNow() {
-    if (!currentUser || !navigator.onLine) return;
+    if (!currentUser) return;
 
     try {
         const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
@@ -6802,9 +6802,10 @@ async function checkImminentAppointmentsNow() {
 
         const now = new Date();
         const currentUsername = currentUser.username.trim().toLowerCase();
+        
+        // Recuperiamo i minuti di anticipo configurati (default 15 minuti)
         const leadTimeMinutes = parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15;
 
-        // Recuperiamo gli ID degli allarmi definitivamente chiusi (cliccato "Ho capito") in questa sessione/giornata
         const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
         const todayKeyDate = now.toISOString().split('T')[0];
 
@@ -6816,11 +6817,13 @@ async function checkImminentAppointmentsNow() {
             if (srv.includes('pausa') || srv.includes('pranzo')) return;
             if (!app.date || !app.time) return;
 
-            // 🛑 SE L'UTENTE HA GIÀ CLICCATO "HO CAPITO" PER QUESTO APPUNTAMENTO OGGI, SALTIAMO DEFINITIVAMENTE
             const uniqueAlertId = `${app.id}_${app.date}`;
             if (dismissedAlerts[uniqueAlertId] === todayKeyDate) return;
 
+            // Pulizia orario (es. "09:30:00" o "09:30" -> "09:30")
             const timeClean = app.time.substring(0, 5);
+            
+            // Creazione esatta dell'oggetto Data dell'appuntamento nel fuso locale
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
             // Gestione Snooze (Posticipa)
@@ -6832,8 +6835,12 @@ async function checkImminentAppointmentsNow() {
             const diffMs = appDateTime - now;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-            // Finestra di allarme: da 0 a X minuti prima dell'inizio (o fino a 5 minuti dopo se aperto in ritardo)
-            if (diffMinutes >= -5 && diffMinutes <= leadTimeMinutes) {
+            console.log(`⏱️ [CHECK ALLARME] App: ${app.cust_name} (${app.date} ${timeClean}) | Mancano: ${diffMinutes} min (Target: 0 - ${leadTimeMinutes} min)`);
+
+            // 🛑 CONDIZIONE RIGOROSA: 
+            // 1. L'appuntamento deve essere nel futuro (o iniziato da pochissimo, max 2 minuti fa per evitare ritardi di visualizzazione)
+            // 2. Mancano meno o uguale ai minuti di anticipo configurati (es. <= 15 min)
+            if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
                 const sessionKey = `pro_alert_notified_${uniqueAlertId}`;
                 
                 if (!sessionStorage.getItem(sessionKey)) {
