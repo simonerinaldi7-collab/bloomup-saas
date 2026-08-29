@@ -1449,15 +1449,14 @@
 
             <div style="margin: 20px 0 5px 0;">
                 <label>Template Messaggio Reminder</label>
-                <!-- BARRA PLACEHOLDER INTERATTIVI -->
-                <!-- BARRA PLACEHOLDER INTERATTIVI (CONFERMA) -->
+                <!-- BARRA PLACEHOLDER INTERATTIVI CORRETTA PER IL REMINDER -->
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
                     <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{NOME}}')">{{NOME}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{COGNOME}}')">{{COGNOME}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{NOME}}')">{{NOME}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{COGNOME}}')">{{COGNOME}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{DATA}}')">{{DATA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{ORA}}')">{{ORA}}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
                 </div>
                 <textarea id="set-msg-reminder" rows="3" placeholder="Scrivi il messaggio promemoria..."></textarea>
             </div>
