@@ -5246,7 +5246,7 @@ window.loadSettingsFields = function() {
                     ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
                     : `viewApp('${ev.id}')`;
 
-                hhtml += `
+                html += `
                     <div class="absolute-event ${statusClass}" 
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
