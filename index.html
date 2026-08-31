@@ -1047,7 +1047,8 @@
         <label style="margin:0; font-weight:bold; color:var(--txt);">A Mese:</label>
         <input type="month" id="m-end" onchange="loadBalance()" style="margin:0; padding:10px; background:white; font-weight:bold;">
     </div>
-    <button class="btn" style="padding:10px 14px; background:white; font-size:12px;" onclick="resetBalanceFilters()">Mesi Correnti</button>
+    <!-- 👈 Modificato il testo del pulsante -->
+    <button class="btn" style="padding:10px 14px; background:white; font-size:12px;" onclick="resetBalanceFilters()">Tutti i mesi</button>
 </div>
             <table>
                 <thead><tr style="background: #f8f9fa;"><th style="padding:10px;">Mese</th><th style="padding:10px;">Incassi</th><th style="padding:10px;">Spese</th><th style="padding:10px;">Guadagno</th></tr></thead>
@@ -2496,7 +2497,7 @@ async function submitPasswordReset() {
 
     async function setupBalanceFilters() {
         console.log("Inizio setupBalanceFilters...");
-        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' });
+        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' }) || [];
         
         const inputStart = document.getElementById('m-start');
         const inputEnd = document.getElementById('m-end');
@@ -2506,24 +2507,33 @@ async function submitPasswordReset() {
         // Se i campi sono già valorizzati dall'utente, non li sovrascriviamo
         if (inputStart.value && inputEnd.value) return;
 
+        const currentYear = new Date().getFullYear();
+        const defaultStart = `${currentYear}-01`; // Gennaio dell'anno corrente
+        const defaultEnd = `${currentYear}-12`;   // Dicembre dell'anno corrente
+
         if (Array.isArray(data) && data.length > 0) {
-            // Ordiniamo le etichette mese (formato 'YYYY-MM')
             const sortedLabels = data.map(d => d.m_label).sort();
-            
-            // Impostiamo il primo mese disponibile come default di inizio, e l'ultimo come fine
-            inputStart.value = sortedLabels[0];
-            inputEnd.value = sortedLabels[sortedLabels.length - 1];
             
             // Impostiamo i limiti min e max basati sullo storico effettivo del database
             inputStart.min = sortedLabels[0];
             inputStart.max = sortedLabels[sortedLabels.length - 1];
             inputEnd.min = sortedLabels[0];
             inputEnd.max = sortedLabels[sortedLabels.length - 1];
+
+            // 🎯 Impostiamo di default l'anno corrente (se esiste nello storico o come intervallo standard)
+            inputStart.value = defaultStart;
+            inputEnd.value = defaultEnd;
+
+            // Se l'anno corrente non ha ancora dati ma ci sono dati passati, come fallback mostriamo l'intero storico
+            const hasCurrentYearData = data.some(d => d.m_label.startsWith(String(currentYear)));
+            if (!hasCurrentYearData && sortedLabels.length > 0) {
+                inputStart.value = sortedLabels[0];
+                inputEnd.value = sortedLabels[sortedLabels.length - 1];
+            }
         } else {
-            // Fallback sul mese corrente se non c'è storico
-            const nowStr = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
-            inputStart.value = nowStr;
-            inputEnd.value = nowStr;
+            // Fallback se il database è completamente vuoto
+            inputStart.value = defaultStart;
+            inputEnd.value = defaultEnd;
         }
 
         await loadBalance();
@@ -2720,9 +2730,9 @@ async function submitPasswordReset() {
         }).join('');
     }
 
-     // Funzione rapida per resettare ai mesi correnti o estremi
+     // Funzione associata al tasto "Tutti i mesi" (seleziona l'intero storico disponibile)
     async function resetBalanceFilters() {
-        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' });
+        const data = await window.api.query({ action: 'GET_MONTHLY_BALANCE' }) || [];
         const inputStart = document.getElementById('m-start');
         const inputEnd = document.getElementById('m-end');
         
@@ -2730,6 +2740,10 @@ async function submitPasswordReset() {
             const sortedLabels = data.map(d => d.m_label).sort();
             inputStart.value = sortedLabels[0];
             inputEnd.value = sortedLabels[sortedLabels.length - 1];
+        } else {
+            const currentYear = new Date().getFullYear();
+            inputStart.value = `${currentYear}-01`;
+            inputEnd.value = `${currentYear}-12`;
         }
         await loadBalance();
     }
