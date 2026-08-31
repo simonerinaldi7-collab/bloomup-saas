@@ -2507,31 +2507,38 @@ async function submitPasswordReset() {
         // Se i campi sono già valorizzati dall'utente, non li sovrascriviamo
         if (inputStart.value && inputEnd.value) return;
 
-        const currentYear = new Date().getFullYear();
-        const defaultStart = `${currentYear}-01`; // Gennaio dell'anno corrente
-        const defaultEnd = `${currentYear}-12`;   // Dicembre dell'anno corrente
+        const currentYear = new Date().getFullYear(); // 2026
+        const defaultStart = `${currentYear}-01`;     // 2026-01
+        const defaultEnd = `${currentYear}-12`;       // 2026-12
 
         if (Array.isArray(data) && data.length > 0) {
+            // Filtriamo eventuali date anomale troppo vecchie nel passato (es. < 2023 o 2024 se non pertinenti)
+            // Oppure prendiamo direttamente l'anno più recente presente nei dati
             const sortedLabels = data.map(d => d.m_label).sort();
             
-            // Impostiamo i limiti min e max basati sullo storico effettivo del database
+            // Impostiamo i limiti min e max dello storico
             inputStart.min = sortedLabels[0];
             inputStart.max = sortedLabels[sortedLabels.length - 1];
             inputEnd.min = sortedLabels[0];
             inputEnd.max = sortedLabels[sortedLabels.length - 1];
 
-            // 🎯 Impostiamo di default l'anno corrente (se esiste nello storico o come intervallo standard)
-            inputStart.value = defaultStart;
-            inputEnd.value = defaultEnd;
+            // Verifichiamo se l'anno corrente ha dei dati
+            const currentYearMonths = sortedLabels.filter(label => label.startsWith(String(currentYear)));
 
-            // Se l'anno corrente non ha ancora dati ma ci sono dati passati, come fallback mostriamo l'intero storico
-            const hasCurrentYearData = data.some(d => d.m_label.startsWith(String(currentYear)));
-            if (!hasCurrentYearData && sortedLabels.length > 0) {
-                inputStart.value = sortedLabels[0];
-                inputEnd.value = sortedLabels[sortedLabels.length - 1];
+            if (currentYearMonths.length > 0) {
+                // Se ci sono dati nell'anno corrente, selezioniamo da Gennaio a Dicembre dell'anno corrente
+                inputStart.value = defaultStart;
+                inputEnd.value = defaultEnd;
+            } else {
+                // Altrimenti, se l'anno corrente è vuoto, prendiamo l'anno più recente tra quelli presenti nello storico
+                const latestMonth = sortedLabels[sortedLabels.length - 1]; // es. '2025-12' o '2025-08'
+                const latestYear = latestMonth.substring(0, 4);
+                
+                inputStart.value = `${latestYear}-01`;
+                inputEnd.value = `${latestYear}-12`;
             }
         } else {
-            // Fallback se il database è completamente vuoto
+            // Fallback se il database è vuoto
             inputStart.value = defaultStart;
             inputEnd.value = defaultEnd;
         }
