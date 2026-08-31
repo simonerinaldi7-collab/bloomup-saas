@@ -5433,40 +5433,42 @@ async function updateProductSizeFilter() {
     select.innerHTML = '<option value="all">Tutte le Taglie</option>' + 
         uniqueSizes.map(sz => `<option value="${sz}" ${sz === currentVal ? 'selected' : ''}>${sz}</option>`).join('');
 }
-    // Algoritmo avanzato di layout a cluster per Google Calendar Style
+    // Algoritmo avanzato di layout a cluster con gestione eventi consecutivi e spaziatura
     function calculateEventOverlapLayout(apps) {
-    if (!apps || apps.length === 0) return [];
+        if (!apps || apps.length === 0) return [];
 
-    // 7:00 è l'inizio della nuova griglia (minuto 420 della giornata)
-    const gridStartMinutes = 7 * 60; 
-    const pxPerMinute = 60 / 60; // 60px per ora = 1px per minuto
+        const gridStartMinutes = 7 * 60; // 07:00 inizio griglia
+        const pxPerMinute = 60 / 60; // 60px per ora = 1px per minuto
 
-    const eventsWithCoords = apps.map(a => {
-        const [sH, sM] = (a.time || "07:00").split(':').map(Number);
-        const startMin = sH * 60 + sM;
-        
-        let endMin = startMin + 60;
-        if (a.end_time) {
-            const [eH, eM] = a.end_time.split(':').map(Number);
-            endMin = eH * 60 + eM;
-        }
+        const eventsWithCoords = apps.map(a => {
+            const [sH, sM] = (a.time || "07:00").split(':').map(Number);
+            const startMin = sH * 60 + sM;
+            
+            let endMin = startMin + 60;
+            if (a.end_time) {
+                const [eH, eM] = a.end_time.split(':').map(Number);
+                endMin = eH * 60 + eM;
+            }
 
-        const topPx = (startMin - gridStartMinutes) * pxPerMinute;
-        const durationMin = Math.max(endMin - startMin, 30);
-        const heightPx = durationMin * pxPerMinute;
+            const topPx = (startMin - gridStartMinutes) * pxPerMinute;
+            
+            // 🛑 TRUCCO GRAFICO DI SPAZIATURA: 
+            // Riduciamo l'altezza di 2 pixel per creare un minuscolo spazio visivo tra eventi consecutivi
+            const durationMin = Math.max(endMin - startMin, 25);
+            const heightPx = Math.max((durationMin * pxPerMinute) - 2, 22);
 
-        return { 
-            ...a, 
-            startMin, 
-            endMin, 
-            topPx, 
-            heightPx, 
-            col: 0, 
-            totalCols: 1 
-        };
-    });
+            return { 
+                ...a, 
+                startMin, 
+                endMin, 
+                topPx, 
+                heightPx, 
+                col: 0, 
+                totalCols: 1 
+            };
+        });
 
-        // 1. Ordiniamo per orario di inizio crescente, e a parità di inizio, per durata decrescente
+        // 1. Ordinamento per orario di inizio crescente, e a parità di inizio, per durata decrescente
         eventsWithCoords.sort((a, b) => {
             if (a.startMin !== b.startMin) return a.startMin - b.startMin;
             return (b.endMin - b.startMin) - (a.endMin - a.startMin);
@@ -5480,9 +5482,11 @@ async function updateProductSizeFilter() {
             if (currentCluster.length === 0) {
                 currentCluster.push(ev);
             } else {
-                // Controlla se l'evento si sovrappone con almeno un elemento del cluster corrente
-                // (cioè il suo startMin è inferiore alla fine massima del cluster)
+                // 🛑 CORRETTO: Due eventi che si toccano esattamente (es. finisce alle 9:30 e inizia alle 9:30) 
+                // NON devono essere considerati in sovrapposizione tra loro nello stesso blocco orizzontale di colonna!
                 const maxEndInCluster = Math.max(...currentCluster.map(e => e.endMin));
+                
+                // Usiamo '<' rigoroso anziché '<=' in modo che l'orario di fine combaciante non crei cluster affiancati
                 if (ev.startMin < maxEndInCluster) {
                     currentCluster.push(ev);
                 } else {
@@ -5495,17 +5499,15 @@ async function updateProductSizeFilter() {
             clusters.push(currentCluster);
         }
 
-        // 3. Per ogni cluster, calcoliamo le colonne effettive in base alle vere sovrapposizioni locali
-        const finalEvents = [];
-
+        // 3. Per ogni cluster, calcoliamo le colonne effettive in base alle sovrapposizioni locali
         clusters.forEach(cluster => {
-            // Assegnazione delle colonne all'interno del cluster
             let columns = [];
             cluster.forEach(ev => {
                 let placed = false;
                 for (let i = 0; i < columns.length; i++) {
                     let col = columns[i];
-                    // Verifica se si sovrappone ad eventi già in questa colonna del cluster
+                    // Due eventi si sovrappongono se l'inizio del secondo è < della fine del primo 
+                    // E la fine del secondo è > dell'inizio del primo (senza considerare uguali i punti di contatto)
                     let overlap = col.some(e => !(ev.startMin >= e.endMin || ev.endMin <= e.startMin));
                     if (!overlap) {
                         col.push(ev);
@@ -5521,16 +5523,14 @@ async function updateProductSizeFilter() {
             });
 
             const totalColsInCluster = Math.max(columns.length, 1);
-
             cluster.forEach(ev => {
                 ev.totalCols = totalColsInCluster;
             });
         });
 
-        // 4. Traduzione in percentuali CSS finali (Larghezza e Posizione Sinistra)
+        // 4. Traduzione in percentuali CSS finali
         return eventsWithCoords.map(ev => {
             const totalCols = ev.totalCols;
-            // Se c'è una sola colonna nel suo gruppo di sovrapposizione, occupa quasi il 98% dello spazio!
             const widthPct = totalCols === 1 ? 98 : (100 / totalCols) - 2;
             const leftPct = totalCols === 1 ? 1 : (ev.col * (100 / totalCols));
             
