@@ -5352,14 +5352,18 @@ window.loadSettingsFields = function() {
 
             html += `<div class="day-column">`;
             
-            // Sfondi orari fissi (dalle 07:00 alle 22:00)
+            // Sfondi orari fissi (dalle 07:00 alle 22:00) con supporto al Drop
             for (let h = 7; h < 22; h++) {
                 const timeStr = `${String(h).padStart(2, '0')}:00`;
                 const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
                 const slotStyleClass = isWorking ? '' : 'non-working';
-                const tooltipText = isWorking ? `Clicca per prenotare alle ${timeStr}` : `Fuori orario standard / Riposo`;
+                const tooltipText = isWorking ? `Trascina qui o clicca per le ${timeStr}` : `Fuori orario standard / Riposo`;
 
-                html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
+                html += `<div class="day-hour-slot ${slotStyleClass}" 
+                            ondragover="allowDrop(event)" 
+                            ondrop="onEventDrop(event, '${dStr}', '${timeStr}')" 
+                            onclick="onTimeSlotClick('${dStr}', '${timeStr}')" 
+                            title="${tooltipText}"></div>`;
             }
 
             // Eventi posizionati in assoluto con gestione anti-sovrapposizione ed eventi brevi
@@ -5406,9 +5410,11 @@ window.loadSettingsFields = function() {
 
                 html += `
                     <div class="absolute-event ${finalClass}${compactClass}" 
+                        draggable="true"
+                        ondragstart="onEventDragStart(event, '${ev.id}')"
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
+                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`) }">
                         <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
                         <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
                     </div>
@@ -5422,6 +5428,127 @@ window.loadSettingsFields = function() {
         area.innerHTML = html;
     }
 
+
+
+
+// 🚚 Memorizza l'ID dell'appuntamento che si sta trascinando
+    function onEventDragStart(event, appId) {
+        event.dataTransfer.setData('text/plain', appId);
+        event.dataTransfer.effectAllowed = 'move';
+    }
+
+    // Autorizza il rilascio sopra lo slot
+    function allowDrop(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }
+
+    // 🎯 Gestisce il rilascio (Drop) dell'appuntamento su una nuova data e ora
+    async function onEventDrop(event, targetDateStr, targetTimeStr) {
+        event.preventDefault();
+        const appId = event.dataTransfer.getData('text/plain');
+        if (!appId) return;
+
+        const appToMove = allAppointments.find(a => a.id === appId);
+        if (!appToMove) {
+            return alert("Impossibile trovare l'appuntamento da spostare.");
+        }
+
+        // Calcoliamo la durata originaria dell'appuntamento in minuti
+        const [oldStartH, oldStartM] = (appToMove.time || "09:00").split(':').map(Number);
+        const oldStartMin = oldStartH * 60 + oldStartM;
+        
+        let oldEndMin = oldStartMin + 60; // Default 1 ora
+        if (appToMove.end_time) {
+            const [oldEndH, oldEndM] = appToMove.end_time.split(':').map(Number);
+            oldEndMin = oldEndH * 60 + oldEndM;
+        }
+        const durationMinutes = Math.max(oldEndMin - oldStartMin, 30);
+
+        // Calcoliamo la nuova ora di fine in base alla durata originaria
+        const [newStartH, newStartM] = targetTimeStr.split(':').map(Number);
+        const newStartMin = newStartH * 60 + newStartM;
+        const newEndMin = newStartMin + durationMinutes;
+
+        const newEndH = Math.floor(newEndMin / 60) % 24;
+        const newEndM = newEndMin % 60;
+        const targetEndTimeStr = `${String(newEndH).padStart(2, '0')}:${String(newEndM).padStart(2, '0')}`;
+
+        const assignedOperator = appToMove.assigned_user || 'admin';
+
+        // 🛡️ CONTROLLO 1: Verifica Turno Lavorativo dell'operatore nel nuovo giorno
+        const dateObj = new Date(targetDateStr + 'T00:00:00');
+        const dayOfWeek = dateObj.getDay();
+        const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        const dayConfig = schedules.find(s => (s.username || '').trim().toLowerCase() === assignedOperator.trim().toLowerCase() && Number(s.day_of_week) === dayOfWeek);
+
+        if (!dayConfig || Number(dayConfig.is_working) !== 1) {
+            return alert(`⚠️ Spostamento non consentito: l'operatore ${assignedOperator} è a riposo in data ${formatDateIt(targetDateStr)}.`);
+        }
+
+        const shifts = [];
+        if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+        if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+
+        let isWithinShift = false;
+        for (let shift of shifts) {
+            const [sH, sM] = shift.start.split(':').map(Number);
+            const [eH, eM] = shift.end.split(':').map(Number);
+            if (newStartMin >= (sH * 60 + sM) && newEndMin <= (eH * 60 + eM)) {
+                isWithinShift = true;
+                break;
+            }
+        }
+
+        if (!isWithinShift) {
+            return alert(`⚠️ Spostamento non consentito: l'orario ${targetTimeStr} - ${targetEndTimeStr} è fuori dai turni lavorativi dell'operatore ${assignedOperator}.`);
+        }
+
+        // 🛡️ CONTROLLO 2: Verifica Sovrapposizioni (Conflict Detection) con altri appuntamenti
+        const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const overlapping = existingApps.find(a => {
+            if (a.id === appId) return false; // Esclude se stesso
+            const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === assignedOperator.trim().toLowerCase();
+            const isSameDate = a.date === targetDateStr;
+            if (!isSameUser || !isSameDate) return false;
+
+            const aStart = a.time;
+            const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
+
+            // Intersezione temporale
+            return (targetTimeStr < aEnd) && (targetEndTimeStr > aStart);
+        });
+
+        if (overlapping) {
+            return alert(`⚠️ Conflitto di orario: lo slot è già occupato da un appuntamento per "${overlapping.cust_name}" (${overlapping.time} - ${overlapping.end_time || 'N/D'}).`);
+        }
+
+        // ✅ AGGIORNAMENTO NEL DATABASE (Locale Dexie + Cloud Supabase)
+        const updatePayload = {
+            date: targetDateStr,
+            time: targetTimeStr,
+            end_time: targetEndTimeStr
+        };
+
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'appointments',
+            data: updatePayload,
+            id: appId
+        });
+
+        // Aggiorniamo l'array locale in memoria
+        const localApp = allAppointments.find(a => a.id === appId);
+        if (localApp) {
+            localApp.date = targetDateStr;
+            localApp.time = targetTimeStr;
+            localApp.end_time = targetEndTimeStr;
+        }
+
+        // Ricarichiamo la vista dell'agenda
+        if (typeof renderCalendar === 'function') renderCalendar();
+        console.log(`✅ [DRAG & DROP] Appuntamento di ${appToMove.cust_name} spostato al ${targetDateStr} ore ${targetTimeStr}`);
+    }
 
 function confirmSmartPreviewClick(dateStr, timeStr, endTimeStr) {
         if (!window.pendingSmartPreview) return;
