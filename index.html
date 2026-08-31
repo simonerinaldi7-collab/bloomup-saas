@@ -85,6 +85,26 @@
     70% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(99, 102, 241, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
+
+
+
+/* ☕ Stile personalizzato per la Pausa Pranzo in Agenda */
+        .event.event-break, .absolute-event.event-break {
+            background-color: #64748b !important; /* Grigio ardesia professionale */
+            color: #ffffff !important;
+            border-left: 5px solid #334155 !important;
+            opacity: 0.85;
+        }
+
+        /* 🏖️ Stile personalizzato per Chiusura e Ferie in Agenda */
+        .event.event-closure, .absolute-event.event-closure {
+            background-color: #dc2626 !important; /* Rosso deciso / Mattone */
+            color: #ffffff !important;
+            border-left: 5px solid #7f1d1d !important;
+            font-weight: bold !important;
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, transparent 10px, transparent 20px) !important;
+        }
+
         /* --- LOGIN SCREEN PROFESSIONALE & RESPONSIVE --- */
 #login-screen {
     position: fixed;
@@ -5035,13 +5055,24 @@ let currentSelectedServices = [];
             html += `<div class="day-cell ${isToday ? 'today' : ''}" onclick="onMonthDayClick('${dStr}')">
                 <div class="day-num">${d}</div>
                 ${apps.map(a => {
-                    const userColor = getUserColor(a.assigned_user);
-                    const statusClass = getEventStyles(a);
-                    // 💰 Verifichiamo se l'appuntamento è pagato (controllando in allSales)
-                    const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
-                    const paidIcon = isPaid ? ' 💶' : '';
+                    const isPausa = (a.service || '').toLowerCase().includes('pausa') || (a.service || '').toLowerCase().includes('pranzo') || (a.cust_name || '').toLowerCase().includes('pausa');
+                    const isChiusura = (a.service || '').toLowerCase().includes('chiusura') || (a.service || '').toLowerCase().includes('ferie') || (a.cust_name || '').toLowerCase().includes('chiusura') || (a.cust_name || '').toLowerCase().includes('ferie');
 
-                    return `<div class="event ${statusClass}" style="background-color: ${userColor}; color: #fff;" onclick="event.stopPropagation(); viewApp('${a.id}')">
+                    let eventClass = getEventStyles(a);
+                    let eventStyle = `background-color: ${getUserColor(a.assigned_user)}; color: #fff;`;
+
+                    if (isPausa) {
+                        eventClass += ' event-break';
+                        eventStyle = ''; // Lascia fare al CSS
+                    } else if (isChiusura) {
+                        eventClass += ' event-closure';
+                        eventStyle = ''; // Lascia fare al CSS
+                    }
+
+                    const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
+                    const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
+
+                    return `<div class="event ${eventClass}" style="${eventStyle}" onclick="event.stopPropagation(); viewApp('${a.id}')">
                         <b>${a.time ? a.time.substring(0,5) : ''}</b> ${a.cust_name}${paidIcon}
                     </div>`;
                 }).join('')}
@@ -5260,25 +5291,38 @@ window.loadSettingsFields = function() {
                 const leftPct = ev.leftPct;
                 const statusClass = getEventStyles(ev);
 
-                // 💰 Verifichiamo se l'appuntamento è pagato
+                // 🛑 Controlli eventi speciali
+                const isPausa = (ev.service || '').toLowerCase().includes('pausa') || (ev.service || '').toLowerCase().includes('pranzo') || (ev.cust_name || '').toLowerCase().includes('pausa');
+                const isChiusura = (ev.service || '').toLowerCase().includes('chiusura') || (ev.service || '').toLowerCase().includes('ferie') || (ev.cust_name || '').toLowerCase().includes('chiusura') || (ev.cust_name || '').toLowerCase().includes('ferie');
+
+                let finalClass = statusClass;
+                let finalStyle = `background-color: ${userColor}; color: white;`;
+
+                if (isPausa) {
+                    finalClass += ' event-break';
+                    finalStyle = '';
+                } else if (isChiusura) {
+                    finalClass += ' event-closure';
+                    finalStyle = '';
+                }
+
                 const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
-                const paidIcon = isPaid ? ' 💶' : '';
+                const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
 
                 const isGhost = ev.isGhost === true;
                 const ghostStyle = isGhost 
                     ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold; cursor: pointer;' 
-                    : `background-color: ${userColor}; color: white;`;
+                    : finalStyle;
                 
-                // 🛡️ USA LA FUNZIONE GLOBALE DEDICATA PER EVITARE QUALSIASI ERRORE DI SINTASSI INLINE
                 const clickAction = isGhost 
                     ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
                     : `viewApp('${ev.id}')`;
 
                 html += `
-                    <div class="absolute-event ${statusClass}" 
+                    <div class="absolute-event ${finalClass}" 
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : '')}">
+                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Già pagato' : '')}">
                         <div style="font-size:9px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
                         <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">${ev.cust_name}</div>
                     </div>
@@ -9019,10 +9063,12 @@ const nowTimestamp = new Date().toISOString();
                     ${users.map(u => `<div class="lg-item"><div class="lg-dot" style="background:${u.color || '#6C5CE7'}"></div> ${u.username}</div>`).join('')}
                 </div>
                 <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; align-items:center; border-top: 1px dashed #e2e8f0; padding-top:6px;">
-                    <strong>Stati e Pagamenti:</strong>
-                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #047857; background: #f1f5f9; width: 16px;"></div> <b>Conferma Inviata</b> (Bordo Verde ✓)</div>
-                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #C2410C; background: #f1f5f9; width: 16px;"></div> <b>Promemoria Inviato</b> (Bordo Arancione 🔔)</div>
-                    <div class="lg-item"><span>💶 <b>Pagato in Cassa</b></span></div>
+                    <strong>Stati e Blocchi:</strong>
+                    <div class="lg-item"><div class="lg-dot" style="background: #64748b; width: 14px;"></div> <b>Pausa Pranzo</b></div>
+                    <div class="lg-item"><div class="lg-dot" style="background: #dc2626; width: 14px;"></div> <b>Chiusura / Ferie</b></div>
+                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #047857; background: #f1f5f9; width: 16px;"></div> <b>Conferma ✓</b></div>
+                    <div class="lg-item"><div class="lg-dot" style="border-left: 4px solid #C2410C; background: #f1f5f9; width: 16px;"></div> <b>Promemoria 🔔</b></div>
+                    <div class="lg-item"><span>💶 <b>Pagato</b></span></div>
                 </div>
             `;
         }
