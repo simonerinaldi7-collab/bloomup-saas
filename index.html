@@ -305,73 +305,70 @@
     background-color: #e8eaed !important;
 }
 
-/* 🛒 STILI RESPONSIVE POS / CASSA (Desktop Default) */
+/* 🛒 STILI UNIFICATI POS / CASSA (Validi per qualsiasi schermo: PC, Tablet e Smartphone) */
     .pos-desktop-layout {
-        display: grid;
-        grid-template-columns: 1fr 380px;
-        gap: 20px;
+        display: flex;
+        flex-direction: column;
         height: calc(100vh - 130px);
         width: 100%;
+        position: relative;
     }
-    .pos-catalog-pane, .pos-cart-pane {
+    
+    .pos-catalog-pane {
         display: flex;
         flex-direction: column;
         height: 100%;
         margin: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
     }
+
+    /* Il carrello diventa un pannello fluttuante a schermo intero (attivo ovunque) */
+    #pos-cart-pane {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 25000 !important;
+        border-radius: 0 !important;
+        display: none !important; /* Si apre cliccando sulla barra flottante */
+        background: #f8f9fa !important;
+        padding: 25px !important;
+        height: 100vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        box-shadow: -10px 0 30px rgba(0,0,0,0.2);
+    }
+    
+    #pos-cart-pane.mobile-cart-open {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    #close-cart-mobile-btn {
+        display: inline-flex !important;
+    }
+
+    /* La barra flottante è SEMPRE VISIBILE su qualsiasi dispositivo quando ci sono articoli nel carrello */
     .pos-mobile-bar {
-        display: none; /* Nascosto su desktop */
+        display: flex !important;
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 92%;
+        max-width: 600px;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        color: white;
+        padding: 14px 22px;
+        border-radius: 18px;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4);
+        z-index: 20000;
+        cursor: pointer;
+        transition: transform 0.2s ease;
     }
-
-    /* 📱📱 ADATTAMENTO TABLET E SMARTPHONE (Sotto i 1024px) */
-    @media screen and (max-width: 1024px) {
-        .pos-desktop-layout {
-            grid-template-columns: 1fr !important;
-            height: calc(100vh - 110px) !important;
-        }
-        
-        /* Pannello catalogo con scroll fluido touch */
-        .pos-catalog-pane {
-            height: 100% !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Su tablet/smartphone il carrello si apre a modale o a schermo intero tramite la barra */
-        #pos-cart-pane {
-            position: fixed !important;
-            inset: 0 !important;
-            z-index: 25000 !important;
-            border-radius: 0 !important;
-            display: none !important; /* Aperto tramite la barra mobile/tablet */
-            background: #f8f9fa !important;
-            padding: 20px !important;
-            height: 100vh !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch;
-        }
-        #pos-cart-pane.mobile-cart-open {
-            display: flex !important;
-        }
-        #close-cart-mobile-btn {
-            display: inline-flex !important;
-        }
-        .pos-mobile-bar {
-            display: flex !important;
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            right: 15px;
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            color: white;
-            padding: 14px 20px;
-            border-radius: 16px;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
-            z-index: 20000;
-            cursor: pointer;
-        }
+    .pos-mobile-bar:hover {
+        transform: translateX(-50%) scale(1.01);
     }
 
 
@@ -4313,8 +4310,7 @@ function dismissExpenseReminderAndGoToExpenses() {
         }
     }
 
-    // 📱 Aggiornamento pulito della barra flottante mobile legato allo stato reale di cart
-    const originalRenderCart = window.renderCart;
+   const originalRenderCart = window.renderCart;
     window.renderCart = function() {
         if (typeof originalRenderCart === 'function') {
             originalRenderCart();
@@ -4334,9 +4330,9 @@ function dismissExpenseReminderAndGoToExpenses() {
         if (mobileCountEl) mobileCountEl.innerText = `${totalItems} articol${totalItems === 1 ? 'o' : 'i'} nel carrello`;
         if (mobileTotalEl) mobileTotalEl.innerText = `€ ${totalPrice.toFixed(2)}`;
 
-        // Mostra la barra flottante SOLO se ci sono effettivamente articoli nel carrello e siamo su mobile
+        // 🚀 Mostra la barra flottante su QUALSIASI DISPOSITIVO (PC, Tablet, Smartphone) se il carrello ha articoli
         if (mobileBar) {
-            if (Array.isArray(cart) && cart.length > 0 && window.innerWidth <= 768) {
+            if (Array.isArray(cart) && cart.length > 0) {
                 mobileBar.style.display = 'flex';
             } else {
                 mobileBar.style.display = 'none';
