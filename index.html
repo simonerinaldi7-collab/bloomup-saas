@@ -5442,9 +5442,10 @@ window.loadSettingsFields = function() {
                     <div class="absolute-event ${finalClass}${compactClass}" 
                         draggable="true"
                         ondragstart="onEventDragStart(event, '${ev.id}')"
+                        ondragend="onEventDragEnd(event)"
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`) }">
+                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
                         <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
                         <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
                     </div>
@@ -5461,23 +5462,33 @@ window.loadSettingsFields = function() {
 
 
 
-// 🚚 Inizio trascinamento con feedback visivo pulito
+// 🚚 Inizio trascinamento
     function onEventDragStart(event, appId) {
         event.dataTransfer.setData('text/plain', appId);
         event.dataTransfer.effectAllowed = 'move';
         
-        // Aggiungiamo una classe di stile all'elemento sorgente
+        // Aggiungiamo la classe di trascinamento con un leggero ritardo per creare l'effetto pulito
         setTimeout(() => {
             if (event.target) event.target.classList.add('dragging');
         }, 0);
     }
+
+
+// 🛑 Pulizia garantita al termine del trascinamento (Risolve il blocco in trasparenza)
+    function onEventDragEnd(event) {
+        clearDragOverStyles();
+        if (event.target) {
+            event.target.classList.remove('dragging');
+        }
+    }
+
+
 
     // Gestione visiva del passaggio sopra lo slot
     function allowDrop(event) {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         
-        // Evidenziamo lo slot corrente
         const slot = event.currentTarget;
         if (slot && !slot.classList.contains('drag-over')) {
             document.querySelectorAll('.day-hour-slot').forEach(s => s.classList.remove('drag-over'));
@@ -5486,7 +5497,7 @@ window.loadSettingsFields = function() {
     }
 
 
-     // Pulizia dell'evidenziazione quando si esce dallo slot o termina il drop
+    // Pulizia totale degli stili di trascinamento
     function clearDragOverStyles() {
         document.querySelectorAll('.day-hour-slot').forEach(s => s.classList.remove('drag-over'));
         document.querySelectorAll('.absolute-event').forEach(e => e.classList.remove('dragging'));
