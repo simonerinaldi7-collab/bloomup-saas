@@ -4303,16 +4303,15 @@ function dismissExpenseReminderAndGoToExpenses() {
         }
     }
 
-    // Aggiornamento della barra flottante mobile ogni volta che cambia il carrello
+    // 📱 Aggiornamento pulito della barra flottante mobile legato allo stato reale di cart
     const originalRenderCart = window.renderCart;
-    // Estendiamo la funzione renderCart esistente per aggiornare anche il badge mobile
     window.renderCart = function() {
         if (typeof originalRenderCart === 'function') {
             originalRenderCart();
         }
 
-        const totalItems = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
-        const totalPrice = cart.reduce((sum, item) => {
+        const totalItems = (cart || []).reduce((sum, item) => sum + (item.qty || 1), 0);
+        const totalPrice = (cart || []).reduce((sum, item) => {
             const val = item.discountVal || 0;
             const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
             return sum + (item.price - discountAmount);
@@ -4322,12 +4321,12 @@ function dismissExpenseReminderAndGoToExpenses() {
         const mobileTotalEl = document.getElementById('mobile-bar-total');
         const mobileBar = document.getElementById('pos-mobile-bar');
 
-        if (mobileCountEl) mobileCountEl.innerText = `${totalItems} articol${totalItems === 1 ? 'o' : i} nel carrello`;
+        if (mobileCountEl) mobileCountEl.innerText = `${totalItems} articol${totalItems === 1 ? 'o' : 'i'} nel carrello`;
         if (mobileTotalEl) mobileTotalEl.innerText = `€ ${totalPrice.toFixed(2)}`;
 
-        // Mostra o nasconde la barra flottante se il carrello è vuoto su mobile
+        // Mostra la barra flottante SOLO se ci sono effettivamente articoli nel carrello e siamo su mobile
         if (mobileBar) {
-            if (cart.length > 0 && window.innerWidth <= 768) {
+            if (Array.isArray(cart) && cart.length > 0 && window.innerWidth <= 768) {
                 mobileBar.style.display = 'flex';
             } else {
                 mobileBar.style.display = 'none';
@@ -9193,8 +9192,29 @@ const nowTimestamp = new Date().toISOString();
 
         currentViewApp = null;
     }      
-    function resetCassa() { cart = []; currentCheckoutCustomer = null; document.getElementById('cart-selected-cust').innerText = "Occas."; renderCart(); }
+    function resetCassa() { 
+        cart = []; 
+        currentCheckoutCustomer = null; 
         
+        // Resetta il testo visualizzato del cliente
+        const custLabel = document.getElementById('cart-selected-cust');
+        if (custLabel) custLabel.innerText = "Occasionale"; 
+        
+        // Pulisci l'input di ricerca cliente
+        const custSearch = document.getElementById('sale-cust-search');
+        if (custSearch) custSearch.value = "";
+        
+        // Eventuale pulizia descrizione manuale se esiste
+        if(document.getElementById('manual-desc')) document.getElementById('manual-desc').value = ""; 
+        
+        // 🧹 Chiude il pannello carrello su mobile se era aperto
+        if (typeof toggleMobileCart === 'function') {
+            toggleMobileCart(false);
+        }
+
+        // Ridisegna e aggiorna immediatamente la barra flottante e il totale
+        renderCart(); 
+    }    
 
     // Funzione aggiornata per aggiungere al carrello con controllo doppie vendite giornaliere
     async function addToCart(n, p, id) { 
