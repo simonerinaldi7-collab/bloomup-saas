@@ -305,6 +305,66 @@
     background-color: #e8eaed !important;
 }
 
+/* 🛒 STILI RESPONSIVE POS / CASSA */
+    .pos-desktop-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 20px;
+        height: calc(100vh - 130px);
+        width: 100%;
+    }
+    .pos-catalog-pane, .pos-cart-pane {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        margin: 0 !important;
+    }
+    .pos-mobile-bar {
+        display: none; /* Nascosto su desktop */
+    }
+
+    /* 📱 ADATTAMENTO MOBILE-FIRST PER SMARTPHONE (Sotto i 768px) */
+    @media screen and (max-width: 768px) {
+        .pos-desktop-layout {
+            grid-template-columns: 1fr !important;
+            height: calc(100vh - 110px) !important;
+        }
+        /* Su mobile il carrello di default è nascosto a schermo intero o traslato */
+        #pos-cart-pane {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 25000 !important;
+            border-radius: 0 !important;
+            display: none !important; /* Aperto tramite la barra mobile */
+            background: #f8f9fa !important;
+            padding: 20px !important;
+            height: 100vh !important;
+        }
+        #pos-cart-pane.mobile-cart-open {
+            display: flex !important;
+        }
+        #close-cart-mobile-btn {
+            display: inline-flex !important;
+        }
+        .pos-mobile-bar {
+            display: flex !important;
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 16px;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+            z-index: 20000;
+            cursor: pointer;
+        }
+    }
+
+
         /* SIDEBAR SCORRIBILE & BURGER MENU UNIFICATO */
         .sidebar {
             position: fixed; top: 0; left: -280px; width: 280px !important; height: 100vh !important;
@@ -1139,29 +1199,58 @@
         <div class="legend" id="dynamic-legend" style="flex-direction:column; gap:5px;"></div>
     </section>
 
-    <section id="v-sales" class="view">
-        <div style="display:grid; grid-template-columns: 1fr 380px; gap:20px; height:calc(100vh - 150px);">
-            <div class="card" style="display:flex; flex-direction:column; height:100%; margin:0;">
-                <label>Cerca Prodotto o Servizio nel Listino</label>
+    <section id="v-sales" class="view" style="padding: 15px !important; overflow-y: hidden !important;">
+        <!-- Contenitore principale POS Responsive -->
+        <div id="pos-container" class="pos-desktop-layout">
+            
+            <!-- COLONNA SINISTRA: CATALOGO PRODOTTI -->
+            <div class="card pos-catalog-pane">
+                <label style="margin-top:0;">Cerca Prodotto o Servizio nel Listino</label>
                 <input type="text" id="sales-search-input" placeholder="Scrivi il nome..." onkeyup="renderSalesList(this.value)">
-                <div style="flex-grow:1; overflow-y:auto; border:1px solid #f0f0f0; border-radius:10px; padding:10px;">
-                    <div id="sales-items-grid" style="display:grid; grid-template-columns: 1fr; gap:8px;">
-                        <div style="color:#aaa; text-align:center; padding:40px;">Usa la barra sopra per cercare prodotti</div>
+                <div style="flex-grow:1; overflow-y:auto; border:1px solid #f0f0f0; border-radius:10px; padding:10px; margin-bottom: 60px;">
+                    <div id="sales-items-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
+                        <div style="color:#aaa; text-align:center; padding:40px; grid-column: 1 / -1;">Usa la barra sopra per cercare prodotti</div>
                     </div>
                 </div>
             </div>
-            <div class="card" style="display:flex; flex-direction:column; height:100%; margin:0; background:#f8f9fa;">
-                <h4 style="margin:0 0 15px 0">Riepilogo Vendita</h4>
-                <label>Cliente</label>
+
+            <!-- COLONNA DESTRA / MODALE: RIEPILOGO CARRELLO -->
+            <div id="pos-cart-pane" class="card pos-cart-pane">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="margin:0">Riepilogo Carrello</h4>
+                    <!-- Tasto chiusura carrello visibile solo su mobile quando si apre il pannello -->
+                    <button id="close-cart-mobile-btn" class="btn" style="display: none; padding: 4px 10px; font-size: 11px; background: #f1f5f9;" onclick="toggleMobileCart(false)">✕ Chiudi</button>
+                </div>
+
+                <label style="margin-top:0;">Cliente</label>
                 <div style="position:relative">
-                    <input type="text" id="sale-cust-search" placeholder="Cerca cliente..." onkeyup="filterClients(this.value, 'sale')">
+                    <input type="text" id="sale-cust-search" placeholder="Cerca cliente..." onkeyup="filterClients(this.value, 'sale')" style="margin: 4px 0 10px 0;">
                     <div id="sale-search-results" class="search-results"></div>
                 </div>
-                <div id="cart-selected-cust" style="font-weight:bold; color:var(--p); margin-bottom:15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #eee;">Occasionale</div>
-                <div style="flex-grow:1; overflow-y:auto;" id="cart-items"></div>
-                <div style="font-size:28px; font-weight:bold; text-align:right; border-top:4px solid var(--p); padding-top:15px;" id="cart-total">€ 0.00</div>
-                <button class="btn btn-s" style="width:100%; margin-top:15px; justify-content:center" onclick="completeSale()">PAGA E CHIUDI</button>
-                <button class="btn" style="width:100%; margin-top:8px; justify-content:center" onclick="resetCassa()">ANNULLA</button>
+                <div id="cart-selected-cust" style="font-weight:bold; color:var(--p); margin-bottom:12px; padding: 8px 12px; background: #fff; border-radius: 8px; border: 1px solid #eee; font-size: 13px;">Occasionale</div>
+                
+                <div style="flex-grow:1; overflow-y:auto; max-height: calc(100vh - 360px);" id="cart-items"></div>
+                
+                <div style="margin-top: auto; padding-top: 10px;">
+                    <div style="font-size:24px; font-weight:bold; text-align:right; border-top:3px solid var(--p); padding-top:10px; margin-bottom: 10px;" id="cart-total">€ 0.00</div>
+                    <button class="btn btn-s" style="width:100%; margin-top:5px; justify-content:center; padding: 14px;" onclick="completeSale()">PAGA E CHIUDI</button>
+                    <button class="btn" style="width:100%; margin-top:6px; justify-content:center; background:#fff; padding: 10px;" onclick="resetCassa()">ANNULLA</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 📱 BARRA FLOTTANTE MOBILE (Sticky Footer visibile solo su smartphone) -->
+        <div id="pos-mobile-bar" class="pos-mobile-bar" onclick="toggleMobileCart(true)">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="background: rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px;">🛒</div>
+                <div>
+                    <div id="mobile-bar-count" style="font-size: 11px; opacity: 0.9;">0 articoli nel carrello</div>
+                    <div id="mobile-bar-total" style="font-size: 16px; font-weight: bold;">€ 0.00</div>
+                </div>
+            </div>
+            <div style="background: white; color: #4f46e5; padding: 8px 16px; border-radius: 8px; font-weight: bold; font-size: 13px;">
+                Apri Carrello ➔
             </div>
         </div>
     </section>
@@ -4094,6 +4183,10 @@ function dismissExpenseReminderAndGoToExpenses() {
         localStorage.setItem(`expense_reminder_dismissed_${currentUser.salon_id}`, currentYearMonth);
     }
 
+
+
+
+
     async function prepareExpenseSuggestions(currentYearMonth) {
     const container = document.getElementById('suggested-expenses-list');
     const confirmBtn = document.getElementById('btn-confirm-suggested');
@@ -4198,7 +4291,49 @@ function dismissExpenseReminderAndGoToExpenses() {
 }
 
 
+// 📱 Apre o chiude il pannello carrello su smartphone
+    function toggleMobileCart(open) {
+        const cartPane = document.getElementById('pos-cart-pane');
+        if (!cartPane) return;
 
+        if (open) {
+            cartPane.classList.add('mobile-cart-open');
+        } else {
+            cartPane.classList.remove('mobile-cart-open');
+        }
+    }
+
+    // Aggiornamento della barra flottante mobile ogni volta che cambia il carrello
+    const originalRenderCart = window.renderCart;
+    // Estendiamo la funzione renderCart esistente per aggiornare anche il badge mobile
+    window.renderCart = function() {
+        if (typeof originalRenderCart === 'function') {
+            originalRenderCart();
+        }
+
+        const totalItems = cart.reduce((sum, item) => sum + (item.qty || 1), 0);
+        const totalPrice = cart.reduce((sum, item) => {
+            const val = item.discountVal || 0;
+            const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
+            return sum + (item.price - discountAmount);
+        }, 0);
+
+        const mobileCountEl = document.getElementById('mobile-bar-count');
+        const mobileTotalEl = document.getElementById('mobile-bar-total');
+        const mobileBar = document.getElementById('pos-mobile-bar');
+
+        if (mobileCountEl) mobileCountEl.innerText = `${totalItems} articol${totalItems === 1 ? 'o' : i} nel carrello`;
+        if (mobileTotalEl) mobileTotalEl.innerText = `€ ${totalPrice.toFixed(2)}`;
+
+        // Mostra o nasconde la barra flottante se il carrello è vuoto su mobile
+        if (mobileBar) {
+            if (cart.length > 0 && window.innerWidth <= 768) {
+                mobileBar.style.display = 'flex';
+            } else {
+                mobileBar.style.display = 'none';
+            }
+        }
+    };
 
  async function confirmSuggestedExpenses() {
     const checkboxes = document.querySelectorAll('.sug-cb:checked');
@@ -5207,7 +5342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Se non c'è sessione salvata, mostra regolarmente la schermata di login
         console.log("In attesa di login manuale...");
     });
-    
+
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
         const sidebarLinks = document.querySelectorAll('.sidebar .nav-item');
