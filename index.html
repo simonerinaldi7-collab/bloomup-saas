@@ -9223,7 +9223,13 @@ const nowTimestamp = new Date().toISOString();
         await refreshAllData(); 
         
         if (typeof loadRFM === 'function') await loadRFM();
-        changePage('dashboard'); 
+
+        // 🛡️ REINDIRIZZAMENTO SICURO IN BASE AL RUOLO (Admin -> Dashboard, User -> Agenda)
+        if (currentUser && currentUser.role === 'admin') {
+            changePage('dashboard');
+        } else {
+            changePage('calendar'); // L'operatore torna all'agenda in modo sicuro
+        }
     }
         
 
