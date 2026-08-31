@@ -1646,7 +1646,7 @@
 
         <div style="display:flex; gap:10px; margin-top: 10px;">
             <div style="flex:1"><label>Data</label><input type="date" id="f-a-date" onchange="checkDuplicateAppointments(); checkOperatorScheduleValidity()"></div>
-            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="autoSetEndTime(); checkOperatorScheduleValidity();"></div>
+            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="autoSetEndTime(); checkOperatorScheduleValidity();" oninput="autoSetEndTime();"></div>
             <div style="flex:1"><label>Fine</label><input type="time" id="f-a-end" onchange="checkOperatorScheduleValidity()"></div>
         </div>
         
@@ -4915,17 +4915,26 @@ let currentSelectedServices = [];
         const timeInput = document.getElementById('f-a-time');
         const endInput = document.getElementById('f-a-end');
         
-        if (!timeInput || !endInput) return;
+        if (!timeInput || !endInput) {
+            console.warn("Elementi f-a-time o f-a-end non trovati nel DOM.");
+            return;
+        }
+
         const startTimeVal = timeInput.value; // Formato "HH:MM"
-        
         if (!startTimeVal) return;
 
-        const [hours, minutes] = startTimeVal.split(':').map(Number);
+        const parts = startTimeVal.split(':');
+        if (parts.length < 2) return;
+
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
         
+        if (isNaN(hours) || isNaN(minutes)) return;
+
         // Calcoliamo l'orario aggiungendo 60 minuti
         let totalMinutes = (hours * 60) + minutes + 60;
         
-        // Gestione del cambio giornata (se supera le 24:00, blocchiamo alle 23:59 o gestiamo il modulo)
+        // Gestione limite massimo di fine giornata (23:59)
         if (totalMinutes >= 24 * 60) {
             totalMinutes = (23 * 60) + 59;
         }
@@ -4935,8 +4944,9 @@ let currentSelectedServices = [];
 
         const formattedEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMinutes).padStart(2, '0')}`;
         
-        // Impostiamo l'ora di fine automatica
+        // Forziamo l'assegnazione
         endInput.value = formattedEndTime;
+        console.log("🕒 [AUTO TIME] Ora di fine aggiornata a:", formattedEndTime);
     }
 
 
