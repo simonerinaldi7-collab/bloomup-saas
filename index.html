@@ -1261,7 +1261,7 @@
 
     <section id="v-sales-report" class="view">
         <div class="card">
-            <h3>Report Vendite & Gestione Storni</h3>
+            <h3>Report Vendite & Analisi Economica</h3>
             <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
                 <input type="text" id="src-report-cust" placeholder="Cliente..." onkeyup="renderSalesReport()" style="max-width:200px;">
                 <input type="text" id="src-report-prod" placeholder="Prodotto..." onkeyup="renderSalesReport()" style="max-width:200px;">
@@ -1269,6 +1269,27 @@
                 <input type="date" id="d-end-report" onchange="renderSalesReport()">
                 <button class="btn btn-d" onclick="clearFilters()">Pulisci</button>
             </div>
+
+            <!-- 📊 KPI SUMMARY CARDS (Totali in alto dinamici) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid #0984e3;">
+                    <small style="color: #64748b; font-weight: bold; font-size: 10px; text-transform: uppercase;">Totale Vendite (Lordo)</small>
+                    <div id="rep-tot-gross" style="font-size: 20px; font-weight: bold; color: #1e1b4b; margin-top: 4px;">€ 0.00</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid #e17055;">
+                    <small style="color: #64748b; font-weight: bold; font-size: 10px; text-transform: uppercase;">Totale Sconti</small>
+                    <div id="rep-tot-disc" style="font-size: 20px; font-weight: bold; color: #e17055; margin-top: 4px;">€ 0.00</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid #6c5ce7;">
+                    <small style="color: #64748b; font-weight: bold; font-size: 10px; text-transform: uppercase;">Incasso Netto Finale</small>
+                    <div id="rep-tot-final" style="font-size: 20px; font-weight: bold; color: #6c5ce7; margin-top: 4px;">€ 0.00</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid #00b894;">
+                    <small style="color: #64748b; font-weight: bold; font-size: 10px; text-transform: uppercase;">Margine Netto Reale</small>
+                    <div id="rep-tot-margin" style="font-size: 20px; font-weight: bold; color: #00b894; margin-top: 4px;">€ 0.00</div>
+                </div>
+            </div>
+
             <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
                 <table style="min-width: 1050px;">
                     <thead>
@@ -1283,7 +1304,7 @@
                             <th>Fornitori</th>
                             <th>Margine Netto</th>
                             <th>Venditore</th>
-                            <th style="text-align: right;">Azioni</th> <!-- 👈 Colonna storno -->
+                            <th style="text-align: right;">Azioni</th>
                         </tr>
                     </thead>
                     <tbody id="list-report"></tbody>
@@ -2982,20 +3003,18 @@ async function voidSaleTransaction(saleId) {
         }
     }
 
-    async function renderSalesReport() {
-        const fCust = document.getElementById('src-report-cust').value.toLowerCase();
-        const fProd = document.getElementById('src-report-prod').value.toLowerCase();
-        const fStart = document.getElementById('d-start-report').value;
-        const fEnd = document.getElementById('d-end-report').value;
+   async function renderSalesReport() {
+        const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
+        const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
+        const fStart = document.getElementById('d-start-report')?.value || '';
+        const fEnd = document.getElementById('d-end-report')?.value || '';
         
-        // Recuperiamo dati freschi da IndexedDB / Cloud
-        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' });
+        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
         const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
         const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
         const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
         const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
         
-        // 🛡️ ALLESTIAMO UN ALIAS DI SICUREZZA PER EVITARE QUALSIASI ERRORE DI NOME VARIABILE
         const priceHistory = priceHistoryData;
         
         const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
@@ -3010,13 +3029,18 @@ async function voidSaleTransaction(saleId) {
         const tbody = document.getElementById('list-report');
         if (!tbody) return;
 
+        // 🧮 Variabili per il calcolo dei totali aggregati
+        let sumGross = 0;
+        let sumDiscount = 0;
+        let sumFinal = 0;
+        let sumMargin = 0;
+
         tbody.innerHTML = filtered.map(r => {
-            const soldPrice = parseFloat(r.sold_price) || 0; // Prezzo di listino pieno originario
+            const soldPrice = parseFloat(r.sold_price) || 0; 
             const discount = parseFloat(r.discount) || 0;
             const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
             const saleDate = r.date || new Date().toISOString().split('T')[0];
 
-            // 1. Troviamo il prodotto nel magazzino
             const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
             
             let unitCost = 0;
@@ -3024,24 +3048,19 @@ async function voidSaleTransaction(saleId) {
             let totalSupplierPayout = 0;
             let netMarginOrRevenue = finalPrice;
 
-            // Dichiariamo phList qui per renderla visibile in tutto lo scope del prodotto
             let phList = [];
 
             if (prod) {
                 phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
 
-                // A. Usiamo prima il costo FIFO reale della vendita (r.unit_cost), altrimenti fallback sullo storico
                 if (r.unit_cost !== undefined && r.unit_cost !== null && !isNaN(r.unit_cost) && parseFloat(r.unit_cost) > 0) {
                     unitCost = parseFloat(r.unit_cost) || 0;
                 } else {
                     if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
                 }
 
-                // B. Calcoliamo se è in conto vendita o di proprietà
                 if (prod.is_consignment) {
-                    // Troviamo il vero prezzo di listino pieno dallo storico o usiamo sold_price
                     const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
                     const links = productSuppliersData.filter(l => l.product_id === prod.id);
                     if (links.length > 0) {
                         let detailsArray = [];
@@ -3049,10 +3068,7 @@ async function voidSaleTransaction(saleId) {
                             const supp = suppliersData.find(s => s.id === l.supplier_id);
                             const suppName = supp ? supp.name : 'Fornitore';
                             const pct = parseFloat(l.split_pct) || 0;
-                            
-                            // 🛑 BLINDATO: Quota fornitore calcolata sul LISTINO PIENO ORIGINALE
                             const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
-                            
                             totalSupplierPayout += payoutForThisSupp;
                             detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
                         });
@@ -3062,17 +3078,19 @@ async function voidSaleTransaction(saleId) {
                         totalSupplierPayout = (listinoPienoOriginale * pct) / 100;
                         supplierDetailsText = `Fornitore (${pct}%): €${totalSupplierPayout.toFixed(2)}`;
                     }
-                    
-                    // Conto Vendita: Ricavo Negozio = Prezzo Pagato (finalPrice) - Quota Fornitori
                     netMarginOrRevenue = finalPrice - totalSupplierPayout;
                 } else {
-                    // Prodotto Normale: Margine Netto = Prezzo Pagato (finalPrice) - Costo d'Acquisto
                     netMarginOrRevenue = finalPrice - unitCost;
                 }
             } else {
-                // Fallback se il prodotto non è censito in magazzino (es. servizi generici)
                 netMarginOrRevenue = finalPrice;
             }
+
+            // Accumuliamo nei totali generali
+            sumGross += soldPrice;
+            sumDiscount += discount;
+            sumFinal += finalPrice;
+            sumMargin += netMarginOrRevenue;
 
             const isPositive = netMarginOrRevenue >= 0;
 
@@ -3089,11 +3107,25 @@ async function voidSaleTransaction(saleId) {
                     <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
                     <td>${r.seller || '-'}</td>
                     <td style="text-align: right;">
-    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
-</td>
+                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+                    </td>
                 </tr>
             `;
         }).join('');
+
+        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
+        const elGross = document.getElementById('rep-tot-gross');
+        const elDisc = document.getElementById('rep-tot-disc');
+        const elFinal = document.getElementById('rep-tot-final');
+        const elMargin = document.getElementById('rep-tot-margin');
+
+        if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
+        if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
+        if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
+        if (elMargin) {
+            elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
+            elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
+        }
     }
 
 
