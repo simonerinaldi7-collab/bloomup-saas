@@ -1646,7 +1646,7 @@
 
         <div style="display:flex; gap:10px; margin-top: 10px;">
             <div style="flex:1"><label>Data</label><input type="date" id="f-a-date" onchange="checkDuplicateAppointments(); checkOperatorScheduleValidity()"></div>
-            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="checkOperatorScheduleValidity();"></div>
+            <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="autoSetEndTime(); checkOperatorScheduleValidity();"></div>
             <div style="flex:1"><label>Fine</label><input type="time" id="f-a-end" onchange="checkOperatorScheduleValidity()"></div>
         </div>
         
@@ -4910,7 +4910,34 @@ let currentSelectedServices = [];
     }
 
 
+// 🕒 Imposta automaticamente l'ora di fine esattamente 1 ora dopo l'ora di inizio scelta
+    function autoSetEndTime() {
+        const timeInput = document.getElementById('f-a-time');
+        const endInput = document.getElementById('f-a-end');
+        
+        if (!timeInput || !endInput) return;
+        const startTimeVal = timeInput.value; // Formato "HH:MM"
+        
+        if (!startTimeVal) return;
 
+        const [hours, minutes] = startTimeVal.split(':').map(Number);
+        
+        // Calcoliamo l'orario aggiungendo 60 minuti
+        let totalMinutes = (hours * 60) + minutes + 60;
+        
+        // Gestione del cambio giornata (se supera le 24:00, blocchiamo alle 23:59 o gestiamo il modulo)
+        if (totalMinutes >= 24 * 60) {
+            totalMinutes = (23 * 60) + 59;
+        }
+
+        const newEndHours = Math.floor(totalMinutes / 60);
+        const newEndMinutes = totalMinutes % 60;
+
+        const formattedEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMinutes).padStart(2, '0')}`;
+        
+        // Impostiamo l'ora di fine automatica
+        endInput.value = formattedEndTime;
+    }
 
 
 
