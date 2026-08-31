@@ -4507,11 +4507,8 @@ let currentSelectedServices = [];
 
     async function performLogout() {
         resetGlobalState();
-        // 1. Esegui il backup completo (Locale + Cloud)
-        // Usiamo l'action che abbiamo configurato nel main.js
-        await window.api.query({ action: 'PERFORM_MANUAL_BACKUP' });
-        
-        // 2. Dopo il backup, facciamo il logout ricaricando la pagina
+        localStorage.removeItem('VaiMUp_logged_session'); // 👈 Cancella la sessione automatica
+        //await window.api.query({ action: 'PERFORM_MANUAL_BACKUP' });
         location.reload(); 
     }
         async function refreshAllData() {
@@ -5183,7 +5180,34 @@ let currentSelectedServices = [];
         area.innerHTML = html + '</div>';
     }
 
-
+document.addEventListener('DOMContentLoaded', async () => {
+        console.log("App avviata. Controllo sessione persistente...");
+        
+        const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
+        if (savedSessionJson) {
+            try {
+                const sessionData = JSON.parse(savedSessionJson);
+                if (sessionData && sessionData.username) {
+                    console.autoLogin = true;
+                    console.log("⚡ [AUTO-LOGIN] Trovata sessione attiva per:", sessionData.username);
+                    
+                    // Ripristiniamo l'utente corrente in memoria
+                    currentUser = sessionData;
+                    
+                    // Eseguiamo direttamente il flusso di successo senza mostrare il login
+                    await loginSuccess();
+                    return;
+                }
+            } catch (e) {
+                console.error("Errore nel parsing della sessione salvata:", e);
+                localStorage.removeItem('VaiMUp_logged_session');
+            }
+        }
+        
+        // Se non c'è sessione salvata, mostra regolarmente la schermata di login
+        console.log("In attesa di login manuale...");
+    });
+    
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
         const sidebarLinks = document.querySelectorAll('.sidebar .nav-item');
@@ -6855,11 +6879,15 @@ async function doLogin() {
 
             // Gestione spunta "Ricordami"
             if (remember) {
-                localStorage.setItem('VaiMUp_remember_user', user);
+                localStorage.setItem('VaiMUp_logged_session', JSON.stringify({
+                    username: account.username,
+                    id: account.id,
+                    salon_id: account.salon_id,
+                    role: account.role
+                }));
             } else {
-                localStorage.removeItem('VaiMUp_remember_user');
-            }
-
+                localStorage.removeItem('VaiMUp_logged_session');
+                    }
             const mustChange = parseInt(account.must_change_password);
             if (mustChange === 1) {
                 document.getElementById('mod-change-pass').classList.add('active');
