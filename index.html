@@ -86,6 +86,28 @@
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
 
+
+/* 🖱️ Stili interattivi avanzati per il Drag & Drop */
+        .absolute-event {
+            cursor: grab !important;
+            user-select: none;
+            transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .absolute-event:active {
+            cursor: grabbing !important;
+        }
+        /* Effetto visivo sull'evento mentre viene trascinato */
+        .absolute-event.dragging {
+            opacity: 0.4;
+            transform: scale(0.98);
+            box-shadow: none !important;
+        }
+        /* Evidenziazione dello slot quando ci si passa sopra col trascinamento */
+        .day-hour-slot.drag-over {
+            background-color: rgba(108, 92, 231, 0.2) !important;
+            border-top: 2px dashed var(--p) !important;
+        }
+
 /* Stile per appuntamenti brevi (< 35 minuti) */
 .absolute-event.compact-event {
     padding: 2px 4px !important;
@@ -5439,21 +5461,42 @@ window.loadSettingsFields = function() {
 
 
 
-// 🚚 Memorizza l'ID dell'appuntamento che si sta trascinando
+// 🚚 Inizio trascinamento con feedback visivo pulito
     function onEventDragStart(event, appId) {
         event.dataTransfer.setData('text/plain', appId);
         event.dataTransfer.effectAllowed = 'move';
+        
+        // Aggiungiamo una classe di stile all'elemento sorgente
+        setTimeout(() => {
+            if (event.target) event.target.classList.add('dragging');
+        }, 0);
     }
 
-    // Autorizza il rilascio sopra lo slot
+    // Gestione visiva del passaggio sopra lo slot
     function allowDrop(event) {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
+        
+        // Evidenziamo lo slot corrente
+        const slot = event.currentTarget;
+        if (slot && !slot.classList.contains('drag-over')) {
+            document.querySelectorAll('.day-hour-slot').forEach(s => s.classList.remove('drag-over'));
+            slot.classList.add('drag-over');
+        }
     }
 
-    // 🎯 Gestisce il rilascio (Drop) dell'appuntamento su una nuova data e ora
+
+     // Pulizia dell'evidenziazione quando si esce dallo slot o termina il drop
+    function clearDragOverStyles() {
+        document.querySelectorAll('.day-hour-slot').forEach(s => s.classList.remove('drag-over'));
+        document.querySelectorAll('.absolute-event').forEach(e => e.classList.remove('dragging'));
+    }
+
+    // 🎯 Rilascio (Drop) ottimizzato per spostamenti anche di soli 15 minuti
     async function onEventDrop(event, targetDateStr, targetTimeStr) {
         event.preventDefault();
+        clearDragOverStyles();
+
         const appId = event.dataTransfer.getData('text/plain');
         if (!appId) return;
 
@@ -5471,9 +5514,10 @@ window.loadSettingsFields = function() {
             const [oldEndH, oldEndM] = appToMove.end_time.split(':').map(Number);
             oldEndMin = oldEndH * 60 + oldEndM;
         }
-        const durationMinutes = Math.max(oldEndMin - oldStartMin, 15); // Minimo 15 min
+        const durationMinutes = Math.max(oldEndMin - oldStartMin, 15); // Minimo 15 minuti
 
-        // Calcoliamo la nuova ora di fine in base alla durata originaria e al nuovo slot di 15 min
+        // 🎯 CALCOLO PRECISO A 15 MINUTI: 
+        // Se l'utente rilascia esattamente sullo slot da 15 min (es. 09:15), targetTimeStr conterrà già "09:15".
         const [newStartH, newStartM] = targetTimeStr.split(':').map(Number);
         const newStartMin = newStartH * 60 + newStartM;
         const newEndMin = newStartMin + durationMinutes;
@@ -5484,7 +5528,7 @@ window.loadSettingsFields = function() {
 
         const assignedOperator = appToMove.assigned_user || 'admin';
 
-        // 🛡️ CONTROLLO 1: Turno Lavorativo (ORA NON BLOCCANTE - SOLO ALERT DI CONFERMA)
+        // 🛡️ CONTROLLO TURNO LAVORATIVO (Avviso non bloccante)
         const dateObj = new Date(targetDateStr + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
@@ -5516,13 +5560,12 @@ window.loadSettingsFields = function() {
             }
         }
 
-        // Se non rispetta il turno, chiediamo conferma anziché bloccare
         if (!isWithinShift) {
             const forceMove = confirm(`⚠️ ATTENZIONE ORARIO:\n\n${warningReason}\n\nVuoi comunque forzare lo spostamento dell'appuntamento?`);
-            if (!forceMove) return; // Annulla lo spostamento se l'utente sceglie di no
+            if (!forceMove) return;
         }
 
-        // 🛡️ CONTROLLO 2: Sovrapposizioni (Anche questo reso non bloccante con conferma)
+        // 🛡️ CONTROLLO SOVRAPPOSIZIONI (Avviso non bloccante)
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const overlapping = existingApps.find(a => {
             if (a.id === appId) return false;
@@ -5537,7 +5580,7 @@ window.loadSettingsFields = function() {
         });
 
         if (overlapping) {
-            const forceOverlap = confirm(`⚠️ CONFLITTO DI ORARIO:\n\nQuesto slot si sovrappone a un appuntamento esistente per "${overlapping.cust_name}" (${overlapping.time} - ${overlapping.end_time || 'N/D'}).\n\nVuoi sovrapporlo comunque?`);
+            const forceOverlap = confirm(`⚠️ CONFLITTO DI orario:\n\nQuesto slot si sovrappone a un appuntamento esistente per "${overlapping.cust_name}" (${overlapping.time} - ${overlapping.end_time || 'N/D'}).\n\nVuoi sovrapporlo comunque?`);
             if (!forceOverlap) return;
         }
 
