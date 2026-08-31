@@ -5433,14 +5433,13 @@ async function updateProductSizeFilter() {
     select.innerHTML = '<option value="all">Tutte le Taglie</option>' + 
         uniqueSizes.map(sz => `<option value="${sz}" ${sz === currentVal ? 'selected' : ''}>${sz}</option>`).join('');
 }
-    // Algoritmo di layout avanzato: Isolato per operatore per evitare sovrapposizioni errate e gestire i consecutivi
+    // Algoritmo avanzato di layout a cluster con gestione eventi consecutivi e spaziatura
     function calculateEventOverlapLayout(apps) {
         if (!apps || apps.length === 0) return [];
 
         const gridStartMinutes = 7 * 60; // 07:00 inizio griglia
         const pxPerMinute = 60 / 60; // 60px per ora = 1px per minuto
 
-        // 1. Mappatura delle coordinate base
         const eventsWithCoords = apps.map(a => {
             const [sH, sM] = (a.time || "07:00").split(':').map(Number);
             const startMin = sH * 60 + sM;
@@ -5452,12 +5451,14 @@ async function updateProductSizeFilter() {
             }
 
             const topPx = (startMin - gridStartMinutes) * pxPerMinute;
-            const durationMin = Math.max(endMin - startMin, 20);
-            const heightPx = Math.max((durationMin * pxPerMinute) - 2, 20); // 2px di spazio verticale
+            
+            // 🛑 TRUCCO GRAFICO DI SPAZIATURA: 
+            // Riduciamo l'altezza di 2 pixel per creare un minuscolo spazio visivo tra eventi consecutivi
+            const durationMin = Math.max(endMin - startMin, 25);
+            const heightPx = Math.max((durationMin * pxPerMinute) - 2, 22);
 
             return { 
                 ...a, 
-                assigned_user: (a.assigned_user || 'admin').trim().toLowerCase(), // Normalizzazione operatore
                 startMin, 
                 endMin, 
                 topPx, 
@@ -5467,93 +5468,78 @@ async function updateProductSizeFilter() {
             };
         });
 
-        // 2. Raggruppiamo gli eventi PER OPERATORE (In questo modo gli appuntamenti di operatori diversi 
-        // non interferiscono mai tra loro nel calcolo delle colonne orizzontali)
-        const operatorGroups = {};
-        eventsWithCoords.forEach(ev => {
-            if (!operatorGroups[ev.assigned_user]) {
-                operatorGroups[ev.assigned_user] = [];
-            }
-            operatorGroups[ev.assigned_user].push(ev);
+        // 1. Ordinamento per orario di inizio crescente, e a parità di inizio, per durata decrescente
+        eventsWithCoords.sort((a, b) => {
+            if (a.startMin !== b.startMin) return a.startMin - b.startMin;
+            return (b.endMin - b.startMin) - (a.endMin - a.startMin);
         });
 
-        let finalProcessedEvents = [];
+        // 2. Creazione di cluster di eventi interconnessi
+        let clusters = [];
+        let currentCluster = [];
 
-        // 3. Elaborazione indipendente per ciascun operatore
-        Object.keys(operatorGroups).forEach(opKey => {
-            const opEvents = operatorGroups[opKey];
-
-            // Ordinamento per orario di inizio crescente
-            opEvents.sort((a, b) => {
-                if (a.startMin !== b.startMin) return a.startMin - b.startMin;
-                return (b.endMin - b.startMin) - (a.endMin - a.startMin);
-            });
-
-            // Creazione cluster specifici dell'operatore (per gestire sovrapposizioni dello STESSO operatore se si accavallano)
-            let clusters = [];
-            let currentCluster = [];
-
-            opEvents.forEach(ev => {
-                if (currentCluster.length === 0) {
+        eventsWithCoords.forEach(ev => {
+            if (currentCluster.length === 0) {
+                currentCluster.push(ev);
+            } else {
+                // 🛑 CORRETTO: Due eventi che si toccano esattamente (es. finisce alle 9:30 e inizia alle 9:30) 
+                // NON devono essere considerati in sovrapposizione tra loro nello stesso blocco orizzontale di colonna!
+                const maxEndInCluster = Math.max(...currentCluster.map(e => e.endMin));
+                
+                // Usiamo '<' rigoroso anziché '<=' in modo che l'orario di fine combaciante non crei cluster affiancati
+                if (ev.startMin < maxEndInCluster) {
                     currentCluster.push(ev);
                 } else {
-                    const maxEndInCluster = Math.max(...currentCluster.map(e => e.endMin));
-                    // Se l'orario di inizio è inferiore alla fine massima del cluster (senza contare i punti di contatto esatti)
-                    if (ev.startMin < maxEndInCluster) {
-                        currentCluster.push(ev);
-                    } else {
-                        clusters.push(currentCluster);
-                        currentCluster = [ev];
+                    clusters.push(currentCluster);
+                    currentCluster = [ev];
+                }
+            }
+        });
+        if (currentCluster.length > 0) {
+            clusters.push(currentCluster);
+        }
+
+        // 3. Per ogni cluster, calcoliamo le colonne effettive in base alle sovrapposizioni locali
+        clusters.forEach(cluster => {
+            let columns = [];
+            cluster.forEach(ev => {
+                let placed = false;
+                for (let i = 0; i < columns.length; i++) {
+                    let col = columns[i];
+                    // Due eventi si sovrappongono se l'inizio del secondo è < della fine del primo 
+                    // E la fine del secondo è > dell'inizio del primo (senza considerare uguali i punti di contatto)
+                    let overlap = col.some(e => !(ev.startMin >= e.endMin || ev.endMin <= e.startMin));
+                    if (!overlap) {
+                        col.push(ev);
+                        ev.col = i;
+                        placed = true;
+                        break;
                     }
                 }
-            });
-            if (currentCluster.length > 0) {
-                clusters.push(currentCluster);
-            }
-
-            // Assegnazione colonne locali all'operatore
-            clusters.forEach(cluster => {
-                let columns = [];
-                cluster.forEach(ev => {
-                    let placed = false;
-                    for (let i = 0; i < columns.length; i++) {
-                        let col = columns[i];
-                        let overlap = col.some(e => (ev.startMin < e.endMin) && (ev.endMin > e.startMin));
-                        if (!overlap) {
-                            col.push(ev);
-                            ev.col = i;
-                            placed = true;
-                            break;
-                        }
-                    }
-                    if (!placed) {
-                        columns.push([ev]);
-                        ev.col = columns.length - 1;
-                    }
-                });
-
-                const totalColsInCluster = Math.max(columns.length, 1);
-                cluster.forEach(ev => {
-                    ev.totalCols = totalColsInCluster;
-                });
+                if (!placed) {
+                    columns.push([ev]);
+                    ev.col = columns.length - 1;
+                }
             });
 
-            // Calcolo larghezza percentuale rapportata allo spazio dell'operatore
-            // (Se ci sono più colonne per lo stesso operatore nello stesso slot, si stringono tra loro)
-            opEvents.forEach(ev => {
-                const totalCols = ev.totalCols;
-                const widthPct = totalCols === 1 ? 98 : (100 / totalCols) - 2;
-                const leftPct = totalCols === 1 ? 1 : (ev.col * (100 / totalCols));
-                
-                finalProcessedEvents.push({
-                    ...ev,
-                    widthPct,
-                    leftPct: Math.min(leftPct, 95)
-                });
+            const totalColsInCluster = Math.max(columns.length, 1);
+            cluster.forEach(ev => {
+                ev.totalCols = totalColsInCluster;
             });
         });
 
-        return finalProcessedEvents;
+        // 4. Traduzione in percentuali CSS finali
+        return eventsWithCoords.map(ev => {
+            const totalCols = ev.totalCols;
+            const widthPct = totalCols === 1 ? 98 : (100 / totalCols) - 2;
+            const leftPct = totalCols === 1 ? 1 : (ev.col * (100 / totalCols));
+            
+            return { 
+                ...ev, 
+                widthPct, 
+                leftPct: Math.min(leftPct, 95) 
+            };
+        });
     }
 
 
