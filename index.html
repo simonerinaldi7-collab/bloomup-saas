@@ -5325,16 +5325,16 @@ window.loadSettingsFields = function() {
                 html += `<div class="day-hour-slot ${slotStyleClass}" onclick="onTimeSlotClick('${dStr}', '${timeStr}')" title="${tooltipText}"></div>`;
             }
 
-            // Eventi posizionati in assoluto
+            // Eventi posizionati in assoluto con gestione anti-sovrapposizione ed eventi brevi
             processedApps.forEach(ev => {
                 const userColor = getUserColor(ev.assigned_user);
                 const topPx = ev.topPx;
-                const heightPx = Math.max(ev.heightPx, 25);
+                const heightPx = Math.max(ev.heightPx, 18);
                 const widthPct = ev.widthPct;
                 const leftPct = ev.leftPct;
                 const statusClass = getEventStyles(ev);
 
-                // 🛑 Controlli eventi speciali
+                // 🛑 Controlli eventi speciali (Pausa / Chiusura)
                 const isPausa = (ev.service || '').toLowerCase().includes('pausa') || (ev.service || '').toLowerCase().includes('pranzo') || (ev.cust_name || '').toLowerCase().includes('pausa');
                 const isChiusura = (ev.service || '').toLowerCase().includes('chiusura') || (ev.service || '').toLowerCase().includes('ferie') || (ev.cust_name || '').toLowerCase().includes('chiusura') || (ev.cust_name || '').toLowerCase().includes('ferie');
 
@@ -5349,23 +5349,14 @@ window.loadSettingsFields = function() {
                     finalStyle = '';
                 }
 
+                // 💶 Indicatore di pagamento in cassa
+                const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
+                const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
 
+                // ⏱️ Gestione appuntamenti brevi (< 35 min) per evitare sovrapposizioni di testo
                 const durationMin = ev.endMin - ev.startMin;
                 const isCompact = durationMin < 35;
                 const compactClass = isCompact ? ' compact-event' : '';
-
-                html += `
-                    <div class="absolute-event ${finalClass}${compactClass}" 
-                        onclick="event.stopPropagation(); ${clickAction}" 
-                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`}">
-                        <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
-                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
-                    </div>
-                `;
-
-                const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
-                const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
 
                 const isGhost = ev.isGhost === true;
                 const ghostStyle = isGhost 
@@ -5377,12 +5368,12 @@ window.loadSettingsFields = function() {
                     : `viewApp('${ev.id}')`;
 
                 html += `
-                    <div class="absolute-event ${finalClass}" 
+                    <div class="absolute-event ${finalClass}${compactClass}" 
                         onclick="event.stopPropagation(); ${clickAction}" 
                         style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Già pagato' : '')}">
-                        <div style="font-size:9px; opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
-                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">${ev.cust_name}</div>
+                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
+                        <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
+                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
                     </div>
                 `;
             });
