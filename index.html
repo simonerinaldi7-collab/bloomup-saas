@@ -5352,18 +5352,26 @@ window.loadSettingsFields = function() {
 
             html += `<div class="day-column">`;
             
-            // Sfondi orari fissi (dalle 07:00 alle 22:00) con supporto al Drop
+           // Sfondi orari suddivisi in intervalli da 15 minuti (dalle 07:00 alle 22:00)
             for (let h = 7; h < 22; h++) {
-                const timeStr = `${String(h).padStart(2, '0')}:00`;
-                const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
-                const slotStyleClass = isWorking ? '' : 'non-working';
-                const tooltipText = isWorking ? `Trascina qui o clicca per le ${timeStr}` : `Fuori orario standard / Riposo`;
+                for (let m = 0; m < 60; m += 15) {
+                    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    
+                    // Verifichiamo se l'ora intera cade nel turno lavorativo
+                    const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
+                    const slotStyleClass = isWorking ? '' : 'non-working';
+                    
+                    // Altezza di ogni slot da 15 minuti = 15 pixel (poiché 1 ora = 60px)
+                    const slotHeight = 15; 
 
-                html += `<div class="day-hour-slot ${slotStyleClass}" 
-                            ondragover="allowDrop(event)" 
-                            ondrop="onEventDrop(event, '${dStr}', '${timeStr}')" 
-                            onclick="onTimeSlotClick('${dStr}', '${timeStr}')" 
-                            title="${tooltipText}"></div>`;
+                    html += `<div class="day-hour-slot ${slotStyleClass}" 
+                                style="height: ${slotHeight}px; min-height: ${slotHeight}px; box-sizing: border-box;"
+                                ondragover="allowDrop(event)" 
+                                drop-time="${timeStr}"
+                                ondrop="onEventDrop(event, '${dStr}', '${timeStr}')" 
+                                onclick="onTimeSlotClick('${dStr}', '${timeStr}')" 
+                                title="Sposta o crea appuntamento alle ${timeStr}"></div>`;
+                }
             }
 
             // Eventi posizionati in assoluto con gestione anti-sovrapposizione ed eventi brevi
@@ -5458,14 +5466,14 @@ window.loadSettingsFields = function() {
         const [oldStartH, oldStartM] = (appToMove.time || "09:00").split(':').map(Number);
         const oldStartMin = oldStartH * 60 + oldStartM;
         
-        let oldEndMin = oldStartMin + 60; // Default 1 ora
+        let oldEndMin = oldStartMin + 60; 
         if (appToMove.end_time) {
             const [oldEndH, oldEndM] = appToMove.end_time.split(':').map(Number);
             oldEndMin = oldEndH * 60 + oldEndM;
         }
-        const durationMinutes = Math.max(oldEndMin - oldStartMin, 30);
+        const durationMinutes = Math.max(oldEndMin - oldStartMin, 15); // Minimo 15 min
 
-        // Calcoliamo la nuova ora di fine in base alla durata originaria
+        // Calcoliamo la nuova ora di fine in base alla durata originaria e al nuovo slot di 15 min
         const [newStartH, newStartM] = targetTimeStr.split(':').map(Number);
         const newStartMin = newStartH * 60 + newStartM;
         const newEndMin = newStartMin + durationMinutes;
@@ -5476,38 +5484,48 @@ window.loadSettingsFields = function() {
 
         const assignedOperator = appToMove.assigned_user || 'admin';
 
-        // 🛡️ CONTROLLO 1: Verifica Turno Lavorativo dell'operatore nel nuovo giorno
+        // 🛡️ CONTROLLO 1: Turno Lavorativo (ORA NON BLOCCANTE - SOLO ALERT DI CONFERMA)
         const dateObj = new Date(targetDateStr + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const dayConfig = schedules.find(s => (s.username || '').trim().toLowerCase() === assignedOperator.trim().toLowerCase() && Number(s.day_of_week) === dayOfWeek);
 
+        let isWithinShift = true;
+        let warningReason = "";
+
         if (!dayConfig || Number(dayConfig.is_working) !== 1) {
-            return alert(`⚠️ Spostamento non consentito: l'operatore ${assignedOperator} è a riposo in data ${formatDateIt(targetDateStr)}.`);
-        }
+            isWithinShift = false;
+            warningReason = `L'operatore ${assignedOperator} risulta a riposo in data ${formatDateIt(targetDateStr)}.`;
+        } else {
+            const shifts = [];
+            if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+            if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
 
-        const shifts = [];
-        if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-        if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
-
-        let isWithinShift = false;
-        for (let shift of shifts) {
-            const [sH, sM] = shift.start.split(':').map(Number);
-            const [eH, eM] = shift.end.split(':').map(Number);
-            if (newStartMin >= (sH * 60 + sM) && newEndMin <= (eH * 60 + eM)) {
-                isWithinShift = true;
-                break;
+            let matchShift = false;
+            for (let shift of shifts) {
+                const [sH, sM] = shift.start.split(':').map(Number);
+                const [eH, eM] = shift.end.split(':').map(Number);
+                if (newStartMin >= (sH * 60 + sM) && newEndMin <= (eH * 60 + eM)) {
+                    matchShift = true;
+                    break;
+                }
+            }
+            if (!matchShift) {
+                isWithinShift = false;
+                warningReason = `L'orario ${targetTimeStr} - ${targetEndTimeStr} è fuori dai turni standard dell'operatore ${assignedOperator}.`;
             }
         }
 
+        // Se non rispetta il turno, chiediamo conferma anziché bloccare
         if (!isWithinShift) {
-            return alert(`⚠️ Spostamento non consentito: l'orario ${targetTimeStr} - ${targetEndTimeStr} è fuori dai turni lavorativi dell'operatore ${assignedOperator}.`);
+            const forceMove = confirm(`⚠️ ATTENZIONE ORARIO:\n\n${warningReason}\n\nVuoi comunque forzare lo spostamento dell'appuntamento?`);
+            if (!forceMove) return; // Annulla lo spostamento se l'utente sceglie di no
         }
 
-        // 🛡️ CONTROLLO 2: Verifica Sovrapposizioni (Conflict Detection) con altri appuntamenti
+        // 🛡️ CONTROLLO 2: Sovrapposizioni (Anche questo reso non bloccante con conferma)
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const overlapping = existingApps.find(a => {
-            if (a.id === appId) return false; // Esclude se stesso
+            if (a.id === appId) return false;
             const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === assignedOperator.trim().toLowerCase();
             const isSameDate = a.date === targetDateStr;
             if (!isSameUser || !isSameDate) return false;
@@ -5515,15 +5533,15 @@ window.loadSettingsFields = function() {
             const aStart = a.time;
             const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
 
-            // Intersezione temporale
             return (targetTimeStr < aEnd) && (targetEndTimeStr > aStart);
         });
 
         if (overlapping) {
-            return alert(`⚠️ Conflitto di orario: lo slot è già occupato da un appuntamento per "${overlapping.cust_name}" (${overlapping.time} - ${overlapping.end_time || 'N/D'}).`);
+            const forceOverlap = confirm(`⚠️ CONFLITTO DI ORARIO:\n\nQuesto slot si sovrappone a un appuntamento esistente per "${overlapping.cust_name}" (${overlapping.time} - ${overlapping.end_time || 'N/D'}).\n\nVuoi sovrapporlo comunque?`);
+            if (!forceOverlap) return;
         }
 
-        // ✅ AGGIORNAMENTO NEL DATABASE (Locale Dexie + Cloud Supabase)
+        // ✅ AGGIORNAMENTO NEL DATABASE
         const updatePayload = {
             date: targetDateStr,
             time: targetTimeStr,
@@ -5537,7 +5555,6 @@ window.loadSettingsFields = function() {
             id: appId
         });
 
-        // Aggiorniamo l'array locale in memoria
         const localApp = allAppointments.find(a => a.id === appId);
         if (localApp) {
             localApp.date = targetDateStr;
@@ -5545,9 +5562,8 @@ window.loadSettingsFields = function() {
             localApp.end_time = targetEndTimeStr;
         }
 
-        // Ricarichiamo la vista dell'agenda
         if (typeof renderCalendar === 'function') renderCalendar();
-        console.log(`✅ [DRAG & DROP] Appuntamento di ${appToMove.cust_name} spostato al ${targetDateStr} ore ${targetTimeStr}`);
+        console.log(`✅ [DRAG & DROP] Appuntamento di ${appToMove.cust_name} spostato con successo al ${targetDateStr} ore ${targetTimeStr}`);
     }
 
 function confirmSmartPreviewClick(dateStr, timeStr, endTimeStr) {
