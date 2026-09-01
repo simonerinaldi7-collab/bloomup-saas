@@ -2793,7 +2793,7 @@ async function submitPasswordReset() {
         await loadBalance();
     }
 
-    async function loadSleepingClients() {
+     async function loadSleepingClients() {
         const clients = await window.api.query({ action: 'GET_ALL', table: 'customers' }) || [];
         const sales = await window.api.query({ action: 'GET_ALL', table: 'sales' }) || [];
         
@@ -2816,8 +2816,6 @@ async function submitPasswordReset() {
             return lastSale && new Date(lastSale.date) < limitDate;
         });
 
-        console.log("Dati Clienti Dormienti filtrati:", sleeping);
-
         const list = document.getElementById('sleeping-clients-list');
         if (!list) return;
 
@@ -2828,11 +2826,10 @@ async function submitPasswordReset() {
                 const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente';
                 const phone = c.phone ? c.phone.trim() : '';
                 
-                // Generazione link rapido WhatsApp se il cliente ha un telefono valido
+                // Generazione link rapido WhatsApp corretto utilizzando direttamente 'c.phone'
                 let waButtonHtml = '';
-                if (phone) {
-                    const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
-const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
+                if (phone && typeof formatPhoneNumberForWhatsApp === 'function') {
+                    const cleanPhone = formatPhoneNumberForWhatsApp(phone);
                     const msg = encodeURIComponent(`Ciao ${c.first_name || ''}! È un po' che non ci vieni a trovare in salone, ti aspettiamo presto per coccolarti un po'! ✨`);
                     waButtonHtml = `<a href="https://wa.me/${cleanPhone}?text=${msg}" target="_blank" class="btn btn-w" style="padding:4px 10px; font-size:11px; margin-top:8px; text-decoration:none;">💬 Invia WhatsApp "Ci manchi"</a>`;
                 }
