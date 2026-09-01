@@ -3144,113 +3144,126 @@ async function voidSaleTransaction(saleId) {
     }
 
    async function renderSalesReport() {
-        const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
-        const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
-        const fStart = document.getElementById('d-start-report')?.value || '';
-        const fEnd = document.getElementById('d-end-report')?.value || '';
+    const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
+    const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
+    const fStart = document.getElementById('d-start-report')?.value || '';
+    const fEnd = document.getElementById('d-end-report')?.value || '';
+    
+    const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+    const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+    const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+    const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+    const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+    
+    const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
+        const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
+        const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
+        const saleDate = r.date;
+        const matchStart = !fStart || saleDate >= fStart;
+        const matchEnd = !fEnd || saleDate <= fEnd;
+        return matchCust && matchProd && matchStart && matchEnd;
+    });
+    
+    const tbody = document.getElementById('list-report');
+    if (!tbody) return;
+
+    // 🧮 Variabili per il calcolo dei totali aggregati
+    let sumGross = 0;
+    let sumDiscount = 0;
+    let sumFinal = 0;
+    let sumMargin = 0;
+
+    tbody.innerHTML = filtered.map(r => {
+        const soldPrice = parseFloat(r.sold_price) || 0; 
+        const discount = parseFloat(r.discount) || 0;
+        const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
+        const saleDate = r.date || new Date().toISOString().split('T')[0];
+
+        const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
         
-        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-        const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-        const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-        const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-        
-        const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
-            const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
-            const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
-            const saleDate = r.date;
-            const matchStart = !fStart || saleDate >= fStart;
-            const matchEnd = !fEnd || saleDate <= fEnd;
-            return matchCust && matchProd && matchStart && matchEnd;
-        });
-        
-        const tbody = document.getElementById('list-report');
-        if (!tbody) return;
+        let unitCost = parseFloat(r.unit_cost) || 0;
+        let supplierDetailsText = '-';
+        let totalSupplierPayout = parseFloat(r.supplier_payout) || 0;
+        let netMarginOrRevenue = parseFloat(r.salon_revenue) || finalPrice;
 
-        // 🧮 Variabili per il calcolo dei totali aggregati
-        let sumGross = 0;
-        let sumDiscount = 0;
-        let sumFinal = 0;
-        let sumMargin = 0;
-
-        tbody.innerHTML = filtered.map(r => {
-            const soldPrice = parseFloat(r.sold_price) || 0; 
-            const discount = parseFloat(r.discount) || 0;
-            const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
-
-            const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
-            
-            let unitCost = parseFloat(r.unit_cost) || 0;
-            let supplierDetailsText = '-';
-            let totalSupplierPayout = parseFloat(r.supplier_payout) || 0;
-            let netMarginOrRevenue = parseFloat(r.salon_revenue) || finalPrice;
-
-            if (prod && prod.is_consignment) {
-                const links = productSuppliersData.filter(l => l.product_id === prod.id);
-                if (links.length > 0) {
-                    let detailsArray = [];
-                    let totalPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                    
-                    links.forEach(l => {
-                        const supp = suppliersData.find(s => s.id === l.supplier_id);
-                        const suppName = supp ? supp.name : 'Fornitore';
-                        const pct = parseFloat(l.split_pct) || 0;
-                        
-                        // Ripartiamo il payout totale salvato in cassa in base al peso percentuale del singolo fornitore
-                        const suppWeight = totalPct > 0 ? (pct / totalPct) : 1;
-                        const payoutForThisSupp = totalSupplierPayout * suppWeight;
-                        
-                        detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
-                    });
-                    supplierDetailsText = detailsArray.join('<br>');
-                } else {
-                    supplierDetailsText = `Fornitore: €${totalSupplierPayout.toFixed(2)}`;
-                }
-            } else {
-                supplierDetailsText = '-';
+        // Se l'articolo è in conto vendita e c'è un payout fornitore registrato
+        if (totalSupplierPayout > 0) {
+            // Cerchiamo i collegamenti fornitore tramite il prodotto trovato (o fallback sul nome)
+            let links = [];
+            if (prod) {
+                links = productSuppliersData.filter(l => l.product_id === prod.id);
             }
-
-            // Accumuliamo nei totali generali
-            sumGross += soldPrice;
-            sumDiscount += discount;
-            sumFinal += finalPrice;
-            sumMargin += netMarginOrRevenue;
-
-            const isPositive = netMarginOrRevenue >= 0;
-
-            return `
-                <tr>
-                    <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
-                    <td><b>${r.item_name}</b></td>
-                    <td>${r.customer_name || 'Occasionale'}</td>
-                    <td>€${soldPrice.toFixed(2)}</td>
-                    <td>€${discount.toFixed(2)}</td>
-                    <td><b>€${finalPrice.toFixed(2)}</b></td>
-                    <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
-                    <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
-                    <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
-                    <td>${r.seller || '-'}</td>
-                    <td style="text-align: right;">
-                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
-        const elGross = document.getElementById('rep-tot-gross');
-        const elDisc = document.getElementById('rep-tot-disc');
-        const elFinal = document.getElementById('rep-tot-final');
-        const elMargin = document.getElementById('rep-tot-margin');
-
-        if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
-        if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
-        if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
-        if (elMargin) {
-            elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
-            elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
+            
+            // Se non troviamo i link tramite ID, proviamo a vedere se il prodotto ha un fornitore singolo o split salvato
+            if (links.length > 0) {
+                let detailsArray = [];
+                let totalPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                
+                links.forEach(l => {
+                    const supp = suppliersData.find(s => s.id === l.supplier_id);
+                    const suppName = supp ? supp.name : 'Fornitore';
+                    const pct = parseFloat(l.split_pct) || 0;
+                    
+                    // Quota proporzionale basata sul peso percentuale del fornitore
+                    const suppWeight = totalPct > 0 ? (pct / totalPct) : 1;
+                    const payoutForThisSupp = totalSupplierPayout * suppWeight;
+                    
+                    detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
+                });
+                supplierDetailsText = detailsArray.join('<br>');
+            } else if (prod && prod.supplier_id) {
+                const supp = suppliersData.find(s => s.id === prod.supplier_id);
+                const suppName = supp ? supp.name : 'Fornitore';
+                supplierDetailsText = `${suppName} (${prod.consignment_split_pct || 100}%): €${totalSupplierPayout.toFixed(2)}`;
+            } else {
+                // Fallback generico se i link anagrafici non sono agganciati ma c'è il payout globale
+                supplierDetailsText = `Fornitori: €${totalSupplierPayout.toFixed(2)}`;
+            }
+        } else {
+            supplierDetailsText = '-';
         }
+
+        // Accumuliamo nei totali generali
+        sumGross += soldPrice;
+        sumDiscount += discount;
+        sumFinal += finalPrice;
+        sumMargin += netMarginOrRevenue;
+
+        const isPositive = netMarginOrRevenue >= 0;
+
+        return `
+            <tr>
+                <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
+                <td><b>${r.item_name}</b></td>
+                <td>${r.customer_name || 'Occasionale'}</td>
+                <td>€${soldPrice.toFixed(2)}</td>
+                <td>€${discount.toFixed(2)}</td>
+                <td><b>€${finalPrice.toFixed(2)}</b></td>
+                <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
+                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
+                <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
+                <td>${r.seller || '-'}</td>
+                <td style="text-align: right;">
+                    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
+    const elGross = document.getElementById('rep-tot-gross');
+    const elDisc = document.getElementById('rep-tot-disc');
+    const elFinal = document.getElementById('rep-tot-final');
+    const elMargin = document.getElementById('rep-tot-margin');
+
+    if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
+    if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
+    if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
+    if (elMargin) {
+        elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
+        elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
     }
+}
 
 
 
