@@ -8671,15 +8671,9 @@ async function executeStockLoad() {
         const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
         const price = pInfo ? pInfo.price : 0;
         
-        // 🌟 RECUPERA IL FLAG "CONTO VENDITA" E CREA UN BADGE VISUALMENTE CHIARO
-        const consignmentBadge = (item.type === 'servizio' && item.is_consignment)
-            ? `<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">CV</span>` // CV = Conto Vendita
-            : ''; // Stringa vuota se non è un servizio in conto vendita
-
         html += `<tr>
             <td><b>${item.name}</b></td>
             <td>€ ${parseFloat(price).toFixed(2)}</td>
-            <td>${consignmentBadge}</td> <!-- NUOVA COLONNA RENDERIZZATA QUI -->
             <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
             <td>${item.created_by || 'Admin'}</td>
             <td style="text-align:right">
@@ -8692,7 +8686,6 @@ async function executeStockLoad() {
         </tr>`;
     }
     tbody.innerHTML = html;
-
 }
 
     function clearFilters() {
