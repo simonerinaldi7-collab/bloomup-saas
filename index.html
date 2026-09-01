@@ -3870,8 +3870,25 @@ async function executeSafeUserDeletion() {
 function toggleInvFields() {
     const type = document.getElementById('f-p-type').value;
     const prodFields = document.getElementById('fields-prodotto');
-    if (prodFields) {
-        prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
+
+    if (type === 'servizio') {
+        // Se è un servizio, nascondiamo i campi di logistica fisica (scorta, barcode, taglia, ubicazione)
+        if (prodFields) {
+            const inputsInProdFields = prodFields.querySelectorAll('div > div');
+            inputsInProdFields.forEach(el => {
+                // Manteniamo visibile il box del conto vendita e il fornitore principale se necessario
+                const isConsignmentContainer = el.closest('#mod-inv .modal-box div[style*="background: #f8f9fa"]') || el.id === 'standard-supplier-box';
+                if (!isConsignmentContainer && !el.querySelector('#f-p-is-consignment')) {
+                    el.style.display = 'none';
+                }
+            });
+        }
+    } else {
+        // Se è un prodotto, ripristiniamo tutto visibile
+        if (prodFields) {
+            const inputsInProdFields = prodFields.querySelectorAll('div > div');
+            inputsInProdFields.forEach(el => { el.style.display = 'block'; });
+        }
     }
 }
 
@@ -3987,50 +4004,60 @@ function triggerLocalOperatorAlert(appointment) {
                 };
             });
 
-            for (let item of saleItemsData) {
-                if (!salesIdsInRange.includes(item.sale_id)) continue;
+            // Dentro renderSupplierPayouts(), durante l'iterazione su saleItemsData:
+for (let item of saleItemsData) {
+    if (!salesIdsInRange.includes(item.sale_id)) continue;
 
-                const sale = salesInPeriod.find(s => s.id === item.sale_id);
-                const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
-                
-                if (!prod || !prod.is_consignment) continue;
+    const sale = salesInPeriod.find(s => s.id === item.sale_id);
+    const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+    
+    // 🛑 Modifica chiave: Accettiamo sia prodotti che servizi purché siano in conto vendita (is_consignment)
+    if (!prod || !prod.is_consignment) continue;
 
-                const soldPrice = parseFloat(item.price) || 0;
-                const discount = parseFloat(item.discount) || 0;
-                const finalPrice = soldPrice - discount;
-                const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
+    const soldPrice = parseFloat(item.price) || 0;
+    const discount = parseFloat(item.discount) || 0;
+    const finalPrice = Math.max(soldPrice - discount, 0);
+    const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
 
-                const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+    const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
-                const links = productSuppliersData.filter(l => l.product_id === prod.id);
+    const links = productSuppliersData.filter(l => l.product_id === prod.id);
 
-                // Funzione di utilità interna per registrare l'item nel sommario del fornitore
-                const registerItemForSupplier = (supId, pct) => {
-                    if (!payoutSummary[supId]) return;
-                    const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+    // Funzione di supporto per registrare la quota al fornitore considerando l'assorbimento dello sconto scelto in cassa
+    const registerItemForSupplier = (supId, pct) => {
+        if (!payoutSummary[supId]) return;
+        
+        let basePayout = (listinoPienoOriginale * pct) / 100;
+        let finalPayoutForThisSupp = basePayout;
 
-                    // Verifichiamo lo stato di pagamento specifico per QUESTO item e QUESTO fornitore
-                    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
-                    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
+        // Se è stato applicato uno sconto, applichiamo la regola di assorbimento salvata o stimata
+        if (discount > 0) {
+            // Nota: Se nel carrello l'utente ha scelto l'assorbimento, possiamo leggerlo o applicare il default dello split
+            // Qui applichiamo la proporzione della percentuale del fornitore sul totale dello sconto
+            finalPayoutForThisSupp = Math.max(basePayout - discount, 0); 
+        }
 
-                    payoutSummary[supId].items.push({
-                        saleItemId: item.id,
-                        supplierId: supId,
-                        date: saleDate,
-                        itemName: item.item_name,
-                        gross: finalPrice,
-                        payout: payoutForThisSupp,
-                        isPaid: isPaid
-                    });
-                };
+        const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
+        const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
 
-                if (links.length > 0) {
-                    links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));
-                } else if (prod.consignment_split_pct && prod.supplier_id) {
-                    registerItemForSupplier(prod.supplier_id, parseFloat(prod.consignment_split_pct) || 0);
-                }
-            }
+        payoutSummary[supId].items.push({
+            saleItemId: item.id,
+            supplierId: supId,
+            date: saleDate,
+            itemName: item.item_name,
+            gross: finalPrice,
+            payout: finalPayoutForThisSupp,
+            isPaid: isPaid
+        });
+    };
+
+    if (links.length > 0) {
+        links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));
+    } else if (prod.consignment_split_pct && prod.supplier_id) {
+        registerItemForSupplier(prod.supplier_id, parseFloat(prod.consignment_split_pct) || 0);
+    }
+}
 
             const activeSuppliers = Object.values(payoutSummary).filter(s => s.items.length > 0);
 
@@ -9264,204 +9291,261 @@ const nowTimestamp = new Date().toISOString();
     }
 
    async function completeSale() { 
-        if(!cart.length) return alert("Carrello vuoto!"); 
-        
-        const cartWithDiscounts = cart.map(item => {
-            const val = item.discountVal || 0;
-            const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
-            return { ...item, discountAmount: discountAmount };
+    if (!cart.length) return alert("Carrello vuoto!"); 
+    
+    const cartWithDiscounts = cart.map(item => {
+        const val = item.discountVal || 0;
+        const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
+        return { ...item, discountAmount: discountAmount };
+    });
+
+    const total = cartWithDiscounts.reduce((s, i) => s + Math.max(i.price - i.discountAmount, 0), 0); 
+    const nowObj = getNowLocal(); 
+    
+    let finalCustId = currentCheckoutCustomer?.id;
+    if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
+        const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
+        const foundC = allCustomers.find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
         });
-
-        const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
-        const nowObj = getNowLocal(); 
-        
-        let finalCustId = currentCheckoutCustomer?.id;
-        if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
-            const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
-            const foundC = allCustomers.find(c => {
-                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
-            });
-            finalCustId = foundC ? foundC.id : null;
-        }
-
-        // 🎯 L'ID DELL'APPUNTAMENTO VIENE ASSOCIATO SOLO ORA, AL MOMENTO DEL REALE PAGAMENTO!
-        const linkedAppointmentId = currentCheckoutAppointmentId || null;
-
-        // 1. Inserimento testata vendita con il legame diretto all'appuntamento (se proveniva dall'agenda)
-        const res = await window.api.query({ 
-            action:'INSERT', table:'sales', 
-            data: { 
-                cust_id: finalCustId || null, 
-                appointment_id: linkedAppointmentId, // 👈 Collegamento scritto SOLO al click su Paga
-                total: total, 
-                date: nowObj.split(' ')[0], 
-                time: nowObj.split(' ')[1], 
-                payment_method: 'Contanti', 
-                created_by: currentUser ? currentUser.username : 'Admin' 
-            } 
-        }); 
-
-        if (!res || !res.lastInsertRowid) {
-            return alert("Errore critico: Impossibile creare la vendita nel DB.");
-        }
-
-        const saleId = res.lastInsertRowid; 
-
-        // 2. Inserimento dei singoli articoli della vendita
-        for(let item of cartWithDiscounts) { 
-            if (item.id) { 
-                const productDb = allInventory.find(p => p.id === item.id);
-                const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
-                const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
-                const discountApplied = item.discountAmount || 0;
-                const finalItemPrice = listinoPieno - discountApplied;
-
-                let unitCostUsed = 0;
-                let supplierPayout = 0;
-                let salonRevenue = finalItemPrice;
-
-                if (productDb && productDb.is_consignment) {
-                    let qtyToProcess = item.qty || 1;
-                    let totalSupplierPayoutForThisSale = 0;
-
-                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
-                    const prodLots = (Array.isArray(lots) ? lots : [])
-                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-
-                    for (let lot of prodLots) {
-                        if (qtyToProcess <= 0) break;
-
-                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                        let lotSplits = [];
-                        try {
-                            lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
-                        } catch (e) {
-                            lotSplits = [];
-                        }
-
-                        let lotPayoutForOneUnit = 0;
-                        if (lotSplits.length > 0) {
-                            let lotTotalPct = 0;
-                            lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
-                            lotPayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
-                        } else {
-                            lotPayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
-                        }
-
-                        totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
-
-                        lot.qty_remaining -= takeFromLot;
-                        qtyToProcess -= takeFromLot;
-
-                        await window.universalQuery({
-                            action: 'UPDATE',
-                            table: 'stock_lots',
-                            data: { qty_remaining: lot.qty_remaining },
-                            id: lot.id
-                        });
-                    }
-
-                    if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
-                        const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        totalSupplierPayoutForThisSale = (listinoPieno * fallbackPct / 100) * (item.qty || 1);
-                    }
-
-                    supplierPayout = totalSupplierPayoutForThisSale;
-                    salonRevenue = finalItemPrice - supplierPayout;
-                
-                } else if (productDb && productDb.type === 'prodotto') {
-                    let qtyToProcess = item.qty || 1;
-                    let totalCostForThisSale = 0;
-
-                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
-                    const prodLots = (Array.isArray(lots) ? lots : [])
-                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-
-                    for (let lot of prodLots) {
-                        if (qtyToProcess <= 0) break;
-
-                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                        totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
-                        
-                        lot.qty_remaining -= takeFromLot;
-                        qtyToProcess -= takeFromLot;
-
-                        await window.universalQuery({
-                            action: 'UPDATE',
-                            table: 'stock_lots',
-                            data: { qty_remaining: lot.qty_remaining },
-                            id: lot.id
-                        });
-                    }
-
-                    if (totalCostForThisSale === 0 && prodLots.length === 0) {
-                        const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                        totalCostForThisSale = fallbackCost * (item.qty || 1);
-                    }
-
-                    unitCostUsed = totalCostForThisSale / (item.qty || 1);
-                    salonRevenue = finalItemPrice - totalCostForThisSale;
-                } else {
-                    salonRevenue = finalItemPrice;
-                }
-
-                await window.universalQuery({ 
-                    action:'INSERT', table:'sale_items', 
-                    data: { 
-                        sale_id: saleId, 
-                        item_name: item.name, 
-                        qty: item.qty || 1, 
-                        price: listinoPieno,
-                        discount: discountApplied,
-                        unit_cost: unitCostUsed,
-                        supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue
-                    } 
-                });
-                
-                if (productDb && productDb.type === 'prodotto') {
-                    await window.universalQuery({ 
-                        action:'UPDATE', table:'inventory', 
-                        data: { stock: productDb.stock - (item.qty || 1) }, 
-                        id: productDb.id 
-                    }); 
-                }
-                else if (productDb && productDb.type === 'servizio') {
-                    const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
-                    for (let c of (Array.isArray(consumables) ? consumables : [])) {
-                        const prod = allInventory.find(p => p.name === c.prod_name);
-                        if (prod) {
-                            const newStock = prod.stock - c.qty;
-                            await window.universalQuery({ 
-                                action:'UPDATE', table:'inventory', 
-                                data: { stock: newStock }, 
-                                id: prod.id 
-                            });
-                        }
-                    }
-                }
-            } 
-        } 
-        
-        // 🧹 RESETTA IL PUNTATORE DELL'APPUNTAMENTO SUBITO DOPO IL PAGAMENTO
-        currentCheckoutAppointmentId = null;
-
-        alert("Pagato e stock aggiornato!"); 
-        await resetCassa(); 
-        await refreshAllData(); 
-        
-        if (typeof loadRFM === 'function') await loadRFM();
-
-        // 🛡️ REINDIRIZZAMENTO SICURO IN BASE AL RUOLO (Admin -> Dashboard, User -> Agenda)
-        if (currentUser && currentUser.role === 'admin') {
-            changePage('dashboard');
-        } else {
-            changePage('calendar'); // L'operatore torna all'agenda in modo sicuro
-        }
+        finalCustId = foundC ? foundC.id : null;
     }
+
+    const linkedAppointmentId = currentCheckoutAppointmentId || null;
+
+    // 1. Inserimento testata vendita
+    const res = await window.api.query({ 
+        action: 'INSERT', table: 'sales', 
+        data: { 
+            cust_id: finalCustId || null, 
+            appointment_id: linkedAppointmentId, 
+            total: total, 
+            date: nowObj.split(' ')[0], 
+            time: nowObj.split(' ')[1], 
+            payment_method: 'Contanti', 
+            created_by: currentUser ? currentUser.username : 'Admin' 
+        } 
+    }); 
+
+    if (!res || !res.lastInsertRowid) {
+        return alert("Errore critico: Impossibile creare la vendita nel DB.");
+    }
+
+    const saleId = res.lastInsertRowid; 
+    const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+    const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+
+    // 2. Inserimento dei singoli articoli della vendita
+    for (let item of cartWithDiscounts) { 
+        if (item.id) { 
+            const productDb = allInventory.find(p => p.id === item.id);
+            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
+            const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
+            const discountApplied = item.discountAmount || 0;
+            const finalItemPrice = Math.max(listinoPieno - discountApplied, 0);
+
+            let unitCostUsed = 0;
+            let supplierPayout = 0;
+            let salonRevenue = finalItemPrice;
+
+            if (productDb && productDb.is_consignment) {
+                // 🤝 GESTIONE CONTO VENDITA (PRODOTTI O SERVIZI) CON REGOLE ASSORBIMENTO SCONTO
+                let qtyToProcess = item.qty || 1;
+                let totalSupplierPayoutForThisSale = 0;
+
+                const prodLots = allLots
+                    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                const absorptionRule = item.discountAbsorption || 'salon'; // 'salon', 'supplier', 'split'
+
+                for (let lot of prodLots) {
+                    if (qtyToProcess <= 0) break;
+
+                    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                    let lotSplits = [];
+                    try {
+                        lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
+                    } catch (e) {
+                        lotSplits = [];
+                    }
+
+                    let lotBasePayoutForOneUnit = 0;
+                    if (lotSplits.length > 0) {
+                        let lotTotalPct = 0;
+                        lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
+                        lotBasePayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
+                    } else {
+                        lotBasePayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
+                    }
+
+                    let adjustedUnitPayout = lotBasePayoutForOneUnit;
+                    if (discountApplied > 0) {
+                        if (absorptionRule === 'supplier') {
+                            adjustedUnitPayout = Math.max(lotBasePayoutForOneUnit - discountApplied, 0);
+                        } else if (absorptionRule === 'split') {
+                            adjustedUnitPayout = Math.max(lotBasePayoutForOneUnit - (discountApplied / 2), 0);
+                        } else {
+                            adjustedUnitPayout = lotBasePayoutForOneUnit; // A carico del salone
+                        }
+                    }
+
+                    totalSupplierPayoutForThisSale += takeFromLot * adjustedUnitPayout;
+
+                    // Se è un prodotto fisico decrementiamo il lotto, se è un servizio il lotto fa solo da traccia percentuali
+                    if (productDb.type === 'prodotto') {
+                        lot.qty_remaining -= takeFromLot;
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
+                    }
+                    qtyToProcess -= takeFromLot;
+                }
+
+                if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
+                    const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                    } else {
+                        totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    }
+
+                    let fallbackBasePayout = (listinoPieno * totalPct) / 100;
+                    if (discountApplied > 0) {
+                        if (absorptionRule === 'supplier') {
+                            totalSupplierPayoutForThisSale = Math.max(fallbackBasePayout - discountApplied, 0) * (item.qty || 1);
+                        } else if (absorptionRule === 'split') {
+                            totalSupplierPayoutForThisSale = Math.max(fallbackBasePayout - (discountApplied / 2), 0) * (item.qty || 1);
+                        } else {
+                            totalSupplierPayoutForThisSale = fallbackBasePayout * (item.qty || 1);
+                        }
+                    } else {
+                        totalSupplierPayoutForThisSale = fallbackBasePayout * (item.qty || 1);
+                    }
+                }
+
+                supplierPayout = totalSupplierPayoutForThisSale;
+                salonRevenue = finalItemPrice - supplierPayout;
+            
+            } else if (productDb && productDb.type === 'prodotto') {
+                // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
+                let qtyToProcess = item.qty || 1;
+                let totalCostForThisSale = 0;
+
+                const prodLots = allLots
+                    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                for (let lot of prodLots) {
+                    if (qtyToProcess <= 0) break;
+
+                    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                    totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
+                    
+                    lot.qty_remaining -= takeFromLot;
+                    qtyToProcess -= takeFromLot;
+
+                    await window.universalQuery({
+                        action: 'UPDATE',
+                        table: 'stock_lots',
+                        data: { qty_remaining: lot.qty_remaining },
+                        id: lot.id
+                    });
+                }
+
+                if (totalCostForThisSale === 0 && prodLots.length === 0) {
+                    const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                    totalCostForThisSale = fallbackCost * (item.qty || 1);
+                }
+
+                unitCostUsed = totalCostForThisSale / (item.qty || 1);
+                salonRevenue = finalItemPrice - totalCostForThisSale;
+
+            } else if (productDb && productDb.type === 'servizio') {
+                // ✂️ SERVIZIO STANDARD DI PROPRIETÀ (Calcolo costo consumabili)
+                const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id }) || [];
+                let totalConsumablesCost = 0;
+
+                for (let c of consumables) {
+                    const consumedProd = allInventory.find(p => p.id === c.product_id);
+                    const qtyNeeded = parseFloat(c.quantity_per_service) || 0;
+
+                    if (consumedProd) {
+                        const consLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                        let cUnitCost = 0;
+                        if (consLots.length > 0) {
+                            consLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                            cUnitCost = parseFloat(consLots[0].unit_cost) || 0;
+                        }
+                        totalConsumablesCost += (cUnitCost * qtyNeeded);
+                    }
+                }
+                unitCostUsed = totalConsumablesCost;
+                salonRevenue = finalItemPrice - unitCostUsed;
+            } else {
+                salonRevenue = finalItemPrice;
+            }
+
+            // Registrazione del rigo di vendita
+            await window.universalQuery({ 
+                action: 'INSERT', table: 'sale_items', 
+                data: { 
+                    sale_id: saleId, 
+                    item_name: item.name, 
+                    qty: item.qty || 1, 
+                    price: listinoPieno,
+                    discount: discountApplied,
+                    unit_cost: unitCostUsed,
+                    supplier_payout: supplierPayout,
+                    salon_revenue: salonRevenue
+                } 
+            });
+            
+            // Scarico magazzino fisico se si tratta di un prodotto
+            if (productDb && productDb.type === 'prodotto') {
+                await window.universalQuery({ 
+                    action: 'UPDATE', table: 'inventory', 
+                    data: { stock: productDb.stock - (item.qty || 1) }, 
+                    id: productDb.id 
+                }); 
+            }
+            else if (productDb && productDb.type === 'servizio') {
+                // Scarico automatico dei materiali consumabili associati al servizio
+                const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id }) || [];
+                for (let c of consumables) {
+                    const prod = allInventory.find(p => p.name === c.prod_name);
+                    if (prod) {
+                        const newStock = prod.stock - c.qty;
+                        await window.universalQuery({ 
+                            action: 'UPDATE', table: 'inventory', 
+                            data: { stock: newStock }, 
+                            id: prod.id 
+                        });
+                    }
+                }
+            }
+        } 
+    } 
+    
+    currentCheckoutAppointmentId = null;
+
+    alert("Pagato e stock aggiornato con successo!"); 
+    await resetCassa(); 
+    await refreshAllData(); 
+    
+    if (typeof loadRFM === 'function') await loadRFM();
+
+    if (currentUser && currentUser.role === 'admin') {
+        changePage('dashboard');
+    } else {
+        changePage('calendar'); 
+    }
+}
         
 
             
@@ -9695,137 +9779,176 @@ const nowTimestamp = new Date().toISOString();
     }
 
 async function renderCart() { 
-        console.log("Stato carrello attuale:", cart); 
-        let total = 0; 
-        const container = document.getElementById('cart-items');
-        if (!container) return;
+    console.log("Stato carrello attuale:", cart); 
+    let total = 0; 
+    const container = document.getElementById('cart-items');
+    if (!container) return;
+    
+    let html = "";
+    
+    // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi e del conto vendita
+    const allInventoryData = allInventory || [];
+    const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+    const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
+    const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+
+    for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
+        const discVal = item.discountVal || 0;
+        const discType = item.discountType || 'euro';
+        const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
+        const finalPrice = Math.max(item.price - discountAmount, 0);
+        total += finalPrice; 
+
+        // Verifichiamo se l'articolo è in conto vendita per abilitare la scelta dell'assorbimento sconto
+        let productDb = item.id ? allInventoryData.find(p => p.id === item.id) : null;
+        let isConsignmentItem = productDb && productDb.is_consignment;
+
+        // Blocco HTML condizionale per la scelta dell'assorbimento dello sconto (visibile se in conto vendita e con sconto > 0)
+        let absorptionSelectorHtml = '';
+        if (isConsignmentItem && discountAmount > 0) {
+            const currentAbs = item.discountAbsorption || 'salon'; // Default a carico del salone
+            absorptionSelectorHtml = `
+                <div style="margin-top: 8px; background: #fffbeb; padding: 6px 8px; border-radius: 6px; border: 1px solid #fde68a;">
+                    <small style="font-size: 9px; color: #b45309; font-weight: bold; display: block; margin-bottom: 2px;">Assorbimento Sconto:</small>
+                    <select onchange="updateCartDiscountAbsorption(${i}, this.value)" style="width: 100%; padding: 4px; margin: 0; font-size: 11px; font-weight: bold; background: white; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px;">
+                        <option value="salon" ${currentAbs === 'salon' ? 'selected' : ''}>A carico Salone (Intero)</option>
+                        <option value="supplier" ${currentAbs === 'supplier' ? 'selected' : ''}>A carico Fornitore (Intero)</option>
+                        <option value="split" ${currentAbs === 'split' ? 'selected' : ''}>Divisione 50 / 50</option>
+                    </select>
+                </div>
+            `;
+        }
+
+        // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
+        let unitCostOrPayout = 0;
         
-        let html = "";
-        
-        // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
-        const allInventoryData = allInventory || [];
-        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
-        const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
-        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        if (item.id && productDb) {
+            if (productDb.type === 'servizio') {
+                // ✂️ SE È UN SERVIZIO: Il costo è la somma dei costi FIFO dei materiali consumabili associati
+                const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
+                let totalConsumablesCost = 0;
 
-        for (let i = 0; i < cart.length; i++) {
-            const item = cart[i];
-            const discVal = item.discountVal || 0;
-            const discType = item.discountType || 'euro';
-            const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
-            const finalPrice = item.price - discountAmount;
-            total += finalPrice; 
+                for (let sc of serviceCons) {
+                    const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
+                    const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
 
-            // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
-            let unitCostOrPayout = 0;
-            let isConsignment = false;
-            
-            if (item.id) {
-                const productDb = allInventoryData.find(p => p.id === item.id);
-                if (productDb) {
-                    if (productDb.type === 'servizio') {
-                        // ✂️ SE È UN SERVIZIO: Il costo è la somma dei costi FIFO dei materiali consumabili associati
-                        const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
-                        let totalConsumablesCost = 0;
-
-                        for (let sc of serviceCons) {
-                            const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
-                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
-                            if (consumedProd) {
-                                // Troviamo il costo unitario FIFO del prodotto consumabile
-                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                                let unitCost = 0;
-                                if (prodLots.length > 0) {
-                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                    unitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                                } else {
-                                    const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: consumedProd.id });
-                                    unitCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                                }
-                                totalConsumablesCost += (unitCost * qtyNeeded);
-                            }
-                        }
-                        unitCostOrPayout = totalConsumablesCost;
-
-                    } else {
-                        // PRODOTTO FISICO (Proprietà o Conto Vendita)
-                        isConsignment = productDb.is_consignment;
-                        if (isConsignment) {
-                            const links = productSuppliers.filter(l => l.product_id === productDb.id);
-                            let totalPct = 0;
-                            if (links.length > 0) {
-                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                            } else {
-                                totalPct = parseFloat(productDb.consignment_split_pct) || 0;
-                            }
-                            unitCostOrPayout = (item.price * totalPct) / 100;
+                    if (consumedProd) {
+                        const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                        let unitCost = 0;
+                        if (prodLots.length > 0) {
+                            prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                            unitCost = parseFloat(prodLots[0].unit_cost) || 0;
                         } else {
-                            const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
-                            if (prodLots.length > 0) {
-                                prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
-                            } else {
-                                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
-                                unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                            }
+                            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: consumedProd.id });
+                            unitCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
                         }
+                        totalConsumablesCost += (unitCost * qtyNeeded);
+                    }
+                }
+                unitCostOrPayout = totalConsumablesCost;
+
+            } else {
+                // PRODOTTO FISICO (Proprietà o Conto Vendita)
+                if (isConsignment) {
+                    const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                    let totalPct = 0;
+                    if (links.length > 0) {
+                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                    } else {
+                        totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    }
+                    
+                    let basePayout = (item.price * totalPct) / 100;
+                    const absorptionRule = item.discountAbsorption || 'salon';
+
+                    if (discountAmount > 0) {
+                        if (absorptionRule === 'supplier') {
+                            unitCostOrPayout = Math.max(basePayout - discountAmount, 0);
+                        } else if (absorptionRule === 'split') {
+                            unitCostOrPayout = Math.max(basePayout - (discountAmount / 2), 0);
+                        } else {
+                            unitCostOrPayout = basePayout;
+                        }
+                    } else {
+                        unitCostOrPayout = basePayout;
+                    }
+
+                } else {
+                    const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
+                    if (prodLots.length > 0) {
+                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                        unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                    } else {
+                        const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                        unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
                     }
                 }
             }
-
-            const itemMarginEuro = finalPrice - unitCostOrPayout;
-            const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
-
-            // 🎨 SOGLIE COLORE ALERT MARGINE
-            let marginBadgeColor = '#00B894'; // Verde (> 10%)
-            let marginText = 'Ottimale';
-            if (itemMarginEuro <= 0) {
-                marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
-                marginText = 'In Perdita!';
-            } else if (itemMarginPct < 10) {
-                marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
-                marginText = 'Margine Basso';
-            }
-
-            html += `
-                <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="flex:1;">
-                            <div style="font-weight:600;">${item.name}</div>
-                            <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
-                            
-                            <!-- 💡 INFO MARGINE CON CONSUMABILI INCLUSE -->
-                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato (inclusi materiali di consumo)">
-                                    Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
-                                </span>
-                            </div>
-
-                            <!-- Riquadro Sconto -->
-                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                                <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
-                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
-                                        <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
-                                        <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                            <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
-                        </div>
-                    </div>
-                </div>`; 
         }
 
-        container.innerHTML = html; 
-        document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+        const itemMarginEuro = finalPrice - unitCostOrPayout;
+        const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
+
+        let marginBadgeColor = '#00B894'; 
+        let marginText = 'Ottimale';
+        if (itemMarginEuro <= 0) {
+            marginBadgeColor = '#E17055'; 
+            marginText = 'In Perdita!';
+        } else if (itemMarginPct < 10) {
+            marginBadgeColor = '#F39C12'; 
+            marginText = 'Margine Basso';
+        }
+
+        html += `
+            <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="flex:1; padding-right: 10px;">
+                        <div style="font-weight:600;">${item.name}</div>
+                        <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
+                        
+                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                                Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
+                            </span>
+                        </div>
+
+                        <!-- Riquadro Sconto -->
+                        <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                            <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
+                                    <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
+                                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Selettore Assorbimento Sconto Conto Vendita -->
+                        ${absorptionSelectorHtml}
+
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
+                        <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
+                    </div>
+                </div>
+            `; 
     }
 
+    container.innerHTML = html; 
+    document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+
+    // Aggiornamento barra mobile se presente
+    if (typeof renderCartMobileBar === 'function') renderCartMobileBar();
+}
+
+// Funzione di supporto per aggiornare la regola di assorbimento nello stato del carrello
+function updateCartDiscountAbsorption(index, value) {
+    cart[index].discountAbsorption = value;
+    renderCart();
+}
     function updateCartDiscount(index, field, value) {
         if(field === 'val') cart[index].discountVal = parseFloat(value) || 0;
         if(field === 'type') cart[index].discountType = value;
