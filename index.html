@@ -7206,7 +7206,68 @@ async function doLogin() {
         resetLogoutTimer();
     }
 
+// --- 📱 GESTIONE SWIPE ORIZZONTALE PER CAMBIO SETTIMANA / GIORNO IN AGENDA ---
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
 
+document.addEventListener('DOMContentLoaded', () => {
+    const calArea = document.getElementById('cal-area');
+    if (!calArea) return;
+
+    calArea.addEventListener('touchstart', (e) => {
+        // Ignoriamo se l'utente sta toccando con più dita o sta interagendo con un modale
+        if (e.touches.length > 1 || document.querySelector('.modal.active')) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    calArea.addEventListener('touchend', (e) => {
+        if (document.querySelector('.modal.active')) return;
+        
+        touchEndX = e.changedTouches[0].clientX;
+        touchEndY = e.changedTouches[0].clientY;
+        
+        handleSwipeGesture();
+    }, { passive: true });
+});
+
+function handleSwipeGesture() {
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // Distanza minima in pixel richiesta per considerare valido lo swipe (evita falsi movimenti)
+    const minSwipeDistance = 60;
+    
+    // Verifichiamo che il movimento sia prevalentemente ORIZZONTALE (più ampio in X che in Y)
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+        if (calView === 'month') {
+            // Nel Mese: Swipe a sinistra -> Mese successivo (+1), Swipe a destra -> Mese precedente (-1)
+            if (diffX < 0) {
+                moveDate(1); // Mese successivo
+            } else {
+                moveDate(-1); // Mese precedente
+            }
+        } else if (calView === 'week') {
+            // Nella Settimana: Swipe a sinistra -> Settimana successiva (+7 giorni), Swipe a destra -> Settimana precedente (-7 giorni)
+            if (diffX < 0) {
+                moveDate(7); // Avanti di 7 giorni
+            } else {
+                moveDate(-7); // Indietro di 7 giorni
+            }
+        } else if (calView === 'day') {
+            // Nel Giorno: Swipe a sinistra -> Giorno successivo (+1), Swipe a destra -> Giorno precedente (-1)
+            if (diffX < 0) {
+                moveDate(1); // Domani
+            } else {
+                moveDate(-1); // Ieri
+            }
+        }
+        
+        console.log(`📱 [SWIPE RILEVATO] Direzione: ${diffX < 0 ? 'Sinistra (Avanti)' : 'Destra (Indietro)'} | Vista: ${calView}`);
+    }
+}
 
 // --- ATTIVAZIONE E RICHIESTA PERMESSO NOTIFICHE NATIVE ---
 async function requestNativeNotificationPermission() {
