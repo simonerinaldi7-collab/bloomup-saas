@@ -661,7 +661,7 @@ async function handleSpecialAction(action, data, id) {
             return { status: 'ok' };
         }
 
-        // --- 1. GET_VOLUME_INSIGHTS ---
+        // --- 1. GET_VOLUME_INSIGHTS (Aggiornato per includere anche articoli manuali/liberi) ---
         if (action === 'GET_VOLUME_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
@@ -670,11 +670,12 @@ async function handleSpecialAction(action, data, id) {
             const salesIds = sales.filter(s => s.date >= startDate && s.date <= endDate).map(s => s.id);
             const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
 
-              // 🛑 Escludiamo il fatturato storico fittizio dalle analisi di volume
+            // 🛑 Escludiamo il fatturato storico fittizio dalle analisi di volume
             const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id) && si.item_name !== 'Fatturato Storico / Chiusura');
             const counts = {};
             filteredItems.forEach(si => {
-                counts[si.item_name] = (counts[si.item_name] || 0) + (si.qty || 1);
+                const name = si.item_name || 'Articolo Manuale';
+                counts[name] = (counts[name] || 0) + (si.qty || 1);
             });
 
             return Object.keys(counts).map(item_name => ({
@@ -684,7 +685,7 @@ async function handleSpecialAction(action, data, id) {
         }
 
         
-       // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB) ---
+       // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Con supporto articoli manuali) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
@@ -719,7 +720,6 @@ async function handleSpecialAction(action, data, id) {
 
                 if (inv) {
                     if (inv.type === 'servizio') {
-                        // ✂️ SE È UN SERVIZIO: Sommiamo il costo FIFO dei materiali consumabili associati
                         const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                         let totalConsumablesCost = 0;
 
@@ -753,7 +753,6 @@ async function handleSpecialAction(action, data, id) {
                         const unitPayout = (soldPrice * totalPct) / 100;
                         totalCostOrPayout = unitPayout * itemQty;
                     } else {
-                        // 💰 PRELEVAMENTO DEL COSTO REALE SALVATO NELLA VENDITA O FIFO
                         const unitCost = (si.unit_cost !== undefined && si.unit_cost !== null && !isNaN(si.unit_cost) && parseFloat(si.unit_cost) > 0) 
                             ? parseFloat(si.unit_cost) 
                             : (priceHistory.find(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to))?.cost || 0);
@@ -761,20 +760,21 @@ async function handleSpecialAction(action, data, id) {
                         totalCostOrPayout = unitCost * itemQty;
                     }
                 } else {
-                    // Fallback se il servizio/articolo non è censito a magazzino
+                    // ✍️ Fallback sicuro per articoli manuali o liberi non presenti a magazzino
                     const unitCost = parseFloat(si.unit_cost) || 0;
                     totalCostOrPayout = unitCost * itemQty;
                 }
 
                 const totalMargin = finalRev - totalCostOrPayout;
+                const itemNameKey = si.item_name || 'Articolo Manuale';
 
-                if (!margins[si.item_name]) {
-                    margins[si.item_name] = { item_name: si.item_name, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
+                if (!margins[itemNameKey]) {
+                    margins[itemNameKey] = { item_name: itemNameKey, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
                 }
-                margins[si.item_name].total_sold += itemQty;
-                margins[si.item_name].total_revenue += finalRev;
-                margins[si.item_name].total_cost += totalCostOrPayout;
-                margins[si.item_name].total_margin += totalMargin;
+                margins[itemNameKey].total_sold += itemQty;
+                margins[itemNameKey].total_revenue += finalRev;
+                margins[itemNameKey].total_cost += totalCostOrPayout;
+                margins[itemNameKey].total_margin += totalMargin;
             });
 
             return Object.values(margins).sort((a, b) => a.total_margin - b.total_margin);
@@ -913,8 +913,7 @@ async function handleSpecialAction(action, data, id) {
             });
         }
 
-        // --- 8. GET_SALES_REPORT ---
-        // --- 8. GET_SALES_REPORT ---
+        // --- 8. GET_SALES_REPORT (Aggiornato con pieno supporto agli articoli manuali/liberi) ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -940,7 +939,6 @@ async function handleSpecialAction(action, data, id) {
                     const sale = sales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
                     
-                    // 🛡️ RICERCA CLIENTE BLINDATA
                     let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
                         cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
@@ -951,7 +949,8 @@ async function handleSpecialAction(action, data, id) {
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
                     const discount = item.discount || 0;
-                    const finalPrice = item.price - discount;
+                    const soldPrice = item.price || 0;
+                    const finalPrice = soldPrice - discount;
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
@@ -961,7 +960,6 @@ async function handleSpecialAction(action, data, id) {
 
                     if (inv) {
                         if (inv.type === 'servizio') {
-                            // ✂️ SE È UN SERVIZIO: Calcoliamo il costo dei materiali consumabili associati (FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
 
@@ -986,9 +984,8 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
                         } else if (inv.is_consignment) {
-                            // PRODOTTO IN CONTO VENDITA
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
                             const links = productSuppliers.filter(l => l.product_id === inv.id);
                             if (links.length > 0) {
@@ -1002,7 +999,6 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else {
-                            // PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                             if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
                                 unitCost = parseFloat(item.unit_cost) || 0;
                             } else {
@@ -1012,25 +1008,26 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
                         }
                     } else {
-                        // Servizio o articolo non censito a magazzino
-                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
-                            unitCost = parseFloat(item.unit_cost) || 0;
-                        }
-                        salonRevenue = finalPrice - (unitCost * itemQty);
+                        // ✍️ GESTIONE ARTICOLO MANUALE / LIBERO (Non presente a magazzino)
+                        unitCost = parseFloat(item.unit_cost) || 0;
+                        supplierPayout = parseFloat(item.supplier_payout) || 0;
+                        salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
+                            ? parseFloat(item.salon_revenue) 
+                            : (finalPrice - unitCost - supplierPayout);
                     }
 
                     report.push({
-                        sale_id: sale.id, // 👈 AGGIUNTO: ID fondamentale per lo storno
+                        sale_id: sale.id,
                         date: sale.date,
                         time: sale.time || '00:00',
-                        item_name: item.item_name || 'Articolo',
+                        item_name: item.item_name || 'Articolo Manuale',
                         customer_name: custDisplayName,
-                        sold_price: item.price || 0,
+                        sold_price: soldPrice,
                         discount: discount,
                         final_price: finalPrice,
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue, // Margine netto effettivo (inclusi consumabili per i servizi)
+                        salon_revenue: salonRevenue,
                         seller: sale.created_by || 'Admin'
                     });
                 }
