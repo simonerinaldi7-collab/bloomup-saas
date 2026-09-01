@@ -10137,13 +10137,39 @@ async function renderCart() {
     });
 
 
-    // Funzione di supporto per eliminare una spesa (aggiungila anche in main.js)
-    async function deleteExpense(id) {
-        if(confirm("Eliminare questa spesa?")) {
-            await window.api.query({ action: 'DELETE', table: 'expenses', id });
-            loadExpenses(); // Ricarica la tabella
-        }
+    // 🗑️ Funzione di eliminazione spesa con ricalcolo economico immediato (Bilancio & Target)
+async function deleteExpense(id) {
+    if (!confirm("Sei sicuro di voler eliminare questa spesa?\nL'operazione aggiornerà immediatamente il bilancio e il target giornaliero.")) {
+        return;
     }
+
+    try {
+        // 1. Eliminazione dal database (tramite bridge unificato)
+        await window.api.query({ action: 'DELETE', table: 'expenses', id: id });
+        
+        console.log(`✅ [SPESA] Spesa ID ${id} eliminata con successo.`);
+
+        // 2. Ricarica e ricalcola tutte le viste dipendenti dalle spese in tempo reale
+        if (typeof loadExpenses === 'function') {
+            await loadExpenses(); // Aggiorna la tabella nello sheet Spese
+        }
+        if (typeof loadBalance === 'function') {
+            await loadBalance();  // Aggiorna il bilancio mensile e le medie
+        }
+        if (typeof loadDailyTargetWidget === 'function') {
+            await loadDailyTargetWidget(); // 🎯 Ricalcola le spese fisse del mese e il target giornaliero
+        }
+        if (typeof updateStats === 'function') {
+            await updateStats();
+        }
+
+        alert("✅ Spesa eliminata e bilancio ricalcolato con successo.");
+
+    } catch (err) {
+        console.error("❌ Errore durante l'eliminazione della spesa:", err);
+        alert("Impossibile eliminare la spesa al momento.");
+    }
+}
 
 
 
