@@ -7141,19 +7141,16 @@ async function doLogin() {
         document.getElementById('n-payouts').style.display = isAdmin ? 'flex' : 'none';
 
         // 2. ⚡ INGRESSO ISTANTANEO: Spegniamo subito il login e mostriamo l'app
-        // Con questa transizione fluida di dissolvenza:
-const loginScreen = document.getElementById('login-screen');
-if (loginScreen) {
-    loginScreen.classList.add('fade-out-screen');
-    setTimeout(() => {
-        loginScreen.classList.add('hidden');
-        loginScreen.classList.remove('fade-out-screen');
-    }, 500); // 500ms corrisponde alla durata della transizione CSS
-}
-document.getElementById('app-shell').style.display = 'flex';
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) {
+            loginScreen.classList.add('fade-out-screen');
+            setTimeout(() => {
+                loginScreen.classList.add('hidden');
+                loginScreen.classList.remove('fade-out-screen');
+            }, 500);
+        }
         document.getElementById('app-shell').style.display = 'flex';
         
-        // Spegniamo anche l'eventuale overlay di caricamento se era rimasto attivo
         const loadingOverlay = document.getElementById('login-loading-overlay');
         if (loadingOverlay) loadingOverlay.classList.remove('active');
 
@@ -7170,15 +7167,16 @@ document.getElementById('app-shell').style.display = 'flex';
             await changePage('sales');
         }
 
-        // 4. Caricamento immediato dai dati locali (0 attese)
+        // 4. Caricamento immediato dai dati locali
         await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
 
+        // 5. 🚀 ATTIVAZIONE SINCRONIZZAZIONE IN PARALLELO TRA OPERATORI DELLO STESSO SALONE
+        if (typeof window.startBackgroundMultiOperatorSync === 'function') {
+            window.startBackgroundMultiOperatorSync();
+        }
 
-await startBackgroundMultiOperatorSync()
-
-        // 5. 🚀 IDRATAZIONE IN BACKGROUND NON BLOCCANTE (Silenziosa)
-        // Scarica dal cloud le novità mentre l'utente sta già lavorando
+        // 6. Idratazione in background non bloccante
         setTimeout(async () => {
             if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
                 await window.hydrateLocalDatabase(currentUser.salon_id);
