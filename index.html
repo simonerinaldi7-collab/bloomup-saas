@@ -3144,105 +3144,113 @@ async function voidSaleTransaction(saleId) {
     }
 
    async function renderSalesReport() {
-    const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
-    const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
-    const fStart = document.getElementById('d-start-report')?.value || '';
-    const fEnd = document.getElementById('d-end-report')?.value || '';
-    
-    const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-    const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-    const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-    const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-    const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-    
-    const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
-        const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
-        const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
-        const saleDate = r.date;
-        const matchStart = !fStart || saleDate >= fStart;
-        const matchEnd = !fEnd || saleDate <= fEnd;
-        return matchCust && matchProd && matchStart && matchEnd;
-    });
-    
-    const tbody = document.getElementById('list-report');
-    if (!tbody) return;
-
-    let sumGross = 0;
-    let sumDiscount = 0;
-    let sumFinal = 0;
-    let sumMargin = 0;
-
-    tbody.innerHTML = filtered.map(r => {
-        const soldPrice = parseFloat(r.sold_price) || 0; 
-        const discount = parseFloat(r.discount) || 0;
-        const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
-
-        const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
+        const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
+        const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
+        const fStart = document.getElementById('d-start-report')?.value || '';
+        const fEnd = document.getElementById('d-end-report')?.value || '';
         
-        let unitCost = parseFloat(r.unit_cost) || 0;
-        let supplierDetailsText = '-';
-        let totalSupplierPayout = parseFloat(r.supplier_payout) || 0;
-        let netMarginOrRevenue = parseFloat(r.salon_revenue) || finalPrice;
+        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        
+        const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
+            const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
+            const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
+            const saleDate = r.date;
+            const matchStart = !fStart || saleDate >= fStart;
+            const matchEnd = !fEnd || saleDate <= fEnd;
+            return matchCust && matchProd && matchStart && matchEnd;
+        });
+        
+        const tbody = document.getElementById('list-report');
+        if (!tbody) return;
 
-        if (prod && prod.is_consignment) {
-            const links = productSuppliersData.filter(l => l.product_id === prod.id);
-            if (links.length > 0) {
-                let detailsArray = [];
-                links.forEach(l => {
-                    const supp = suppliersData.find(s => s.id === l.supplier_id);
-                    const suppName = supp ? supp.name : 'Fornitore';
-                    const pct = parseFloat(l.split_pct) || 0;
-                    const totalPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                    const payoutForThisSupp = totalSupplierPayout * (pct / totalPct);
-                    detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
-                });
-                supplierDetailsText = detailsArray.join('<br>');
+        // 🧮 Variabili per il calcolo dei totali aggregati
+        let sumGross = 0;
+        let sumDiscount = 0;
+        let sumFinal = 0;
+        let sumMargin = 0;
+
+        tbody.innerHTML = filtered.map(r => {
+            const soldPrice = parseFloat(r.sold_price) || 0; 
+            const discount = parseFloat(r.discount) || 0;
+            const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
+
+            const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
+            
+            let unitCost = parseFloat(r.unit_cost) || 0;
+            let supplierDetailsText = '-';
+            let totalSupplierPayout = parseFloat(r.supplier_payout) || 0;
+            let netMarginOrRevenue = parseFloat(r.salon_revenue) || finalPrice;
+
+            if (prod && prod.is_consignment) {
+                const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                if (links.length > 0) {
+                    let detailsArray = [];
+                    let totalPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                    
+                    links.forEach(l => {
+                        const supp = suppliersData.find(s => s.id === l.supplier_id);
+                        const suppName = supp ? supp.name : 'Fornitore';
+                        const pct = parseFloat(l.split_pct) || 0;
+                        
+                        // Ripartiamo il payout totale salvato in cassa in base al peso percentuale del singolo fornitore
+                        const suppWeight = totalPct > 0 ? (pct / totalPct) : 1;
+                        const payoutForThisSupp = totalSupplierPayout * suppWeight;
+                        
+                        detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
+                    });
+                    supplierDetailsText = detailsArray.join('<br>');
+                } else {
+                    supplierDetailsText = `Fornitore: €${totalSupplierPayout.toFixed(2)}`;
+                }
             } else {
-                supplierDetailsText = `Fornitore: €${totalSupplierPayout.toFixed(2)}`;
+                supplierDetailsText = '-';
             }
-        } else {
-            supplierDetailsText = '-';
+
+            // Accumuliamo nei totali generali
+            sumGross += soldPrice;
+            sumDiscount += discount;
+            sumFinal += finalPrice;
+            sumMargin += netMarginOrRevenue;
+
+            const isPositive = netMarginOrRevenue >= 0;
+
+            return `
+                <tr>
+                    <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
+                    <td><b>${r.item_name}</b></td>
+                    <td>${r.customer_name || 'Occasionale'}</td>
+                    <td>€${soldPrice.toFixed(2)}</td>
+                    <td>€${discount.toFixed(2)}</td>
+                    <td><b>€${finalPrice.toFixed(2)}</b></td>
+                    <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
+                    <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
+                    <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
+                    <td>${r.seller || '-'}</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
+        const elGross = document.getElementById('rep-tot-gross');
+        const elDisc = document.getElementById('rep-tot-disc');
+        const elFinal = document.getElementById('rep-tot-final');
+        const elMargin = document.getElementById('rep-tot-margin');
+
+        if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
+        if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
+        if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
+        if (elMargin) {
+            elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
+            elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
         }
-
-        sumGross += soldPrice;
-        sumDiscount += discount;
-        sumFinal += finalPrice;
-        sumMargin += netMarginOrRevenue;
-
-        const isPositive = netMarginOrRevenue >= 0;
-
-        return `
-            <tr>
-                <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
-                <td><b>${r.item_name}</b></td>
-                <td>${r.customer_name || 'Occasionale'}</td>
-                <td>€${soldPrice.toFixed(2)}</td>
-                <td>€${discount.toFixed(2)}</td>
-                <td><b>€${finalPrice.toFixed(2)}</b></td>
-                <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
-                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
-                <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
-                <td>${r.seller || '-'}</td>
-                <td style="text-align: right;">
-                    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Storna questa vendita">Storna</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    const elGross = document.getElementById('rep-tot-gross');
-    const elDisc = document.getElementById('rep-tot-disc');
-    const elFinal = document.getElementById('rep-tot-final');
-    const elMargin = document.getElementById('rep-tot-margin');
-
-    if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
-    if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
-    if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
-    if (elMargin) {
-        elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
-        elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
     }
-}
 
 
 
@@ -3977,7 +3985,6 @@ function triggerLocalOperatorAlert(appointment) {
 
             const payoutSummary = {};
 
-            // Filtriamo i fornitori in base alla tendina selezionata
             const targetSuppliers = selectedSupplierId === 'all' 
                 ? suppliersData 
                 : suppliersData.filter(s => s.id === selectedSupplierId);
@@ -3991,68 +3998,60 @@ function triggerLocalOperatorAlert(appointment) {
                 };
             });
 
-            // Dentro renderSupplierPayouts(), durante l'iterazione su saleItemsData:
-for (let item of saleItemsData) {
-    if (!salesIdsInRange.includes(item.sale_id)) continue;
+            for (let item of saleItemsData) {
+                if (!salesIdsInRange.includes(item.sale_id)) continue;
 
-    const sale = salesInPeriod.find(s => s.id === item.sale_id);
-    const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
-    
-    // 🛑 Modifica chiave: Accettiamo sia prodotti che servizi purché siano in conto vendita (is_consignment)
-    if (!prod || !prod.is_consignment) continue;
+                const sale = salesInPeriod.find(s => s.id === item.sale_id);
+                const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+                
+                if (!prod || !prod.is_consignment) continue;
 
-    const soldPrice = parseFloat(item.price) || 0;
-    const discount = parseFloat(item.discount) || 0;
-    const finalPrice = Math.max(soldPrice - discount, 0);
-    const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
+                const soldPrice = parseFloat(item.price) || 0;
+                const discount = parseFloat(item.discount) || 0;
+                const finalPrice = Math.max(soldPrice - discount, 0);
+                const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
 
-    const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
-    const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                const links = productSuppliersData.filter(l => l.product_id === prod.id);
 
-    // Funzione di supporto per registrare la quota al fornitore considerando l'assorbimento dello sconto scelto in cassa
-    const registerItemForSupplier = (supId, pct) => {
-    if (!payoutSummary[supId]) return;
-    
-    let basePayout = (listinoPienoOriginale * pct) / 100;
-    let finalPayoutForThisSupp = basePayout;
+                const registerItemForSupplier = (supId, pct) => {
+                    if (!payoutSummary[supId]) return;
+                    
+                    const itemTotalPayout = item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout) 
+                        ? parseFloat(item.supplier_payout) 
+                        : (listinoPienoOriginale * (prod.consignment_split_pct || 0) / 100);
 
-    // Se l'item ha un supplier_payout salvato in modo puntuale in cassa, usiamo quello!
-    if (item.supplier_payout !== undefined && item.supplier_payout !== null && parseFloat(item.supplier_payout) > 0) {
-        // Se ci sono più fornitori sullo stesso item, dividiamo in proporzione alla percentuale
-        let totalProductPct = prod.consignment_split_pct || 100;
-        if (links.length > 0) {
-            totalProductPct = 0;
-            links.forEach(l => totalProductPct += parseFloat(l.split_pct) || 0);
-        }
-        const supplierShareRatio = totalProductPct > 0 ? (pct / totalProductPct) : 1;
-        finalPayoutForThisSupp = parseFloat(item.supplier_payout) * supplierShareRatio;
-    } else if (discount > 0) {
-        // Fallback di calcolo se il campo salvato non è presente
-        finalPayoutForThisSupp = Math.max(basePayout - discount, 0);
-    }
+                    let finalPayoutForThisSupp = itemTotalPayout;
+                    if (links.length > 1) {
+                        let totalConsignmentPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                        const suppWeightRatio = totalConsignmentPct > 0 ? (pct / totalConsignmentPct) : 1;
+                        finalPayoutForThisSupp = itemTotalPayout * suppWeightRatio;
+                    } else if (links.length === 1) {
+                        finalPayoutForThisSupp = itemTotalPayout;
+                    }
 
-    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
-    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
+                    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
+                    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
 
-    payoutSummary[supId].items.push({
-        saleItemId: item.id,
-        supplierId: supId,
-        date: saleDate,
-        itemName: item.item_name,
-        gross: finalPrice,
-        payout: finalPayoutForThisSupp,
-        isPaid: isPaid
-    });
-};
+                    payoutSummary[supId].items.push({
+                        saleItemId: item.id,
+                        supplierId: supId,
+                        date: saleDate,
+                        itemName: item.item_name,
+                        gross: finalPrice,
+                        payout: finalPayoutForThisSupp,
+                        isPaid: isPaid
+                    });
+                };
 
-    if (links.length > 0) {
-        links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));
-    } else if (prod.consignment_split_pct && prod.supplier_id) {
-        registerItemForSupplier(prod.supplier_id, parseFloat(prod.consignment_split_pct) || 0);
-    }
-}
+                if (links.length > 0) {
+                    links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));
+                } else if (prod.consignment_split_pct && prod.supplier_id) {
+                    registerItemForSupplier(prod.supplier_id, parseFloat(prod.consignment_split_pct) || 0);
+                }
+            }
 
             const activeSuppliers = Object.values(payoutSummary).filter(s => s.items.length > 0);
 
