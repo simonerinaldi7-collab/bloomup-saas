@@ -1102,65 +1102,53 @@
         <!-- Sheet Spese -->
         <div id="sheet-spese" class="dash-sheet">
             <div class="card">
-        <h3 id="exp-form-title">Nuova Spesa</h3>
-        <input type="hidden" id="edit-exp-id" value="-1">
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-            <div style="flex:1; min-width:140px;">
-                <label style="margin-top:0;">Data</label>
-                <input type="date" id="exp-date" style="margin:0;">
-            </div>
-            <div style="flex:2; min-width:180px;">
-                <label style="margin-top:0;">Descrizione</label>
-                <input type="text" id="exp-desc" placeholder="Descrizione" style="margin:0;">
-            </div>
-            <div style="flex:1; min-width:120px;">
-                <label style="margin-top:0;">Importo (€)</label>
-                <input type="number" id="exp-amt" step="0.01" placeholder="0.00" style="margin:0;">
-            </div>
-            <div style="display:flex; gap:6px;">
-                <button class="btn btn-d" id="exp-save-btn" onclick="saveOrUpdateExpense()">Registra Spesa</button>
-                <button class="btn hidden" id="exp-cancel-btn" onclick="resetExpenseForm()" style="background:#f1f5f9; color:#475569;">Annulla</button>
-            </div>
-        </div>
-    </div>
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 12px;">
-            <h3 style="margin: 0;">Storico Spese</h3>
-            <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9; color: #475569;" onclick="clearExpenseFilters()">Pulisci Filtri</button>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <label style="margin-top:0; font-size: 10px;">Da Data</label>
-                    <input type="date" id="filter-exp-start" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
-                </div>
-                <div>
-                    <label style="margin-top:0; font-size: 10px;">A Data</label>
-                    <input type="date" id="filter-exp-end" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
+                <h3>Nuova Spesa</h3>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="date" id="exp-date">
+                    <input type="text" id="exp-desc" placeholder="Descrizione">
+                    <input type="number" id="exp-amt" placeholder="Importo">
+                    <button class="btn btn-d" onclick="addExpense()">Registra Spesa</button>
                 </div>
             </div>
-            <div>
-                <label style="margin-top:0; font-size: 10px;">Cerca per Descrizione</label>
-                <input type="text" id="filter-exp-desc" placeholder="Es. Enel, Affitto..." onkeyup="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;" autocomplete="off">
+            <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 12px;">
+                <h3 style="margin: 0;">Storico Spese</h3>
+                <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9; color: #475569;" onclick="clearExpenseFilters()">Pulisci Filtri</button>
+            </div>
+
+            <!-- Box dei Filtri di Ricerca Ottimizzato Mobile-First -->
+            <div style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="margin-top:0; font-size: 10px;">Da Data</label>
+                        <input type="date" id="filter-exp-start" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label style="margin-top:0; font-size: 10px;">A Data</label>
+                        <input type="date" id="filter-exp-end" onchange="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;">
+                    </div>
+                </div>
+                <div>
+                    <label style="margin-top:0; font-size: 10px;">Cerca per Descrizione</label>
+                    <input type="text" id="filter-exp-desc" placeholder="Es. Enel, Affitto..." onkeyup="loadExpenses()" style="margin:0; padding:10px; background:white; width:100%; font-size: 14px;" autocomplete="off">
+                </div>
+            </div>
+
+            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="min-width: 450px;">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrizione</th>
+                            <th>Importo</th>
+                            <th style="text-align: right;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-body"></tbody>
+                </table>
             </div>
         </div>
-
-        <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <table style="min-width: 500px;">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Descrizione</th>
-                        <th>Importo</th>
-                        <th style="text-align: right;">Azioni</th>
-                    </tr>
-                </thead>
-                <tbody id="expenses-body"></tbody>
-            </table>
         </div>
-    </div>
-            
 
         <!-- Sheet Bilancio -->
         <div id="sheet-bilancio" class="dash-sheet" style="background: white; padding: 20px; border-radius: 16px;">
@@ -2864,7 +2852,26 @@ async function submitPasswordReset() {
 
 
 
-    
+    async function addExpense() {
+        const data = {
+            date: document.getElementById('exp-date').value,
+            description: document.getElementById('exp-desc').value,
+            amount: parseFloat(document.getElementById('exp-amt').value)
+        };
+        if(!data.date || !data.amount) return alert("Compila tutti i campi!");
+        
+        await window.api.query({ action: 'INSERT', table: 'expenses', data });
+        
+        // Pulisci i campi
+        document.getElementById('exp-desc').value = "";
+        document.getElementById('exp-amt').value = "";
+        
+        // Ricarica TUTTO quello che serve
+        await loadExpenses(); // Aggiorna la tabella spese
+        await loadBalance();  // Aggiorna la tabella bilancio e i KPI
+        
+        alert("Spesa registrata!");
+    }
 
 
     async function loadCrossSelling() {
@@ -10016,100 +10023,39 @@ async function renderCart() {
     }
 
 
-async function saveOrUpdateExpense() {
-        const editId = document.getElementById('edit-exp-id').value;
-        const date = document.getElementById('exp-date').value;
-        const description = document.getElementById('exp-desc').value.trim();
-        const amount = parseFloat(document.getElementById('exp-amt').value);
-
-        if (!date || !description || isNaN(amount) || amount <= 0) {
-            return alert("Compila tutti i campi obbligatori con valori validi!");
-        }
-
-        const expenseData = {
-            date: date,
-            description: description,
-            amount: amount,
-            salon_id: currentUser ? currentUser.salon_id : 'SALON_001'
-        };
-
-        if (editId === "-1" || !editId) {
-            // Nuova spesa
-            await window.universalQuery({ 
-                action: 'INSERT', 
-                table: 'expenses', 
-                data: expenseData 
-            });
-            alert("✅ Spesa registrata con successo!");
-        } else {
-            // Modifica spesa esistente
-            await window.universalQuery({ 
-                action: 'UPDATE', 
-                table: 'expenses', 
-                data: expenseData, 
-                id: editId 
-            });
-            alert("✅ Spesa aggiornata con successo!");
-        }
-
-        resetExpenseForm();
-        await loadExpenses();
-        await loadBalance();
-        if (typeof loadDailyTargetWidget === 'function') await loadDailyTargetWidget();
-    }
-
-    function editExpense(id, date, description, amount) {
-        document.getElementById('edit-exp-id').value = id;
-        document.getElementById('exp-date').value = date;
-        document.getElementById('exp-desc').value = description;
-        document.getElementById('exp-amt').value = amount;
-
-        document.getElementById('exp-form-title').innerText = "Modifica Spesa Esistente";
-        const saveBtn = document.getElementById('exp-save-btn');
-        if (saveBtn) saveBtn.innerText = "Aggiorna Spesa";
-        
-        const cancelBtn = document.getElementById('exp-cancel-btn');
-        if (cancelBtn) cancelBtn.classList.remove('hidden');
-
-        // Scorri fluidamente verso il modulo di inserimento in alto
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetExpenseForm() {
-        document.getElementById('edit-exp-id').value = "-1";
-        document.getElementById('exp-date').value = "";
-        document.getElementById('exp-desc').value = "";
-        document.getElementById('exp-amt').value = "";
-
-        document.getElementById('exp-form-title').innerText = "Nuova Spesa";
-        const saveBtn = document.getElementById('exp-save-btn');
-        if (saveBtn) saveBtn.innerText = "Registra Spesa";
-        
-        const cancelBtn = document.getElementById('exp-cancel-btn');
-        if (cancelBtn) cancelBtn.classList.add('hidden');
-    }
 
     async function loadExpenses() {
-        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        const expenses = await window.api.query({ action: 'GET_ALL', table: 'expenses' }) || [];
         const tbody = document.getElementById('expenses-body');
         if (!tbody) return;
 
+        // Leggiamo i valori dai filtri
         const startDate = document.getElementById('filter-exp-start')?.value || '';
         const endDate = document.getElementById('filter-exp-end')?.value || '';
         const searchDesc = document.getElementById('filter-exp-desc')?.value.toLowerCase().trim() || '';
 
+        // Applichiamo i filtri in memoria
         const filtered = expenses.filter(e => {
             if (!e.date) return false;
+            
+            // Filtro Data Inizio
             if (startDate && e.date < startDate) return false;
+            // Filtro Data Fine
             if (endDate && e.date > endDate) return false;
+            
+            // Filtro Descrizione (Cerca per sottostringa)
             if (searchDesc) {
                 const desc = (e.description || '').toLowerCase();
                 if (!desc.includes(searchDesc)) return false;
             }
+
             return true;
         });
 
-        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Ordinamento decrescente per data (dal più recente al più vecchio)
+        filtered.sort((a, b) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
 
         if (filtered.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 20px;">Nessuna spesa trovata con i filtri selezionati.</td></tr>`;
@@ -10121,25 +10067,10 @@ async function saveOrUpdateExpense() {
                 <td>${formatDateIt(e.date)}</td>
                 <td><b>${e.description}</b></td>
                 <td style="color: var(--d); font-weight: bold;">€${parseFloat(e.amount || 0).toFixed(2)}</td>
-                <td style="text-align: right;">
-                    <div style="display: inline-flex; gap: 6px; justify-content: flex-end;">
-                        <button class="btn btn-s" style="padding:4px 10px; font-size:11px;" onclick="editExpense('${e.id}', '${e.date}', '${String(e.description).replace(/'/g, "\\'")}', ${e.amount})" title="Modifica Spesa">✎</button>
-                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="deleteExpense('${e.id}')" title="Elimina Spesa">✕</button>
-                    </div>
-                </td>
+                <td style="text-align: right;"><button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="deleteExpense('${e.id}')">✕</button></td>
             </tr>
         `).join('');
     }
-
-    async function deleteExpense(id) {
-        if(confirm("Eliminare questa spesa? Il bilancio verrà ricalcolato.")) {
-            await window.universalQuery({ action: 'DELETE', table: 'expenses', id });
-            await loadExpenses();
-            await loadBalance();
-            if (typeof loadDailyTargetWidget === 'function') await loadDailyTargetWidget();
-        }
-    }
-    
 
     function clearExpenseFilters() {
         const startInput = document.getElementById('filter-exp-start');
@@ -10206,7 +10137,14 @@ async function saveOrUpdateExpense() {
     });
 
 
-   
+    // Funzione di supporto per eliminare una spesa (aggiungila anche in main.js)
+    async function deleteExpense(id) {
+        if(confirm("Eliminare questa spesa?")) {
+            await window.api.query({ action: 'DELETE', table: 'expenses', id });
+            loadExpenses(); // Ricarica la tabella
+        }
+    }
+
 
 
     document.addEventListener('DOMContentLoaded', () => {
