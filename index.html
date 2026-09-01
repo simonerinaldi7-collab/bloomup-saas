@@ -9404,7 +9404,7 @@ function addManualItemToCart() {
             action:'INSERT', table:'sales', 
             data: { 
                 cust_id: finalCustId || null, 
-                appointment_id: linkedAppointmentId, // 👈 Collegamento scritto SOLO al click su Paga
+                appointment_id: linkedAppointmentId, 
                 total: total, 
                 date: nowObj.split(' ')[0], 
                 time: nowObj.split(' ')[1], 
@@ -9419,20 +9419,18 @@ function addManualItemToCart() {
 
         const saleId = res.lastInsertRowid; 
 
-        // 2. Inserimento dei singoli articoli della vendita
+        // 2. Inserimento dei singoli articoli della vendita (Supporto 100% per Prodotti, Servizi e Voci Manuali/Fuori Catalogo)
         for(let item of cartWithDiscounts) { 
-            if (item.id) { 
-                const productDb = allInventory.find(p => p.id === item.id);
-                const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
-                const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
-                const discountApplied = item.discountAmount || 0;
-                const finalItemPrice = listinoPieno - discountApplied;
+            let unitCostUsed = 0;
+            let supplierPayout = 0;
+            let finalItemPrice = item.price - (item.discountAmount || 0);
+            let salonRevenue = finalItemPrice;
 
-                let unitCostUsed = 0;
-                let supplierPayout = 0;
-                let salonRevenue = finalItemPrice;
+            // Identifichiamo se l'articolo è presente a magazzino o se è una voce libera/manuale
+            const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
 
-                if (productDb && productDb.is_consignment) {
+            if (productDb) { 
+                if (productDb.is_consignment) {
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;
 
@@ -9456,13 +9454,12 @@ function addManualItemToCart() {
                         if (lotSplits.length > 0) {
                             let lotTotalPct = 0;
                             lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
-                            lotPayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
+                            lotPayoutForOneUnit = (item.price * lotTotalPct) / 100;
                         } else {
-                            lotPayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
+                            lotPayoutForOneUnit = (item.price * (productDb.consignment_split_pct || 0)) / 100;
                         }
 
                         totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
-
                         lot.qty_remaining -= takeFromLot;
                         qtyToProcess -= takeFromLot;
 
@@ -9476,13 +9473,13 @@ function addManualItemToCart() {
 
                     if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
                         const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        totalSupplierPayoutForThisSale = (listinoPieno * fallbackPct / 100) * (item.qty || 1);
+                        totalSupplierPayoutForThisSale = (item.price * fallbackPct / 100) * (item.qty || 1);
                     }
 
                     supplierPayout = totalSupplierPayoutForThisSale;
                     salonRevenue = finalItemPrice - supplierPayout;
-                
-                } else if (productDb && productDb.type === 'prodotto') {
+
+                } else if (productDb.type === 'prodotto') {
                     let qtyToProcess = item.qty || 1;
                     let totalCostForThisSale = 0;
 
@@ -9509,39 +9506,17 @@ function addManualItemToCart() {
                     }
 
                     if (totalCostForThisSale === 0 && prodLots.length === 0) {
+                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: productDb.id });
                         const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
                         totalCostForThisSale = fallbackCost * (item.qty || 1);
                     }
 
                     unitCostUsed = totalCostForThisSale / (item.qty || 1);
                     salonRevenue = finalItemPrice - totalCostForThisSale;
-                } else {
-                    salonRevenue = finalItemPrice;
-                }
 
-                await window.universalQuery({ 
-                    action:'INSERT', table:'sale_items', 
-                    data: { 
-                        sale_id: saleId, 
-                        item_name: item.name, 
-                        qty: item.qty || 1, 
-                        price: listinoPieno,
-                        discount: discountApplied,
-                        unit_cost: unitCostUsed,
-                        supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue
-                    } 
-                });
-                
-                if (productDb && productDb.type === 'prodotto') {
-                    await window.universalQuery({ 
-                        action:'UPDATE', table:'inventory', 
-                        data: { stock: productDb.stock - (item.qty || 1) }, 
-                        id: productDb.id 
-                    }); 
-                }
-                else if (productDb && productDb.type === 'servizio') {
+                } else if (productDb.type === 'servizio') {
                     const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
+                    let totalConsumablesCost = 0;
                     for (let c of (Array.isArray(consumables) ? consumables : [])) {
                         const prod = allInventory.find(p => p.name === c.prod_name);
                         if (prod) {
@@ -9551,10 +9526,47 @@ function addManualItemToCart() {
                                 data: { stock: newStock }, 
                                 id: prod.id 
                             });
+                            totalConsumablesCost += (c.qty * (prod.cost || 0));
                         }
                     }
+                    unitCostUsed = totalConsumablesCost;
+                    salonRevenue = finalItemPrice - totalConsumablesCost;
                 }
-            } 
+            } else {
+                // ✍️ VOCE MANUALE / FUORI CATALOGO: Nessun magazzino collegato, intero importo a ricavo salone
+                unitCostUsed = 0;
+                supplierPayout = 0;
+                salonRevenue = finalItemPrice;
+            }
+
+            // Inserimento della riga in sale_items (Ora eseguito SEMPRE, sia per articoli in magazzino che manuali)
+            const saleItemPayload = {
+                id: crypto.randomUUID(),
+                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                sale_id: saleId, 
+                item_name: item.name || 'Voce Manuale', 
+                qty: item.qty || 1, 
+                price: item.price || 0,
+                discount: item.discountAmount || 0,
+                unit_cost: unitCostUsed,
+                supplier_payout: supplierPayout,
+                salon_revenue: salonRevenue
+            };
+
+            await window.universalQuery({ 
+                action: 'INSERT', 
+                table: 'sale_items', 
+                data: saleItemPayload 
+            });
+            
+            // Scaliamo lo stock fisico principale solo se è un prodotto di magazzino
+            if (productDb && productDb.type === 'prodotto') {
+                await window.universalQuery({ 
+                    action: 'UPDATE', table: 'inventory', 
+                    data: { stock: productDb.stock - (item.qty || 1) }, 
+                    id: productDb.id 
+                }); 
+            }
         } 
         
         // 🧹 RESETTA IL PUNTATORE DELL'APPUNTAMENTO SUBITO DOPO IL PAGAMENTO
@@ -9570,7 +9582,7 @@ function addManualItemToCart() {
         if (currentUser && currentUser.role === 'admin') {
             changePage('dashboard');
         } else {
-            changePage('calendar'); // L'operatore torna all'agenda in modo sicuro
+            changePage('calendar');
         }
     }
         
