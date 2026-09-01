@@ -2113,12 +2113,15 @@ console.error = function(...args) {
     }
 
 
+// 2. Gestione unificata e priva di duplicati per il Conto Vendita (Prodotti vs Servizi)
 async function toggleConsignmentFields() {
-    const isChecked = document.getElementById('f-p-is-consignment').checked;
-    const type = document.getElementById('f-p-type').value;
+    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
+    const isChecked = consignmentCheckbox ? consignmentCheckbox.checked : false;
+    const typeField = document.getElementById('f-p-type');
+    const type = typeField ? typeField.value : 'prodotto';
+    
     const consignmentDetails = document.getElementById('consignment-details');
     const standardSuppBox = document.getElementById('standard-supplier-box');
-    
     const prodSuppSection = document.getElementById('product-suppliers-section');
     const servSuppSection = document.getElementById('service-supplier-section');
 
@@ -2141,6 +2144,7 @@ async function toggleConsignmentFields() {
     }
 }
 
+// 3. Popolamento select fornitore singolo per i servizi in conto vendita
 async function populateSingleServiceSupplierSelect(selectedId = null) {
     const select = document.getElementById('f-s-supplier');
     if (!select) return;
@@ -3945,10 +3949,9 @@ function toggleInvFields() {
         prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
     }
     
-    // Aggiorniamo la visualizzazione del conto vendita in base al tipo
+    // Attiva la logica del conto vendita dedicata al tipo di articolo
     toggleConsignmentFields();
 }
-
 
 
     // Funzione scattata quando si cambia operatore nel modale
@@ -8419,6 +8422,7 @@ async function updateStockInline(productId, newStockVal) {
 }
 
 // Correzione bug fix: Salvataggio e popolamento corretto del fornitore in editInv
+// 4. Modifica anagrafica (Corretta per gestire servizi in conto vendita)
 async function editInv(id) { 
     const i = allInventory.find(x => x.id === id); 
     if(!i) return;
@@ -8428,24 +8432,40 @@ async function editInv(id) {
     document.getElementById('f-p-type').value = i.type || 'prodotto';
     document.getElementById('f-p-min').value = i.min_stock || 0; 
     
+    // Campi extra
     if (document.getElementById('f-p-model')) document.getElementById('f-p-model').value = i.model || '';
     if (document.getElementById('f-p-barcode')) document.getElementById('f-p-barcode').value = i.barcode || '';
-    if (document.getElementById('f-p-size')) document.getElementById('f-p-size').value = i.size || ''; // 👈 Carica taglia
+    if (document.getElementById('f-p-size')) document.getElementById('f-p-size').value = i.size || ''; 
     if (document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = i.unit || 'Pezzi';
     if (document.getElementById('f-p-location')) document.getElementById('f-p-location').value = i.location || '';
+    if (document.getElementById('f-p-supplier')) document.getElementById('f-p-supplier').value = i.supplier_id || '';
 
-    // 🤝 FIX FORNITORE: Popoliamo la select passando l'ID del fornitore attuale del prodotto
-    await populateSupplierSelect(i.supplier_id);
+    // Prezzo di listino attuale
+    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
+    if (document.getElementById('f-p-listing-price')) {
+        document.getElementById('f-p-listing-price').value = pInfo ? pInfo.price : 0;
+    }
 
+    // Conto vendita checkbox
     const consignmentCheckbox = document.getElementById('f-p-is-consignment');
     if (consignmentCheckbox) {
         consignmentCheckbox.checked = i.is_consignment ? true : false;
     }
     
+    // Gestione specifica se è un Servizio in Conto Vendita
+    if (i.type === 'servizio' && i.is_consignment) {
+        document.getElementById('product-suppliers-section').style.display = 'none';
+        document.getElementById('service-supplier-section').style.display = 'block';
+        
+        await populateSingleServiceSupplierSelect(i.supplier_id);
+        document.getElementById('f-s-split-pct').value = i.consignment_split_pct || 0;
+        document.getElementById('f-s-discount-rule').value = i.discount_absorption || 'salon';
+    }
+
     toggleInvFields();
     toggleConsignmentFields();
 
-    if (typeof loadProductSuppliersForEdit === 'function') {
+    if (i.type === 'prodotto' && typeof loadProductSuppliersForEdit === 'function') {
         await loadProductSuppliersForEdit(id);
     }
     
@@ -8906,58 +8926,7 @@ function addManualItemToCart() {
             container.innerHTML = "<p>Nessun materiale associato.</p>";
         }
     }
-    async function editInv(id) { 
-    const i = allInventory.find(x => x.id === id); 
-    if(!i) return;
-
-    document.getElementById('edit-p-id').value = id; 
-    document.getElementById('f-p-name').value = i.name; 
-    document.getElementById('f-p-type').value = i.type || 'prodotto';
-    document.getElementById('f-p-min').value = i.min_stock || 0; 
-    
-    // Campi extra
-    if (document.getElementById('f-p-model')) document.getElementById('f-p-model').value = i.model || '';
-    if (document.getElementById('f-p-barcode')) document.getElementById('f-p-barcode').value = i.barcode || '';
-    if (document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = i.unit || 'Pezzi';
-    if (document.getElementById('f-p-location')) document.getElementById('f-p-location').value = i.location || '';
-    if (document.getElementById('f-p-supplier')) document.getElementById('f-p-supplier').value = i.supplier_id || '';
-
-    // Recuperiamo il prezzo di listino attuale dallo storico o dal record
-    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
-    if (document.getElementById('f-p-listing-price')) {
-        document.getElementById('f-p-listing-price').value = pInfo ? pInfo.price : 0;
-    }
-
-
-
-
-    // Conto vendita
-    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
-    if (consignmentCheckbox) {
-        consignmentCheckbox.checked = i.is_consignment ? true : false;
-    }
-    
-// All'interno di editInv(id):
-if (i.type === 'servizio' && i.is_consignment) {
-    document.getElementById('f-p-is-consignment').checked = true;
-    document.getElementById('consignment-details').style.display = 'block';
-    document.getElementById('product-suppliers-section').style.display = 'none';
-    document.getElementById('service-supplier-section').style.display = 'block';
-    
-    await populateSingleServiceSupplierSelect(i.supplier_id);
-    document.getElementById('f-s-split-pct').value = i.consignment_split_pct || 0;
-    document.getElementById('f-s-discount-rule').value = i.discount_absorption || 'salon';
-}
-
-    toggleInvFields();
-    toggleConsignmentFields();
-
-    if (typeof loadProductSuppliersForEdit === 'function') {
-        await loadProductSuppliersForEdit(id);
-    }
-    
-    document.getElementById('mod-inv').classList.add('active'); 
-}
+   
 
     function fillHistoryForm(hId, from, to, cost, price) {
         document.getElementById('edit-h-id').value = hId;
