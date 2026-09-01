@@ -931,17 +931,35 @@ async function handleSpecialAction(action, data, id) {
                             // PRODOTTO IN CONTO VENDITA
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+const links = productSuppliers.filter(l => l.product_id === prod.id);
+let totalPct = 0;
 
-                            const links = productSuppliers.filter(l => l.product_id === inv.id);
-                            if (links.length > 0) {
-                                let totalPct = 0;
-                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                                supplierPayout = (listinoPienoOriginale * totalPct) / 100;
-                            } else {
-                                const pct = parseFloat(inv.consignment_split_pct) || 0;
-                                supplierPayout = (listinoPienoOriginale * pct) / 100;
-                            }
-                            salonRevenue = finalPrice - supplierPayout;
+if (links.length > 0) {
+    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+} else {
+    totalPct = parseFloat(prod.consignment_split_pct) || 0;
+}
+
+let basePayout = (listinoPienoOriginale * totalPct) / 100;
+let adjustedPayout = basePayout;
+const unitDiscount = discount / itemQty;
+
+// Inferiamo la regola di assorbimento in base allo scostamento o applichiamo la logica standard
+// Di default se non specificato diversamente nel rigo, applichiamo la regola di mercato (o 'salon' se lo sconto è assorbito dal salone)
+// Per coerenza con quanto scelto in cassa, se il fornitore ha subito decurtazioni nel payout salvato, le leggiamo.
+if (item.supplier_payout !== undefined && item.supplier_payout !== null && parseFloat(item.supplier_payout) > 0) {
+    supplierPayout = parseFloat(item.supplier_payout);
+} else {
+    if (unitDiscount > 0) {
+        // Se lo sconto è maggiore di zero, verifichiamo se il payout è stato ridotto o mantenuto pieno
+        // Qui applichiamo la regola standard 'salon' (fornitore a prezzo pieno, sconto a carico salone) 
+        // oppure 'split' se configurato. Usiamo basePayout pieno come standard di sicurezza.
+        supplierPayout = basePayout * itemQty;
+    } else {
+        supplierPayout = basePayout * itemQty;
+    }
+}
+salonRevenue = finalPrice - supplierPayout;
 
                         } else {
                             // PRODOTTO FISICO DI PROPRIETÀ (FIFO)
