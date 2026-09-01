@@ -1369,17 +1369,7 @@
 
     <section id="v-services" class="view">
     <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; flex-grow:1;">
-            <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:250px; margin:0;">
-            
-            <!-- 🔍 FILTRO CONTOCONTRATTO / PROPRIETÀ PER I SERVIZI -->
-            <select id="filter-serv-type-sales" onchange="renderServices()" style="max-width:180px; margin:0;">
-                <option value="all">Tutti (Proprietà & CV)</option>
-                <option value="proprieta">Solo Proprietà</option>
-                <option value="consignment">Solo Conto Vendita</option>
-            </select>
-        </div>
-
+        <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;">
         <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button>
     </div>
     <div class="card" style="padding:0; overflow-x: auto;">
@@ -1387,9 +1377,8 @@
             <thead>
                 <tr>
                     <th>Nome Servizio</th>
-                    <th>Tipo / Gestione</th> <!-- 👈 Nuova Colonna -->
                     <th>Prezzo Listino</th>
-                    <th>Ultimo Aggiornamento</th>
+                    <th>Ultimo Aggiornamento</th> <!-- 👈 Etichetta ripristinata -->
                     <th>Autore</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
@@ -1960,7 +1949,7 @@
                 <div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
-                        <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto/servizio in Conto Vendita (Multi-Fornitore)</label>
+                        <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto in Conto Vendita (Multi-Fornitore)</label>
                     </div>
                     
                     <div id="consignment-details" style="display:none; margin-top: 12px;">
@@ -3144,127 +3133,129 @@ async function voidSaleTransaction(saleId) {
     }
 
    async function renderSalesReport() {
-    const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
-    const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
-    const fStart = document.getElementById('d-start-report')?.value || '';
-    const fEnd = document.getElementById('d-end-report')?.value || '';
-    
-    const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-    const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-    const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-    const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-    const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-    
-    const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
-        const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
-        const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
-        const saleDate = r.date;
-        const matchStart = !fStart || saleDate >= fStart;
-        const matchEnd = !fEnd || saleDate <= fEnd;
-        return matchCust && matchProd && matchStart && matchEnd;
-    });
-    
-    const tbody = document.getElementById('list-report');
-    if (!tbody) return;
-
-    // 🧮 Variabili per il calcolo dei totali aggregati
-    let sumGross = 0;
-    let sumDiscount = 0;
-    let sumFinal = 0;
-    let sumMargin = 0;
-
-    tbody.innerHTML = filtered.map(r => {
-        const soldPrice = parseFloat(r.sold_price) || 0; 
-        const discount = parseFloat(r.discount) || 0;
-        const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
-        const saleDate = r.date || new Date().toISOString().split('T')[0];
-
-        const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
+        const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
+        const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
+        const fStart = document.getElementById('d-start-report')?.value || '';
+        const fEnd = document.getElementById('d-end-report')?.value || '';
         
-        let unitCost = parseFloat(r.unit_cost) || 0;
-        let supplierDetailsText = '-';
-        let totalSupplierPayout = parseFloat(r.supplier_payout) || 0;
-        let netMarginOrRevenue = parseFloat(r.salon_revenue) || finalPrice;
+        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        
+        const priceHistory = priceHistoryData;
+        
+        const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
+            const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
+            const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
+            const saleDate = r.date;
+            const matchStart = !fStart || saleDate >= fStart;
+            const matchEnd = !fEnd || saleDate <= fEnd;
+            return matchCust && matchProd && matchStart && matchEnd;
+        });
+        
+        const tbody = document.getElementById('list-report');
+        if (!tbody) return;
 
-        // Se l'articolo è in conto vendita e c'è un payout fornitore registrato
-        if (totalSupplierPayout > 0) {
-            // Cerchiamo i collegamenti fornitore tramite il prodotto trovato (o fallback sul nome)
-            let links = [];
-            if (prod) {
-                links = productSuppliersData.filter(l => l.product_id === prod.id);
-            }
+        // 🧮 Variabili per il calcolo dei totali aggregati
+        let sumGross = 0;
+        let sumDiscount = 0;
+        let sumFinal = 0;
+        let sumMargin = 0;
+
+        tbody.innerHTML = filtered.map(r => {
+            const soldPrice = parseFloat(r.sold_price) || 0; 
+            const discount = parseFloat(r.discount) || 0;
+            const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
+            const saleDate = r.date || new Date().toISOString().split('T')[0];
+
+            const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
             
-            // Se non troviamo i link tramite ID, proviamo a vedere se il prodotto ha un fornitore singolo o split salvato
-            if (links.length > 0) {
-                let detailsArray = [];
-                let totalPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                
-                links.forEach(l => {
-                    const supp = suppliersData.find(s => s.id === l.supplier_id);
-                    const suppName = supp ? supp.name : 'Fornitore';
-                    const pct = parseFloat(l.split_pct) || 0;
-                    
-                    // Quota proporzionale basata sul peso percentuale del fornitore
-                    const suppWeight = totalPct > 0 ? (pct / totalPct) : 1;
-                    const payoutForThisSupp = totalSupplierPayout * suppWeight;
-                    
-                    detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
-                });
-                supplierDetailsText = detailsArray.join('<br>');
-            } else if (prod && prod.supplier_id) {
-                const supp = suppliersData.find(s => s.id === prod.supplier_id);
-                const suppName = supp ? supp.name : 'Fornitore';
-                supplierDetailsText = `${suppName} (${prod.consignment_split_pct || 100}%): €${totalSupplierPayout.toFixed(2)}`;
+            let unitCost = 0;
+            let supplierDetailsText = '-';
+            let totalSupplierPayout = 0;
+            let netMarginOrRevenue = finalPrice;
+
+            let phList = [];
+
+            if (prod) {
+                phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+
+                if (r.unit_cost !== undefined && r.unit_cost !== null && !isNaN(r.unit_cost) && parseFloat(r.unit_cost) > 0) {
+                    unitCost = parseFloat(r.unit_cost) || 0;
+                } else {
+                    if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
+                }
+
+                if (prod.is_consignment) {
+                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                    const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                    if (links.length > 0) {
+                        let detailsArray = [];
+                        links.forEach(l => {
+                            const supp = suppliersData.find(s => s.id === l.supplier_id);
+                            const suppName = supp ? supp.name : 'Fornitore';
+                            const pct = parseFloat(l.split_pct) || 0;
+                            const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                            totalSupplierPayout += payoutForThisSupp;
+                            detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
+                        });
+                        supplierDetailsText = detailsArray.join('<br>');
+                    } else {
+                        const pct = parseFloat(prod.consignment_split_pct) || 0;
+                        totalSupplierPayout = (listinoPienoOriginale * pct) / 100;
+                        supplierDetailsText = `Fornitore (${pct}%): €${totalSupplierPayout.toFixed(2)}`;
+                    }
+                    netMarginOrRevenue = finalPrice - totalSupplierPayout;
+                } else {
+                    netMarginOrRevenue = finalPrice - unitCost;
+                }
             } else {
-                // Fallback generico se i link anagrafici non sono agganciati ma c'è il payout globale
-                supplierDetailsText = `Fornitori: €${totalSupplierPayout.toFixed(2)}`;
+                netMarginOrRevenue = finalPrice;
             }
-        } else {
-            supplierDetailsText = '-';
+
+            // Accumuliamo nei totali generali
+            sumGross += soldPrice;
+            sumDiscount += discount;
+            sumFinal += finalPrice;
+            sumMargin += netMarginOrRevenue;
+
+            const isPositive = netMarginOrRevenue >= 0;
+
+            return `
+                <tr>
+                    <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
+                    <td><b>${r.item_name}</b></td>
+                    <td>${r.customer_name || 'Occasionale'}</td>
+                    <td>€${soldPrice.toFixed(2)}</td>
+                    <td>€${discount.toFixed(2)}</td>
+                    <td><b>€${finalPrice.toFixed(2)}</b></td>
+                    <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
+                    <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
+                    <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
+                    <td>${r.seller || '-'}</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
+        const elGross = document.getElementById('rep-tot-gross');
+        const elDisc = document.getElementById('rep-tot-disc');
+        const elFinal = document.getElementById('rep-tot-final');
+        const elMargin = document.getElementById('rep-tot-margin');
+
+        if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
+        if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
+        if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
+        if (elMargin) {
+            elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
+            elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
         }
-
-        // Accumuliamo nei totali generali
-        sumGross += soldPrice;
-        sumDiscount += discount;
-        sumFinal += finalPrice;
-        sumMargin += netMarginOrRevenue;
-
-        const isPositive = netMarginOrRevenue >= 0;
-
-        return `
-            <tr>
-                <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
-                <td><b>${r.item_name}</b></td>
-                <td>${r.customer_name || 'Occasionale'}</td>
-                <td>€${soldPrice.toFixed(2)}</td>
-                <td>€${discount.toFixed(2)}</td>
-                <td><b>€${finalPrice.toFixed(2)}</b></td>
-                <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
-                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
-                <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
-                <td>${r.seller || '-'}</td>
-                <td style="text-align: right;">
-                    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
-    const elGross = document.getElementById('rep-tot-gross');
-    const elDisc = document.getElementById('rep-tot-disc');
-    const elFinal = document.getElementById('rep-tot-final');
-    const elMargin = document.getElementById('rep-tot-margin');
-
-    if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
-    if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
-    if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
-    if (elMargin) {
-        elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
-        elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
     }
-}
-
 
 
 
@@ -3879,25 +3870,8 @@ async function executeSafeUserDeletion() {
 function toggleInvFields() {
     const type = document.getElementById('f-p-type').value;
     const prodFields = document.getElementById('fields-prodotto');
-
-    if (type === 'servizio') {
-        // Se è un servizio, nascondiamo i campi di logistica fisica (scorta, barcode, taglia, ubicazione)
-        if (prodFields) {
-            const inputsInProdFields = prodFields.querySelectorAll('div > div');
-            inputsInProdFields.forEach(el => {
-                // Manteniamo visibile il box del conto vendita e il fornitore principale se necessario
-                const isConsignmentContainer = el.closest('#mod-inv .modal-box div[style*="background: #f8f9fa"]') || el.id === 'standard-supplier-box';
-                if (!isConsignmentContainer && !el.querySelector('#f-p-is-consignment')) {
-                    el.style.display = 'none';
-                }
-            });
-        }
-    } else {
-        // Se è un prodotto, ripristiniamo tutto visibile
-        if (prodFields) {
-            const inputsInProdFields = prodFields.querySelectorAll('div > div');
-            inputsInProdFields.forEach(el => { el.style.display = 'block'; });
-        }
+    if (prodFields) {
+        prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
     }
 }
 
@@ -3999,6 +3973,7 @@ function triggerLocalOperatorAlert(appointment) {
 
             const payoutSummary = {};
 
+            // Filtriamo i fornitori in base alla tendina selezionata
             const targetSuppliers = selectedSupplierId === 'all' 
                 ? suppliersData 
                 : suppliersData.filter(s => s.id === selectedSupplierId);
@@ -4022,7 +3997,7 @@ function triggerLocalOperatorAlert(appointment) {
 
                 const soldPrice = parseFloat(item.price) || 0;
                 const discount = parseFloat(item.discount) || 0;
-                const finalPrice = Math.max(soldPrice - discount, 0);
+                const finalPrice = soldPrice - discount;
                 const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
 
                 const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
@@ -4030,22 +4005,12 @@ function triggerLocalOperatorAlert(appointment) {
 
                 const links = productSuppliersData.filter(l => l.product_id === prod.id);
 
+                // Funzione di utilità interna per registrare l'item nel sommario del fornitore
                 const registerItemForSupplier = (supId, pct) => {
                     if (!payoutSummary[supId]) return;
-                    
-                    const itemTotalPayout = item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout) 
-                        ? parseFloat(item.supplier_payout) 
-                        : (listinoPienoOriginale * (prod.consignment_split_pct || 0) / 100);
+                    const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
 
-                    let finalPayoutForThisSupp = itemTotalPayout;
-                    if (links.length > 1) {
-                        let totalConsignmentPct = links.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                        const suppWeightRatio = totalConsignmentPct > 0 ? (pct / totalConsignmentPct) : 1;
-                        finalPayoutForThisSupp = itemTotalPayout * suppWeightRatio;
-                    } else if (links.length === 1) {
-                        finalPayoutForThisSupp = itemTotalPayout;
-                    }
-
+                    // Verifichiamo lo stato di pagamento specifico per QUESTO item e QUESTO fornitore
                     const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
                     const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
 
@@ -4055,7 +4020,7 @@ function triggerLocalOperatorAlert(appointment) {
                         date: saleDate,
                         itemName: item.item_name,
                         gross: finalPrice,
-                        payout: finalPayoutForThisSupp,
+                        payout: payoutForThisSupp,
                         isPaid: isPaid
                     });
                 };
@@ -5134,39 +5099,35 @@ let currentSelectedServices = [];
 
 
    async function saveSupplier() {
-    const id = document.getElementById('edit-supp-id').value;
-    const name = document.getElementById('f-supp-name').value.trim();
-    
-    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+        const id = document.getElementById('edit-supp-id').value;
+        const name = document.getElementById('f-supp-name').value.trim();
+        
+        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-    let data = {
-        id: (id === "-1" || !id) ? crypto.randomUUID() : id,
-        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-        name: name,
-        contact_person: document.getElementById('f-supp-contact').value.trim(),
-        phone: document.getElementById('f-supp-phone').value.trim(),
-        email: document.getElementById('f-supp-email').value.trim(),
-        vat_number: document.getElementById('f-supp-vat').value.trim(),
-        address: document.getElementById('f-supp-address').value.trim(),
-        notes: document.getElementById('f-supp-notes').value.trim()
-    };
+        let data = {
+            id: (id === "-1" || !id) ? crypto.randomUUID() : id,
+            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+            name: name,
+            contact_person: document.getElementById('f-supp-contact').value.trim(),
+            phone: document.getElementById('f-supp-phone').value.trim(),
+            email: document.getElementById('f-supp-email').value.trim(),
+            vat_number: document.getElementById('f-supp-vat').value.trim(),
+            address: document.getElementById('f-supp-address').value.trim(),
+            notes: document.getElementById('f-supp-notes').value.trim()
+        };
 
-    data = addAuditData(data);
+        data = addAuditData(data);
 
-    if (id === "-1" || !id) {
-        await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
-    } else {
-        await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
+        if (id === "-1" || !id) {
+            await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
+        } else {
+            await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
+        }
+
+        closeMod();
+        await refreshAllData();
+        if (typeof renderSuppliers === 'function') renderSuppliers();
     }
-
-    closeMod();
-
-    // 🔄 AGGIORNAMENTO IMMEDIATO DELLA LISTA GLOBALE IN MEMORIA
-    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-
-    await refreshAllData();
-    if (typeof renderSuppliers === 'function') renderSuppliers();
-}
 
 
     let currentProductSuppliers = []; // Array temporaneo per il modale
@@ -8513,38 +8474,19 @@ async function executeStockLoad() {
 }
 
    async function renderServices() {
-    const f = (document.getElementById('src-serv')?.value || '').toLowerCase();
-    const typeSalesFilterVal = document.getElementById('filter-serv-type-sales')?.value || 'all';
+    const f = document.getElementById('src-serv').value.toLowerCase();
     const tbody = document.getElementById('list-serv');
     if (!tbody) return;
 
-    let filtered = allInventory.filter(p => p.type === 'servizio');
-
-    // 1. Filtro testuale
-    if (f) {
-        filtered = filtered.filter(item => item.name && item.name.toLowerCase().includes(f));
-    }
-
-    // 2. Filtro tipologia Conto Vendita / Proprietà
-    if (typeSalesFilterVal === 'proprieta') {
-        filtered = filtered.filter(item => !item.is_consignment);
-    } else if (typeSalesFilterVal === 'consignment') {
-        filtered = filtered.filter(item => item.is_consignment);
-    }
+    let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
     
     let html = "";
     for (let item of filtered) {
         const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
         const price = pInfo ? pInfo.price : 0;
         
-        // Badge visivo coerente con la sezione prodotti
-        const typeBadge = item.is_consignment 
-            ? `<span style="background:#fef3c7; color:#d97706; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Conto Vendita</span>`
-            : `<span style="background:#e0e7ff; color:#4338ca; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Proprietà</span>`;
-
         html += `<tr>
             <td><b>${item.name}</b></td>
-            <td>${typeBadge}</td>
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
             <td>${item.created_by || 'Admin'}</td>
@@ -8724,27 +8666,24 @@ const nowTimestamp = new Date().toISOString();
     }
 
     async function saveQuickSupplier() {
-    const name = document.getElementById('q-supp-name').value;
-    const phone = document.getElementById('q-supp-phone').value;
+        const name = document.getElementById('q-supp-name').value;
+        const phone = document.getElementById('q-supp-phone').value;
 
-    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-    let suppData = { name, phone };
-    suppData = addAuditData(suppData);
+        let suppData = { name, phone };
+        suppData = addAuditData(suppData);
 
-    // Inseriamo il nuovo fornitore
-    const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
-    const newSuppId = res && res.lastInsertRowid ? res.lastInsertRowid : suppData.id;
+        // Inseriamo il nuovo fornitore
+        const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
+        const newSuppId = res && res.lastInsertRowid ? res.lastInsertRowid : suppData.id;
 
-    // 🔄 AGGIORNAMENTO IMMEDIATO DELLA LISTA GLOBALE IN MEMORIA
-    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        alert("Fornitore creato con successo!");
+        closeQuickSupplierModal();
 
-    alert("Fornitore creato con successo!");
-    closeQuickSupplierModal();
-
-    // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore
-    await populateSupplierSelect(newSuppId);
-}
+        // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore appena creato
+        await populateSupplierSelect(newSuppId);
+    }
 
     async function openConsumables(serviceId) {
     const inputId = document.getElementById('edit-service-id');
@@ -9325,126 +9264,97 @@ const nowTimestamp = new Date().toISOString();
     }
 
    async function completeSale() { 
-    if (!cart.length) return alert("Carrello vuoto!"); 
-    
-    const cartWithDiscounts = cart.map(item => {
-        const val = item.discountVal || 0;
-        const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
-        return { ...item, discountAmount: discountAmount };
-    });
-
-    const total = cartWithDiscounts.reduce((s, i) => s + Math.max(i.price - i.discountAmount, 0), 0); 
-    const nowObj = getNowLocal(); 
-    
-    let finalCustId = currentCheckoutCustomer?.id;
-    if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
-        const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
-        const foundC = allCustomers.find(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
+        if(!cart.length) return alert("Carrello vuoto!"); 
+        
+        const cartWithDiscounts = cart.map(item => {
+            const val = item.discountVal || 0;
+            const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
+            return { ...item, discountAmount: discountAmount };
         });
-        finalCustId = foundC ? foundC.id : null;
-    }
 
-    const linkedAppointmentId = currentCheckoutAppointmentId || null;
+        const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
+        const nowObj = getNowLocal(); 
+        
+        let finalCustId = currentCheckoutCustomer?.id;
+        if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
+            const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
+            const foundC = allCustomers.find(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
+            });
+            finalCustId = foundC ? foundC.id : null;
+        }
 
-    // 1. Inserimento testata vendita
-    const res = await window.api.query({ 
-        action: 'INSERT', table: 'sales', 
-        data: { 
-            cust_id: finalCustId || null, 
-            appointment_id: linkedAppointmentId, 
-            total: total, 
-            date: nowObj.split(' ')[0], 
-            time: nowObj.split(' ')[1], 
-            payment_method: 'Contanti', 
-            created_by: currentUser ? currentUser.username : 'Admin' 
-        } 
-    }); 
+        // 🎯 L'ID DELL'APPUNTAMENTO VIENE ASSOCIATO SOLO ORA, AL MOMENTO DEL REALE PAGAMENTO!
+        const linkedAppointmentId = currentCheckoutAppointmentId || null;
 
-    if (!res || !res.lastInsertRowid) {
-        return alert("Errore critico: Impossibile creare la vendita nel DB.");
-    }
+        // 1. Inserimento testata vendita con il legame diretto all'appuntamento (se proveniva dall'agenda)
+        const res = await window.api.query({ 
+            action:'INSERT', table:'sales', 
+            data: { 
+                cust_id: finalCustId || null, 
+                appointment_id: linkedAppointmentId, // 👈 Collegamento scritto SOLO al click su Paga
+                total: total, 
+                date: nowObj.split(' ')[0], 
+                time: nowObj.split(' ')[1], 
+                payment_method: 'Contanti', 
+                created_by: currentUser ? currentUser.username : 'Admin' 
+            } 
+        }); 
 
-    const saleId = res.lastInsertRowid; 
-    const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
-    const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        if (!res || !res.lastInsertRowid) {
+            return alert("Errore critico: Impossibile creare la vendita nel DB.");
+        }
 
-    // 2. Inserimento dei singoli articoli della vendita
-    for (let item of cartWithDiscounts) { 
-        if (item.id) { 
-            const productDb = allInventory.find(p => p.id === item.id);
-            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
-            const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
-            const discountApplied = item.discountAmount || 0;
-            const finalItemPrice = Math.max(listinoPieno - discountApplied, 0);
+        const saleId = res.lastInsertRowid; 
 
-            let unitCostUsed = 0;
-            let supplierPayout = 0;
-            let salonRevenue = finalItemPrice;
+        // 2. Inserimento dei singoli articoli della vendita
+        for(let item of cartWithDiscounts) { 
+            if (item.id) { 
+                const productDb = allInventory.find(p => p.id === item.id);
+                const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: item.id });
+                const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (item.price || 0);
+                const discountApplied = item.discountAmount || 0;
+                const finalItemPrice = listinoPieno - discountApplied;
 
-            if (productDb && productDb.is_consignment) {
-                // 🤝 GESTIONE CONTO VENDITA (PRODOTTI O SERVIZI) CON RIPARTIZIONE PESATA SCONTO MULTI-FORNITORE
-                let qtyToProcess = item.qty || 1;
-                let totalSupplierPayoutForThisSale = 0;
+                let unitCostUsed = 0;
+                let supplierPayout = 0;
+                let salonRevenue = finalItemPrice;
 
-                const prodLots = allLots
-                    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                if (productDb && productDb.is_consignment) {
+                    let qtyToProcess = item.qty || 1;
+                    let totalSupplierPayoutForThisSale = 0;
 
-                const absorptionRule = item.discountAbsorption || 'salon'; // 'salon', 'supplier', 'split'
-                const itemLinks = productSuppliers.filter(l => l.product_id === productDb.id);
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
 
-                for (let lot of prodLots) {
-                    if (qtyToProcess <= 0) break;
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
 
-                    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                    let lotSplits = [];
-                    try {
-                        lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
-                    } catch (e) {
-                        lotSplits = [];
-                    }
-
-                    if (lotSplits.length === 0 && itemLinks.length > 0) {
-                        itemLinks.forEach(l => {
-                            lotSplits.push({ supplier_id: l.supplier_id, split_pct: parseFloat(l.split_pct) || 0 });
-                        });
-                    } else if (lotSplits.length === 0 && productDb.supplier_id) {
-                        lotSplits.push({ supplier_id: productDb.supplier_id, split_pct: parseFloat(productDb.consignment_split_pct) || 0 });
-                    }
-
-                    let lotTotalSupplierPayout = 0;
-                    const unitDiscount = discountApplied / (item.qty || 1);
-
-                    lotSplits.forEach(split => {
-                        const suppPct = parseFloat(split.split_pct) || 0;
-                        const baseSuppPayoutForOneUnit = (listinoPieno * suppPct) / 100;
-                        let adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
-
-                        if (unitDiscount > 0) {
-                            if (absorptionRule === 'supplier') {
-                                const totalConsignmentPct = lotSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                                const suppWeightRatio = suppPct / totalConsignmentPct;
-                                const assignedDiscountToThisSupp = unitDiscount * suppWeightRatio;
-                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - assignedDiscountToThisSupp, 0);
-                            } else if (absorptionRule === 'split') {
-                                const totalConsignmentPct = lotSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                                const suppWeightRatio = suppPct / totalConsignmentPct;
-                                const assignedDiscountToThisSupp = (unitDiscount / 2) * suppWeightRatio;
-                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - assignedDiscountToThisSupp, 0);
-                            } else {
-                                adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
-                            }
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        let lotSplits = [];
+                        try {
+                            lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
+                        } catch (e) {
+                            lotSplits = [];
                         }
 
-                        lotTotalSupplierPayout += (takeFromLot * adjustedSuppPayoutForOneUnit);
-                    });
+                        let lotPayoutForOneUnit = 0;
+                        if (lotSplits.length > 0) {
+                            let lotTotalPct = 0;
+                            lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
+                            lotPayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
+                        } else {
+                            lotPayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
+                        }
 
-                    totalSupplierPayoutForThisSale += lotTotalSupplierPayout;
+                        totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
 
-                    if (productDb.type === 'prodotto') {
                         lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
+
                         await window.universalQuery({
                             action: 'UPDATE',
                             table: 'stock_lots',
@@ -9452,159 +9362,106 @@ const nowTimestamp = new Date().toISOString();
                             id: lot.id
                         });
                     }
-                    qtyToProcess -= takeFromLot;
-                }
 
-                if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
-                    let fallbackSplits = [];
-                    if (itemLinks.length > 0) {
-                        itemLinks.forEach(l => fallbackSplits.push({ supplier_id: l.supplier_id, split_pct: parseFloat(l.split_pct) || 0 }));
-                    } else {
-                        fallbackSplits.push({ supplier_id: productDb.supplier_id, split_pct: parseFloat(productDb.consignment_split_pct) || 0 });
+                    if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
+                        const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        totalSupplierPayoutForThisSale = (listinoPieno * fallbackPct / 100) * (item.qty || 1);
                     }
 
-                    let fallbackTotalPayout = 0;
-                    const unitDiscount = discountApplied / (item.qty || 1);
+                    supplierPayout = totalSupplierPayoutForThisSale;
+                    salonRevenue = finalItemPrice - supplierPayout;
+                
+                } else if (productDb && productDb.type === 'prodotto') {
+                    let qtyToProcess = item.qty || 1;
+                    let totalCostForThisSale = 0;
 
-                    fallbackSplits.forEach(split => {
-                        const suppPct = parseFloat(split.split_pct) || 0;
-                        const baseSuppPayoutForOneUnit = (listinoPieno * suppPct) / 100;
-                        let adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
 
-                        if (unitDiscount > 0) {
-                            if (absorptionRule === 'supplier') {
-                                const totalConsignmentPct = fallbackSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                                const suppWeightRatio = suppPct / totalConsignmentPct;
-                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - (unitDiscount * suppWeightRatio), 0);
-                            } else if (absorptionRule === 'split') {
-                                const totalConsignmentPct = fallbackSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
-                                const suppWeightRatio = suppPct / totalConsignmentPct;
-                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - ((unitDiscount / 2) * suppWeightRatio), 0);
-                            }
-                        }
-                        fallbackTotalPayout += adjustedSuppPayoutForOneUnit;
-                    });
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
 
-                    totalSupplierPayoutForThisSale = fallbackTotalPayout * (item.qty || 1);
-                }
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
+                        
+                        lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
 
-                supplierPayout = totalSupplierPayoutForThisSale;
-                salonRevenue = finalItemPrice - supplierPayout;
-            
-            } else if (productDb && productDb.type === 'prodotto') {
-                // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
-                let qtyToProcess = item.qty || 1;
-                let totalCostForThisSale = 0;
-
-                const prodLots = allLots
-                    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-
-                for (let lot of prodLots) {
-                    if (qtyToProcess <= 0) break;
-
-                    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                    totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
-                    
-                    lot.qty_remaining -= takeFromLot;
-                    qtyToProcess -= takeFromLot;
-
-                    await window.universalQuery({
-                        action: 'UPDATE',
-                        table: 'stock_lots',
-                        data: { qty_remaining: lot.qty_remaining },
-                        id: lot.id
-                    });
-                }
-
-                if (totalCostForThisSale === 0 && prodLots.length === 0) {
-                    const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                    totalCostForThisSale = fallbackCost * (item.qty || 1);
-                }
-
-                unitCostUsed = totalCostForThisSale / (item.qty || 1);
-                salonRevenue = finalItemPrice - totalCostForThisSale;
-
-            } else if (productDb && productDb.type === 'servizio') {
-                // ✂️ SERVIZIO STANDARD DI PROPRIETÀ (Calcolo costo consumabili)
-                const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id }) || [];
-                let totalConsumablesCost = 0;
-
-                for (let c of consumables) {
-                    const consumedProd = allInventory.find(p => p.id === c.product_id);
-                    const qtyNeeded = parseFloat(c.quantity_per_service) || 0;
-
-                    if (consumedProd) {
-                        const consLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                        let cUnitCost = 0;
-                        if (consLots.length > 0) {
-                            consLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                            cUnitCost = parseFloat(consLots[0].unit_cost) || 0;
-                        }
-                        totalConsumablesCost += (cUnitCost * qtyNeeded);
-                    }
-                }
-                unitCostUsed = totalConsumablesCost;
-                salonRevenue = finalItemPrice - unitCostUsed;
-            } else {
-                salonRevenue = finalItemPrice;
-            }
-
-            // Registrazione del rigo di vendita
-            await window.universalQuery({ 
-                action: 'INSERT', table: 'sale_items', 
-                data: { 
-                    sale_id: saleId, 
-                    item_name: item.name, 
-                    qty: item.qty || 1, 
-                    price: listinoPieno,
-                    discount: discountApplied,
-                    unit_cost: unitCostUsed,
-                    supplier_payout: supplierPayout,
-                    salon_revenue: salonRevenue
-                } 
-            });
-            
-            // Scarico magazzino fisico se si tratta di un prodotto
-            if (productDb && productDb.type === 'prodotto') {
-                await window.universalQuery({ 
-                    action: 'UPDATE', table: 'inventory', 
-                    data: { stock: productDb.stock - (item.qty || 1) }, 
-                    id: productDb.id 
-                }); 
-            }
-            else if (productDb && productDb.type === 'servizio') {
-                // Scarico automatico dei materiali consumabili associati al servizio
-                const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id }) || [];
-                for (let c of consumables) {
-                    const prod = allInventory.find(p => p.name === c.prod_name);
-                    if (prod) {
-                        const newStock = prod.stock - c.qty;
-                        await window.universalQuery({ 
-                            action: 'UPDATE', table: 'inventory', 
-                            data: { stock: newStock }, 
-                            id: prod.id 
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
                         });
                     }
+
+                    if (totalCostForThisSale === 0 && prodLots.length === 0) {
+                        const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                        totalCostForThisSale = fallbackCost * (item.qty || 1);
+                    }
+
+                    unitCostUsed = totalCostForThisSale / (item.qty || 1);
+                    salonRevenue = finalItemPrice - totalCostForThisSale;
+                } else {
+                    salonRevenue = finalItemPrice;
                 }
-            }
+
+                await window.universalQuery({ 
+                    action:'INSERT', table:'sale_items', 
+                    data: { 
+                        sale_id: saleId, 
+                        item_name: item.name, 
+                        qty: item.qty || 1, 
+                        price: listinoPieno,
+                        discount: discountApplied,
+                        unit_cost: unitCostUsed,
+                        supplier_payout: supplierPayout,
+                        salon_revenue: salonRevenue
+                    } 
+                });
+                
+                if (productDb && productDb.type === 'prodotto') {
+                    await window.universalQuery({ 
+                        action:'UPDATE', table:'inventory', 
+                        data: { stock: productDb.stock - (item.qty || 1) }, 
+                        id: productDb.id 
+                    }); 
+                }
+                else if (productDb && productDb.type === 'servizio') {
+                    const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
+                    for (let c of (Array.isArray(consumables) ? consumables : [])) {
+                        const prod = allInventory.find(p => p.name === c.prod_name);
+                        if (prod) {
+                            const newStock = prod.stock - c.qty;
+                            await window.universalQuery({ 
+                                action:'UPDATE', table:'inventory', 
+                                data: { stock: newStock }, 
+                                id: prod.id 
+                            });
+                        }
+                    }
+                }
+            } 
         } 
-    } 
-    
-    currentCheckoutAppointmentId = null;
+        
+        // 🧹 RESETTA IL PUNTATORE DELL'APPUNTAMENTO SUBITO DOPO IL PAGAMENTO
+        currentCheckoutAppointmentId = null;
 
-    alert("Pagato e stock aggiornato con successo!"); 
-    await resetCassa(); 
-    await refreshAllData(); 
-    
-    if (typeof loadRFM === 'function') await loadRFM();
+        alert("Pagato e stock aggiornato!"); 
+        await resetCassa(); 
+        await refreshAllData(); 
+        
+        if (typeof loadRFM === 'function') await loadRFM();
 
-    if (currentUser && currentUser.role === 'admin') {
-        changePage('dashboard');
-    } else {
-        changePage('calendar'); 
+        // 🛡️ REINDIRIZZAMENTO SICURO IN BASE AL RUOLO (Admin -> Dashboard, User -> Agenda)
+        if (currentUser && currentUser.role === 'admin') {
+            changePage('dashboard');
+        } else {
+            changePage('calendar'); // L'operatore torna all'agenda in modo sicuro
+        }
     }
-}
         
 
             
@@ -9838,185 +9695,137 @@ const nowTimestamp = new Date().toISOString();
     }
 
 async function renderCart() { 
-    console.log("Stato carrello attuale:", cart); 
-    let total = 0; 
-    const container = document.getElementById('cart-items');
-    if (!container) return;
-    
-    let html = "";
-    
-    // Recuperiamo le dipendenze in modo sicuro con fallback ad array vuoti
-    const allInventoryData = Array.isArray(allInventory) ? allInventory : [];
-    let allLots = [];
-    let allServiceConsumables = [];
-    let productSuppliers = [];
-
-    try {
-        allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
-        allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
-        productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-    } catch (e) {
-        console.warn("Impossibile recuperare dati lotti/fornitori nel carrello, attivo fallback:", e);
-    }
-
-    for (let i = 0; i < cart.length; i++) {
-        const item = cart[i];
-        const discVal = item.discountVal || 0;
-        const discType = item.discountType || 'euro';
-        const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
-        const finalPrice = Math.max(item.price - discountAmount, 0);
-        total += finalPrice; 
-
-        // Verifichiamo se l'articolo è in conto vendita
-        let productDb = item.id ? allInventoryData.find(p => p.id === item.id) : null;
-        let isConsignmentItem = productDb && productDb.is_consignment;
-
-        // Blocco HTML condizionale per l'assorbimento dello sconto in conto vendita
-        let absorptionSelectorHtml = '';
-        if (isConsignmentItem && discountAmount > 0) {
-            const currentAbs = item.discountAbsorption || 'salon';
-            absorptionSelectorHtml = `
-                <div style="margin-top: 8px; background: #fffbeb; padding: 6px 8px; border-radius: 6px; border: 1px solid #fde68a;">
-                    <small style="font-size: 9px; color: #b45309; font-weight: bold; display: block; margin-bottom: 2px;">Assorbimento Sconto:</small>
-                    <select onchange="updateCartDiscountAbsorption(${i}, this.value)" style="width: 100%; padding: 4px; margin: 0; font-size: 11px; font-weight: bold; background: white; color: #78350f; border: 1px solid #fcd34d; border-radius: 4px;">
-                        <option value="salon" ${currentAbs === 'salon' ? 'selected' : ''}>A carico Salone (Intero)</option>
-                        <option value="supplier" ${currentAbs === 'supplier' ? 'selected' : ''}>A carico Fornitore (Intero)</option>
-                        <option value="split" ${currentAbs === 'split' ? 'selected' : ''}>Divisione 50 / 50</option>
-                    </select>
-                </div>
-            `;
-        }
-
-        // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE (Protetto da try/catch per evitare blocchi)
-        let unitCostOrPayout = 0;
+        console.log("Stato carrello attuale:", cart); 
+        let total = 0; 
+        const container = document.getElementById('cart-items');
+        if (!container) return;
         
-        try {
-            if (item.id && productDb) {
-                if (productDb.type === 'servizio') {
-                    const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
-                    let totalConsumablesCost = 0;
+        let html = "";
+        
+        // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
+        const allInventoryData = allInventory || [];
+        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
-                    for (let sc of serviceCons) {
-                        const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
-                        const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+        for (let i = 0; i < cart.length; i++) {
+            const item = cart[i];
+            const discVal = item.discountVal || 0;
+            const discType = item.discountType || 'euro';
+            const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
+            const finalPrice = item.price - discountAmount;
+            total += finalPrice; 
 
-                        if (consumedProd) {
-                            const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                            let unitCost = 0;
-                            if (prodLots.length > 0) {
-                                prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                unitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                            } else {
-                                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: consumedProd.id });
-                                unitCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+            // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
+            let unitCostOrPayout = 0;
+            let isConsignment = false;
+            
+            if (item.id) {
+                const productDb = allInventoryData.find(p => p.id === item.id);
+                if (productDb) {
+                    if (productDb.type === 'servizio') {
+                        // ✂️ SE È UN SERVIZIO: Il costo è la somma dei costi FIFO dei materiali consumabili associati
+                        const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
+                        let totalConsumablesCost = 0;
+
+                        for (let sc of serviceCons) {
+                            const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
+                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+
+                            if (consumedProd) {
+                                // Troviamo il costo unitario FIFO del prodotto consumabile
+                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                let unitCost = 0;
+                                if (prodLots.length > 0) {
+                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                    unitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                } else {
+                                    const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: consumedProd.id });
+                                    unitCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                                }
+                                totalConsumablesCost += (unitCost * qtyNeeded);
                             }
-                            totalConsumablesCost += (unitCost * qtyNeeded);
                         }
-                    }
-                    unitCostOrPayout = totalConsumablesCost;
-
-                } else {
-                    if (isConsignment) {
-                        const links = productSuppliers.filter(l => l.product_id === productDb.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        }
-                        
-                        let basePayout = (item.price * totalPct) / 100;
-                        const absorptionRule = item.discountAbsorption || 'salon';
-
-                        if (discountAmount > 0) {
-                            if (absorptionRule === 'supplier') {
-                                unitCostOrPayout = Math.max(basePayout - discountAmount, 0);
-                            } else if (absorptionRule === 'split') {
-                                unitCostOrPayout = Math.max(basePayout - (discountAmount / 2), 0);
-                            } else {
-                                unitCostOrPayout = basePayout;
-                            }
-                        } else {
-                            unitCostOrPayout = basePayout;
-                        }
+                        unitCostOrPayout = totalConsumablesCost;
 
                     } else {
-                        const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
-                        if (prodLots.length > 0) {
-                            prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                            unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                        // PRODOTTO FISICO (Proprietà o Conto Vendita)
+                        isConsignment = productDb.is_consignment;
+                        if (isConsignment) {
+                            const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                            let totalPct = 0;
+                            if (links.length > 0) {
+                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                            } else {
+                                totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                            }
+                            unitCostOrPayout = (item.price * totalPct) / 100;
                         } else {
-                            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
-                            unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                            const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
+                            if (prodLots.length > 0) {
+                                prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                            } else {
+                                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                                unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                            }
                         }
                     }
                 }
             }
-        } catch (err) {
-            console.warn("Errore minore nel calcolo margine carrello per articolo:", item.name, err);
-        }
 
-        const itemMarginEuro = finalPrice - unitCostOrPayout;
-        const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
+            const itemMarginEuro = finalPrice - unitCostOrPayout;
+            const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
 
-        let marginBadgeColor = '#00B894'; 
-        let marginText = 'Ottimale';
-        if (itemMarginEuro <= 0) {
-            marginBadgeColor = '#E17055'; 
-            marginText = 'In Perdita!';
-        } else if (itemMarginPct < 10) {
-            marginBadgeColor = '#F39C12'; 
-            marginText = 'Margine Basso';
-        }
+            // 🎨 SOGLIE COLORE ALERT MARGINE
+            let marginBadgeColor = '#00B894'; // Verde (> 10%)
+            let marginText = 'Ottimale';
+            if (itemMarginEuro <= 0) {
+                marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
+                marginText = 'In Perdita!';
+            } else if (itemMarginPct < 10) {
+                marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
+                marginText = 'Margine Basso';
+            }
 
-        html += `
-            <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div style="flex:1; padding-right: 10px;">
-                        <div style="font-weight:600;">${item.name}</div>
-                        <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
-                        
-                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">
-                                Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
-                            </span>
-                        </div>
+            html += `
+                <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="flex:1;">
+                            <div style="font-weight:600;">${item.name}</div>
+                            <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
+                            
+                            <!-- 💡 INFO MARGINE CON CONSUMABILI INCLUSE -->
+                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato (inclusi materiali di consumo)">
+                                    Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
+                                </span>
+                            </div>
 
-                        <!-- Riquadro Sconto -->
-                        <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                            <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
-                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
-                                    <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
-                                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
-                                </select>
+                            <!-- Riquadro Sconto -->
+                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                                <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
+                                        <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
+                                        <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Selettore Assorbimento Sconto Conto Vendita -->
-                        ${absorptionSelectorHtml}
-
+                        <div style="text-align:right;">
+                            <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
+                            <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
+                        </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                        <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
-                    </div>
-                </div>
-            </div>`; 
+                </div>`; 
+        }
+
+        container.innerHTML = html; 
+        document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
     }
 
-    container.innerHTML = html; 
-    document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
-
-    if (typeof renderCartMobileBar === 'function') renderCartMobileBar();
-}
-
-// Funzione di supporto per aggiornare la regola di assorbimento nello stato del carrello
-function updateCartDiscountAbsorption(index, value) {
-    cart[index].discountAbsorption = value;
-    renderCart();
-}
     function updateCartDiscount(index, field, value) {
         if(field === 'val') cart[index].discountVal = parseFloat(value) || 0;
         if(field === 'type') cart[index].discountType = value;
