@@ -9371,93 +9371,112 @@ const nowTimestamp = new Date().toISOString();
             let salonRevenue = finalItemPrice;
 
             if (productDb && productDb.is_consignment) {
-                // 🤝 GESTIONE CONTO VENDITA (PRODOTTI O SERVIZI) CON REGOLE ASSORBIMENTO SCONTO
+                // 🤝 GESTIONE CONTO VENDITA (PRODOTTI O SERVIZI) CON RIPARTIZIONE PESATA SCONTO MULTI-FORNITORE
                 let qtyToProcess = item.qty || 1;
-let totalSupplierPayoutForThisSale = 0;
+                let totalSupplierPayoutForThisSale = 0;
 
-const prodLots = allLots
-    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                const prodLots = allLots
+                    .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
 
-const absorptionRule = item.discountAbsorption || 'salon'; // 'salon', 'supplier', 'split'
+                const absorptionRule = item.discountAbsorption || 'salon'; // 'salon', 'supplier', 'split'
+                const itemLinks = productSuppliers.filter(l => l.product_id === productDb.id);
 
-for (let lot of prodLots) {
-    if (qtyToProcess <= 0) break;
+                for (let lot of prodLots) {
+                    if (qtyToProcess <= 0) break;
 
-    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-    let lotSplits = [];
-    try {
-        lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
-    } catch (e) {
-        lotSplits = [];
-    }
+                    const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                    let lotSplits = [];
+                    try {
+                        lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
+                    } catch (e) {
+                        lotSplits = [];
+                    }
 
-    let lotBasePayoutForOneUnit = 0;
-    if (lotSplits.length > 0) {
-        let lotTotalPct = 0;
-        lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
-        lotBasePayoutForOneUnit = (listinoPieno * lotTotalPct) / 100;
-    } else {
-        lotBasePayoutForOneUnit = (listinoPieno * (productDb.consignment_split_pct || 0)) / 100;
-    }
+                    if (lotSplits.length === 0 && itemLinks.length > 0) {
+                        itemLinks.forEach(l => {
+                            lotSplits.push({ supplier_id: l.supplier_id, split_pct: parseFloat(l.split_pct) || 0 });
+                        });
+                    } else if (lotSplits.length === 0 && productDb.supplier_id) {
+                        lotSplits.push({ supplier_id: productDb.supplier_id, split_pct: parseFloat(productDb.consignment_split_pct) || 0 });
+                    }
 
-    let adjustedUnitPayout = lotBasePayoutForOneUnit;
-    const unitDiscount = discountApplied / (item.qty || 1);
+                    let lotTotalSupplierPayout = 0;
+                    const unitDiscount = discountApplied / (item.qty || 1);
 
-    if (unitDiscount > 0) {
-        if (absorptionRule === 'supplier') {
-            // Lo sconto grava interamente sulla quota del fornitore
-            adjustedUnitPayout = Math.max(lotBasePayoutForOneUnit - unitDiscount, 0);
-        } else if (absorptionRule === 'split') {
-            // Lo sconto viene diviso al 50% tra salone e fornitore
-            adjustedUnitPayout = Math.max(lotBasePayoutForOneUnit - (unitDiscount / 2), 0);
-        } else {
-            // 'salon': Il fornitore prende la sua quota piena calcolata sul listino
-            adjustedUnitPayout = lotBasePayoutForOneUnit;
-        }
-    }
+                    lotSplits.forEach(split => {
+                        const suppPct = parseFloat(split.split_pct) || 0;
+                        const baseSuppPayoutForOneUnit = (listinoPieno * suppPct) / 100;
+                        let adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
 
-    totalSupplierPayoutForThisSale += takeFromLot * adjustedUnitPayout;
+                        if (unitDiscount > 0) {
+                            if (absorptionRule === 'supplier') {
+                                const totalConsignmentPct = lotSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                                const suppWeightRatio = suppPct / totalConsignmentPct;
+                                const assignedDiscountToThisSupp = unitDiscount * suppWeightRatio;
+                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - assignedDiscountToThisSupp, 0);
+                            } else if (absorptionRule === 'split') {
+                                const totalConsignmentPct = lotSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                                const suppWeightRatio = suppPct / totalConsignmentPct;
+                                const assignedDiscountToThisSupp = (unitDiscount / 2) * suppWeightRatio;
+                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - assignedDiscountToThisSupp, 0);
+                            } else {
+                                adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
+                            }
+                        }
 
-    if (productDb.type === 'prodotto') {
-        lot.qty_remaining -= takeFromLot;
-        await window.universalQuery({
-            action: 'UPDATE',
-            table: 'stock_lots',
-            data: { qty_remaining: lot.qty_remaining },
-            id: lot.id
-        });
-    }
-    qtyToProcess -= takeFromLot;
-}
+                        lotTotalSupplierPayout += (takeFromLot * adjustedSuppPayoutForOneUnit);
+                    });
 
-if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
-    const links = productSuppliers.filter(l => l.product_id === productDb.id);
-    let totalPct = 0;
-    if (links.length > 0) {
-        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-    } else {
-        totalPct = parseFloat(productDb.consignment_split_pct) || 0;
-    }
+                    totalSupplierPayoutForThisSale += lotTotalSupplierPayout;
 
-    let fallbackBasePayout = (listinoPieno * totalPct) / 100;
-    let fallbackUnitPayout = fallbackBasePayout;
-    const unitDiscount = discountApplied / (item.qty || 1);
+                    if (productDb.type === 'prodotto') {
+                        lot.qty_remaining -= takeFromLot;
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
+                    }
+                    qtyToProcess -= takeFromLot;
+                }
 
-    if (unitDiscount > 0) {
-        if (absorptionRule === 'supplier') {
-            fallbackUnitPayout = Math.max(fallbackBasePayout - unitDiscount, 0);
-        } else if (absorptionRule === 'split') {
-            fallbackUnitPayout = Math.max(fallbackBasePayout - (unitDiscount / 2), 0);
-        } else {
-            fallbackUnitPayout = fallbackBasePayout;
-        }
-    }
-    totalSupplierPayoutForThisSale = fallbackUnitPayout * (item.qty || 1);
-}
+                if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
+                    let fallbackSplits = [];
+                    if (itemLinks.length > 0) {
+                        itemLinks.forEach(l => fallbackSplits.push({ supplier_id: l.supplier_id, split_pct: parseFloat(l.split_pct) || 0 }));
+                    } else {
+                        fallbackSplits.push({ supplier_id: productDb.supplier_id, split_pct: parseFloat(productDb.consignment_split_pct) || 0 });
+                    }
 
-supplierPayout = totalSupplierPayoutForThisSale;
-salonRevenue = finalItemPrice - supplierPayout;
+                    let fallbackTotalPayout = 0;
+                    const unitDiscount = discountApplied / (item.qty || 1);
+
+                    fallbackSplits.forEach(split => {
+                        const suppPct = parseFloat(split.split_pct) || 0;
+                        const baseSuppPayoutForOneUnit = (listinoPieno * suppPct) / 100;
+                        let adjustedSuppPayoutForOneUnit = baseSuppPayoutForOneUnit;
+
+                        if (unitDiscount > 0) {
+                            if (absorptionRule === 'supplier') {
+                                const totalConsignmentPct = fallbackSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                                const suppWeightRatio = suppPct / totalConsignmentPct;
+                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - (unitDiscount * suppWeightRatio), 0);
+                            } else if (absorptionRule === 'split') {
+                                const totalConsignmentPct = fallbackSplits.reduce((acc, curr) => acc + (parseFloat(curr.split_pct) || 0), 0) || 100;
+                                const suppWeightRatio = suppPct / totalConsignmentPct;
+                                adjustedSuppPayoutForOneUnit = Math.max(baseSuppPayoutForOneUnit - ((unitDiscount / 2) * suppWeightRatio), 0);
+                            }
+                        }
+                        fallbackTotalPayout += adjustedSuppPayoutForOneUnit;
+                    });
+
+                    totalSupplierPayoutForThisSale = fallbackTotalPayout * (item.qty || 1);
+                }
+
+                supplierPayout = totalSupplierPayoutForThisSale;
+                salonRevenue = finalItemPrice - supplierPayout;
             
             } else if (productDb && productDb.type === 'prodotto') {
                 // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
