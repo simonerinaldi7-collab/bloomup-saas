@@ -1369,7 +1369,17 @@
 
     <section id="v-services" class="view">
     <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
-        <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:300px; margin:0;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; flex-grow:1;">
+            <input type="text" id="src-serv" onkeyup="renderServices()" placeholder="Cerca servizio..." style="max-width:250px; margin:0;">
+            
+            <!-- 🔍 FILTRO CONTOCONTRATTO / PROPRIETÀ PER I SERVIZI -->
+            <select id="filter-serv-type-sales" onchange="renderServices()" style="max-width:180px; margin:0;">
+                <option value="all">Tutti (Proprietà & CV)</option>
+                <option value="proprieta">Solo Proprietà</option>
+                <option value="consignment">Solo Conto Vendita</option>
+            </select>
+        </div>
+
         <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='servizio'; toggleInvFields();">+ Nuovo Servizio</button>
     </div>
     <div class="card" style="padding:0; overflow-x: auto;">
@@ -1377,8 +1387,9 @@
             <thead>
                 <tr>
                     <th>Nome Servizio</th>
+                    <th>Tipo / Gestione</th> <!-- 👈 Nuova Colonna -->
                     <th>Prezzo Listino</th>
-                    <th>Ultimo Aggiornamento</th> <!-- 👈 Etichetta ripristinata -->
+                    <th>Ultimo Aggiornamento</th>
                     <th>Autore</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
@@ -8505,19 +8516,38 @@ async function executeStockLoad() {
 }
 
    async function renderServices() {
-    const f = document.getElementById('src-serv').value.toLowerCase();
+    const f = (document.getElementById('src-serv')?.value || '').toLowerCase();
+    const typeSalesFilterVal = document.getElementById('filter-serv-type-sales')?.value || 'all';
     const tbody = document.getElementById('list-serv');
     if (!tbody) return;
 
-    let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
+    let filtered = allInventory.filter(p => p.type === 'servizio');
+
+    // 1. Filtro testuale
+    if (f) {
+        filtered = filtered.filter(item => item.name && item.name.toLowerCase().includes(f));
+    }
+
+    // 2. Filtro tipologia Conto Vendita / Proprietà
+    if (typeSalesFilterVal === 'proprieta') {
+        filtered = filtered.filter(item => !item.is_consignment);
+    } else if (typeSalesFilterVal === 'consignment') {
+        filtered = filtered.filter(item => item.is_consignment);
+    }
     
     let html = "";
     for (let item of filtered) {
         const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
         const price = pInfo ? pInfo.price : 0;
         
+        // Badge visivo coerente con la sezione prodotti
+        const typeBadge = item.is_consignment 
+            ? `<span style="background:#fef3c7; color:#d97706; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Conto Vendita</span>`
+            : `<span style="background:#e0e7ff; color:#4338ca; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold;">Proprietà</span>`;
+
         html += `<tr>
             <td><b>${item.name}</b></td>
+            <td>${typeBadge}</td>
             <td>€ ${parseFloat(price).toFixed(2)}</td>
             <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
             <td>${item.created_by || 'Admin'}</td>
