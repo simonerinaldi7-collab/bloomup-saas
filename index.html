@@ -1662,17 +1662,25 @@
     </div>
 
    <!-- MODALE GESTIONE SPESE MENSILI -->
+<!-- MODALE GESTIONE SPESE MENSILI (STRATEGICO) -->
 <div id="mod-monthly-expense-reminder" class="modal">
-    <div class="modal-box">
-        <h3 style="color: var(--p); margin-top: 0;">📊 Promemoria Spese Mensili</h3>
-        <p id="expense-reminder-subtitle" style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 15px;">
-            Non risulta ancora registrata alcuna spesa per il mese in corso. Gestisci le tue spese fisse per mantenere il bilancio predittivo accurato.
-        </p>
-        <div id="suggested-expenses-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px;"></div>
+    <div class="modal-box" style="width: 550px;">
+        <h3 style="color: var(--p); margin-top: 0; display: flex; align-items: center; gap: 8px;">
+            <span>📊</span> Controllo Strategico Spese Ricorrenti
+        </h3>
         
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
-            <button type="button" id="btn-confirm-suggested" class="btn btn-p" style="flex:1; justify-content:center;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
-            <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Vai alla Sezione Spese</button>
+        <!-- 💡 Messaggio strategico in evidenza che cattura l'attenzione -->
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
+            <b>💡 Attenzione Titolare:</b> Il sistema ha rilevato dallo storico le spese periodiche in scadenza. 
+            Controlla con attenzione l'elenco sottostante e <b>seleziona solo quelle effettivamente ricorrenti e previste per il mese corrente</b>. 
+            Puoi modificare liberamente <u>la data esatta</u> e <u>l'importo</u> prima di procedere.
+        </div>
+
+        <div id="suggested-expenses-list" style="max-height: 280px; overflow-y: auto; margin-bottom: 15px; padding-right: 4px;"></div>
+        
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px; border-top: 1px solid var(--border); padding-top: 15px;">
+            <button type="button" id="btn-confirm-suggested" class="btn btn-p" style="flex:1; justify-content:center; padding: 12px;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
+            <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none; padding: 12px;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Vai alla Sezione Spese</button>
         </div>
     </div>
 </div>
@@ -4202,10 +4210,9 @@ function dismissExpenseReminderAndGoToExpenses() {
 
 
 
-    async function prepareExpenseSuggestions(currentYearMonth) {
+   async function prepareExpenseSuggestions(currentYearMonth) {
     const container = document.getElementById('suggested-expenses-list');
     const confirmBtn = document.getElementById('btn-confirm-suggested');
-    const subtitleEl = document.getElementById('expense-reminder-subtitle');
     
     if (!container) return;
 
@@ -4216,16 +4223,12 @@ function dismissExpenseReminderAndGoToExpenses() {
         const todayStr = new Date().toISOString().split('T')[0];
 
         if (expenses.length === 0) {
-            if (subtitleEl) subtitleEl.innerText = "Non ci sono spese nello storico da cui generare suggerimenti.";
-            container.innerHTML = `<div style="text-align:center; color:#e17055; background:#fff1f0; padding:15px; border-radius:8px; font-size:13px; border:1px solid #ffccd5;">⚠️ Nessuno storico trovato.</div>`;
+            container.innerHTML = `<div style="text-align:center; color:#e17055; background:#fff1f0; padding:15px; border-radius:8px; font-size:13px; border:1px solid #ffccd5;">⚠️ Nessuno storico trovato da cui estrarre ricorrenze.</div>`;
             if (confirmBtn) confirmBtn.style.display = 'none';
             return;
         }
 
         if (confirmBtn) confirmBtn.style.display = 'inline-flex';
-        if (subtitleEl) {
-            subtitleEl.innerText = "Spese ricorrenti rilevate (importi basati sull'ultima occorrenza registrata):";
-        }
 
         const [targetYear, targetMonth] = currentYearMonth.split('-').map(Number);
 
@@ -4242,9 +4245,8 @@ function dismissExpenseReminderAndGoToExpenses() {
         const mMinus4 = getOffsetYearMonth(targetYear, targetMonth, 4);
         const mMinus6 = getOffsetYearMonth(targetYear, targetMonth, 6);
 
-        // 1. Raggruppiamo le spese per descrizione normalizzata (case-insensitive)
-        const expenseMap = {}; // key -> Set di mesi 'YYYY-MM'
-        const expenseDetails = {}; // key -> { originalName, records: [] }
+        const expenseMap = {}; 
+        const expenseDetails = {}; 
 
         expenses.forEach(e => {
             const desc = (e.description || '').trim();
@@ -4264,7 +4266,6 @@ function dismissExpenseReminderAndGoToExpenses() {
 
         const suggestions = [];
 
-        // 2. Valutazione delle regole strategiche
         Object.keys(expenseMap).forEach(key => {
             const monthsSet = expenseMap[key];
             const details = expenseDetails[key];
@@ -4272,17 +4273,16 @@ function dismissExpenseReminderAndGoToExpenses() {
             let detectedType = null;
 
             if (monthsSet.has(mMinus1) && monthsSet.has(mMinus2)) {
-                detectedType = 'Mensile (presente a ' + mMinus1 + ' e ' + mMinus2 + ')';
+                detectedType = 'Mensile';
             } else if (monthsSet.has(mMinus2) && monthsSet.has(mMinus4)) {
-                detectedType = 'Bimestrale (presente a ' + mMinus2 + ' e ' + mMinus4 + ')';
+                detectedType = 'Bimestrale';
             } else if (monthsSet.has(mMinus3) && monthsSet.has(mMinus6)) {
-                detectedType = 'Trimestrale (presente a ' + mMinus3 + ' e ' + mMinus6 + ')';
+                detectedType = 'Trimestrale';
             }
 
             if (detectedType) {
-                // Ordiniamo i record per data crescente/decrescente per estrarre l'ultimo importo esatto
                 details.records.sort((a, b) => b.date.localeCompare(a.date));
-                const exactLastAmount = details.records[0].amount; // 👈 Preso direttamente dall'ultima occorrenza
+                const exactLastAmount = details.records[0].amount;
 
                 suggestions.push({
                     description: details.originalName,
@@ -4295,36 +4295,35 @@ function dismissExpenseReminderAndGoToExpenses() {
 
         if (suggestions.length === 0) {
             if (confirmBtn) confirmBtn.style.display = 'none';
-            container.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">Nessuna spesa soddisfa i criteri di ricorrenza strategica per il mese di ${currentYearMonth}.</div>`;
+            container.innerHTML = `<div style="text-align:center; color:#888; padding:15px; background: #f8f9fa; border-radius: 8px; border: 1px solid var(--border);">Nessuna spesa con i criteri di ricorrenza esatti (mensile, bimestrale o trimestrale) rilevata per il mese di ${currentYearMonth}.</div>`;
             return;
         }
 
-        // 3. Renderizziamo le schede valide
         container.innerHTML = suggestions.map((s, index) => `
-            <div class="suggested-expense-row" style="background:white; padding:12px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:8px; margin-bottom: 10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between;">
-                    <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer; font-weight:bold; color:var(--txt); text-transform:none;">
-                        <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width:18px; height:18px; cursor:pointer; margin:0;">
-                        <span>Includi spesa</span>
+            <div class="suggested-expense-row" style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; font-weight: bold; color: var(--txt); text-transform: none;">
+                        <input type="checkbox" class="sug-cb" data-index="${index}" checked style="width: 18px; height: 18px; cursor: pointer; margin: 0;">
+                        <span>Includi spesa nel bilancio</span>
                     </label>
-                    <span style="font-size:9px; background:${s.periodicity.includes('Trimestrale') ? '#0984e3' : (s.periodicity.includes('Bimestrale') ? '#e17055' : '#6c5ce7')}; color:white; padding:2px 6px; border-radius:4px; font-weight:bold;">${s.periodicity}</span>
+                    <span style="font-size: 10px; background: ${s.periodicity === 'Trimestrale' ? '#0984e3' : (s.periodicity === 'Bimestrale' ? '#e17055' : '#6c5ce7')}; color: white; padding: 3px 8px; border-radius: 6px; font-weight: bold; letter-spacing: 0.3px;">Ricorrenza: ${s.periodicity}</span>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 110px 140px; gap:8px; align-items:center;">
+                <div style="display: grid; grid-template-columns: 1fr 110px 140px; gap: 8px; align-items: center;">
                     <div>
-                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Descrizione</small>
-                        <input type="text" id="sug-desc-${index}" value="${s.description}" style="margin:0; padding:6px 10px; font-size:13px; font-weight:bold;" placeholder="Descrizione spesa">
+                        <small style="font-size: 10px; color: #64748b; display: block; margin-bottom: 2px; text-transform: uppercase; font-weight: 700;">Descrizione</small>
+                        <input type="text" id="sug-desc-${index}" value="${s.description}" style="margin: 0; padding: 8px 10px; font-size: 13px; font-weight: bold; background: white;" placeholder="Descrizione spesa">
                     </div>
                     <div>
-                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Importo (€)</small>
-                        <div style="position:relative;">
-                            <span style="position:absolute; left:8px; top:6px; font-size:12px; color:#666;">€</span>
-                            <input type="number" id="sug-amt-${index}" value="${s.amount}" step="0.01" style="margin:0; padding:6px 6px 6px 22px; font-size:13px; font-weight:bold; color:var(--d);" placeholder="0.00">
+                        <small style="font-size: 10px; color: #64748b; display: block; margin-bottom: 2px; text-transform: uppercase; font-weight: 700;">Importo (€)</small>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 8px; top: 8px; font-size: 12px; color: #64748b;">€</span>
+                            <input type="number" id="sug-amt-${index}" value="${s.amount}" step="0.01" style="margin: 0; padding: 8px 6px 8px 22px; font-size: 13px; font-weight: bold; color: var(--d); background: white; text-align: right;" placeholder="0.00">
                         </div>
                     </div>
                     <div>
-                        <small style="font-size:10px; color:#666; display:block; margin-bottom:2px;">Data Spesa</small>
-                        <input type="date" id="sug-date-${index}" value="${s.suggestedDate}" style="margin:0; padding:6px 8px; font-size:12px; font-weight:bold; background:#f8fafc;">
+                        <small style="font-size: 10px; color: #64748b; display: block; margin-bottom: 2px; text-transform: uppercase; font-weight: 700;">Data Scadenza</small>
+                        <input type="date" id="sug-date-${index}" value="${s.suggestedDate}" style="margin: 0; padding: 8px; font-size: 12px; font-weight: bold; background: white;">
                     </div>
                 </div>
             </div>
