@@ -5126,35 +5126,39 @@ let currentSelectedServices = [];
 
 
    async function saveSupplier() {
-        const id = document.getElementById('edit-supp-id').value;
-        const name = document.getElementById('f-supp-name').value.trim();
-        
-        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+    const id = document.getElementById('edit-supp-id').value;
+    const name = document.getElementById('f-supp-name').value.trim();
+    
+    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-        let data = {
-            id: (id === "-1" || !id) ? crypto.randomUUID() : id,
-            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-            name: name,
-            contact_person: document.getElementById('f-supp-contact').value.trim(),
-            phone: document.getElementById('f-supp-phone').value.trim(),
-            email: document.getElementById('f-supp-email').value.trim(),
-            vat_number: document.getElementById('f-supp-vat').value.trim(),
-            address: document.getElementById('f-supp-address').value.trim(),
-            notes: document.getElementById('f-supp-notes').value.trim()
-        };
+    let data = {
+        id: (id === "-1" || !id) ? crypto.randomUUID() : id,
+        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+        name: name,
+        contact_person: document.getElementById('f-supp-contact').value.trim(),
+        phone: document.getElementById('f-supp-phone').value.trim(),
+        email: document.getElementById('f-supp-email').value.trim(),
+        vat_number: document.getElementById('f-supp-vat').value.trim(),
+        address: document.getElementById('f-supp-address').value.trim(),
+        notes: document.getElementById('f-supp-notes').value.trim()
+    };
 
-        data = addAuditData(data);
+    data = addAuditData(data);
 
-        if (id === "-1" || !id) {
-            await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
-        } else {
-            await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
-        }
-
-        closeMod();
-        await refreshAllData();
-        if (typeof renderSuppliers === 'function') renderSuppliers();
+    if (id === "-1" || !id) {
+        await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
+    } else {
+        await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
     }
+
+    closeMod();
+
+    // 🔄 AGGIORNAMENTO IMMEDIATO DELLA LISTA GLOBALE IN MEMORIA
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+
+    await refreshAllData();
+    if (typeof renderSuppliers === 'function') renderSuppliers();
+}
 
 
     let currentProductSuppliers = []; // Array temporaneo per il modale
@@ -8693,24 +8697,27 @@ const nowTimestamp = new Date().toISOString();
     }
 
     async function saveQuickSupplier() {
-        const name = document.getElementById('q-supp-name').value;
-        const phone = document.getElementById('q-supp-phone').value;
+    const name = document.getElementById('q-supp-name').value;
+    const phone = document.getElementById('q-supp-phone').value;
 
-        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-        let suppData = { name, phone };
-        suppData = addAuditData(suppData);
+    let suppData = { name, phone };
+    suppData = addAuditData(suppData);
 
-        // Inseriamo il nuovo fornitore
-        const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
-        const newSuppId = res && res.lastInsertRowid ? res.lastInsertRowid : suppData.id;
+    // Inseriamo il nuovo fornitore
+    const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
+    const newSuppId = res && res.lastInsertRowid ? res.lastInsertRowid : suppData.id;
 
-        alert("Fornitore creato con successo!");
-        closeQuickSupplierModal();
+    // 🔄 AGGIORNAMENTO IMMEDIATO DELLA LISTA GLOBALE IN MEMORIA
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
 
-        // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore appena creato
-        await populateSupplierSelect(newSuppId);
-    }
+    alert("Fornitore creato con successo!");
+    closeQuickSupplierModal();
+
+    // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore
+    await populateSupplierSelect(newSuppId);
+}
 
     async function openConsumables(serviceId) {
     const inputId = document.getElementById('edit-service-id');
