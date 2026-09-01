@@ -4496,42 +4496,39 @@ function dismissExpenseReminderAndGoToExpenses() {
 
 let currentSelectedServices = [];
 
-    // 1. Inizializzazione / Reset all'apertura del modale
     async function initServiceAutocomplete(selectedIds = []) {
         currentSelectedServices = [];
         const services = (allInventory || []).filter(i => i.type === 'servizio');
 
-        // Se stiamo modificando un appuntamento, precarichiamo i servizi associati
         if (selectedIds.length > 0) {
             for (let id of selectedIds) {
                 const s = services.find(x => x.id === id);
                 if (s) {
                     const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
                     const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
-                    currentSelectedServices.push({ id: s.id, name: s.name, price: price });
+                    const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+                    currentSelectedServices.push({ uid: uniqueInstanceId, id: s.id, name: s.name, price: price });
                 }
             }
         }
         renderSelectedServiceTags();
     }
 
-    // 2. Mostra la tendina con tutti i servizi (esclusi quelli già scelti)
+    // 2. Mostra la tendina con tutti i servizi (ORA CONSENTE ANCHE I DUPLICATI)
     async function openCustomServiceDropdown() {
         const resultsBox = document.getElementById('service-autocomplete-results');
         if (!resultsBox) return;
 
         const services = (allInventory || []).filter(i => i.type === 'servizio');
-        const selectedIds = currentSelectedServices.map(s => s.id);
-        const available = services.filter(s => !selectedIds.includes(s.id));
 
-        if (available.length === 0) {
-            resultsBox.innerHTML = `<div style="padding: 10px; color: #888; font-size: 12px; text-align: center;">Tutti i servizi sono stati selezionati</div>`;
+        if (services.length === 0) {
+            resultsBox.innerHTML = `<div style="padding: 10px; color: #888; font-size: 12px; text-align: center;">Nessun servizio nel listino</div>`;
             resultsBox.style.display = 'block';
             return;
         }
 
         let html = '';
-        for (let s of available) {
+        for (let s of services) {
             const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: s.id });
             const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(s.price) || 0);
             
@@ -4548,15 +4545,14 @@ let currentSelectedServices = [];
         resultsBox.style.display = 'block';
     }
 
-    // 3. Filtra la tendina in base a ciò che l'utente digita
+    // 3. Filtra la tendina in base a ciò che l'utente digita (Mostra sempre tutti i servizi corrispondenti)
     async function filterCustomServiceDropdown(query) {
         const resultsBox = document.getElementById('service-autocomplete-results');
         if (!resultsBox) return;
 
         const q = query.toLowerCase().trim();
         const services = (allInventory || []).filter(i => i.type === 'servizio');
-        const selectedIds = currentSelectedServices.map(s => s.id);
-        const available = services.filter(s => !selectedIds.includes(s.id) && s.name.toLowerCase().includes(q));
+        const available = services.filter(s => s.name.toLowerCase().includes(q));
 
         if (available.length === 0) {
             resultsBox.innerHTML = `<div style="padding: 10px; color: #888; font-size: 12px; text-align: center;">Nessun servizio trovato</div>`;
@@ -4582,11 +4578,12 @@ let currentSelectedServices = [];
         resultsBox.style.display = 'block';
     }
 
-    // 4. Seleziona il servizio dalla tendina e lo trasforma in "Pillola"
+    // 4. Seleziona il servizio e permette l'aggiunta (Ora supporta i doppioni tramite indice d'array anziché ID univoco)
     function selectServiceFromAutocomplete(id, name, price) {
-        currentSelectedServices.push({ id, name, price });
+        // Ogni elemento aggiunto riceve un identificativo interno temporaneo (es. uid unico) per gestire i duplicati
+        const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+        currentSelectedServices.push({ uid: uniqueInstanceId, id, name, price });
         
-        // Pulisce l'input di ricerca e chiude la tendina
         const input = document.getElementById('service-autocomplete-input');
         if (input) input.value = '';
         
@@ -4596,13 +4593,13 @@ let currentSelectedServices = [];
         renderSelectedServiceTags();
     }
 
-    // 5. Rimuove il servizio cliccando sulla "×" della pillola
-    function removeServiceTag(serviceId) {
-        currentSelectedServices = currentSelectedServices.filter(s => s.id !== serviceId);
+    // 5. Rimuove la specifica istanza del servizio cliccando sulla "×" della pillola
+    function removeServiceTag(uniqueInstanceId) {
+        currentSelectedServices = currentSelectedServices.filter(s => s.uid !== uniqueInstanceId);
         renderSelectedServiceTags();
     }
 
-    // 6. Renderizza le pillole e calcola il totale
+    // 6. Renderizza le pillole (gestendo l'istanza 'uid' anziché l'ID magazzino)
     function renderSelectedServiceTags() {
         const container = document.getElementById('selected-services-tags-container');
         const countEl = document.getElementById('selected-services-count');
@@ -4625,7 +4622,7 @@ let currentSelectedServices = [];
             tagsHtml += `
                 <span style="background: #ede9fe; color: #6d28d9; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #ddd6fe;">
                     ${s.name} (€ ${s.price.toFixed(2)})
-                    <button type="button" onclick="removeServiceTag('${s.id}')" style="background: none; border: none; cursor: pointer; color: #7c3aed; font-weight: bold; font-size: 14px; padding: 0; line-height: 1;" title="Rimuovi">×</button>
+                    <button type="button" onclick="removeServiceTag('${s.uid}')" style="background: none; border: none; cursor: pointer; color: #7c3aed; font-weight: bold; font-size: 14px; padding: 0; line-height: 1;" title="Rimuovi">×</button>
                 </span>
             `;
         });
@@ -4634,15 +4631,6 @@ let currentSelectedServices = [];
         if (countEl) countEl.innerText = `${currentSelectedServices.length} servizi selezionati`;
         if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
     }
-
-    // Chiusura della tendina se si clicca fuori dal box di ricerca
-    document.addEventListener('click', (e) => {
-        const wrapper = document.getElementById('service-autocomplete-input');
-        const resultsBox = document.getElementById('service-autocomplete-results');
-        if (wrapper && resultsBox && !wrapper.contains(e.target) && !resultsBox.contains(e.target)) {
-            resultsBox.style.display = 'none';
-        }
-    });
 
 
     async function performLogout() {
