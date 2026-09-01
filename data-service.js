@@ -857,7 +857,6 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 8. GET_SALES_REPORT ---
         // --- 8. GET_SALES_REPORT ---
-        // --- 8. GET_SALES_REPORT ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -903,35 +902,35 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
 
                     if (inv) {
-                        // 🤝 MODIFICA CHIAVE: Se l'articolo (prodotto o servizio) è in CONTO VENDITA, gestiamo il payout fornitore
+                        // 🤝 GESTIONE CONTO VENDITA (PRODOTTO O SERVIZIO)
                         if (inv.is_consignment) {
-                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
-    
-    const links = productSuppliers.filter(l => l.product_id === inv.id);
-    let totalPct = 0;
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+                            
+                            const links = productSuppliers.filter(l => l.product_id === inv.id);
+                            let totalPct = 0;
 
-    if (links.length > 0) {
-        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-    } else {
-        totalPct = parseFloat(inv.consignment_split_pct) || 0;
-    }
+                            if (links.length > 0) {
+                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                            } else {
+                                totalPct = parseFloat(inv.consignment_split_pct) || 0;
+                            }
 
-    let basePayout = (listinoPienoOriginale * totalPct) / 100;
+                            let basePayout = (listinoPienoOriginale * totalPct) / 100;
 
-    // 🎯 PRECEDENZA ASSOLUTA AL PAYOUT EFFETTIVO SALVATO IN CASSA (Che include già la regola di assorbimento scelta)
-    if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
-        supplierPayout = parseFloat(item.supplier_payout);
-    } else {
-        supplierPayout = basePayout * itemQty;
-    }
+                            // 🎯 PRECEDENZA ASSOLUTA AL PAYOUT EFFETTIVO SALVATO IN CASSA (Con regole di assorbimento sconto)
+                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                                supplierPayout = parseFloat(item.supplier_payout);
+                            } else {
+                                supplierPayout = basePayout * itemQty;
+                            }
 
-    // Se il rigo ha già salvato il salon_revenue netto calcolato in cassa, usiamo quello, altrimenti lo ricaviamo
-    if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
-        salonRevenue = parseFloat(item.salon_revenue);
-    } else {
-        salonRevenue = finalPrice - supplierPayout;
-    }
+                            // 🎯 LETTURA DEL RICAVO NETTO SALONE SALVATO O CALCOLATO
+                            if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
+                                salonRevenue = parseFloat(item.salon_revenue);
+                            } else {
+                                salonRevenue = finalPrice - supplierPayout;
+                            }
 
                         } else if (inv.type === 'servizio') {
                             // ✂️ SE È UN SERVIZIO DI PROPRIETÀ: Calcoliamo il costo dei materiali consumabili associati (FIFO)
@@ -977,7 +976,7 @@ async function handleSpecialAction(action, data, id) {
                     }
 
                     report.push({
-                        sale_id: sale.id,
+                        sale_id: sale.id, 
                         date: sale.date,
                         time: sale.time || '00:00',
                         item_name: item.item_name || 'Articolo',
@@ -987,7 +986,7 @@ async function handleSpecialAction(action, data, id) {
                         final_price: finalPrice,
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue,
+                        salon_revenue: salonRevenue, 
                         seller: sale.created_by || 'Admin'
                     });
                 }
