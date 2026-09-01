@@ -1949,7 +1949,7 @@
                 <div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
-                        <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto in Conto Vendita (Multi-Fornitore)</label>
+                        <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Prodotto/Servizio in Conto Vendita (Multi-Fornitore)</label>
                     </div>
                     
                     <div id="consignment-details" style="display:none; margin-top: 12px;">
@@ -5125,76 +5125,75 @@ let currentSelectedServices = [];
 
 
 
-   async function saveSupplier() {
-        const id = document.getElementById('edit-supp-id').value;
-        const name = document.getElementById('f-supp-name').value.trim();
-        
-        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+  async function saveSupplier() {
+    const id = document.getElementById('edit-supp-id').value;
+    const name = document.getElementById('f-supp-name').value.trim();
+    
+    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-        let data = {
-            id: (id === "-1" || !id) ? crypto.randomUUID() : id,
-            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
-            name: name,
-            contact_person: document.getElementById('f-supp-contact').value.trim(),
-            phone: document.getElementById('f-supp-phone').value.trim(),
-            email: document.getElementById('f-supp-email').value.trim(),
-            vat_number: document.getElementById('f-supp-vat').value.trim(),
-            address: document.getElementById('f-supp-address').value.trim(),
-            notes: document.getElementById('f-supp-notes').value.trim()
-        };
+    let data = {
+        id: (id === "-1" || !id) ? crypto.randomUUID() : id,
+        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+        name: name,
+        contact_person: document.getElementById('f-supp-contact').value.trim(),
+        phone: document.getElementById('f-supp-phone').value.trim(),
+        email: document.getElementById('f-supp-email').value.trim(),
+        vat_number: document.getElementById('f-supp-vat').value.trim(),
+        address: document.getElementById('f-supp-address').value.trim(),
+        notes: document.getElementById('f-supp-notes').value.trim()
+    };
 
-        data = addAuditData(data);
+    data = addAuditData(data);
 
-        if (id === "-1" || !id) {
-            await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
-        } else {
-            await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
-        }
-
-        closeMod();
-        await refreshAllData();
-        if (typeof renderSuppliers === 'function') renderSuppliers();
+    if (id === "-1" || !id) {
+        await window.universalQuery({ action: 'INSERT', table: 'suppliers', data });
+    } else {
+        await window.universalQuery({ action: 'UPDATE', table: 'suppliers', data, id: id });
     }
+
+    closeMod();
+    
+    // 🔄 AGGIORNAMENTO IMMEDIATO LISTA FORNITORI GLOBALE
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+
+    await refreshAllData();
+    if (typeof renderSuppliers === 'function') renderSuppliers();
+}
 
 
     let currentProductSuppliers = []; // Array temporaneo per il modale
 
     async function addSupplierSplitRow(supplierId = '', pct = '') {
-        const container = document.getElementById('suppliers-split-container');
-        if (!container) return;
+    const container = document.getElementById('suppliers-split-container');
+    if (!container) return;
 
-        // Controlliamo il limite massimo di 3 fornitori
-        const existingRows = container.querySelectorAll('.supplier-split-row');
-        if (existingRows.length >= 3) {
-            return alert("Puoi associare un massimo di 3 fornitori per prodotto.");
-        }
-
-        // 1. Assicuriamoci di avere i fornitori freschi
-        allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-
-        // 2. Generazione sicura dell'ID univoco per la riga
-        const randomStr = Math.random().toString(36).substring(2, 9);
-        const rowId = 'supp_row_' + randomStr;
-
-        // 3. Creazione del div elemento (QUI VENIVA GENERATO L'ERRORE SE ROWDIV NON ESISTEVA)
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'supplier-split-row';
-        rowDiv.id = rowId;
-        rowDiv.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:5px;";
-
-        // 4. Riempimento del markup HTML
-        rowDiv.innerHTML = `
-            <select class="row-supp-select" style="margin:0; flex-grow:2;">
-                <option value="">-- Seleziona Fornitore --</option>
-                ${allSuppliers.map(s => `<option value="${s.id}" ${s.id === supplierId ? 'selected' : ''}>${s.name}</option>`).join('')}
-            </select>
-            <input type="number" class="row-supp-pct" placeholder="% quota" value="${pct}" min="0" max="100" step="0.1" style="margin:0; width:90px;">
-            <button type="button" class="btn btn-d" style="padding:10px 12px; margin:0;" onclick="document.getElementById('${rowId}').remove()">✕</button>
-        `;
-
-        // 5. Inserimento nel container
-        container.appendChild(rowDiv);
+    const existingRows = container.querySelectorAll('.supplier-split-row');
+    if (existingRows.length >= 3) {
+        return alert("Puoi associare un massimo di 3 fornitori per prodotto/servizio.");
     }
+
+    // Assicuriamoci di avere i dati freschi
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const rowId = 'supp_row_' + randomStr;
+
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'supplier-split-row';
+    rowDiv.id = rowId;
+    rowDiv.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:5px;";
+
+    rowDiv.innerHTML = `
+        <select class="row-supp-select" style="margin:0; flex-grow:2;">
+            <option value="">-- Seleziona Fornitore --</option>
+            ${allSuppliers.map(s => `<option value="${s.id}" ${s.id === supplierId ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </select>
+        <input type="number" class="row-supp-pct" placeholder="% quota" value="${pct}" min="0" max="100" step="0.1" style="margin:0; width:90px;">
+        <button type="button" class="btn btn-d" style="padding:10px 12px; margin:0;" onclick="document.getElementById('${rowId}').remove()">✕</button>
+    `;
+
+    container.appendChild(rowDiv);
+}
 
     async function loadProductSuppliersForEdit(productId) {
         const container = document.getElementById('suppliers-split-container');
@@ -8693,24 +8692,32 @@ const nowTimestamp = new Date().toISOString();
     }
 
     async function saveQuickSupplier() {
-        const name = document.getElementById('q-supp-name').value;
-        const phone = document.getElementById('q-supp-phone').value;
+    const name = document.getElementById('q-supp-name').value;
+    const phone = document.getElementById('q-supp-phone').value;
 
-        if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
+    if (!name) return alert("Inserisci il nome dell'azienda fornitrice!");
 
-        let suppData = { name, phone };
-        suppData = addAuditData(suppData);
+    let suppData = { 
+        id: crypto.randomUUID(),
+        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+        name, 
+        phone 
+    };
+    suppData = addAuditData(suppData);
 
-        // Inseriamo il nuovo fornitore
-        const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
-        const newSuppId = res && res.lastInsertRowid ? res.lastInsertRowid : suppData.id;
+    // Inseriamo il nuovo fornitore
+    const res = await window.universalQuery({ action: 'INSERT', table: 'suppliers', data: suppData });
+    const newSuppId = suppData.id;
 
-        alert("Fornitore creato con successo!");
-        closeQuickSupplierModal();
+    // 🔄 AGGIORNAMENTO IMMEDIATO LISTA FORNITORI GLOBALE
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
 
-        // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore appena creato
-        await populateSupplierSelect(newSuppId);
-    }
+    alert("Fornitore creato con successo!");
+    closeQuickSupplierModal();
+
+    // Ricarichiamo la tendina del modale prodotto e selezioniamo automaticamente il nuovo fornitore
+    await populateSupplierSelect(newSuppId);
+}
 
     async function openConsumables(serviceId) {
     const inputId = document.getElementById('edit-service-id');
@@ -9051,23 +9058,30 @@ const nowTimestamp = new Date().toISOString();
             if (historySection) historySection.style.display = 'none';
         }
 
-        else if (t === 'inv') {
-            const titleInv = document.getElementById('mod-inv-title');
-            if (titleInv) titleInv.innerText = "Nuovo Prodotto/servizio";
-            const editIdInv = document.getElementById('edit-p-id');
-            if (editIdInv) editIdInv.value = "-1";
-            
-            const fields = ['f-p-name', 'f-p-stock', 'f-p-min'];
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = "";
-            });
+       else if (t === 'inv') {
+    const titleInv = document.getElementById('mod-inv-title');
+    if (titleInv) titleInv.innerText = "Nuovo Prodotto / Servizio";
+    const editIdInv = document.getElementById('edit-p-id');
+    if (editIdInv) editIdInv.value = "-1";
+    
+    const fields = ['f-p-name', 'f-p-listing-price', 'f-p-min', 'f-p-model', 'f-p-barcode', 'f-p-size', 'f-p-location'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
 
-            populateSupplierSelect();
+    // 🔄 FORZIAMO IL CARICAMENTO FRESCO DEI FORNITORI ANCHE NELLA CREAZIONE NUOVA
+    populateSupplierSelect();
 
-            const historyBody = document.getElementById('history-body');
-            if (historyBody) historyBody.innerHTML = "<tr><td colspan='4'>Nessuno storico disponibile</td></tr>";
-        }
+    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
+    if (consignmentCheckbox) consignmentCheckbox.checked = false;
+    toggleConsignmentFields();
+    toggleInvFields();
+
+    // Pulizia righe conto vendita multiple
+    const splitContainer = document.getElementById('suppliers-split-container');
+    if (splitContainer) splitContainer.innerHTML = '';
+}
 
         else if (t === 'supp') {
             const editIdSupp = document.getElementById('edit-supp-id');
@@ -9169,36 +9183,24 @@ const nowTimestamp = new Date().toISOString();
 
 
     async function populateSupplierSelect(selectedId = null) {
-        const select = document.getElementById('f-p-supplier');
-        if (!select) {
-            console.warn("Elemento select #f-p-supplier non trovato nel DOM!");
-            return;
-        }
+    // 1. Ricarichiamo sempre la lista aggiornata dal database locale/cloud
+    allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
 
-        try {
-            // Interroghiamo il database per i fornitori
-            const suppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' });
-            console.log("DEBUG FORNITORI - Dati ricevuti dal DB:", suppliers);
-            
-            // Aggiorniamo anche la variabile globale
-            allSuppliers = Array.isArray(suppliers) ? suppliers : [];
-
-            if (allSuppliers.length === 0) {
-                console.warn("DEBUG FORNITORI - L'array dei fornitori è vuoto!");
-                select.innerHTML = '<option value="">-- Nessun fornitore registrato --</option>';
-                return;
-            }
-
-            select.innerHTML = '<option value="">-- Nessun fornitore --</option>' + 
-                allSuppliers.map(s => `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${s.name}</option>`).join('');
-                
-            console.log("DEBUG FORNITORI - Tendina popolata con successo. HTML:", select.innerHTML);
-
-        } catch (err) {
-            console.error("ERRORE CRITICO caricamento fornitori per la select:", err);
-            select.innerHTML = '<option value="">-- Errore caricamento fornitori --</option>';
-        }
+    // A. Popolamento select principale del fornitore singolo (se presente nel DOM)
+    const select = document.getElementById('f-p-supplier');
+    if (select) {
+        select.innerHTML = '<option value="">-- Nessun fornitore --</option>' + 
+            allSuppliers.map(s => `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${s.name}</option>`).join('');
     }
+
+    // B. Aggiornamento dinamico di eventuali tendine già aperte nelle righe di split del Conto Vendita
+    document.querySelectorAll('.row-supp-select').forEach(rowSelect => {
+        const currentVal = rowSelect.value;
+        rowSelect.innerHTML = '<option value="">-- Seleziona Fornitore --</option>' + 
+            allSuppliers.map(s => `<option value="${s.id}" ${s.id === currentVal ? 'selected' : ''}>${s.name}</option>`).join('');
+    });
+}
+
     function closeMod() {
         document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
         
