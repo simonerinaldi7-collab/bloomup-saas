@@ -4234,13 +4234,11 @@ function dismissExpenseReminderAndGoToExpenses() {
             const amt = parseFloat(e.amount) || 0;
             if (!desc || amt <= 0 || !e.date) return;
 
-            // Normalizziamo la chiave rimuovendo eventuali date o numeri specifici nel testo per raggruppare es. "Enel - Gennaio" -> "enel"
             const key = desc.toLowerCase();
 
             if (!expenseGroups[key]) {
                 expenseGroups[key] = { originalName: desc, amounts: [], dates: [] };
             }
-            expenseGroups.pushData = true; // helper
             expenseGroups[key].amounts.push(amt);
             expenseGroups[key].dates.push(new Date(e.date));
         });
@@ -4259,7 +4257,6 @@ function dismissExpenseReminderAndGoToExpenses() {
             let isCandidate = false;
 
             if (group.dates.length >= 2) {
-                // Calcoliamo la distanza media in giorni tra un pagamento e l'altro
                 let totalIntervalDays = 0;
                 for (let i = 0; i < group.dates.length - 1; i++) {
                     const diffTime = Math.abs(group.dates[i] - group.dates[i + 1]);
@@ -4268,9 +4265,6 @@ function dismissExpenseReminderAndGoToExpenses() {
                 }
                 const avgInterval = totalIntervalDays / (group.dates.length - 1);
 
-                // Criterio di accettazione:
-                // - Mensile: intervallo medio tra 20 e 45 giorni
-                // - Trimestrale: intervallo medio tra 75 e 105 giorni
                 if (avgInterval >= 20 && avgInterval <= 45) {
                     periodicity = 'Mensile';
                     isCandidate = true;
@@ -4279,8 +4273,7 @@ function dismissExpenseReminderAndGoToExpenses() {
                     isCandidate = true;
                 }
             } else if (group.dates.length === 1) {
-                // Se c'è una sola spesa nello storico, la proponiamo comunque come mensile di default
-                periodicity = 'Mensile (Singola da storico)';
+                periodicity = 'Mensile (Singola)';
                 isCandidate = true;
             }
 
@@ -4336,7 +4329,6 @@ function dismissExpenseReminderAndGoToExpenses() {
         container.innerHTML = `<div style="color:red; padding:10px;">Errore nel calcolo delle ricorrenze.</div>`;
     }
 }
-
 
 // 📱 Apre o chiude il pannello carrello su smartphone
     function toggleMobileCart(open) {
