@@ -857,6 +857,7 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 8. GET_SALES_REPORT ---
         // --- 8. GET_SALES_REPORT ---
+        // --- 8. GET_SALES_REPORT ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -868,13 +869,6 @@ async function handleSpecialAction(action, data, id) {
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
                 const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
                 const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
-                
-                let productSuppliers = [];
-                try {
-                    if (localDb.product_suppliers) {
-                        productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
-                    }
-                } catch (e) {}
 
                 const report = [];
                 
@@ -882,93 +876,59 @@ async function handleSpecialAction(action, data, id) {
                     const sale = sales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
                     
-                    // 🛡️ RICERCA CLIENTE BLINDATA
                     let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
                         cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
                     }
 
                     const custDisplayName = cust ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() : (sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO' ? sale.cust_id : 'Occasionale');
-
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
-                    const discount = item.discount || 0;
-                    const finalPrice = item.price - discount;
-                    const saleDate = sale.date || new Date().toISOString().split('T')[0];
+                    const discount = parseFloat(item.discount) || 0;
+                    const finalPrice = parseFloat(item.price || 0) - discount;
                     const itemQty = parseFloat(item.qty) || 1;
 
                     let unitCost = 0;
                     let supplierPayout = 0;
                     let salonRevenue = finalPrice;
 
-                    if (inv) {
-                        // 🤝 GESTIONE CONTO VENDITA (PRODOTTO O SERVIZIO)
-                        if (inv.is_consignment) {
-                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
-                            
-                            const links = productSuppliers.filter(l => l.product_id === inv.id);
-                            let totalPct = 0;
+                    if (inv && inv.is_consignment) {
+                        // 🎯 LETTURA DIRETTA DEI VALORI SALVATI PUNTUALMENTE IN CASSA (Con regola sconto)
+                        supplierPayout = (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) 
+                            ? parseFloat(item.supplier_payout) 
+                            : 0;
 
-                            if (links.length > 0) {
-                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                            } else {
-                                totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                            }
+                        salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) 
+                            ? parseFloat(item.salon_revenue) 
+                            : (finalPrice - supplierPayout);
 
-                            let basePayout = (listinoPienoOriginale * totalPct) / 100;
+                    } else if (inv && inv.type === 'servizio') {
+                        const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                        let totalConsumablesCost = 0;
 
-                            // 🎯 PRECEDENZA ASSOLUTA AL PAYOUT EFFETTIVO SALVATO IN CASSA (Con regole di assorbimento sconto)
-                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
-                                supplierPayout = parseFloat(item.supplier_payout);
-                            } else {
-                                supplierPayout = basePayout * itemQty;
-                            }
+                        for (let sc of serviceCons) {
+                            const consumedProd = inventory.find(p => p.id === sc.product_id);
+                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
 
-                            // 🎯 LETTURA DEL RICAVO NETTO SALONE SALVATO O CALCOLATO
-                            if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
-                                salonRevenue = parseFloat(item.salon_revenue);
-                            } else {
-                                salonRevenue = finalPrice - supplierPayout;
-                            }
-
-                        } else if (inv.type === 'servizio') {
-                            // ✂️ SE È UN SERVIZIO DI PROPRIETÀ: Calcoliamo il costo dei materiali consumabili associati (FIFO)
-                            const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
-                            let totalConsumablesCost = 0;
-
-                            for (let sc of serviceCons) {
-                                const consumedProd = inventory.find(p => p.id === sc.product_id);
-                                const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
-                                if (consumedProd) {
-                                    const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                                    let prodUnitCost = 0;
-                                    if (prodLots.length > 0) {
-                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                                    } else {
-                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
-                                    }
-                                    totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                            if (consumedProd) {
+                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                let prodUnitCost = 0;
+                                if (prodLots.length > 0) {
+                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                    prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
                                 }
+                                totalConsumablesCost += (prodUnitCost * qtyNeeded);
                             }
-                            unitCost = totalConsumablesCost;
-                            salonRevenue = finalPrice - (unitCost * itemQty);
-
-                        } else {
-                            // PRODOTTO FISICO DI PROPRIETÀ (FIFO)
-                            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
-                                unitCost = parseFloat(item.unit_cost) || 0;
-                            } else {
-                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                            }
-                            salonRevenue = finalPrice - (unitCost * itemQty);
                         }
+                        unitCost = totalConsumablesCost;
+                        salonRevenue = finalPrice - (unitCost * itemQty);
+
+                    } else if (inv) {
+                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
+                            unitCost = parseFloat(item.unit_cost) || 0;
+                        }
+                        salonRevenue = finalPrice - (unitCost * itemQty);
                     } else {
-                        // Servizio o articolo non censito a magazzino
                         if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
                             unitCost = parseFloat(item.unit_cost) || 0;
                         }
@@ -981,9 +941,9 @@ async function handleSpecialAction(action, data, id) {
                         time: sale.time || '00:00',
                         item_name: item.item_name || 'Articolo',
                         customer_name: custDisplayName,
-                        sold_price: item.price || 0,
+                        sold_price: (parseFloat(item.price) || 0) * itemQty,
                         discount: discount,
-                        final_price: finalPrice,
+                        final_price: finalPrice * itemQty,
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
                         salon_revenue: salonRevenue, 
