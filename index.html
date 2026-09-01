@@ -1892,6 +1892,7 @@
     
     
 <!-- MODALE ANAGRAFICA PRODOTTO / SERVIZIO (PULITO E AUTOMATIZZATO) -->
+<!-- MODALE ANAGRAFICA PRODOTTO / SERVIZIO -->
 <div id="mod-inv" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 550px; max-height: 90vh; display: flex; flex-direction: column;">
         
@@ -1922,6 +1923,7 @@
             <label>Nome Prodotto / Servizio *</label>
             <input type="text" id="f-p-name" placeholder="Es. Shampoo Idratante 250ml">
             
+            <!-- 1. Campi esclusivi dei PRODOTTI FISICI -->
             <div id="fields-prodotto">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
@@ -1961,51 +1963,6 @@
                     </div>
                 </div>
 
-                <!-- 🔄 SOSTITUISCI IL BLOCCO DEL CONTO VENDITA DENTRO #mod-inv CON QUESTO: -->
-
-<!-- CONTO VENDITA (Dinamico per Prodotti e Servizi) -->
-<div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
-    <div style="display:flex; align-items:center; gap:10px;">
-        <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
-        <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Articolo in Conto Vendita</label>
-    </div>
-    
-    <div id="consignment-details" style="display:none; margin-top: 12px;">
-        
-        <!-- A. Contenitore Multi-fornitore per PRODOTTI FISICI -->
-        <div id="product-suppliers-section" style="display:block;">
-            <label style="margin-bottom: 6px;">Ripartizione Quote Fornitori (Max 3)</label>
-            <div id="suppliers-split-container" style="display:flex; flex-direction:column; gap:8px;"></div>
-            <button type="button" class="btn btn-s" style="padding:6px 12px; margin-top:8px; font-size:12px;" onclick="addSupplierSplitRow()">+ Aggiungi Fornitore</button>
-        </div>
-
-        <!-- B. Contenitore Fornitore Unico per SERVIZI -->
-        <div id="service-supplier-section" style="display:none;">
-            <label>Fornitore del Servizio</label>
-            <select id="f-s-supplier" style="margin:0 0 10px 0; background: white;">
-                <option value="">-- Seleziona Fornitore --</option>
-            </select>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <label>Percentuale Fornitore (%)</label>
-                    <input type="number" id="f-s-split-pct" placeholder="Es. 60" min="0" max="100" step="0.1" style="margin:0; background: white;">
-                </div>
-                <div>
-                    <label>Default Sconto A carico di:</label>
-                    <select id="f-s-discount-rule" style="margin:0; background: white;">
-                        <option value="salon">Venditore / Salone</option>
-                        <option value="supplier">Fornitore</option>
-                        <option value="split">Entrambi (50/50)</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <small style="display:block; color:#666; margin-top:8px;" id="consignment-hint">La percentuale indica la quota del prezzo di listino riconosciuta al fornitore alla vendita.</small>
-    </div>
-</div>
-
                 <div id="standard-supplier-box">
                     <label>Fornitore Principale</label>
                     <div style="display:flex; gap:8px; align-items:center; margin-bottom: 10px;">
@@ -2016,6 +1973,51 @@
                     </div>
                 </div>
             </div>
+            <!-- Fine fields-prodotto -->
+
+            <!-- 2. CONTO VENDITA UNIVERSALE (ORA FUORI DA fields-prodotto, VISIBILE ANCHE PER I SERVIZI) -->
+            <div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
+                    <label for="f-p-is-consignment" style="margin:0; font-weight:bold; color:var(--p); cursor:pointer;">Articolo in Conto Vendita</label>
+                </div>
+                
+                <div id="consignment-details" style="display:none; margin-top: 12px;">
+                    
+                    <!-- A. Contenitore Multi-fornitore per PRODOTTI FISICI -->
+                    <div id="product-suppliers-section" style="display:block;">
+                        <label style="margin-bottom: 6px;">Ripartizione Quote Fornitori (Max 3)</label>
+                        <div id="suppliers-split-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        <button type="button" class="btn btn-s" style="padding:6px 12px; margin-top:8px; font-size:12px;" onclick="addSupplierSplitRow()">+ Aggiungi Fornitore</button>
+                    </div>
+
+                    <!-- B. Contenitore Fornitore Unico per SERVIZI -->
+                    <div id="service-supplier-section" style="display:none;">
+                        <label>Fornitore del Servizio</label>
+                        <select id="f-s-supplier" style="margin:0 0 10px 0; background: white;">
+                            <option value="">-- Seleziona Fornitore --</option>
+                        </select>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <label>Percentuale Fornitore (%)</label>
+                                <input type="number" id="f-s-split-pct" placeholder="Es. 60" min="0" max="100" step="0.1" style="margin:0; background: white;">
+                            </div>
+                            <div>
+                                <label>Default Sconto A carico di:</label>
+                                <select id="f-s-discount-rule" style="margin:0; background: white;">
+                                    <option value="salon">Venditore / Salone</option>
+                                    <option value="supplier">Fornitore</option>
+                                    <option value="split">Entrambi (50/50)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <small style="display:block; color:#666; margin-top:8px;" id="consignment-hint">La percentuale indica la quota del prezzo di listino riconosciuta al fornitore alla vendita.</small>
+                </div>
+            </div>
+            <!-- Fine Conto Vendita Universale -->
 
             <div id="inv-error-msg"></div>
         </div>
