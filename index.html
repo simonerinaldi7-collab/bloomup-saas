@@ -4224,13 +4224,11 @@ function dismissExpenseReminderAndGoToExpenses() {
 
         if (confirmBtn) confirmBtn.style.display = 'inline-flex';
         if (subtitleEl) {
-            subtitleEl.innerText = "Spese ricorrenti rilevate in base alla consecutività esatta (mensili, bimestrali o trimestrali):";
+            subtitleEl.innerText = "Spese ricorrenti rilevate (importi basati sull'ultima occorrenza registrata):";
         }
 
-        // currentYearMonth è del tipo 'YYYY-MM' (es. '2026-11')
         const [targetYear, targetMonth] = currentYearMonth.split('-').map(Number);
 
-        // Funzione di utilità per calcolare un mese di distanza esatto (es. target 2026-11 meno 1 mese = 2026-10)
         function getOffsetYearMonth(year, month, offsetMonths) {
             let totalMonths = (year * 12) + (month - 1) - offsetMonths;
             let y = Math.floor(totalMonths / 12);
@@ -4244,9 +4242,9 @@ function dismissExpenseReminderAndGoToExpenses() {
         const mMinus4 = getOffsetYearMonth(targetYear, targetMonth, 4);
         const mMinus6 = getOffsetYearMonth(targetYear, targetMonth, 6);
 
-        // 1. Raggruppiamo le spese per descrizione normalizzata (case-insensitive) e mappiamole per mese ('YYYY-MM')
-        const expenseMap = {}; // key -> Set di mesi 'YYYY-MM' in cui la spesa è avvenuta
-        const expenseDetails = {}; // key -> { originalName, amounts: [] }
+        // 1. Raggruppiamo le spese per descrizione normalizzata (case-insensitive)
+        const expenseMap = {}; // key -> Set di mesi 'YYYY-MM'
+        const expenseDetails = {}; // key -> { originalName, records: [] }
 
         expenses.forEach(e => {
             const desc = (e.description || '').trim();
@@ -4254,14 +4252,14 @@ function dismissExpenseReminderAndGoToExpenses() {
             if (!desc || amt <= 0 || !e.date) return;
 
             const key = desc.toLowerCase();
-            const expenseMonthStr = e.date.substring(0, 7); // 'YYYY-MM'
+            const expenseMonthStr = e.date.substring(0, 7);
 
             if (!expenseMap[key]) {
                 expenseMap[key] = new Set();
-                expenseDetails[key] = { originalName: desc, amounts: [] };
+                expenseDetails[key] = { originalName: desc, records: [] };
             }
             expenseMap[key].add(expenseMonthStr);
-            expenseDetails[key].amounts.push(amt);
+            expenseDetails[key].records.push({ date: e.date, amount: amt });
         });
 
         const suggestions = [];
@@ -4270,29 +4268,27 @@ function dismissExpenseReminderAndGoToExpenses() {
         Object.keys(expenseMap).forEach(key => {
             const monthsSet = expenseMap[key];
             const details = expenseDetails[key];
-            const avgAmount = details.amounts.reduce((a, b) => a + b, 0) / details.amounts.length;
 
             let detectedType = null;
 
-            // REGOLA 1: Mensile -> Presente in M-1 E in M-2
             if (monthsSet.has(mMinus1) && monthsSet.has(mMinus2)) {
                 detectedType = 'Mensile (presente a ' + mMinus1 + ' e ' + mMinus2 + ')';
-            }
-            // REGOLA 2: Bimestrale -> Presente in M-2 E in M-4
-            else if (monthsSet.has(mMinus2) && monthsSet.has(mMinus4)) {
+            } else if (monthsSet.has(mMinus2) && monthsSet.has(mMinus4)) {
                 detectedType = 'Bimestrale (presente a ' + mMinus2 + ' e ' + mMinus4 + ')';
-            }
-            // REGOLA 3: Trimestrale -> Presente in M-3 E in M-6 (es. Novembre -> Agosto e Maggio)
-            else if (monthsSet.has(mMinus3) && monthsSet.has(mMinus6)) {
+            } else if (monthsSet.has(mMinus3) && monthsSet.has(mMinus6)) {
                 detectedType = 'Trimestrale (presente a ' + mMinus3 + ' e ' + mMinus6 + ')';
             }
 
             if (detectedType) {
+                // Ordiniamo i record per data crescente/decrescente per estrarre l'ultimo importo esatto
+                details.records.sort((a, b) => b.date.localeCompare(a.date));
+                const exactLastAmount = details.records[0].amount; // 👈 Preso direttamente dall'ultima occorrenza
+
                 suggestions.push({
                     description: details.originalName,
-                    amount: avgAmount.toFixed(2),
+                    amount: exactLastAmount.toFixed(2),
                     periodicity: detectedType,
-                    suggestedDate: `${currentYearMonth}-01` // Primo del mese corrente come default
+                    suggestedDate: `${currentYearMonth}-01`
                 });
             }
         });
