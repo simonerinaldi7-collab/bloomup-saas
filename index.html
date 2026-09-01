@@ -7206,33 +7206,6 @@ async function doLogin() {
         resetLogoutTimer();
     }
 
-// --- 📱 GESTIONE SWIPE ORIZZONTALE PER CAMBIO SETTIMANA / GIORNO IN AGENDA ---
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
-
-document.addEventListener('DOMContentLoaded', () => {
-    const calArea = document.getElementById('cal-area');
-    if (!calArea) return;
-
-    calArea.addEventListener('touchstart', (e) => {
-        // Ignoriamo se l'utente sta toccando con più dita o sta interagendo con un modale
-        if (e.touches.length > 1 || document.querySelector('.modal.active')) return;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    calArea.addEventListener('touchend', (e) => {
-        if (document.querySelector('.modal.active')) return;
-        
-        touchEndX = e.changedTouches[0].clientX;
-        touchEndY = e.changedTouches[0].clientY;
-        
-        handleSwipeGesture();
-    }, { passive: true });
-});
-
 // --- 📱 GESTIONE SWIPE ORIZZONTALE PER CAMBIO SETTIMANA / GIORNO (CORRETTO E ANTI-SALTO) ---
 let touchStartX = 0;
 let touchStartY = 0;
