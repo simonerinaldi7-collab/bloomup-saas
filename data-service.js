@@ -42,7 +42,65 @@ window.appDataService = async function(action, table, data = null, id = null) {
     }
 
 
+// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE) ---
+let backgroundSyncInterval = null;
 
+function startBackgroundMultiOperatorSync() {
+    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+
+    // Esegue una sincronizzazione silente ogni 25 secondi
+    backgroundSyncInterval = setInterval(async () => {
+        if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
+
+        const salonId = currentUser.salon_id;
+        console.log("🔄 [AUTO-SYNC] Controllo modifiche in parallelo da altri operatori...");
+
+        const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
+        
+        try {
+            // Salviamo una fotografia dello stato appuntamenti prima del fetch per capire se ci sono novità
+            const oldAppsCount = allAppointments ? allAppointments.length : 0;
+
+            // Eseguiamo il pull in background per le tabelle calde
+            for (let table of tablesToSync) {
+                await backgroundPullFromSupabase(table, salonId);
+            }
+
+            // Ricarichiamo le variabili globali in memoria silenziosamente
+            allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+
+            // Se siamo nella vista Agenda o Cassa, aggiorniamo l'interfaccia al volo senza perdere il focus dei modali chiusi
+            const activeView = document.querySelector('.view.active');
+            if (activeView) {
+                const viewId = activeView.id;
+                if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
+                    // Aggiorna l'agenda solo se non ci sono modali aperti (per evitare di chiudere finestre di scrittura dell'utente)
+                    const isModalOpen = document.querySelector('.modal.active');
+                    if (!isModalOpen) {
+                        renderCalendar();
+                        console.log("📅 [AUTO-SYNC] Agenda aggiornata con le modifiche degli altri operatori.");
+                    }
+                } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
+                    const isModalOpen = document.querySelector('.modal.active');
+                    if (!isModalOpen) {
+                        renderProducts();
+                    }
+                }
+            }
+            
+            // Aggiorna i KPI globali
+            if (typeof updateStats === 'function') updateStats();
+
+        } catch (err) {
+            console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
+        }
+    }, 25000); // Ogni 25 secondi
+}
+
+// Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
 
     
      // Gestione azioni speciali (non standard INSERT/UPDATE/DELETE su tabelle)

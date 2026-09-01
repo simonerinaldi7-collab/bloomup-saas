@@ -7174,6 +7174,9 @@ document.getElementById('app-shell').style.display = 'flex';
         await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
 
+
+await startBackgroundMultiOperatorSync()
+
         // 5. 🚀 IDRATAZIONE IN BACKGROUND NON BLOCCANTE (Silenziosa)
         // Scarica dal cloud le novità mentre l'utente sta già lavorando
         setTimeout(async () => {
