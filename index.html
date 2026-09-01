@@ -2831,7 +2831,8 @@ async function submitPasswordReset() {
                 // Generazione link rapido WhatsApp se il cliente ha un telefono valido
                 let waButtonHtml = '';
                 if (phone) {
-                    const cleanPhone = phone.replace(/\D/g, '');
+                    const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
+const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
                     const msg = encodeURIComponent(`Ciao ${c.first_name || ''}! È un po' che non ci vieni a trovare in salone, ti aspettiamo presto per coccolarti un po'! ✨`);
                     waButtonHtml = `<a href="https://wa.me/${cleanPhone}?text=${msg}" target="_blank" class="btn btn-w" style="padding:4px 10px; font-size:11px; margin-top:8px; text-decoration:none;">💬 Invia WhatsApp "Ci manchi"</a>`;
                 }
@@ -7979,7 +7980,8 @@ async function updateReminderBadgeCount() {
 
         // Rimuoviamo caratteri di controllo o spazi multipli per la massima compatibilità
         const cleanMessage = rawMessage.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-        const cleanPhone = phone.replace(/\D/g, '');
+        const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
+const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
 
         let url = '';
         if (type === 'wa') {
@@ -8694,6 +8696,28 @@ async function executeStockLoad() {
     tbody.innerHTML = html;
 
 }
+
+// Funzione sicura per la pulizia e normalizzazione del numero di telefono
+function formatPhoneNumberForWhatsApp(phone) {
+    if (!phone) return '';
+    
+    // 1. Convertiamo in stringa pura e rimuoviamo TUTTI i caratteri non numerici (spazi, trattini, più)
+    let cleanPhone = String(phone).replace(/\D/g, '');
+    
+    // 2. Se il numero inizia già con 39 ed è lungo (es. 39340160XXXX), lo lasciamo così
+    // 3. Se il numero è italiano senza prefisso (es. 340160XXXX, che inizia per 3 e ha 9 o 10 cifre), anteponiamo '39'
+    if (cleanPhone.startsWith('3') && (cleanPhone.length === 9 || cleanPhone.length === 10)) {
+        cleanPhone = '39' + cleanPhone;
+    } 
+    // Gestione se per caso c'è uno zero iniziale di troppo (es. 0340160XXXX)
+    else if (cleanPhone.startsWith('0') && cleanPhone.length >= 10) {
+        // Se ha lo zero iniziale nazionale, lo rimuoviamo e mettiamo 39
+        cleanPhone = '39' + cleanPhone.substring(1);
+    }
+
+    return cleanPhone;
+}
+
 
     function clearFilters() {
         // 1. Resetta i campi di input
