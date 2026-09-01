@@ -1963,7 +1963,7 @@
 
                 <!-- 🔄 SOSTITUISCI IL BLOCCO DEL CONTO VENDITA DENTRO #mod-inv CON QUESTO: -->
 
-<!-- CONTO VENDITA (Valido sia per Prodotti che per Servizi) -->
+<!-- CONTO VENDITA (Dinamico per Prodotti e Servizi) -->
 <div style="background: #f8f9fa; padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin: 10px 0;">
     <div style="display:flex; align-items:center; gap:10px;">
         <input type="checkbox" id="f-p-is-consignment" onchange="toggleConsignmentFields()" style="width: 20px; height: 20px; margin:0;">
@@ -1971,28 +1971,29 @@
     </div>
     
     <div id="consignment-details" style="display:none; margin-top: 12px;">
-        <!-- Contenitore Multi-fornitore per Prodotti -->
-        <div id="product-suppliers-section">
+        
+        <!-- A. Contenitore Multi-fornitore per PRODOTTI FISICI -->
+        <div id="product-suppliers-section" style="display:block;">
             <label style="margin-bottom: 6px;">Ripartizione Quote Fornitori (Max 3)</label>
             <div id="suppliers-split-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             <button type="button" class="btn btn-s" style="padding:6px 12px; margin-top:8px; font-size:12px;" onclick="addSupplierSplitRow()">+ Aggiungi Fornitore</button>
         </div>
 
-        <!-- Contenitore Fornitore Unico per Servizi -->
-        <div id="service-supplier-section" style="display:none; margin-top: 10px;">
+        <!-- B. Contenitore Fornitore Unico per SERVIZI -->
+        <div id="service-supplier-section" style="display:none;">
             <label>Fornitore del Servizio</label>
-            <select id="f-s-supplier" style="margin:0 0 10px 0;">
+            <select id="f-s-supplier" style="margin:0 0 10px 0; background: white;">
                 <option value="">-- Seleziona Fornitore --</option>
             </select>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div>
                     <label>Percentuale Fornitore (%)</label>
-                    <input type="number" id="f-s-split-pct" placeholder="Es. 60" min="0" max="100" step="0.1" style="margin:0;">
+                    <input type="number" id="f-s-split-pct" placeholder="Es. 60" min="0" max="100" step="0.1" style="margin:0; background: white;">
                 </div>
                 <div>
                     <label>Default Sconto A carico di:</label>
-                    <select id="f-s-discount-rule" style="margin:0;">
+                    <select id="f-s-discount-rule" style="margin:0; background: white;">
                         <option value="salon">Venditore / Salone</option>
                         <option value="supplier">Fornitore</option>
                         <option value="split">Entrambi (50/50)</option>
@@ -2112,7 +2113,6 @@ console.error = function(...args) {
     }
 
 
-    // 2. Gestione visiva del blocco conto vendita (Gestisce separatamente Prodotti multi-fornitore e Servizi mono-fornitore)
 async function toggleConsignmentFields() {
     const isChecked = document.getElementById('f-p-is-consignment').checked;
     const type = document.getElementById('f-p-type').value;
@@ -2141,7 +2141,6 @@ async function toggleConsignmentFields() {
     }
 }
 
-// Funzione di supporto per popolare la select del fornitore singolo del servizio
 async function populateSingleServiceSupplierSelect(selectedId = null) {
     const select = document.getElementById('f-s-supplier');
     if (!select) return;
