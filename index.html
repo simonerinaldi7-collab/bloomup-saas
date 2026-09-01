@@ -7813,6 +7813,12 @@ async function updateReminderBadgeCount() {
         if (titleEl) titleEl.innerText = "Modifica Appuntamento";
 
         document.getElementById('mod-cale').classList.add('active'); 
+
+        // 🚀 AGGIUNTA: Carica immediatamente gli appuntamenti del cliente appena si apre il modale in edit
+        if (typeof checkDuplicateAppointments === 'function') {
+            checkDuplicateAppointments();
+        }
+
     }
             
         async function sendAndLogGeneric(appId, type, tk) {
