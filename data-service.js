@@ -97,7 +97,7 @@ function startBackgroundMultiOperatorSync() {
         } catch (err) {
             console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
         }
-    }, 25000); // Ogni 25 secondi
+    }, 5000); // Ogni 5 secondi
 }
 
 // Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
