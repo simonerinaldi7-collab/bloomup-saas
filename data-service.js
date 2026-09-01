@@ -857,6 +857,7 @@ async function handleSpecialAction(action, data, id) {
 
         // --- 8. GET_SALES_REPORT ---
         // --- 8. GET_SALES_REPORT ---
+        // --- 8. GET_SALES_REPORT ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -902,8 +903,32 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
 
                     if (inv) {
-                        if (inv.type === 'servizio') {
-                            // ✂️ SE È UN SERVIZIO: Calcoliamo il costo dei materiali consumabili associati (FIFO)
+                        // 🤝 MODIFICA CHIAVE: Se l'articolo (prodotto o servizio) è in CONTO VENDITA, gestiamo il payout fornitore
+                        if (inv.is_consignment) {
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+                            
+                            // 👈 CORRETTO: Uso di inv.id anziché prod.id
+                            const links = productSuppliers.filter(l => l.product_id === inv.id);
+                            let totalPct = 0;
+
+                            if (links.length > 0) {
+                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                            } else {
+                                totalPct = parseFloat(inv.consignment_split_pct) || 0;
+                            }
+
+                            let basePayout = (listinoPienoOriginale * totalPct) / 100;
+
+                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && parseFloat(item.supplier_payout) > 0) {
+                                supplierPayout = parseFloat(item.supplier_payout);
+                            } else {
+                                supplierPayout = basePayout * itemQty;
+                            }
+                            salonRevenue = finalPrice - supplierPayout;
+
+                        } else if (inv.type === 'servizio') {
+                            // ✂️ SE È UN SERVIZIO DI PROPRIETÀ: Calcoliamo il costo dei materiali consumabili associati (FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
 
@@ -927,40 +952,6 @@ async function handleSpecialAction(action, data, id) {
                             unitCost = totalConsumablesCost;
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
-                        } else if (inv.is_consignment) {
-                            // PRODOTTO IN CONTO VENDITA
-                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
-const links = productSuppliers.filter(l => l.product_id === prod.id);
-let totalPct = 0;
-
-if (links.length > 0) {
-    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-} else {
-    totalPct = parseFloat(prod.consignment_split_pct) || 0;
-}
-
-let basePayout = (listinoPienoOriginale * totalPct) / 100;
-let adjustedPayout = basePayout;
-const unitDiscount = discount / itemQty;
-
-// Inferiamo la regola di assorbimento in base allo scostamento o applichiamo la logica standard
-// Di default se non specificato diversamente nel rigo, applichiamo la regola di mercato (o 'salon' se lo sconto è assorbito dal salone)
-// Per coerenza con quanto scelto in cassa, se il fornitore ha subito decurtazioni nel payout salvato, le leggiamo.
-if (item.supplier_payout !== undefined && item.supplier_payout !== null && parseFloat(item.supplier_payout) > 0) {
-    supplierPayout = parseFloat(item.supplier_payout);
-} else {
-    if (unitDiscount > 0) {
-        // Se lo sconto è maggiore di zero, verifichiamo se il payout è stato ridotto o mantenuto pieno
-        // Qui applichiamo la regola standard 'salon' (fornitore a prezzo pieno, sconto a carico salone) 
-        // oppure 'split' se configurato. Usiamo basePayout pieno come standard di sicurezza.
-        supplierPayout = basePayout * itemQty;
-    } else {
-        supplierPayout = basePayout * itemQty;
-    }
-}
-salonRevenue = finalPrice - supplierPayout;
-
                         } else {
                             // PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                             if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
@@ -980,7 +971,7 @@ salonRevenue = finalPrice - supplierPayout;
                     }
 
                     report.push({
-                        sale_id: sale.id, // 👈 AGGIUNTO: ID fondamentale per lo storno
+                        sale_id: sale.id,
                         date: sale.date,
                         time: sale.time || '00:00',
                         item_name: item.item_name || 'Articolo',
@@ -990,7 +981,7 @@ salonRevenue = finalPrice - supplierPayout;
                         final_price: finalPrice,
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
-                        salon_revenue: salonRevenue, // Margine netto effettivo (inclusi consumabili per i servizi)
+                        salon_revenue: salonRevenue,
                         seller: sale.created_by || 'Admin'
                     });
                 }
