@@ -7983,37 +7983,47 @@ async function updateReminderBadgeCount() {
 }
 
 
-        async function editApp(id) { 
+    async function editApp(id) { 
     const event = window.event; 
     if (event) event.stopPropagation();
     const a = allAppointments.find(x => x.id === id); 
     if (!a) return;
 
-    // 🧹 PULIZIA TOTALE PREVENTIVA: Svuotiamo lo stato dei servizi in memoria prima di mappare quelli corretti
+    // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // 🎯 ESTRAZIONE RIGOROSA DEI SERVIZI ASSOCIATI A QUESTO SPECIFICO APPUNTAMENTO
+    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
     const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
     
-    // Troviamo i servizi nel listino che corrispondono ESATTAMENTE al nome salvato nell'appuntamento
-    const matchedIds = [];
+    const matchedServiceItems = [];
     for (let nameStr of savedServiceNames) {
         if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
         
-        // Cerchiamo un riscontro esatto o parziale pulito nel listino servizi
+        // Cerchiamo il servizio nel listino
         const foundServ = allInventory.find(i => i.type === 'servizio' && (
             i.name.toLowerCase().trim() === nameStr || 
             nameStr.includes(i.name.toLowerCase().trim()) ||
             i.name.toLowerCase().trim().includes(nameStr)
         ));
         
-        if (foundServ && !matchedIds.includes(foundServ.id)) {
-            matchedIds.push(foundServ.id);
+        if (foundServ) {
+            // Recuperiamo il prezzo corrente del servizio
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
+            
+            // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
+            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+            matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
         }
     }
 
-    // Inizializziamo l'autocomplete passando ESCLUSivamente i servizi reali di questo appuntamento
-    if (typeof initServiceAutocomplete === 'function') {
+    // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
+    if (typeof renderSelectedServiceTags === 'function') {
+        currentSelectedServices = matchedServiceItems;
+        renderSelectedServiceTags();
+    } else if (typeof initServiceAutocomplete === 'function') {
+        // Fallback di compatibilità
+        const matchedIds = matchedServiceItems.map(s => s.id);
         await initServiceAutocomplete(matchedIds);
     }
 
@@ -8037,7 +8047,7 @@ async function updateReminderBadgeCount() {
 
     document.getElementById('mod-cale').classList.add('active'); 
 
-    // Riavviamo i controlli di validità e duplicati in modo pulito
+    // Riavviamo i controlli di validità e duplicati
     if (typeof checkDuplicateAppointments === 'function') {
         checkDuplicateAppointments();
     }
