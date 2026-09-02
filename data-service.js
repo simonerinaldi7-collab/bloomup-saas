@@ -954,91 +954,34 @@ async function handleSpecialAction(action, data, id) {
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
-                    let unitCost = 0;
+                    // 🌟 PRELEVIAMO DIRETTAMENTE DAL DB I VALORI GIA' CALCOLATI NELLO SCONTRINO
+                    let unitCost = item.unit_cost !== undefined && item.unit_cost !== null ? parseFloat(item.unit_cost) : 0;
                     let supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
-                    let salonRevenue = finalPrice;
+                    let salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : finalPrice;
 
-                    if (inv) {
+                    // Fallback di sicurezza solo se i campi nello scontrino fossero vuoti/storici
+                    if (inv && (item.supplier_payout === undefined || item.supplier_payout === null)) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
-                            // ✂️ SERVIZIO STANDARD DI PROPRIETÀ: Costo materiali consumabili (FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
-
                             for (let sc of serviceCons) {
                                 const consumedProd = inventory.find(p => p.id === sc.product_id);
                                 const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
                                 if (consumedProd) {
                                     const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                                    let prodUnitCost = 0;
-                                    if (prodLots.length > 0) {
-                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                                    } else {
-                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
-                                    }
+                                    let prodUnitCost = prodLots.length > 0 ? (parseFloat(prodLots[0].unit_cost) || 0) : 0;
                                     totalConsumablesCost += (prodUnitCost * qtyNeeded);
                                 }
                             }
                             unitCost = totalConsumablesCost;
                             salonRevenue = finalPrice - (unitCost * itemQty);
-
                         } else if (inv.is_consignment) {
-                            // 💶 CONTO VENDITA (PRODOTTI O SERVIZI)
-                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
-                                supplierPayout = parseFloat(item.supplier_payout) || 0;
-                            } else {
-                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-                                
-                                if (inv.type === 'servizio') {
-                                    const rule = inv.discount_absorption || 'salon';
-                                    const splitPct = parseFloat(inv.consignment_split_pct) || 0;
-                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
-                                    const basePayout = (listinoPienoOriginale * splitPct) / 100;
-
-                                    if (rule === 'supplier') {
-                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
-                                    supplierPayout = finalPrice - salonShareFull;
-                                } else if (rule === 'split') {
-                                    let basePayout = (listinoPienoOriginale * splitPct) / 100;
-                                    supplierPayout = basePayout - (discount / 2);
-                                } else {
-                                    // 'salon': Payout calcolato sul listino pieno originale
-                                    supplierPayout = (listinoPienoOriginale * splitPct) / 100;
-                                }
-                                } else {
-                                    const pct = parseFloat(inv.consignment_split_pct) || 0;
-                                    supplierPayout = (listinoPienoOriginale * pct) / 100;
-                                }
-                            }
-
-                            if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
-                                salonRevenue = parseFloat(item.salon_revenue) || 0;
-                            } else {
-                                salonRevenue = finalPrice - supplierPayout;
-                            }
-
-                        } else {
-                            // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
-                            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
-                                unitCost = parseFloat(item.unit_cost) || 0;
-                            } else {
-                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                            }
-                            salonRevenue = finalPrice - (unitCost * itemQty);
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                            const pct = parseFloat(inv.consignment_split_pct) || 0;
+                            supplierPayout = (listinoPienoOriginale * pct) / 100;
+                            salonRevenue = finalPrice - supplierPayout;
                         }
-                    } else {
-                        // ✍️ ARTICOLO MANUALE / FUORI CATALOGO
-                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
-                            unitCost = parseFloat(item.unit_cost) || 0;
-                        }
-                        supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
-                        salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
-                            ? parseFloat(item.salon_revenue) 
-                            : (finalPrice - unitCost - supplierPayout);
                     }
 
                     report.push({

@@ -3252,10 +3252,8 @@ async function voidSaleTransaction(saleId) {
         const fStart = document.getElementById('d-start-report')?.value || '';
         const fEnd = document.getElementById('d-end-report')?.value || '';
         
-        // 1. Chiamata alla backend query unificata che calcola tutto tramite api-bridge
         const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
         
-        // 2. Filtriamo in base ai parametri di ricerca della UI
         const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
             const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
             const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
@@ -3268,7 +3266,6 @@ async function voidSaleTransaction(saleId) {
         const tbody = document.getElementById('list-report');
         if (!tbody) return;
 
-        // 🧮 Variabili per i totali aggregati in alto
         let sumGross = 0;
         let sumDiscount = 0;
         let sumFinal = 0;
@@ -3282,7 +3279,6 @@ async function voidSaleTransaction(saleId) {
             const supplierPayout = parseFloat(r.supplier_payout) || 0;
             const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
 
-            // Accumuliamo nei totali generali
             sumGross += soldPrice;
             sumDiscount += discount;
             sumFinal += finalPrice;
@@ -3290,7 +3286,6 @@ async function voidSaleTransaction(saleId) {
 
             const isPositive = netMarginOrRevenue >= 0;
 
-            // Formattazione dettaglio fornitore se presente
             let supplierDetailsText = '-';
             if (supplierPayout > 0) {
                 supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
@@ -3315,7 +3310,6 @@ async function voidSaleTransaction(saleId) {
             `;
         }).join('');
 
-        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
         const elGross = document.getElementById('rep-tot-gross');
         const elDisc = document.getElementById('rep-tot-disc');
         const elFinal = document.getElementById('rep-tot-final');
@@ -9610,7 +9604,6 @@ function addManualItemToCart() {
 
         const linkedAppointmentId = currentCheckoutAppointmentId || null;
 
-        // 1. Inserimento testata vendita
         const res = await window.api.query({ 
             action:'INSERT', table:'sales', 
             data: { 
@@ -9630,7 +9623,6 @@ function addManualItemToCart() {
 
         const saleId = res.lastInsertRowid; 
 
-        // 2. Inserimento dei singoli articoli della vendita
         for(let item of cartWithDiscounts) { 
             let unitCostUsed = 0;
             let supplierPayout = 0;
@@ -9641,36 +9633,28 @@ function addManualItemToCart() {
 
             if (productDb) { 
                 if (productDb.is_consignment && productDb.type === 'servizio') {
-                    // 💶 CALCOLO MATEMATICO CORRETTO PER SERVIZIO IN CONTO VENDITA
                     const listinoPieno = item.price || 0;
                     const discountAmount = item.discountAmount || 0;
-                    const finalItemPrice = listinoPieno - discountAmount; // Prezzo scontato (es. 40)
-                    
-                    const splitPctForSupplier = parseFloat(productDb.consignment_split_pct) || 0; // es. 50% (0.5)
+                    const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
                     const absorptionRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
 
-                    // Quota fissa del venditore/salone basata sul listino pieno (es. 50% di 50 = 25)
-                    const salonShareOnFullPrice = listinoPieno * (1 - (splitPctForSupplier / 100));
-                    const baseSupplierPayout = listinoPieno * (splitPctForSupplier / 100);
+                    const baseSupplierPayout = (listinoPieno * splitPct) / 100;
+                    const salonShareFull = listinoPieno * (1 - (splitPct / 100));
 
                     if (absorptionRule === 'supplier') {
-                        // Sconto a carico del fornitore: Il salone prende la sua quota piena sul listino, il resto va al fornitore
-                        salonRevenue = listinoPieno * (1 - (splitPctForSupplier / 100));
+                        salonRevenue = salonShareFull;
                         supplierPayout = finalItemPrice - salonRevenue;
                     } else if (absorptionRule === 'split') {
-                        // Sconto diviso al 50/50 tra salone e fornitore
-                        let baseSupplierPayout = (listinoPieno * splitPctForSupplier) / 100;
                         supplierPayout = baseSupplierPayout - (discountAmount / 2);
                         salonRevenue = finalItemPrice - supplierPayout;
                     } else {
-                        // 'salon': Sconto a carico del salone. 
-                        // 🌟 CORRETTO: Il fornitore prende la sua percentuale esatta sul PIENO LISTINO. Lo sconto lo assorbe il salone.
-                        supplierPayout = (listinoPieno * splitPctForSupplier) / 100;
+                        // 'salon'
+                        supplierPayout = baseSupplierPayout;
                         salonRevenue = finalItemPrice - supplierPayout;
                     }
 
                     unitCostUsed = 0;
-                
+
                 } else if (productDb.is_consignment && productDb.type === 'prodotto') {
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;
