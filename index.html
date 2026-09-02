@@ -3252,8 +3252,10 @@ async function voidSaleTransaction(saleId) {
         const fStart = document.getElementById('d-start-report')?.value || '';
         const fEnd = document.getElementById('d-end-report')?.value || '';
         
+        // 1. Chiamata al backend unificato che restituisce gli item già calcolati al centesimo
         const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
         
+        // 2. Filtriamo in base ai parametri di ricerca della UI
         const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
             const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
             const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
@@ -3266,6 +3268,7 @@ async function voidSaleTransaction(saleId) {
         const tbody = document.getElementById('list-report');
         if (!tbody) return;
 
+        // 🧮 Variabili per i totali aggregati in alto
         let sumGross = 0;
         let sumDiscount = 0;
         let sumFinal = 0;
@@ -3279,6 +3282,7 @@ async function voidSaleTransaction(saleId) {
             const supplierPayout = parseFloat(r.supplier_payout) || 0;
             const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
 
+            // Accumuliamo nei totali generali
             sumGross += soldPrice;
             sumDiscount += discount;
             sumFinal += finalPrice;
@@ -3286,8 +3290,9 @@ async function voidSaleTransaction(saleId) {
 
             const isPositive = netMarginOrRevenue >= 0;
 
-            let supplierDetailsText = '-';
-            if (supplierPayout > 0) {
+            // 🌟 UTILIZZIAMO IL DETTAGLIO FORNITORI GIA' CALCOLATO E FORMATTATO DAL BACKEND
+            let supplierDetailsText = r.supplier_details || '-';
+            if (supplierDetailsText === '-' && supplierPayout > 0) {
                 supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
             }
 
@@ -3310,6 +3315,7 @@ async function voidSaleTransaction(saleId) {
             `;
         }).join('');
 
+        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
         const elGross = document.getElementById('rep-tot-gross');
         const elDisc = document.getElementById('rep-tot-disc');
         const elFinal = document.getElementById('rep-tot-final');
