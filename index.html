@@ -4131,25 +4131,26 @@ function triggerLocalOperatorAlert(appointment) {
 
                 // Funzione di utilità interna per registrare l'item nel sommario del fornitore
                 const registerItemForSupplier = (supId, pct) => {
-                    if (!payoutSummary[supId]) return;
-                    const payoutForThisSupp = (item.supplier_payout !== undefined && item.supplier_payout !== null) 
-    ? parseFloat(item.supplier_payout) 
-    : (listinoPienoOriginale * pct) / 100;
+    if (!payoutSummary[supId]) return;
+    
+    // 🌟 LEGGIAMO IL PAYOUT ESATTO SALVATO NELLO SCONTRINO (che include già la regola di sconto scelta in cassa)
+    const payoutForThisSupp = (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout))
+        ? parseFloat(item.supplier_payout)
+        : (listinoPienoOriginale * pct) / 100;
 
-                    // Verifichiamo lo stato di pagamento specifico per QUESTO item e QUESTO fornitore
-                    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
-                    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
+    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
+    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
 
-                    payoutSummary[supId].items.push({
-                        saleItemId: item.id,
-                        supplierId: supId,
-                        date: saleDate,
-                        itemName: item.item_name,
-                        gross: finalPrice,
-                        payout: payoutForThisSupp,
-                        isPaid: isPaid
-                    });
-                };
+    payoutSummary[supId].items.push({
+        saleItemId: item.id,
+        supplierId: supId,
+        date: saleDate,
+        itemName: item.item_name,
+        gross: finalPrice,
+        payout: payoutForThisSupp,
+        isPaid: isPaid
+    });
+};
 
                 if (links.length > 0) {
                     links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));

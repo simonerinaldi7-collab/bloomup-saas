@@ -986,40 +986,22 @@ async function handleSpecialAction(action, data, id) {
 
                        } else if (inv.is_consignment) {
                             // 💶 CONTO VENDITA (PRODOTTI O SERVIZI)
-                            // 🛑 CORRETTO IL PARAMETRO DA 'ph' A 'p' NEL FILTRO
-                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
-                            const pct = parseFloat(inv.consignment_split_pct) || 0;
-                            
-                            if (inv.type === 'servizio') {
-                                // 🌟 UTILIZZIAMO IL PAYOUT ESATTO SALVATO NELLO SCONTRINO (che ha già applicato la regola di sconto scelta in cassa)
-                                if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
-                                    supplierPayout = parseFloat(item.supplier_payout) || 0;
-                                } else {
-                                    const rule = inv.discount_absorption || 'salon';
-                                    let basePayout = (listinoPienoOriginale * (parseFloat(inv.consignment_split_pct) || 0)) / 100;
-                                    if (rule === 'supplier') {
-                                        supplierPayout = basePayout - discount;
-                                    } else if (rule === 'split') {
-                                        supplierPayout = basePayout - (discount / 2);
-                                    } else {
-                                        supplierPayout = basePayout;
-                                    }
-                                }
+                            // Utilizziamo direttamente i valori economici esatti scritti nello scontrino al momento del pagamento in cassa
+                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                                supplierPayout = parseFloat(item.supplier_payout) || 0;
                             } else {
-                                // Prodotti fisici in conto vendita (multi-fornitore)
-                                const links = productSuppliers.filter(l => l.product_id === inv.id);
-                                if (links.length > 0) {
-                                    let totalPct = 0;
-                                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                                    supplierPayout = (listinoPienoOriginale * totalPct) / 100;
-                                } else {
-                                    const pct = parseFloat(inv.consignment_split_pct) || 0;
-                                    supplierPayout = (listinoPienoOriginale * pct) / 100;
-                                }
+                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                                const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                supplierPayout = (listinoPienoOriginale * pct) / 100;
                             }
-                            salonRevenue = finalPrice - supplierPayout;
+
+                            if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
+                                salonRevenue = parseFloat(item.salon_revenue) || 0;
+                            } else {
+                                salonRevenue = finalPrice - supplierPayout;
+                            }
+                        
                         
 
                         } else {
