@@ -4018,9 +4018,8 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 
-    // Funzione principale di rendering e calcolo
     async function renderSupplierPayouts() {
-        console.log("[DEBUG PAYOUT] Avvio renderSupplierPayouts avanzato...");
+        console.log("[DEBUG PAYOUT] Avvio renderSupplierPayouts multi-fornitore ripristinato...");
         
         await populatePayoutSupplierDropdown();
 
@@ -4056,7 +4055,6 @@ function triggerLocalOperatorAlert(appointment) {
 
             const payoutSummary = {};
 
-            // Filtriamo i fornitori in base alla tendina selezionata
             const targetSuppliers = selectedSupplierId === 'all' 
                 ? suppliersData 
                 : suppliersData.filter(s => s.id === selectedSupplierId);
@@ -4086,35 +4084,61 @@ function triggerLocalOperatorAlert(appointment) {
                 const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
                 const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
-                const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                // Funzione interna per registrare la quota al singolo fornitore
+                const registerItemForSupplier = (supId, payoutAmount) => {
+                    if (!payoutSummary[supId]) return;
 
-                // Funzione di utilità interna per registrare l'item nel sommario del fornitore
-                const registerItemForSupplier = (supId, pct) => {
-    if (!payoutSummary[supId]) return;
-    
-    // 🌟 LEGGIAMO IL PAYOUT ESATTO SALVATO NELLO SCONTRINO (che include già la regola di sconto scelta in cassa)
-    const payoutForThisSupp = (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout))
-        ? parseFloat(item.supplier_payout)
-        : (listinoPienoOriginale * pct) / 100;
+                    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
+                    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
 
-    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
-    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
+                    payoutSummary[supId].items.push({
+                        saleItemId: item.id,
+                        supplierId: supId,
+                        date: saleDate,
+                        itemName: item.item_name,
+                        gross: finalPrice,
+                        payout: payoutAmount,
+                        isPaid: isPaid
+                    });
+                };
 
-    payoutSummary[supId].items.push({
-        saleItemId: item.id,
-        supplierId: supId,
-        date: saleDate,
-        itemName: item.item_name,
-        gross: finalPrice,
-        payout: payoutForThisSupp,
-        isPaid: isPaid
-    });
-};
+                if (prod.type === 'servizio') {
+                    // ✂️ SERVIZIO IN CONTO VENDITA (Fornitore singolo con eventuale sconto gestito in cassa o salvato in item)
+                    const supId = prod.supplier_id;
+                    if (supId) {
+                        let payoutForThisSupp = 0;
+                        if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                            payoutForThisSupp = parseFloat(item.supplier_payout) || 0;
+                        } else {
+                            const rule = prod.discount_absorption || 'salon';
+                            const splitPct = parseFloat(prod.consignment_split_pct) || 0;
+                            const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                            const basePayout = (listinoPienoOriginale * splitPct) / 100;
 
-                if (links.length > 0) {
-                    links.forEach(l => registerItemForSupplier(l.supplier_id, parseFloat(l.split_pct) || 0));
-                } else if (prod.consignment_split_pct && prod.supplier_id) {
-                    registerItemForSupplier(prod.supplier_id, parseFloat(prod.consignment_split_pct) || 0);
+                            if (rule === 'supplier') {
+                                payoutForThisSupp = finalPrice - salonShareFull;
+                            } else if (rule === 'split') {
+                                payoutForThisSupp = basePayout - (discount / 2);
+                            } else {
+                                payoutForThisSupp = basePayout;
+                            }
+                        }
+                        registerItemForSupplier(supId, payoutForThisSupp);
+                    }
+                } else {
+                    // 📦 📦 PRODOTTO FISICO IN CONTO VENDITA (LOGICA ORIGINALE RIPRISTINATA AL 100% PER I LINK MULTI-FORNITORE)
+                    const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                    if (links.length > 0) {
+                        links.forEach(l => {
+                            const pct = parseFloat(l.split_pct) || 0;
+                            const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                            registerItemForSupplier(l.supplier_id, payoutForThisSupp);
+                        });
+                    } else if (prod.consignment_split_pct && prod.supplier_id) {
+                        const pct = parseFloat(prod.consignment_split_pct) || 0;
+                        const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                        registerItemForSupplier(prod.supplier_id, payoutForThisSupp);
+                    }
                 }
             }
 
