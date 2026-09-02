@@ -3644,94 +3644,99 @@ async function executeSafeUserDeletion() {
 
     // 1. Controllo unificato: Turno lavorativo + Sovrapposizione appuntamenti
     async function checkOperatorScheduleValidity() {
-        const userSelect = document.getElementById('f-a-user');
-        const dateInput = document.getElementById('f-a-date');
-        const timeInput = document.getElementById('f-a-time');
-        const endInput = document.getElementById('f-a-end');
-        const currentAppId = document.getElementById('edit-a-id').value;
-        const alertBox = document.getElementById('operator-schedule-alert');
-        const alertTitle = document.getElementById('operator-schedule-alert-title');
-        const alertText = document.getElementById('operator-schedule-alert-text');
+    const userSelect = document.getElementById('f-a-user');
+    const dateInput = document.getElementById('f-a-date');
+    const timeInput = document.getElementById('f-a-time');
+    const endInput = document.getElementById('f-a-end');
+    
+    // 🛡️ LETTURA SICURA DELL'ID DAL DOM (Gestisce sia nuovo appuntamento "-1" che modifica con UUID)
+    const currentAppId = String(document.getElementById('edit-a-id')?.value || "-1").trim();
+    
+    const alertBox = document.getElementById('operator-schedule-alert');
+    const alertTitle = document.getElementById('operator-schedule-alert-title');
+    const alertText = document.getElementById('operator-schedule-alert-text');
 
-        if (!userSelect || !dateInput || !timeInput || !alertBox || !alertText) return;
+    if (!userSelect || !dateInput || !timeInput || !alertBox || !alertText) return;
 
-        const username = userSelect.value.trim().toLowerCase();
-        const dateStr = dateInput.value;
-        const timeStr = timeInput.value;
-        const endTimeStr = endInput ? endInput.value : '';
+    const username = userSelect.value.trim().toLowerCase();
+    const dateStr = dateInput.value;
+    const timeStr = timeInput.value;
+    const endTimeStr = endInput ? endInput.value : '';
 
-        if (!username || !dateStr || !timeStr) {
-            alertBox.style.display = 'none';
-            return;
-        }
-
-        const dateObj = new Date(dateStr);
-        const dayOfWeek = dateObj.getDay();
-
-        // A. Controllo Turno Lavorativo
-        const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-        const dayConfig = schedules.find(s => s.username.trim().toLowerCase() === username && s.day_of_week === dayOfWeek);
-
-        if (!dayConfig || Number(dayConfig.is_working) !== 1) {
-            alertTitle.innerText = "⚠️ Giorno di Riposo / Chiusura";
-            alertText.innerHTML = `L'operatore <b>${username}</b> non lavora in data ${typeof formatDateIt === 'function' ? formatDateIt(dateStr) : dateStr}.`;
-            alertBox.style.setProperty('display', 'block', 'important');
-            return;
-        }
-
-        const shifts = [];
-        if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-        if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
-
-        const [appH, appM] = timeStr.split(':').map(Number);
-        const appMinutes = appH * 60 + appM;
-        let isWithinShift = false;
-        let shiftDescriptions = [];
-
-        for (let shift of shifts) {
-            shiftDescriptions.push(`${shift.start} - ${shift.end}`);
-            const [sH, sM] = shift.start.split(':').map(Number);
-            const [eH, eM] = shift.end.split(':').map(Number);
-            if (appMinutes >= (sH * 60 + sM) && appMinutes < (eH * 60 + eM)) {
-                isWithinShift = true;
-                break;
-            }
-        }
-
-        if (!isWithinShift) {
-            alertTitle.innerText = "⚠️ Fuori Orario di Lavoro";
-            alertText.innerHTML = `L'orario <b>${timeStr}</b> è fuori turno per ${username}. Turni di oggi: <b>${shiftDescriptions.join(' e ')}</b>.`;
-            alertBox.style.setProperty('display', 'block', 'important');
-            return;
-        }
-
-        // B. Controllo Sovrapposizione Appuntamenti (Conflict Detection)
-        const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-        const slotEndStr = endTimeStr || `${String(appH + 1).padStart(2, '0')}:${String(appM).padStart(2, '0')}`;
-
-        const overlappingApp = existingApps.find(a => {
-            if (currentAppId !== "-1" && a.id === currentAppId) return false; // Esclude se stesso in modifica
-            const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username;
-            const isSameDate = a.date === dateStr;
-            if (!isSameUser || !isSameDate) return false;
-
-            const aStart = a.time;
-            const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
-
-            // Formula standard di intersezione temporale: (Start1 < End2) AND (End1 > Start2)
-            return (timeStr < aEnd) && (slotEndStr > aStart);
-        });
-
-        if (overlappingApp) {
-            alertTitle.innerText = "⚠️ Slot Occupato / Sovrapposto";
-            alertText.innerHTML = `L'orario si sovrappone a un appuntamento esistente per <b>${overlappingApp.cust_name}</b> (${overlappingApp.time} - ${overlappingApp.end_time || 'N/D'}).`;
-            alertBox.style.setProperty('display', 'block', 'important');
-            return;
-        }
-
-        // Se tutto è valido, nascondiamo l'alert
+    if (!username || !dateStr || !timeStr) {
         alertBox.style.display = 'none';
+        return;
     }
+
+    const dateObj = new Date(dateStr);
+    const dayOfWeek = dateObj.getDay();
+
+    // A. Controllo Turno Lavorativo
+    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+    const dayConfig = schedules.find(s => s.username.trim().toLowerCase() === username && s.day_of_week === dayOfWeek);
+
+    if (!dayConfig || Number(dayConfig.is_working) !== 1) {
+        alertTitle.innerText = "⚠️ Giorno di Riposo / Chiusura";
+        alertText.innerHTML = `L'operatore <b>${username}</b> non lavora in data ${typeof formatDateIt === 'function' ? formatDateIt(dateStr) : dateStr}.`;
+        alertBox.style.setProperty('display', 'block', 'important');
+        return;
+    }
+
+    const shifts = [];
+    if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+    if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+
+    const [appH, appM] = timeStr.split(':').map(Number);
+    const appMinutes = appH * 60 + appM;
+    let isWithinShift = false;
+    let shiftDescriptions = [];
+
+    for (let shift of shifts) {
+        shiftDescriptions.push(`${shift.start} - ${shift.end}`);
+        const [sH, sM] = shift.start.split(':').map(Number);
+        const [eH, eM] = shift.end.split(':').map(Number);
+        if (appMinutes >= (sH * 60 + sM) && appMinutes < (eH * 60 + eM)) {
+            isWithinShift = true;
+            break;
+        }
+    }
+
+    if (!isWithinShift) {
+        alertTitle.innerText = "⚠️ Fuori Orario di Lavoro";
+        alertText.innerHTML = `L'orario <b>${timeStr}</b> è fuori turno per ${username}. Turni di oggi: <b>${shiftDescriptions.join(' e ')}</b>.`;
+        alertBox.style.setProperty('display', 'block', 'important');
+        return;
+    }
+
+    // B. Controllo Sovrapposizione Appuntamenti (BLINDATO CONTRO FALSI POSITIVI CON SÉ STESSO)
+    const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+    const slotEndStr = endTimeStr || `${String(appH + 1).padStart(2, '0')}:${String(appM).padStart(2, '0')}`;
+
+    const overlappingApp = existingApps.find(a => {
+        // 🛑 ESCLUSIONE FERREA: Se l'ID dell'appuntamento in esame corrisponde a quello in modifica, lo saltiamo al 100%
+        if (currentAppId !== "-1" && String(a.id).trim() === currentAppId) return false;
+
+        const isSameUser = (a.assigned_user || 'admin').trim().toLowerCase() === username;
+        const isSameDate = a.date === dateStr;
+        if (!isSameUser || !isSameDate) return false;
+
+        const aStart = a.time;
+        const aEnd = a.end_time || `${String(parseInt(a.time.split(':')[0]) + 1).padStart(2, '0')}:${a.time.split(':')[1]}`;
+
+        // Formula standard di intersezione temporale: (Start1 < End2) AND (End1 > Start2)
+        return (timeStr < aEnd) && (slotEndStr > aStart);
+    });
+
+    if (overlappingApp) {
+        alertTitle.innerText = "⚠️ Slot Occupato / Sovrapposto";
+        alertText.innerHTML = `L'orario si sovrappone a un appuntamento esistente per <b>${overlappingApp.cust_name}</b> (${overlappingApp.time} - ${overlappingApp.end_time || 'N/D'}).`;
+        alertBox.style.setProperty('display', 'block', 'important');
+        return;
+    }
+
+    // Se tutto è valido, nascondiamo l'alert
+    alertBox.style.display = 'none';
+}
 
     // Funzione di Quick Fix UX: Sposta l'orario al primo blocco utile del turno dell'operatore
     async function autoFixOperatorSlot() {
@@ -7979,47 +7984,67 @@ async function updateReminderBadgeCount() {
 
 
         async function editApp(id) { 
-        const event = window.event; 
-        if (event) event.stopPropagation();
-        const a = allAppointments.find(x => x.id === id); 
-        if (!a) return;
+    const event = window.event; 
+    if (event) event.stopPropagation();
+    const a = allAppointments.find(x => x.id === id); 
+    if (!a) return;
 
-        // 🎯 ESTRAZIONE DEGLI ID DEI SERVIZI SALVATI NELL'APPUNTAMENTO
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
-        const matchedIds = allInventory
-            .filter(i => i.type === 'servizio' && savedServiceNames.some(name => i.name.toLowerCase().includes(name)))
-            .map(i => i.id);
+    // 🧹 PULIZIA TOTALE PREVENTIVA: Svuotiamo lo stato dei servizi in memoria prima di mappare quelli corretti
+    currentSelectedServices = [];
 
-        if (typeof initServiceAutocomplete === 'function') {
-            await initServiceAutocomplete(matchedIds);
-        }
-
-        // Mappatura campi base
-        document.getElementById('edit-a-id').value = id;
-        document.getElementById('f-a-search').value = a.cust_name;
-        document.getElementById('f-a-date').value = a.date;
-        document.getElementById('f-a-time').value = a.time;
-        document.getElementById('f-a-end').value = a.end_time || "";
-        document.getElementById('f-a-notes').value = a.notes || '';
+    // 🎯 ESTRAZIONE RIGOROSA DEI SERVIZI ASSOCIATI A QUESTO SPECIFICO APPUNTAMENTO
+    const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+    
+    // Troviamo i servizi nel listino che corrispondono ESATTAMENTE al nome salvato nell'appuntamento
+    const matchedIds = [];
+    for (let nameStr of savedServiceNames) {
+        if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
         
-        const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
-        const userSelect = document.getElementById('f-a-user');
-        if (userSelect) {
-            userSelect.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
-            userSelect.value = a.assigned_user || 'admin'; 
+        // Cerchiamo un riscontro esatto o parziale pulito nel listino servizi
+        const foundServ = allInventory.find(i => i.type === 'servizio' && (
+            i.name.toLowerCase().trim() === nameStr || 
+            nameStr.includes(i.name.toLowerCase().trim()) ||
+            i.name.toLowerCase().trim().includes(nameStr)
+        ));
+        
+        if (foundServ && !matchedIds.includes(foundServ.id)) {
+            matchedIds.push(foundServ.id);
         }
-
-        const titleEl = document.getElementById('mod-cale-title');
-        if (titleEl) titleEl.innerText = "Modifica Appuntamento";
-
-        document.getElementById('mod-cale').classList.add('active'); 
-
-        // 🚀 AGGIUNTA: Carica immediatamente gli appuntamenti del cliente appena si apre il modale in edit
-        if (typeof checkDuplicateAppointments === 'function') {
-            checkDuplicateAppointments();
-        }
-
     }
+
+    // Inizializziamo l'autocomplete passando ESCLUSivamente i servizi reali di questo appuntamento
+    if (typeof initServiceAutocomplete === 'function') {
+        await initServiceAutocomplete(matchedIds);
+    }
+
+    // Mappatura campi base del modale
+    document.getElementById('edit-a-id').value = id;
+    document.getElementById('f-a-search').value = a.cust_name || '';
+    document.getElementById('f-a-date').value = a.date || '';
+    document.getElementById('f-a-time').value = a.time || '';
+    document.getElementById('f-a-end').value = a.end_time || "";
+    document.getElementById('f-a-notes').value = a.notes || '';
+    
+    const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
+    const userSelect = document.getElementById('f-a-user');
+    if (userSelect) {
+        userSelect.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+        userSelect.value = a.assigned_user || (currentUser ? currentUser.username : 'admin'); 
+    }
+
+    const titleEl = document.getElementById('mod-cale-title');
+    if (titleEl) titleEl.innerText = "Modifica Appuntamento";
+
+    document.getElementById('mod-cale').classList.add('active'); 
+
+    // Riavviamo i controlli di validità e duplicati in modo pulito
+    if (typeof checkDuplicateAppointments === 'function') {
+        checkDuplicateAppointments();
+    }
+    if (typeof checkOperatorScheduleValidity === 'function') {
+        checkOperatorScheduleValidity();
+    }
+}
             
         async function sendAndLogGeneric(appId, type, tk) {
         const a = allAppointments.find(x => x.id == appId);
