@@ -913,7 +913,7 @@ async function handleSpecialAction(action, data, id) {
             });
         }
 
-        // --- 8. GET_SALES_REPORT (Aggiornato con pieno supporto agli articoli manuali/liberi) ---
+        // --- 8. GET_SALES_REPORT (Completo con supporto Servizi in Conto Vendita e Sconti Ripartiti) ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -955,11 +955,12 @@ async function handleSpecialAction(action, data, id) {
                     const itemQty = parseFloat(item.qty) || 1;
 
                     let unitCost = 0;
-                    let supplierPayout = 0;
+                    let supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
                     let salonRevenue = finalPrice;
 
                     if (inv) {
-                        if (inv.type === 'servizio') {
+                        if (inv.type === 'servizio' && !inv.is_consignment) {
+                            // ✂️ SERVIZIO STANDARD DI PROPRIETÀ: Costo materiali consumabili (FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
 
@@ -984,21 +985,38 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
                         } else if (inv.is_consignment) {
+                            // 💶 CONTO VENDITA (PRODOTTI O SERVIZI)
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
-                            const links = productSuppliers.filter(l => l.product_id === inv.id);
-                            if (links.length > 0) {
-                                let totalPct = 0;
-                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                                supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                            if (inv.type === 'servizio') {
+                                // Regola di assorbimento sconto per servizi in conto vendita
+                                const rule = inv.discount_absorption || 'salon';
+                                let basePayout = (listinoPienoOriginale * (parseFloat(inv.consignment_split_pct) || 0)) / 100;
+
+                                if (rule === 'supplier') {
+                                    supplierPayout = basePayout - discount;
+                                } else if (rule === 'split') {
+                                    supplierPayout = basePayout - (discount / 2);
+                                } else {
+                                    supplierPayout = basePayout; // 'salon'
+                                }
                             } else {
-                                const pct = parseFloat(inv.consignment_split_pct) || 0;
-                                supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                // Prodotti fisici in conto vendita (multi-fornitore)
+                                const links = productSuppliers.filter(l => l.product_id === inv.id);
+                                if (links.length > 0) {
+                                    let totalPct = 0;
+                                    links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                                    supplierPayout = (listinoPienoOriginale * totalPct) / 100;
+                                } else {
+                                    const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                    supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                }
                             }
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else {
+                            // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                             if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
                                 unitCost = parseFloat(item.unit_cost) || 0;
                             } else {
@@ -1008,9 +1026,11 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
                         }
                     } else {
-                        // ✍️ GESTIONE ARTICOLO MANUALE / LIBERO (Non presente a magazzino)
-                        unitCost = parseFloat(item.unit_cost) || 0;
-                        supplierPayout = parseFloat(item.supplier_payout) || 0;
+                        // ✍️ ARTICOLO MANUALE / FUORI CATALOGO
+                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
+                            unitCost = parseFloat(item.unit_cost) || 0;
+                        }
+                        supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
                         salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
                             ? parseFloat(item.salon_revenue) 
                             : (finalPrice - unitCost - supplierPayout);
@@ -1020,7 +1040,7 @@ async function handleSpecialAction(action, data, id) {
                         sale_id: sale.id,
                         date: sale.date,
                         time: sale.time || '00:00',
-                        item_name: item.item_name || 'Articolo Manuale',
+                        item_name: item.item_name || 'Articolo',
                         customer_name: custDisplayName,
                         sold_price: soldPrice,
                         discount: discount,

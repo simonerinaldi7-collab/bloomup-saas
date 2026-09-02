@@ -9646,10 +9646,9 @@ function addManualItemToCart() {
             finalCustId = foundC ? foundC.id : null;
         }
 
-        // 🎯 L'ID DELL'APPUNTAMENTO VIENE ASSOCIATO SOLO ORA, AL MOMENTO DEL REALE PAGAMENTO!
         const linkedAppointmentId = currentCheckoutAppointmentId || null;
 
-        // 1. Inserimento testata vendita con il legame diretto all'appuntamento (se proveniva dall'agenda)
+        // 1. Inserimento testata vendita
         const res = await window.api.query({ 
             action:'INSERT', table:'sales', 
             data: { 
@@ -9669,18 +9668,40 @@ function addManualItemToCart() {
 
         const saleId = res.lastInsertRowid; 
 
-        // 2. Inserimento dei singoli articoli della vendita (Supporto 100% per Prodotti, Servizi e Voci Manuali/Fuori Catalogo)
+        // 2. Inserimento dei singoli articoli della vendita
         for(let item of cartWithDiscounts) { 
             let unitCostUsed = 0;
             let supplierPayout = 0;
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-            // Identifichiamo se l'articolo è presente a magazzino o se è una voce libera/manuale
             const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
 
             if (productDb) { 
-                if (productDb.is_consignment) {
+                if (productDb.is_consignment && productDb.type === 'servizio') {
+                    // 💶 CALCOLO MATEMATICO SERVIZIO IN CONTO VENDITA CON REGOLE DI SCONTO
+                    const listinoPieno = item.price || 0;
+                    const discountAmount = item.discountAmount || 0;
+                    const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    const absorptionRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
+
+                    let baseSupplierPayout = (listinoPieno * splitPct) / 100;
+
+                    if (absorptionRule === 'supplier') {
+                        // Sconto a carico del fornitore
+                        supplierPayout = baseSupplierPayout - discountAmount;
+                    } else if (absorptionRule === 'split') {
+                        // Sconto diviso al 50/50
+                        supplierPayout = baseSupplierPayout - (discountAmount / 2);
+                    } else {
+                        // 'salon': Sconto a carico del salone (fornitore prende la percentuale sul pieno listino)
+                        supplierPayout = baseSupplierPayout;
+                    }
+
+                    unitCostUsed = 0;
+                    salonRevenue = finalItemPrice - supplierPayout;
+
+                } else if (productDb.is_consignment && productDb.type === 'prodotto') {
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;
 
@@ -9691,7 +9712,6 @@ function addManualItemToCart() {
 
                     for (let lot of prodLots) {
                         if (qtyToProcess <= 0) break;
-
                         const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
                         let lotSplits = [];
                         try {
@@ -9740,10 +9760,8 @@ function addManualItemToCart() {
 
                     for (let lot of prodLots) {
                         if (qtyToProcess <= 0) break;
-
                         const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
                         totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
-                        
                         lot.qty_remaining -= takeFromLot;
                         qtyToProcess -= takeFromLot;
 
@@ -9783,13 +9801,11 @@ function addManualItemToCart() {
                     salonRevenue = finalItemPrice - totalConsumablesCost;
                 }
             } else {
-                // ✍️ VOCE MANUALE / FUORI CATALOGO: Nessun magazzino collegato, intero importo a ricavo salone
                 unitCostUsed = 0;
                 supplierPayout = 0;
                 salonRevenue = finalItemPrice;
             }
 
-            // Inserimento della riga in sale_items (Ora eseguito SEMPRE, sia per articoli in magazzino che manuali)
             const saleItemPayload = {
                 id: crypto.randomUUID(),
                 salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
@@ -9809,7 +9825,6 @@ function addManualItemToCart() {
                 data: saleItemPayload 
             });
             
-            // Scaliamo lo stock fisico principale solo se è un prodotto di magazzino
             if (productDb && productDb.type === 'prodotto') {
                 await window.universalQuery({ 
                     action: 'UPDATE', table: 'inventory', 
@@ -9819,7 +9834,6 @@ function addManualItemToCart() {
             }
         } 
         
-        // 🧹 RESETTA IL PUNTATORE DELL'APPUNTAMENTO SUBITO DOPO IL PAGAMENTO
         currentCheckoutAppointmentId = null;
 
         alert("Pagato e stock aggiornato!"); 
@@ -9828,7 +9842,6 @@ function addManualItemToCart() {
         
         if (typeof loadRFM === 'function') await loadRFM();
 
-        // 🛡️ REINDIRIZZAMENTO SICURO IN BASE AL RUOLO (Admin -> Dashboard, User -> Agenda)
         if (currentUser && currentUser.role === 'admin') {
             changePage('dashboard');
         } else {
