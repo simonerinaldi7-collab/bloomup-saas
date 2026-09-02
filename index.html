@@ -1102,9 +1102,7 @@
         <!-- Sheet Spese -->
         <div id="sheet-spese" class="dash-sheet">
             <div class="card">
-    <h3 id="expense-form-title">Registra Nuova Spesa</h3>
-    <input type="hidden" id="edit-expense-id" value="-1"> <!-- 👈 Campo nascosto di tracciamento ID -->
-    
+    <h3>Registra Nuova Spesa</h3>
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items: flex-end;">
         <div style="flex: 1; min-width: 140px;">
             <label style="margin-top:0; font-size:10px;">Data</label>
@@ -1118,11 +1116,9 @@
             <label style="margin-top:0; font-size:10px;">Importo (€)</label>
             <input type="number" id="exp-amt" step="0.01" placeholder="0.00" style="margin:0;">
         </div>
-        <div style="display: flex; gap: 6px;">
-            <button id="btn-save-expense" class="btn btn-d" onclick="saveOrUpdateExpense()" style="margin:0; padding: 14px 20px;">Registra Spesa</button>
-            <button id="btn-cancel-expense" class="btn hidden" onclick="resetExpenseForm()" style="margin:0; background:#f1f5f9; color:#475569; border:none;" title="Annulla modifica">✕</button>
-        </div>
+        <button class="btn btn-d" onclick="addExpense()" style="margin:0; padding: 14px 20px;">Registra Spesa</button>
     </div>
+</div>
 </div>
             <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 12px;">
@@ -1830,6 +1826,35 @@
         <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:15px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
     </div>
 </div>
+
+
+<!-- MODALE MODIFICA SPESA -->
+<div id="mod-edit-expense" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 450px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: var(--d);">✏️ Modifica Spesa</h3>
+            <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+        </div>
+
+        <input type="hidden" id="modal-edit-exp-id">
+
+        <label>Data della Spesa</label>
+        <input type="date" id="modal-exp-date">
+
+        <label>Descrizione</label>
+        <input type="text" id="modal-exp-desc" placeholder="Es. Enel, Affitto..." autocomplete="off">
+
+        <label>Importo (€)</label>
+        <input type="number" id="modal-exp-amt" step="0.01" placeholder="0.00">
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn btn-d" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveExpenseFromModal()">Salva Modifiche</button>
+            <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Annulla</button>
+        </div>
+    </div>
+</div>
+
+
 <!-- MODALE GESTIONE FORNITORI -->
 <div id="mod-supp" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 500px; max-height: 90vh; display: flex; flex-direction: column;">
@@ -5260,31 +5285,25 @@ async function saveOrUpdateExpense() {
 }
 
 // ✎ Carica i dati della spesa nel form in alto per consentire la modifica
-function editExpense(id) {
-    // Recuperiamo la spesa dall'array o facciamo una query locale
-    window.allExpensesCache = window.allExpensesCache || [];
-    // O ricarichiamo rapidamente dal DB
-    window.universalQuery({ action: 'GET_ALL', table: 'expenses' }).then(expenses => {
+async function editExpense(id) {
+    try {
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
         const exp = expenses.find(e => e.id === id);
         if (!exp) return alert("Spesa non trovata.");
 
-        document.getElementById('edit-expense-id').value = exp.id;
-        document.getElementById('exp-date').value = exp.date;
-        document.getElementById('exp-desc').value = exp.description;
-        document.getElementById('exp-amt').value = exp.amount;
+        document.getElementById('modal-edit-exp-id').value = exp.id;
+        document.getElementById('modal-exp-date').value = exp.date || '';
+        document.getElementById('modal-exp-desc').value = exp.description || '';
+        document.getElementById('modal-exp-amt').value = exp.amount || '';
 
-        // Modifichiamo l'interfaccia del form per evidenziare la modifica
-        document.getElementById('expense-form-title').innerText = "Modifica Spesa Esistente";
-        const saveBtn = document.getElementById('btn-save-expense');
-        if (saveBtn) {
-            saveBtn.innerText = "Aggiorna Spesa";
-            saveBtn.className = "btn btn-p"; // Cambia colore per indicare l'azione di update
-        }
-        document.getElementById('btn-cancel-expense').classList.remove('hidden');
+        // Apre il modale dedicato
+        const modal = document.getElementById('mod-edit-expense');
+        if (modal) modal.classList.add('active');
 
-        // Scroll fluido verso l'alto del form
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    } catch (err) {
+        console.error("Errore apertura modale modifica spesa:", err);
+        alert("Impossibile caricare i dati della spesa.");
+    }
 }
 
 // ✕ Annulla la modifica e ripristina il form allo stato pulito
@@ -7183,7 +7202,43 @@ function cancelSmartPreview() {
         endInput.value = window.ghostSelectedEndTime;
     }
 
+// 💾 Salva le modifiche effettuate dal modale dedicato (Con ricalcolo contabile immediato)
+async function saveExpenseFromModal() {
+    const editId = document.getElementById('modal-edit-exp-id').value;
+    const date = document.getElementById('modal-exp-date').value;
+    const description = document.getElementById('modal-exp-desc').value.trim();
+    const amount = parseFloat(document.getElementById('modal-exp-amt').value);
 
+    if (!editId || editId === "-1") return alert("ID spesa non valido.");
+    if (!date || !description || isNaN(amount) || amount <= 0) {
+        return alert("Compila tutti i campi correttamente con un importo valido.");
+    }
+
+    const expenseData = {
+        date: date,
+        description: description,
+        amount: amount
+    };
+
+    try {
+        await window.api.query({ action: 'UPDATE', table: 'expenses', data: expenseData, id: editId });
+        
+        // Chiude il modale
+        closeMod();
+
+        alert("✅ Spesa aggiornata con successo!");
+
+        // 🔄 Ricalcolo immediato di tutte le dipendenze contabili
+        if (typeof loadExpenses === 'function') await loadExpenses();
+        if (typeof loadBalance === 'function') await loadBalance();
+        if (typeof loadDailyTargetWidget === 'function') await loadDailyTargetWidget();
+        if (typeof updateStats === 'function') await updateStats();
+
+    } catch (err) {
+        console.error("Errore durante l'aggiornamento della spesa:", err);
+        alert("Impossibile completare la modifica della spesa.");
+    }
+}
     // Funzione di Login aggiornata con il flag "Ricordami"
 const originalDoLogin = window.doLogin;
 async function doLogin() {
