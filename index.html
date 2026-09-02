@@ -3252,14 +3252,10 @@ async function voidSaleTransaction(saleId) {
         const fStart = document.getElementById('d-start-report')?.value || '';
         const fEnd = document.getElementById('d-end-report')?.value || '';
         
+        // 1. Chiamata alla backend query unificata che calcola tutto tramite api-bridge
         const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-        const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-        const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-        const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
         
-        const priceHistory = priceHistoryData;
-        
+        // 2. Filtriamo in base ai parametri di ricerca della UI
         const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
             const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
             const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
@@ -3272,7 +3268,7 @@ async function voidSaleTransaction(saleId) {
         const tbody = document.getElementById('list-report');
         if (!tbody) return;
 
-        // 🧮 Variabili per il calcolo dei totali aggregati
+        // 🧮 Variabili per i totali aggregati in alto
         let sumGross = 0;
         let sumDiscount = 0;
         let sumFinal = 0;
@@ -3282,52 +3278,9 @@ async function voidSaleTransaction(saleId) {
             const soldPrice = parseFloat(r.sold_price) || 0; 
             const discount = parseFloat(r.discount) || 0;
             const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
-            const saleDate = r.date || new Date().toISOString().split('T')[0];
-
-            const prod = inventoryData.find(i => i.name.toLowerCase() === (r.item_name || '').toLowerCase());
-            
-            let unitCost = 0;
-            let supplierDetailsText = '-';
-            let totalSupplierPayout = 0;
-            let netMarginOrRevenue = finalPrice;
-
-            let phList = [];
-
-            if (prod) {
-                phList = priceHistory.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-
-                if (r.unit_cost !== undefined && r.unit_cost !== null && !isNaN(r.unit_cost) && parseFloat(r.unit_cost) > 0) {
-                    unitCost = parseFloat(r.unit_cost) || 0;
-                } else {
-                    if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
-                }
-
-                if (prod.is_consignment) {
-                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-                    const links = productSuppliersData.filter(l => l.product_id === prod.id);
-                    if (links.length > 0) {
-                        let detailsArray = [];
-                        links.forEach(l => {
-                            const supp = suppliersData.find(s => s.id === l.supplier_id);
-                            const suppName = supp ? supp.name : 'Fornitore';
-                            const pct = parseFloat(l.split_pct) || 0;
-                            const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
-                            totalSupplierPayout += payoutForThisSupp;
-                            detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
-                        });
-                        supplierDetailsText = detailsArray.join('<br>');
-                    } else {
-                        const pct = parseFloat(prod.consignment_split_pct) || 0;
-                        totalSupplierPayout = (listinoPienoOriginale * pct) / 100;
-                        supplierDetailsText = `Fornitore (${pct}%): €${totalSupplierPayout.toFixed(2)}`;
-                    }
-                    netMarginOrRevenue = finalPrice - totalSupplierPayout;
-                } else {
-                    netMarginOrRevenue = finalPrice - unitCost;
-                }
-            } else {
-                netMarginOrRevenue = finalPrice;
-            }
+            const unitCost = parseFloat(r.unit_cost) || 0;
+            const supplierPayout = parseFloat(r.supplier_payout) || 0;
+            const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
 
             // Accumuliamo nei totali generali
             sumGross += soldPrice;
@@ -3336,6 +3289,12 @@ async function voidSaleTransaction(saleId) {
             sumMargin += netMarginOrRevenue;
 
             const isPositive = netMarginOrRevenue >= 0;
+
+            // Formattazione dettaglio fornitore se presente
+            let supplierDetailsText = '-';
+            if (supplierPayout > 0) {
+                supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
+            }
 
             return `
                 <tr>
