@@ -10068,36 +10068,56 @@ function addManualItemToCart() {
     }
 
 async function renderCart() { 
-        console.log("Stato carrello attuale:", cart); 
-        let total = 0; 
-        const container = document.getElementById('cart-items');
-        if (!container) return;
-        
-        let html = "";
-        
-        // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
-        const allInventoryData = allInventory || [];
-        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
-        const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
-        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+    console.log("Stato carrello attuale:", cart); 
+    let total = 0; 
+    const container = document.getElementById('cart-items');
+    if (!container) return;
+    
+    let html = "";
+    
+    // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
+    const allInventoryData = allInventory || [];
+    const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+    const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
+    const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
 
-        for (let i = 0; i < cart.length; i++) {
-            const item = cart[i];
-            const discVal = item.discountVal || 0;
-            const discType = item.discountType || 'euro';
-            const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
-            const finalPrice = item.price - discountAmount;
-            total += finalPrice; 
+    for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
+        const discVal = item.discountVal || 0;
+        const discType = item.discountType || 'euro';
+        const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
+        const finalPrice = item.price - discountAmount;
+        total += finalPrice; 
 
-            // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
-            let unitCostOrPayout = 0;
-            let isConsignment = false;
-            
-            if (item.id) {
-                const productDb = allInventoryData.find(p => p.id === item.id);
-                if (productDb) {
-                    if (productDb.type === 'servizio') {
-                        // ✂️ SE È UN SERVIZIO: Il costo è la somma dei costi FIFO dei materiali consumabili associati
+        // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
+        let unitCostOrPayout = 0;
+        let isConsignment = false;
+        let discountAbsorptionSelectorHtml = ''; // 👈 Inizializzazione della variabile per il selettore
+        
+        if (item.id) {
+            const productDb = allInventoryData.find(p => p.id === item.id);
+            if (productDb) {
+                if (productDb.type === 'servizio') {
+                    // ✂️ SE È UN SERVIZIO IN CONTO VENDITA
+                    isConsignment = productDb.is_consignment;
+                    if (isConsignment) {
+                        const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        unitCostOrPayout = (item.price * splitPct) / 100;
+                        
+                        const currentRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
+                        // 🌟 PUNTO ESATTO DI INSERIMENTO HTML DEL SELETTORE
+                        discountAbsorptionSelectorHtml = `
+                            <div style="margin-top: 6px; background: #fffbeb; border: 1px solid #fde68a; padding: 6px 8px; border-radius: 6px;">
+                                <small style="font-size: 9px; color: #b45309; font-weight: bold; display: block; margin-bottom: 2px;">ASSORBIMENTO SCONTO CV:</small>
+                                <select onchange="updateCartAbsorption(${i}, this.value)" style="margin: 0; padding: 4px; font-size: 11px; background: white; font-weight: bold;">
+                                    <option value="salon" ${currentRule === 'salon' ? 'selected' : ''}>Salone / Venditore</option>
+                                    <option value="supplier" ${currentRule === 'supplier' ? 'selected' : ''}>Fornitore</option>
+                                    <option value="split" ${currentRule === 'split' ? 'selected' : ''}>Entrambi (50/50)</option>
+                                </select>
+                            </div>
+                        `;
+                    } else {
+                        // ✂️ SERVIZIO STANDARD: Il costo è la somma dei costi FIFO dei materiali consumabili associati
                         const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
                         let totalConsumablesCost = 0;
 
@@ -10106,7 +10126,6 @@ async function renderCart() {
                             const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
 
                             if (consumedProd) {
-                                // Troviamo il costo unitario FIFO del prodotto consumabile
                                 const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
                                 let unitCost = 0;
                                 if (prodLots.length > 0) {
@@ -10120,84 +10139,94 @@ async function renderCart() {
                             }
                         }
                         unitCostOrPayout = totalConsumablesCost;
+                    }
 
-                    } else {
-                        // PRODOTTO FISICO (Proprietà o Conto Vendita)
-                        isConsignment = productDb.is_consignment;
-                        if (isConsignment) {
-                            const links = productSuppliers.filter(l => l.product_id === productDb.id);
-                            let totalPct = 0;
-                            if (links.length > 0) {
-                                links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                            } else {
-                                totalPct = parseFloat(productDb.consignment_split_pct) || 0;
-                            }
-                            unitCostOrPayout = (item.price * totalPct) / 100;
+                } else {
+                    // PRODOTTO FISICO (Proprietà o Conto Vendita)
+                    isConsignment = productDb.is_consignment;
+                    if (isConsignment) {
+                        const links = productSuppliers.filter(l => l.product_id === productDb.id);
+                        let totalPct = 0;
+                        if (links.length > 0) {
+                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
                         } else {
-                            const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
-                            if (prodLots.length > 0) {
-                                prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
-                            } else {
-                                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
-                                unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                            }
+                            totalPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        }
+                        unitCostOrPayout = (item.price * totalPct) / 100;
+                    } else {
+                        const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
+                        if (prodLots.length > 0) {
+                            prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                            unitCostOrPayout = parseFloat(prodLots[0].unit_cost) || 0;
+                        } else {
+                            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                            unitCostOrPayout = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
                         }
                     }
                 }
             }
-
-            const itemMarginEuro = finalPrice - unitCostOrPayout;
-            const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
-
-            // 🎨 SOGLIE COLORE ALERT MARGINE
-            let marginBadgeColor = '#00B894'; // Verde (> 10%)
-            let marginText = 'Ottimale';
-            if (itemMarginEuro <= 0) {
-                marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
-                marginText = 'In Perdita!';
-            } else if (itemMarginPct < 10) {
-                marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
-                marginText = 'Margine Basso';
-            }
-
-            html += `
-                <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div style="flex:1;">
-                            <div style="font-weight:600;">${item.name}</div>
-                            <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
-                            
-                            <!-- 💡 INFO MARGINE CON CONSUMABILI INCLUSE -->
-                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato (inclusi materiali di consumo)">
-                                    Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
-                                </span>
-                            </div>
-
-                            <!-- Riquadro Sconto -->
-                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                                <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
-                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
-                                        <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
-                                        <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                            <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
-                        </div>
-                    </div>
-                </div>`; 
         }
 
-        container.innerHTML = html; 
-        document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+        const itemMarginEuro = finalPrice - unitCostOrPayout;
+        const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
+
+        // 🎨 SOGLIE COLORE ALERT MARGINE
+        let marginBadgeColor = '#00B894'; // Verde (> 10%)
+        let marginText = 'Ottimale';
+        if (itemMarginEuro <= 0) {
+            marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
+            marginText = 'In Perdita!';
+        } else if (itemMarginPct < 10) {
+            marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
+            marginText = 'Margine Basso';
+        }
+
+        html += `
+            <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600;">${item.name}</div>
+                        <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
+                        
+                        <!-- 💡 INFO MARGINE -->
+                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                                Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
+                            </span>
+                        </div>
+
+                        <!-- Riquadro Sconto -->
+                        <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                            <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
+                                    <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
+                                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV (Inserito subito sotto il box sconto) -->
+                        ${discountAbsorptionSelectorHtml}
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
+                        <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
+                    </div>
+                </div>
+            </div>`; 
     }
+
+    container.innerHTML = html; 
+    document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+}
+
+// Funzione di supporto per aggiornare lo stato dell'assorbimento sconto nel carrello
+function updateCartAbsorption(index, ruleValue) {
+    cart[index].discountAbsorption = ruleValue;
+    renderCart();
+}
 
     function updateCartDiscount(index, field, value) {
         if(field === 'val') cart[index].discountVal = parseFloat(value) || 0;
