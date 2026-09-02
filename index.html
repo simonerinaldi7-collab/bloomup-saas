@@ -4132,7 +4132,9 @@ function triggerLocalOperatorAlert(appointment) {
                 // Funzione di utilità interna per registrare l'item nel sommario del fornitore
                 const registerItemForSupplier = (supId, pct) => {
                     if (!payoutSummary[supId]) return;
-                    const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                    const payoutForThisSupp = (item.supplier_payout !== undefined && item.supplier_payout !== null) 
+    ? parseFloat(item.supplier_payout) 
+    : (listinoPienoOriginale * pct) / 100;
 
                     // Verifichiamo lo stato di pagamento specifico per QUESTO item e QUESTO fornitore
                     const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
