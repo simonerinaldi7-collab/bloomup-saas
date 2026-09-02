@@ -9654,16 +9654,18 @@ function addManualItemToCart() {
                     const baseSupplierPayout = listinoPieno * (splitPctForSupplier / 100);
 
                     if (absorptionRule === 'supplier') {
-                        // Sconto a carico del fornitore: Il salone prende la sua quota piena, il resto va al fornitore (es. 40 - 25 = 15)
-                        salonRevenue = salonShareOnFullPrice;
+                        // Sconto a carico del fornitore: Il salone prende la sua quota piena sul listino, il resto va al fornitore
+                        salonRevenue = listinoPieno * (1 - (splitPctForSupplier / 100));
                         supplierPayout = finalItemPrice - salonRevenue;
                     } else if (absorptionRule === 'split') {
-                        // Sconto diviso a metà
+                        // Sconto diviso al 50/50 tra salone e fornitore
+                        let baseSupplierPayout = (listinoPieno * splitPctForSupplier) / 100;
                         supplierPayout = baseSupplierPayout - (discountAmount / 2);
                         salonRevenue = finalItemPrice - supplierPayout;
                     } else {
-                        // 'salon': Sconto a carico del salone
-                        supplierPayout = baseSupplierPayout;
+                        // 'salon': Sconto a carico del salone. 
+                        // 🌟 CORRETTO: Il fornitore prende la sua percentuale esatta sul PIENO LISTINO. Lo sconto lo assorbe il salone.
+                        supplierPayout = (listinoPieno * splitPctForSupplier) / 100;
                         salonRevenue = finalItemPrice - supplierPayout;
                     }
 

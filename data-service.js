@@ -999,12 +999,15 @@ async function handleSpecialAction(action, data, id) {
                                     const basePayout = (listinoPienoOriginale * splitPct) / 100;
 
                                     if (rule === 'supplier') {
-                                        supplierPayout = finalPrice - salonShareFull;
-                                    } else if (rule === 'split') {
-                                        supplierPayout = basePayout - (discount / 2);
-                                    } else {
-                                        supplierPayout = basePayout;
-                                    }
+                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                                    supplierPayout = finalPrice - salonShareFull;
+                                } else if (rule === 'split') {
+                                    let basePayout = (listinoPienoOriginale * splitPct) / 100;
+                                    supplierPayout = basePayout - (discount / 2);
+                                } else {
+                                    // 'salon': Payout calcolato sul listino pieno originale
+                                    supplierPayout = (listinoPienoOriginale * splitPct) / 100;
+                                }
                                 } else {
                                     const pct = parseFloat(inv.consignment_split_pct) || 0;
                                     supplierPayout = (listinoPienoOriginale * pct) / 100;
