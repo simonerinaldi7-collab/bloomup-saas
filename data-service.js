@@ -686,6 +686,7 @@ async function handleSpecialAction(action, data, id) {
 
         
        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Con supporto articoli manuali) ---
+       // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Aggiornato con supporto Servizi in Conto Vendita) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
@@ -720,29 +721,53 @@ async function handleSpecialAction(action, data, id) {
 
                 if (inv) {
                     if (inv.type === 'servizio') {
-                        const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
-                        let totalConsumablesCost = 0;
+                        if (inv.is_consignment) {
+                            // 💶 SE È UN SERVIZIO IN CONTO VENDITA: Il "costo" per il salone è la quota fornitore salvata nello scontrino o ricalcolata
+                            if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout)) {
+                                totalCostOrPayout = parseFloat(si.supplier_payout) * itemQty;
+                            } else {
+                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                                const rule = inv.discount_absorption || 'salon';
+                                const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                                let basePayout = (listinoPienoOriginale * splitPct) / 100;
+                                let calculatedPayout = basePayout;
 
-                        for (let sc of serviceCons) {
-                            const consumedProd = inventory.find(p => p.id === sc.product_id);
-                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
-                            if (consumedProd) {
-                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                                let prodUnitCost = 0;
-                                if (prodLots.length > 0) {
-                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                    prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                                } else {
-                                    const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                    prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
+                                if (rule === 'supplier') {
+                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                                    calculatedPayout = finalRev - salonShareFull;
+                                } else if (rule === 'split') {
+                                    calculatedPayout = basePayout - (discount / 2);
                                 }
-                                totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                                totalCostOrPayout = calculatedPayout * itemQty;
                             }
+                        } else {
+                            // ✂️ SE È UN SERVIZIO STANDARD: Sommiamo il costo FIFO dei materiali consumabili associati
+                            const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                            let totalConsumablesCost = 0;
+
+                            for (let sc of serviceCons) {
+                                const consumedProd = inventory.find(p => p.id === sc.product_id);
+                                const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+
+                                if (consumedProd) {
+                                    const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                    let prodUnitCost = 0;
+                                    if (prodLots.length > 0) {
+                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                    } else {
+                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
+                                    }
+                                    totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                                }
+                            }
+                            totalCostOrPayout = totalConsumablesCost * itemQty;
                         }
-                        totalCostOrPayout = totalConsumablesCost * itemQty;
 
                     } else if (inv.is_consignment) {
+                        // 💶 PRODOTTO IN CONTO VENDITA
                         const links = productSuppliers.filter(l => l.product_id === inv.id);
                         let totalPct = 0;
                         if (links.length > 0) {
@@ -753,6 +778,7 @@ async function handleSpecialAction(action, data, id) {
                         const unitPayout = (soldPrice * totalPct) / 100;
                         totalCostOrPayout = unitPayout * itemQty;
                     } else {
+                        // 💰 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                         const unitCost = (si.unit_cost !== undefined && si.unit_cost !== null && !isNaN(si.unit_cost) && parseFloat(si.unit_cost) > 0) 
                             ? parseFloat(si.unit_cost) 
                             : (priceHistory.find(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to))?.cost || 0);
@@ -760,13 +786,13 @@ async function handleSpecialAction(action, data, id) {
                         totalCostOrPayout = unitCost * itemQty;
                     }
                 } else {
-                    // ✍️ Fallback sicuro per articoli manuali o liberi non presenti a magazzino
+                    // Fallback se l'articolo è manuale / fuori catalogo
                     const unitCost = parseFloat(si.unit_cost) || 0;
                     totalCostOrPayout = unitCost * itemQty;
                 }
 
                 const totalMargin = finalRev - totalCostOrPayout;
-                const itemNameKey = si.item_name || 'Articolo Manuale';
+                const itemNameKey = si.item_name || 'Articolo';
 
                 if (!margins[itemNameKey]) {
                     margins[itemNameKey] = { item_name: itemNameKey, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
