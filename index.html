@@ -9682,28 +9682,34 @@ function addManualItemToCart() {
 
             if (productDb) { 
                 if (productDb.is_consignment && productDb.type === 'servizio') {
-                    // 💶 CALCOLO MATEMATICO SERVIZIO IN CONTO VENDITA CON REGOLE DI SCONTO
+                    // 💶 CALCOLO MATEMATICO CORRETTO PER SERVIZIO IN CONTO VENDITA
                     const listinoPieno = item.price || 0;
                     const discountAmount = item.discountAmount || 0;
-                    const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    const finalItemPrice = listinoPieno - discountAmount; // Prezzo scontato (es. 40)
+                    
+                    const splitPctForSupplier = parseFloat(productDb.consignment_split_pct) || 0; // es. 50% (0.5)
                     const absorptionRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
 
-                    let baseSupplierPayout = (listinoPieno * splitPct) / 100;
+                    // Quota fissa del venditore/salone basata sul listino pieno (es. 50% di 50 = 25)
+                    const salonShareOnFullPrice = listinoPieno * (1 - (splitPctForSupplier / 100));
+                    const baseSupplierPayout = listinoPieno * (splitPctForSupplier / 100);
 
                     if (absorptionRule === 'supplier') {
-                        // Sconto a carico del fornitore
-                        supplierPayout = baseSupplierPayout - discountAmount;
+                        // Sconto a carico del fornitore: Il salone prende la sua quota piena, il resto va al fornitore (es. 40 - 25 = 15)
+                        salonRevenue = salonShareOnFullPrice;
+                        supplierPayout = finalItemPrice - salonRevenue;
                     } else if (absorptionRule === 'split') {
-                        // Sconto diviso al 50/50
+                        // Sconto diviso a metà
                         supplierPayout = baseSupplierPayout - (discountAmount / 2);
+                        salonRevenue = finalItemPrice - supplierPayout;
                     } else {
-                        // 'salon': Sconto a carico del salone (fornitore prende la percentuale sul pieno listino)
+                        // 'salon': Sconto a carico del salone
                         supplierPayout = baseSupplierPayout;
+                        salonRevenue = finalItemPrice - supplierPayout;
                     }
 
                     unitCostUsed = 0;
-                    salonRevenue = finalItemPrice - supplierPayout;
-
+                
                 } else if (productDb.is_consignment && productDb.type === 'prodotto') {
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;

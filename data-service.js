@@ -984,16 +984,31 @@ async function handleSpecialAction(action, data, id) {
                             unitCost = totalConsumablesCost;
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
-                       } else if (inv.is_consignment) {
+                        } else if (inv.is_consignment) {
                             // 💶 CONTO VENDITA (PRODOTTI O SERVIZI)
-                            // Utilizziamo direttamente i valori economici esatti scritti nello scontrino al momento del pagamento in cassa
                             if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
                                 supplierPayout = parseFloat(item.supplier_payout) || 0;
                             } else {
                                 const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                                 const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-                                const pct = parseFloat(inv.consignment_split_pct) || 0;
-                                supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                
+                                if (inv.type === 'servizio') {
+                                    const rule = inv.discount_absorption || 'salon';
+                                    const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                                    const basePayout = (listinoPienoOriginale * splitPct) / 100;
+
+                                    if (rule === 'supplier') {
+                                        supplierPayout = finalPrice - salonShareFull;
+                                    } else if (rule === 'split') {
+                                        supplierPayout = basePayout - (discount / 2);
+                                    } else {
+                                        supplierPayout = basePayout;
+                                    }
+                                } else {
+                                    const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                    supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                }
                             }
 
                             if (item.salon_revenue !== undefined && item.salon_revenue !== null && !isNaN(item.salon_revenue)) {
@@ -1001,8 +1016,6 @@ async function handleSpecialAction(action, data, id) {
                             } else {
                                 salonRevenue = finalPrice - supplierPayout;
                             }
-                        
-                        
 
                         } else {
                             // 📦 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
