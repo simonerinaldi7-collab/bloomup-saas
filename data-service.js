@@ -1005,10 +1005,55 @@ async function handleSpecialAction(action, data, id) {
                             unitCost = totalConsumablesCost;
                             salonRevenue = finalPrice - (unitCost * itemQty);
                         } else if (inv.is_consignment) {
-                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            // 💶 CONTO VENDITA (PRODOTTI O SERVIZI)
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-                            const pct = parseFloat(inv.consignment_split_pct) || 0;
-                            supplierPayout = (listinoPienoOriginale * pct) / 100;
+
+                            if (inv.type === 'servizio') {
+                                // ✂️ SERVIZIO IN CONTO VENDITA (Fornitore Singolo + Regola Sconto)
+                                if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                                    supplierPayout = parseFloat(item.supplier_payout) || 0;
+                                } else {
+                                    const rule = inv.discount_absorption || 'salon';
+                                    const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                                    const basePayout = (listinoPienoOriginale * splitPct) / 100;
+
+                                    if (rule === 'supplier') {
+                                        supplierPayout = finalPrice - salonShareFull;
+                                    } else if (rule === 'split') {
+                                        supplierPayout = basePayout - (discount / 2);
+                                    } else {
+                                        supplierPayout = basePayout;
+                                    }
+                                }
+                                supplierDetailsText = `Fornitore: €${supplierPayout.toFixed(2)}`;
+
+                            } else {
+                                // 📦 PRODOTTO FISICO IN CONTO VENDITA (Multi-Fornitore fino a 3 fornitori)
+                                const links = productSuppliers.filter(l => l.product_id === inv.id);
+                                if (links.length > 0) {
+                                    let detailsArray = [];
+                                    let totalConsignmentPayout = 0;
+                                    
+                                    links.forEach(l => {
+                                        const supp = suppliersData.find(s => s.id === l.supplier_id);
+                                        const suppName = supp ? supp.name : 'Fornitore';
+                                        const pct = parseFloat(l.split_pct) || 0;
+                                        const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                                        totalConsignmentPayout += payoutForThisSupp;
+                                        detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
+                                    });
+                                    
+                                    supplierPayout = totalConsignmentPayout;
+                                    supplierDetailsText = detailsArray.join('<br>');
+                                } else {
+                                    const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                    supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                    supplierDetailsText = `Fornitore (${pct}%): €${supplierPayout.toFixed(2)}`;
+                                }
+                            }
+
                             salonRevenue = finalPrice - supplierPayout;
                         }
                     }
