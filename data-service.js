@@ -801,30 +801,33 @@ async function handleSpecialAction(action, data, id) {
                     monthlyMap[mLabel] = { m_label: mLabel, salon_revenue: 0, total_expenses: 0 };
                 }
 
-                const saleDate = sale.date;
                 const soldPrice = si.price || 0;
                 const discount = si.discount || 0;
                 const finalGrossRev = (soldPrice - discount) * (si.qty || 1);
 
-                const inv = inventory.find(i => i.name.toLowerCase() === si.item_name.toLowerCase());
+                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
                 let salonShare = finalGrossRev;
 
                 if (inv && inv.is_consignment) {
-                    const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                    const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
-                    const links = productSuppliers.filter(l => l.product_id === inv.id);
-                    let totalPct = 0;
-                    if (links.length > 0) {
-                        links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                    // 🌟 SE IL DATABASE HA SALNATO IL RICAVO NETTO DI COMPETENZA DEL SALONE NELLO SCONTRINO, USIAMOLO DIRETTAMENTE!
+                    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+                        salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
                     } else {
-                        totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                    }
-                    const unitPayout = (listinoPienoOriginale * totalPct) / 100;
-                    const totalConsignmentPayout = unitPayout * (si.qty || 1);
+                        // Fallback di calcolo per vecchi dati storici
+                        const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                        const rule = inv.discount_absorption || 'salon';
+                        const listinoPieno = soldPrice;
+                        const basePayout = (listinoPieno * splitPct) / 100;
+                        let supplierPayout = basePayout;
 
-                    // Il ricavo di competenza del salone sul conto vendita è il lordo meno la quota fornitore
-                    salonShare = finalGrossRev - totalConsignmentPayout;
+                        if (rule === 'supplier') {
+                            const salonShareFull = listinoPieno * (1 - (splitPct / 100));
+                            supplierPayout = finalGrossRev - salonShareFull;
+                        } else if (rule === 'split') {
+                            supplierPayout = basePayout - (discount / 2);
+                        }
+                        salonShare = finalGrossRev - supplierPayout;
+                    }
                 }
 
                 monthlyMap[mLabel].salon_revenue += salonShare;
