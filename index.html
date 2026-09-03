@@ -9377,6 +9377,68 @@ function addManualItemToCart() {
         }
     }
             
+
+
+// 🔑 Generatore chiavi VAPID pubbliche (Sostituisci con la tua chiave VAPID pubblica generata dal tuo server o da tool come web-push)
+const VAPID_PUBLIC_KEY = 'IBM99EXeLrczOqawGcrqPF5m_tbxou7X0wDis4AGM_qpEvW_Ph9UZ6emi3m6div0btMkCICs6B3BiEfJ_wRUPr2k';
+
+async function subscribeUserToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn("Le Web Push Notifications non sono supportate da questo browser.");
+        return;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Verifica se esiste già una sottoscrizione attiva
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+            // Se non esiste, ne creiamo una nuova
+            const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+            });
+        }
+
+        // Salviamo la sottoscrizione associata all'utente e al salon_id su Supabase
+        if (currentUser && currentUser.username) {
+            const payload = {
+                salon_id: currentUser.salon_id,
+                username: currentUser.username,
+                subscription: subscription
+            };
+
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'push_subscriptions',
+                data: payload
+            });
+            console.log("✅ Sottoscrizione Web Push registrata con successo sul Cloud!");
+        }
+    } catch (err) {
+        console.error("❌ Errore durante la sottoscrizione Web Push:", err);
+    }
+}
+
+// Funzione di utilità per convertire la chiave VAPID
+// Funzione di utilità per convertire la chiave VAPID
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    
+    for (let i = 0; i < rawData.length; ++i) { // 👈 Corretto qui (via la parentesi tonda extra)
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    
+    return outputArray;
+}
+
+    
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     async function openMod(t, targetDate = null, targetTime = null, targetEnd = null) {
         if (t === 'cale') {
