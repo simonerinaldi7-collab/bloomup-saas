@@ -7444,6 +7444,10 @@ async function doLogin() {
 
         requestNativeNotificationPermission();
         startProfessionalOperatorAlertSystem();
+
+        // 🌟 AGGIUNTA: Sottoscrizione push automatica all'ingresso se il permesso è attivo
+        autoRegisterPushOnLogin();
+        
         resetLogoutTimer();
     }
 
@@ -9376,7 +9380,27 @@ function addManualItemToCart() {
             }
         }
     }
-            
+           
+    
+    // 🔄 Attivazione silenziosa o automatica della subscription push al login
+async function autoRegisterPushOnLogin() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    
+    // Controlliamo se il browser ha già concesso il permesso in passato
+    if (Notification.permission === 'granted') {
+        try {
+            console.log("🔔 [AUTO-PUSH] Permesso già accordato. Aggiornamento subscription in corso...");
+            await subscribeUserToPush();
+        } catch (e) {
+            console.warn("⚠️ [AUTO-PUSH] Impossibile aggiornare automaticamente la push subscription:", e);
+        }
+    } else if (Notification.permission === 'default') {
+        // Se il permesso è 'default' (mai chiesto prima), possiamo fare un tentativo soft 
+        // o lasciare che sia l'utente a cliccare un banner/pulsante dedicato. 
+        // Nota: i browser moderni bloccano prompt automatici troppo aggressivi se non c'è un'interazione utente.
+        console.log("🔔 [AUTO-PUSH] Permesso non ancora richiesto. In attesa di interazione.");
+    }
+}
 
 
 // 🔑 Generatore chiavi VAPID pubbliche (Sostituisci con la tua chiave VAPID pubblica generata dal tuo server o da tool come web-push)
