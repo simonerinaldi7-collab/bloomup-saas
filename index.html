@@ -9202,42 +9202,60 @@ function addManualItemToCart() {
 
         document.getElementById('st-a').innerText = validAppointments.length;
         
-        // 🌟 CALCOLO AVANZATO APPUUNTAMENTI FUTURI DEL MESE E STIMA RICAVI ASSOCIATI
+        // 🌟 CALCOLO AVANZATO APPUUNTAMENTI FUTURI DEL MESE (Esclusi i pagati e calcolati al netto per il salone)
         try {
             const now = new Date();
             const todayStr = now.toISOString().split('T')[0]; // 'YYYY-MM-DD'
             const currentYearMonth = todayStr.substring(0, 7);     // 'YYYY-MM'
 
-            // Filtriamo gli appuntamenti del mese corrente che sono nel futuro (da oggi in poi)
+            // 1. Recuperiamo gli ID di tutti gli appuntamenti già pagati in cassa
+            const salesData = (allSales && allSales.length > 0) ? allSales : (await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || []);
+            const paidAppointmentIds = new Set(salesData.filter(s => s.appointment_id).map(s => s.appointment_id));
+
+            // 2. Filtriamo gli appuntamenti futuri del mese corrente non ancora pagati
             const futureMonthAppointments = validAppointments.filter(a => {
-                return a.date && a.date.startsWith(currentYearMonth) && a.date >= todayStr;
+                const isThisMonth = a.date && a.date.startsWith(currentYearMonth) && a.date >= todayStr;
+                const isAlreadyPaid = paidAppointmentIds.has(a.id);
+                return isThisMonth && !isAlreadyPaid;
             });
 
             const futureAppsCount = futureMonthAppointments.length;
-            let estimatedFutureRevenue = 0;
+            let estimatedNetEarnings = 0; // 👈 Guadagno netto di competenza del salone
 
             const inventory = allInventory || [];
 
             for (let app of futureMonthAppointments) {
-                // Se l'appuntamento ha già un prezzo esplicito salvato, usiamo quello
-                if (app.price !== undefined && app.price !== null && parseFloat(app.price) > 0) {
-                    estimatedFutureRevenue += parseFloat(app.price);
-                } else if (app.service) {
-                    // Altrimenti sommiamo il prezzo dei servizi associati
+                if (app.service) {
                     const services = String(app.service).split(',').map(s => s.trim().toLowerCase());
                     for (let servName of services) {
+                        if (servName.includes('pausa') || servName.includes('pranzo')) continue;
+
                         const product = inventory.find(p => p.name.trim().toLowerCase() === servName);
                         if (product) {
-                            // Recuperiamo il prezzo corrente del servizio
                             const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                            const servPrice = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(product.price) || 0);
-                            estimatedFutureRevenue += servPrice;
+                            const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(product.price) || 0);
+                            
+                            let salonSharePerService = listinoPieno;
+
+                            // Se il servizio è in conto vendita, stimiamo la quota netta del salone
+                            if (product.is_consignment && product.type === 'servizio') {
+                                const splitPct = parseFloat(product.consignment_split_pct) || 0;
+                                const supplierPayout = (listinoPieno * splitPct) / 100;
+                                salonSharePerService = listinoPieno - supplierPayout;
+                            }
+
+                            estimatedNetEarnings += salonSharePerService;
+                        } else {
+                            // Fallback se il servizio non è censito a magazzino ma ha un prezzo nell'appuntamento
+                            estimatedNetEarnings += (parseFloat(app.price) || 0);
                         }
                     }
+                } else if (app.price && parseFloat(app.price) > 0) {
+                    estimatedNetEarnings += parseFloat(app.price);
                 }
             }
 
-            // Inseriamo le informazioni aggiuntive nella Card KPI degli Appuntamenti
+            // Inseriamo le informazioni nella Card KPI degli Appuntamenti
             const appElement = document.getElementById('st-a');
             if (appElement) {
                 const statCard = appElement.closest('.stat-card');
@@ -9250,16 +9268,16 @@ function addManualItemToCart() {
                         statCard.appendChild(subText);
                     }
 
-                    if (futureAppsCount > 0 && estimatedFutureRevenue > 0) {
-                        subText.innerHTML = `In agenda: <b style="color:var(--s);">${futureAppsCount} futuri</b><br>Stima ricavi: <b style="color:var(--p);">€ ${estimatedFutureRevenue.toFixed(2)}</b>`;
+                    if (futureAppsCount > 0 && estimatedNetEarnings > 0) {
+                        subText.innerHTML = `In agenda: <b style="color:var(--s);">${futureAppsCount} da saldare</b><br>Guadagno stimato: <b style="color:var(--p);">€ ${estimatedNetEarnings.toFixed(2)}</b>`;
                         subText.style.display = 'block';
                     } else {
-                        subText.style.display = 'none'; // Nasconde se non ci sono appuntamenti futuri con servizi
+                        subText.style.display = 'none';
                     }
                 }
             }
         } catch (subErr) {
-            console.warn("Errore nel calcolo della stima appuntamenti futuri:", subErr);
+            console.warn("Errore nel calcolo del guadagno stimato degli appuntamenti futuri:", subErr);
         }
         
         const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
