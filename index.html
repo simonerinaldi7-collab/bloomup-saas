@@ -9384,18 +9384,26 @@ const VAPID_PUBLIC_KEY = 'BI4fY070phc7c9255ikoeZy53-5kP-nEyqMYKsNR4fxmresqNhzPMr
 
 async function subscribeUserToPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.warn("Le Web Push Notifications non sono supportate da questo browser.");
+        console.warn("⚠️ Le Web Push Notifications non sono supportate da questo browser.");
+        alert("Il tuo browser non supporta le notifiche push.");
+        return;
+    }
+
+    if (VAPID_PUBLIC_KEY.includes('INSERISCI_QUI')) {
+        alert("⚠️ ERRORE CONFIGURAZIONE: Devi inserire una VAPID_PUBLIC_KEY valida nel codice JavaScript.");
+        console.error("VAPID_PUBLIC_KEY mancante o non configurata.");
         return;
     }
 
     try {
+        console.log("🔄 [PUSH] Recupero Service Worker registration...");
         const registration = await navigator.serviceWorker.ready;
         
-        // Verifica se esiste già una sottoscrizione attiva
+        console.log("🔄 [PUSH] Verifica sottoscrizione esistente...");
         let subscription = await registration.pushManager.getSubscription();
         
         if (!subscription) {
-            // Se non esiste, ne creiamo una nuova
+            console.log("🔄 [PUSH] Creazione nuova sottoscrizione Push con VAPID Key...");
             const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -9403,23 +9411,44 @@ async function subscribeUserToPush() {
             });
         }
 
-        // Salviamo la sottoscrizione associata all'utente e al salon_id su Supabase
-        if (currentUser && currentUser.username) {
-            const payload = {
-                salon_id: currentUser.salon_id,
-                username: currentUser.username,
-                subscription: subscription
-            };
+        console.log("✅ [PUSH] Sottoscrizione browser ottenuta.");
 
-            await window.universalQuery({
-                action: 'INSERT',
-                table: 'push_subscriptions',
-                data: payload
-            });
-            console.log("✅ Sottoscrizione Web Push registrata con successo sul Cloud!");
+        if (!currentUser || !currentUser.username) {
+            alert("⚠️ Devi effettuare il login prima di registrare le notifiche.");
+            return;
         }
+
+        // 🌟 SERIALIZZAZIONE PULITA: Convertiamo l'oggetto nativo in un JSON puro (evita il DataCloneError)
+        const rawJson = subscription.toJSON();
+        const cleanSubscriptionObject = {
+            endpoint: rawJson.endpoint,
+            keys: {
+                p256dh: rawJson.keys ? rawJson.keys.p256dh : '',
+                auth: rawJson.keys ? rawJson.keys.auth : ''
+            }
+        };
+
+        const payload = {
+            id: crypto.randomUUID(), // ID esplicito per Dexie e Supabase
+            salon_id: currentUser.salon_id || 'SALON_001',
+            username: currentUser.username,
+            subscription: cleanSubscriptionObject // 👈 Oggetto JSON purificato e serializzabile
+        };
+
+        console.log("🚀 [PUSH] Invio sottoscrizione a Supabase (push_subscriptions)...", payload);
+
+        const res = await window.universalQuery({
+            action: 'INSERT',
+            table: 'push_subscriptions',
+            data: payload
+        });
+
+        console.log("📥 [PUSH] Risposta dal server:", res);
+        alert("✅ Dispositivo registrato con successo per le notifiche push!");
+
     } catch (err) {
-        console.error("❌ Errore durante la sottoscrizione Web Push:", err);
+        console.error("❌ [PUSH ERROR] Errore critico durante la sottoscrizione Web Push:", err);
+        alert(`Errore registrazione push: ${err.message}`);
     }
 }
 
