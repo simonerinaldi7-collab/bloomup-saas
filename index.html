@@ -7447,7 +7447,7 @@ async function doLogin() {
 
         // 🌟 AGGIUNTA: Sottoscrizione push automatica all'ingresso se il permesso è attivo
         autoRegisterPushOnLogin();
-        
+
         resetLogoutTimer();
     }
 
@@ -9406,43 +9406,34 @@ async function autoRegisterPushOnLogin() {
 // 🔑 Generatore chiavi VAPID pubbliche (Sostituisci con la tua chiave VAPID pubblica generata dal tuo server o da tool come web-push)
 const VAPID_PUBLIC_KEY = 'BI4fY070phc7c9255ikoeZy53-5kP-nEyqMYKsNR4fxmresqNhzPMrCZskmWrbW4v1oRD6uiCDhe2V6IIfGQyE8';
 
-async function subscribeUserToPush() {
+async function subscribeUserToPush(isManualAction = false) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.warn("⚠️ Le Web Push Notifications non sono supportate da questo browser.");
-        alert("Il tuo browser non supporta le notifiche push.");
+        if (isManualAction) alert("Il tuo browser non supporta le notifiche push.");
         return;
     }
 
     if (VAPID_PUBLIC_KEY.includes('INSERISCI_QUI')) {
-        alert("⚠️ ERRORE CONFIGURAZIONE: Devi inserire una VAPID_PUBLIC_KEY valida nel codice JavaScript.");
-        console.error("VAPID_PUBLIC_KEY mancante o non configurata.");
+        if (isManualAction) alert("⚠️ ERRORE CONFIGURAZIONE: VAPID_PUBLIC_KEY non valida.");
         return;
     }
 
     try {
-        console.log("🔄 [PUSH] Recupero Service Worker registration...");
         const registration = await navigator.serviceWorker.ready;
+        let isNewSubscription = false;
         
-        console.log("🔄 [PUSH] Verifica sottoscrizione esistente...");
         let subscription = await registration.pushManager.getSubscription();
         
         if (!subscription) {
-            console.log("🔄 [PUSH] Creazione nuova sottoscrizione Push con VAPID Key...");
             const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey
             });
+            isNewSubscription = true; // 👈 Segnamo che è una nuova iscrizione
         }
 
-        console.log("✅ [PUSH] Sottoscrizione browser ottenuta.");
+        if (!currentUser || !currentUser.username) return;
 
-        if (!currentUser || !currentUser.username) {
-            alert("⚠️ Devi effettuare il login prima di registrare le notifiche.");
-            return;
-        }
-
-        // 🌟 SERIALIZZAZIONE PULITA: Convertiamo l'oggetto nativo in un JSON puro (evita il DataCloneError)
         const rawJson = subscription.toJSON();
         const cleanSubscriptionObject = {
             endpoint: rawJson.endpoint,
@@ -9453,26 +9444,30 @@ async function subscribeUserToPush() {
         };
 
         const payload = {
-            id: crypto.randomUUID(), // ID esplicito per Dexie e Supabase
+            id: crypto.randomUUID(),
             salon_id: currentUser.salon_id || 'SALON_001',
             username: currentUser.username,
-            subscription: cleanSubscriptionObject // 👈 Oggetto JSON purificato e serializzabile
+            subscription: cleanSubscriptionObject
         };
 
-        console.log("🚀 [PUSH] Invio sottoscrizione a Supabase (push_subscriptions)...", payload);
-
-        const res = await window.universalQuery({
+        await window.universalQuery({
             action: 'INSERT',
             table: 'push_subscriptions',
             data: payload
         });
 
-        console.log("📥 [PUSH] Risposta dal server:", res);
-        alert("✅ Dispositivo registrato con successo per le notifiche push!");
+        // 🌟 MOSTRICCIAMO L'ALERT SOLO SE È UNA NUOVA SOTTOSCRIZIONE O SE L'UTENTE HA CLICCATO MANUALMENTE
+        if (isNewSubscription || isManualAction) {
+            alert("✅ Dispositivo registrato con successo per le notifiche push!");
+        } else {
+            console.log("ℹ️ [PUSH] Sottoscrizione push già attiva e sincronizzata.");
+        }
 
     } catch (err) {
-        console.error("❌ [PUSH ERROR] Errore critico durante la sottoscrizione Web Push:", err);
-        alert(`Errore registrazione push: ${err.message}`);
+        console.error("❌ [PUSH ERROR] Errore durante la sottoscrizione:", err);
+        if (isManualAction) {
+            alert(`Errore registrazione push: ${err.message}`);
+        }
     }
 }
 
