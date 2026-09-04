@@ -9473,15 +9473,16 @@ async function subscribeUserToPush(isManualAction = false) {
             id: crypto.randomUUID(),
             salon_id: currentUser.salon_id || 'SALON_001',
             username: currentUser.username.trim().toLowerCase(),
+            endpoint_url: rawJson.endpoint, // 👈 Salviamo il valore nella colonna dedicata
             subscription: cleanSubscriptionObject
         };
 
-        // 🌟 USIAMO L'UPSERT DI SUPABASE TRAMITE FETCH DIRETTA O UNIVERSALQUERY CON MERGE
         if (navigator.onLine) {
             const SUPABASE_URL = window.SUPABASE_CONFIG.url;
             const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
 
-            await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?on_conflict=salon_id,username`, {
+            // 🌟 ORA IL CONFLITTO PUNTA CORRETTAMENTE ALLA COLONNA UNICA 'endpoint_url'
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?on_conflict=endpoint_url`, {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -9491,9 +9492,14 @@ async function subscribeUserToPush(isManualAction = false) {
                 },
                 body: JSON.stringify(payload)
             });
+
+            if (!res.ok) {
+                const errBody = await res.text();
+                console.error("Errore sincronizzazione push subscription su cloud:", errBody);
+            }
         }
 
-        console.log("✅ [PUSH] Sottoscrizione push registrata senza conflitti.");
+        console.log("✅ [PUSH] Dispositivo registrato correttamente.");
         if (isManualAction) alert("✅ Notifiche push attivate con successo!");
 
     } catch (err) {
