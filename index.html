@@ -7695,21 +7695,21 @@ async function checkImminentAppointmentsNow() {
 }
 
 async function triggerProfessionalAlarmModal(app, minutesLeft) {
-    // 1. 📲 NOTIFICA NATIVA DI SISTEMA (Con suono e vibrazione integrati dal sistema operativo)
+    // 1. 📲 NOTIFICA NATIVA DI SISTEMA
     if ('Notification' in window && Notification.permission === 'granted') {
         try {
             const registration = await navigator.serviceWorker.ready;
             const notifTitle = `⏰ Appuntamento tra ${minutesLeft} min`;
-            const notifBody = `Cliente: ${app.cust_name}\nServizio: ${app.service || 'Trattamento'}\nOrario: ${app.time.substring(0, 5)}`;
+            const notifBody = `Cliente: ${app.cust_name}\nServizio: ${app.service || 'Trattamento'}\nOrario: ${app.time.substring(0, 5)}\n\n👉 Tocca per aprire l'app.`;
             
             await registration.showNotification(notifTitle, {
                 body: notifBody,
                 icon: './icon-192.png',
                 badge: './icon-192.png',
-                vibrate: [500, 200, 500, 200, 500],
+                vibrate: [300, 100, 300],
                 tag: `appointment-alert-${app.id}`,
                 requireInteraction: true,
-                data: { url: './index.html' }
+                data: { appId: app.id, url: './index.html' }
             });
         } catch (pushErr) {
             console.warn("Notifica nativa non riuscita:", pushErr);
@@ -7718,41 +7718,60 @@ async function triggerProfessionalAlarmModal(app, minutesLeft) {
 
     if (document.getElementById('pro-alarm-overlay')) return;
 
-    // 2. 🔔 SUONO DI ALLARME (Web Audio API a doppio tono ripetuto)
+    // 2. 🎶 SUONO MORBIDO E PROFESSIONALE (Soft Chime Armonico a due toni)
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
             const audioCtx = new AudioContext();
             
-            // Sblocca l'audio context se bloccato dalle policy del browser
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
 
-            function playAlarmBeep(delay) {
+            // Funzione per generare una nota armonica e rotonda (onda sinusoidale con fade-out graduale)
+            function playSoftChime(freq1, freq2, delayMs) {
                 setTimeout(() => {
                     if (audioCtx.state === 'closed') return;
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    
-                    osc.type = 'square'; // Onda quadra per un suono di allarme netto e udibile in salone
-                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota La (880Hz)
-                    
-                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-                    
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.4);
-                }, delay);
+                    const now = audioCtx.currentTime;
+
+                    // Oscillatore 1 (Nota principale)
+                    const osc1 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    osc1.type = 'sine'; // Onda sinusoidale (suono calmo e rotondo, non metallico)
+                    osc1.frequency.setValueAtTime(freq1, now);
+
+                    // Oscillatore 1 (Armonica di accompagnamento per dare corpo)
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(freq2, now);
+
+                    // Inviluppo del volume (Fade-in rapido e rilascio molto lungo e dolce)
+                    gain1.gain.setValueAtTime(0.001, now);
+                    gain1.gain.linearRampToValueAtTime(0.15, now + 0.08);
+                    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+                    gain2.gain.setValueAtTime(0.001, now);
+                    gain2.gain.linearRampToValueAtTime(0.08, now + 0.08);
+                    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 1.0);
+
+                    osc1.connect(gain1);
+                    gain1.connect(audioCtx.destination);
+
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+
+                    osc1.start(now);
+                    osc2.start(now);
+
+                    osc1.stop(now + 1.2);
+                    osc2.stop(now + 1.0);
+                }, delayMs);
             }
 
-            // Suona tre volte in sequenza all'apparire dell'avviso
-            playAlarmBeep(0);
-            playAlarmBeep(300);
-            playAlarmBeep(600);
+            // Eseguiamo un motivetto a due note ascendenti molto rilassante (stile campanello di promemoria)
+            playSoftChime(523.25, 659.25, 0);     // Do5 + Mi5
+            playSoftChime(659.25, 783.99, 250);   // Mi5 + Sol5
         }
     } catch (e) {
         console.warn("Riproduzione audio browser non consentita senza interazione utente:", e);
