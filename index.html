@@ -8085,7 +8085,7 @@ async function updateReminderBadgeCount() {
     }
 }
             
-       async function sendAndLogGeneric(appId, type, tk) {
+     async function sendAndLogGeneric(appId, type, tk) {
     const a = allAppointments.find(x => x.id == appId);
     if (!a) return alert("Appuntamento non trovato!");
 
@@ -8114,10 +8114,10 @@ async function updateReminderBadgeCount() {
     
     const italianDate = typeof formatDateIt === 'function' ? formatDateIt(a.date) : (a.date || '');
 
-    // 1. Recuperiamo il template pulito dal database o usiamo il fallback
+    // 1. Recupero del template pulito
     let templateText = sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.";
 
-    // 2. Eseguiamo le sostituzioni in modo sicuro
+    // 2. Sostituzione dei tag
     let rawMessage = templateText
         .replace(/{{NOME}}/g, firstName || 'Cliente')
         .replace(/{{COGNOME}}/g, lastName || '')
@@ -8144,14 +8144,10 @@ async function updateReminderBadgeCount() {
 
     let url = '';
     if (type === 'wa') {
-        // 🌟 TRCCHETTO SICURO AL 100% PER WHATSAPP: 
-        // Usiamo unencode/decode sicuro per preservare i codici esadecimali delle emoji 
-        // evitando che il browser le trasformi in caratteri 
-        const encodedMessage = encodeURIComponent(rawMessage)
-            .replace(/%0A/g, '\n') // Mantiene i a capo puliti
-            .replace(/%20/g, '+');  // Spazi standard compatibili con wa.me
-
-        url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(rawMessage)}`;
+        // 🌟 LA SVOLTA: Sostituiamo 'wa.me' con l'endpoint ufficiale 'api.whatsapp.com/send' 
+        // e applichiamo una codifica URI pulita che preserva le emoji senza corromperle nel redirect
+        const encodedText = encodeURIComponent(rawMessage);
+        url = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
     } else {
         url = `sms:${cleanPhone}?body=${encodeURIComponent(rawMessage)}`;
     }
