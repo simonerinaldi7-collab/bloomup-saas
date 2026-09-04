@@ -7666,16 +7666,13 @@ async function checkImminentAppointmentsNow() {
             if (srv.includes('pausa') || srv.includes('pranzo')) return;
             if (!app.date || !app.time) return;
 
-            // 🛑 BLOCCO ANTIDOPPIO / DISMISS: Se l'utente ha già premuto "Ho capito" oggi per questo appuntamento, salta!
+            // 🛑 Se è stato premuto "Ho capito", non mostriamo il popup in-app
             const uniqueAlertKey = `${app.id}_${app.date}`;
-            if (dismissedAlerts[uniqueAlertKey] === todayKeyDate) {
-                return; // Esce silenziosamente senza fare nulla
-            }
+            if (dismissedAlerts[uniqueAlertKey] === todayKeyDate) return;
 
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-            // Gestione Snooze (se attivo, rispetta il tempo posticipato)
             if (window.activeSnoozes && window.activeSnoozes[app.id]) {
                 const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                 if (now < snoozeUntil) return;
@@ -7686,7 +7683,6 @@ async function checkImminentAppointmentsNow() {
 
             if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
                 const sessionKey = `pro_alert_notified_${uniqueAlertKey}`;
-                
                 if (!sessionStorage.getItem(sessionKey)) {
                     sessionStorage.setItem(sessionKey, 'true');
                     triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
@@ -7857,20 +7853,39 @@ function closeLocalAlarmModal() {
     if (overlay) overlay.remove();
 }
 
-// Funzione richiamata quando l'operatore clicca "Ho capito / Procedi" nel modale in-app
 async function requestDismissBroadcast(appId) {
     const app = (allAppointments || []).find(x => x.id === appId);
     const todayKeyDate = new Date().toISOString().split('T')[0];
-    const targetDate = app ? app.date : todayKeyDate;
-
-    // Salvataggio immediato nel localStorage del client corrente
-    const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
-    dismissedAlerts[`${appId}_${targetDate}`] = todayKeyDate;
-    localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const username = currentUser ? currentUser.username.trim().toLowerCase() : 'admin';
 
     closeLocalAlarmModal();
 
-    // Sincronizzazione via BroadcastChannel / Supabase Realtime verso gli altri dispositivi dell'operatore
+    // 1. Salvataggio Cloud su Supabase (con upsert per evitare errori di duplicazione)
+    if (navigator.onLine) {
+        try {
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'appointment_dismissals',
+                data: {
+                    salon_id: salonId,
+                    appointment_id: appId,
+                    username: username,
+                    dismissed_date: todayKeyDate
+                }
+            });
+            console.log(`✅ [DISMISS] Evento 'Ho capito' registrato su Supabase per l'appuntamento ${appId}`);
+        } catch (err) {
+            console.error("Errore salvataggio remoto dismissal:", err);
+        }
+    }
+
+    // 2. Salvataggio di sicurezza in locale (per coerenza immediata offline)
+    const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+    dismissedAlerts[`${appId}_${todayKeyDate}`] = todayKeyDate;
+    localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+
+    // 3. Broadcast di chiusura sugli altri dispositivi dell'operatore
     if (typeof realtimeAlertChannel !== 'undefined' && realtimeAlertChannel) {
         await realtimeAlertChannel.send({
             type: 'broadcast',
