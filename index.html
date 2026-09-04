@@ -9438,7 +9438,6 @@ async function autoRegisterPushOnLogin() {
 }
 
 
-// 🔑 Generatore chiavi VAPID pubbliche (Sostituisci con la tua chiave VAPID pubblica generata dal tuo server o da tool come web-push)
 const VAPID_PUBLIC_KEY = 'BI4fY070phc7c9255ikoeZy53-5kP-nEyqMYKsNR4fxmresqNhzPMrCZskmWrbW4v1oRD6uiCDhe2V6IIfGQyE8';
 
 async function subscribeUserToPush(isManualAction = false) {
@@ -9447,15 +9446,8 @@ async function subscribeUserToPush(isManualAction = false) {
         return;
     }
 
-    if (VAPID_PUBLIC_KEY.includes('INSERISCI_QUI')) {
-        if (isManualAction) alert("⚠️ ERRORE CONFIGURAZIONE: VAPID_PUBLIC_KEY non valida.");
-        return;
-    }
-
     try {
         const registration = await navigator.serviceWorker.ready;
-        let isNewSubscription = false;
-        
         let subscription = await registration.pushManager.getSubscription();
         
         if (!subscription) {
@@ -9464,44 +9456,46 @@ async function subscribeUserToPush(isManualAction = false) {
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey
             });
-            isNewSubscription = true; // 👈 Segnamo che è una nuova iscrizione
         }
 
-        if (!currentUser || !currentUser.username) return;
+        if (!currentUser || !currentUser.username) {
+            console.warn("Impossibile registrare le push: utente non loggato.");
+            return;
+        }
 
+        // 🌟 Estrazione pulita e standard dell'oggetto JSON della subscription
         const rawJson = subscription.toJSON();
         const cleanSubscriptionObject = {
             endpoint: rawJson.endpoint,
             keys: {
-                p256dh: rawJson.keys ? rawJson.keys.p256dh : '',
-                auth: rawJson.keys ? rawJson.keys.auth : ''
+                p256dh: rawJson.keys.p256dh,
+                auth: rawJson.keys.auth
             }
         };
 
         const payload = {
             id: crypto.randomUUID(),
             salon_id: currentUser.salon_id || 'SALON_001',
-            username: currentUser.username,
+            username: currentUser.username.trim().toLowerCase(), // 👈 Salvato sempre in minuscolo per coerenza con la ricerca
             subscription: cleanSubscriptionObject
         };
 
+        // Salvataggio tramite il bridge universale
         await window.universalQuery({
             action: 'INSERT',
             table: 'push_subscriptions',
             data: payload
         });
 
-        // 🌟 MOSTRICCIAMO L'ALERT SOLO SE È UNA NUOVA SOTTOSCRIZIONE O SE L'UTENTE HA CLICCATO MANUALMENTE
-        if (isNewSubscription || isManualAction) {
-            alert("✅ Dispositivo registrato con successo per le notifiche push!");
-        } else {
-            console.log("ℹ️ [PUSH] Sottoscrizione push già attiva e sincronizzata.");
+        console.log("✅ [PUSH] Dispositivo registrato e sincronizzato con successo!");
+        if (isManualAction) {
+            alert("✅ Notifiche push attivate con successo su questo dispositivo!");
         }
 
     } catch (err) {
-        console.error("❌ [PUSH ERROR] Errore durante la sottoscrizione:", err);
+        console.error("❌ [PUSH ERROR] Errore durante la sottoscrizione push:", err);
         if (isManualAction) {
-            alert(`Errore registrazione push: ${err.message}`);
+            alert(`Errore attivazione notifiche: ${err.message}`);
         }
     }
 }
