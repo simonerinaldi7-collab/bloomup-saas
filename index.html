@@ -2145,7 +2145,70 @@ console.error = function(...args) {
             console.error("Errore nel caricamento del foglio dashboard:", err);
         }
     }
+// ⚡ INTERCETTAZIONE RAPIDA ALL'AVVIO SE APERTO DA NOTIFICA PUSH
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const alertAppId = urlParams.get('open_alert');
+        
+        if (alertAppId) {
+            console.log("⚡ [BOOT RAPIDO] Rilevato allarme in sospeso da notifica push per app ID:", alertAppId);
+            // Puliamo subito l'URL per estetica pulita
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Tentiamo di aprire subito il modale d'allarme
+            await forceOpenAlarmModalById(alertAppId);
+        }
+    }, 400); // 400ms il tempo tecnico di montaggio della pagina
+});
 
+// Ascoltatore di messaggi diretti dal Service Worker se l'app era già aperta in background
+if ('navigator' in window && navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+        if (event.data && event.data.type === 'FORCE_OPEN_ALARM') {
+            const appId = event.data.appId;
+            if (appId) {
+                console.log("📡 [REALTIME PWA] Ricevuto comando di apertura rapida allarme per ID:", appId);
+                await forceOpenAlarmModalById(appId);
+            }
+        }
+    });
+}
+
+// Funzione dedicata per recuperare l'appuntamento e mostrare il modale all'istante
+async function forceOpenAlarmModalById(appId) {
+    try {
+        // Cerchiamo prima nell'array globale in memoria
+        let app = (window.allAppointments || []).find(a => a.id === appId);
+        
+        // Se per qualche motivo l'array globale non è ancora pronto, lo peschiamo direttamente da Dexie/DB locale
+        if (!app && window.localDb) {
+            app = await window.localDb.appointments.get(appId);
+        }
+        
+        // Se lo troviamo, attiviamo il modale di allarme professionale in meno di un secondo
+        if (app) {
+            const now = new Date();
+            const appDateTime = new Date(`${app.date}T${app.time}:00`);
+            const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
+            
+            // Spegniamo eventuali schermate di caricamento o login residue
+            const loginScreen = document.getElementById('login-screen');
+            if (loginScreen) loginScreen.classList.add('hidden');
+            const appShell = document.getElementById('app-shell');
+            if (appShell) appShell.style.display = 'flex';
+
+            // Mostriamo il modale d'allarme all'istante!
+            if (typeof triggerProfessionalAlarmModal === 'function') {
+                triggerProfessionalAlarmModal(app, diffMinutes);
+            }
+        } else {
+            console.warn("Impossibile trovare l'appuntamento associato all'ID notifica:", appId);
+        }
+    } catch (err) {
+        console.error("Errore durante l'apertura rapida dell'allarme:", err);
+    }
+}
 
 // 2. Gestione unificata e priva di duplicati per il Conto Vendita (Prodotti vs Servizi)
 async function toggleConsignmentFields() {
