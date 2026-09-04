@@ -2357,119 +2357,119 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
         alert("Orari salvati e pause pranzo generate con successo!");
     }
 
-   async function generateBreakAppointments(username) {
+   // 🕒 Generazione automatica delle pause estesa a 3 mesi (90 giorni) in modalità batch non bloccante
+async function generateBreakAppointments(username) {
     if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-    console.log(`[DEBUG PAUSE] 🔄 Avvio generazione per utente: '${cleanUsername}' (Salon: ${salonId})`);
-
-    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-    let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
-
-    // Fallback turni standard se non configurati
-    if (!userSchedules || userSchedules.length === 0) {
-        userSchedules = [1, 2, 3, 4, 5, 6].map(day => ({
-            username: username,
-            day_of_week: day,
-            is_working: 1,
-            start_time_1: '09:00',
-            end_time_1: '13:00',
-            start_time_2: '14:00',
-            end_time_2: '19:00'
-        }));
-    }
-
-    const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
-    const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
-
-    const today = new Date();
     
-    for (let i = 0; i < 30; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        const dayOfWeek = d.getDay(); 
-        const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+    // Eseguiamo in background con requestIdleCallback o setTimeout per non bloccare mai il rendering iniziale
+    setTimeout(async () => {
+        console.log(`[DEBUG PAUSE 90GG] 🔄 Avvio generazione batch per utente: '${cleanUsername}'`);
 
-        const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
-        const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-        
-        let existingBreak = currentApps.find(a => {
-            if (!a.date || a.date !== dateStr) return false;
-            const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
-            if (appUser !== cleanUsername) return false;
-            
-            const srv = (a.service || "").toLowerCase();
-            const cust = (a.cust_name || "").toLowerCase();
-            return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
-        });
+        const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
 
-        const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
-        const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
-
-        if (!hasValidSplitShift) {
-            if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
-                await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
-            }
-            continue;
+        if (!userSchedules || userSchedules.length === 0) {
+            userSchedules = [1, 2, 3, 4, 5, 6].map(day => ({
+                username: username,
+                day_of_week: day,
+                is_working: 1,
+                start_time_1: '09:00',
+                end_time_1: '13:00',
+                start_time_2: '14:00',
+                end_time_2: '19:00'
+            }));
         }
 
-        const targetTime = dayConfig.end_time_1;
-        const targetEndTime = dayConfig.start_time_2;
+        const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
+        const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
 
-        if (targetTime < targetEndTime) {
-            if (existingBreak) continue; // Esiste già, passiamo oltre
+        const today = new Date();
+        const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        
+        let batchPayloads = [];
 
-            const breakData = {
-                id: crypto.randomUUID(),
-                salon_id: salonId, // 👈 CRITICO: Il salon_id deve essere esplicito per rispettare la RLS di Supabase
-                cust_name: "☕ Pausa Pranzo",
-                date: dateStr,
-                time: targetTime,
-                end_time: targetEndTime,
-                service: "Pausa Pranzo",
-                price: 0,
-                notes: "Generato automaticamente dai turni",
-                assigned_user: username,
-                color: operatorHexColor
-            };
+        // 📅 Estendiamo il ciclo a 90 giorni (circa 3 mesi)
+        for (let i = 0; i < 90; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            const dayOfWeek = d.getDay(); 
+            const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+
+            const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
             
-            console.log(`[DEBUG PAUSE] ✨ Scrittura appuntamento pausa per ${cleanUsername} il ${dateStr}`);
+            let existingBreak = currentApps.find(a => {
+                if (!a.date || a.date !== dateStr) return false;
+                const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
+                if (appUser !== cleanUsername) return false;
+                
+                const srv = (a.service || "").toLowerCase();
+                const cust = (a.cust_name || "").toLowerCase();
+                return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
+            });
 
-            try {
-                // Scrittura diretta tramite Dexie locale
+            const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
+            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
+
+            if (!hasValidSplitShift) {
+                if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
+                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
+                }
+                continue;
+            }
+
+            const targetTime = dayConfig.end_time_1;
+            const targetEndTime = dayConfig.start_time_2;
+
+            if (targetTime < targetEndTime && !existingBreak) {
+                const breakData = {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    cust_name: "☕ Pausa Pranzo",
+                    date: dateStr,
+                    time: targetTime,
+                    end_time: targetEndTime,
+                    service: "Pausa Pranzo",
+                    price: 0,
+                    notes: "Generato automaticamente dai turni (90gg)",
+                    assigned_user: username,
+                    color: operatorHexColor
+                };
+
+                // Salvataggio immediato in locale su Dexie
                 if (window.localDb && window.localDb.appointments) {
                     await window.localDb.appointments.put(breakData);
                 }
-
-                // Sincronizzazione diretta al Cloud Supabase via REST POST con upsert (merge-duplicates)
-                if (navigator.onLine) {
-                    const SUPABASE_URL = window.SUPABASE_CONFIG.url;
-                    const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
-
-                    const response = await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
-                        method: 'POST',
-                        headers: {
-                            'apikey': SUPABASE_KEY,
-                            'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'resolution=merge-duplicates'
-                        },
-                        body: JSON.stringify(breakData)
-                    });
-
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        console.error(`❌ Errore Supabase POST pausa (${dateStr}):`, response.status, errText);
-                    } else {
-                        console.log(`🚀 Pausa sincronizzata con successo su Supabase per il ${dateStr}`);
-                    }
-                }
-            } catch (err) {
-                console.error(`❌ Errore critico generazione pausa per il ${dateStr}:`, err);
+                
+                batchPayloads.push(breakData);
             }
         }
-    }
-    console.log(`[DEBUG PAUSE] ✅ Fine generazione pause per: '${cleanUsername}'`);
+
+        // Sincronizzazione Cloud in blocco (Batch) se online per massimizzare le performance di rete
+        if (navigator.onLine && batchPayloads.length > 0) {
+            try {
+                const SUPABASE_URL = window.SUPABASE_CONFIG.url;
+                const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
+
+                await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(batchPayloads)
+                });
+                console.log(`🚀 [SYNC 90GG] Sincronizzate ${batchPayloads.length} pause pranzo su Supabase.`);
+            } catch (netErr) {
+                console.warn("⚠️ [SYNC 90GG] Impossibile sincronizzare le pause sul cloud in questo momento (modalità offline).", netErr);
+            }
+        }
+        
+        console.log(`[DEBUG PAUSE 90GG] ✅ Generazione completata.`);
+    }, 500); // Ritardo di mezzo secondo per lasciare caricare la UI principale senza intoppi
 }
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
@@ -6799,61 +6799,62 @@ async function registerOperatorPushNotifications() {
     }
 
 
-            async function checkAndRollBreakAppointments() {
-        try {
-            const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
-            if (!Array.isArray(users) || users.length === 0) return;
+           async function checkAndRollBreakAppointments() {
+    try {
+        const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
+        if (!Array.isArray(users) || users.length === 0) return;
 
-            const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' });
-            const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' });
+        const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' });
+        const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' });
 
-            const targetDateObj = new Date();
-            targetDateObj.setDate(targetDateObj.getDate() + 30);
-            const targetDateStr = targetDateObj.toLocaleDateString('en-CA');
-            const targetDayOfWeek = targetDateObj.getDay();
+        // Rolling proiettato esattamente a 90 giorni nel futuro
+        const targetDateObj = new Date();
+        targetDateObj.setDate(targetDateObj.getDate() + 90);
+        const targetDateStr = targetDateObj.toLocaleDateString('en-CA');
+        const targetDayOfWeek = targetDateObj.getDay();
 
-            for (let u of users) {
-                const username = u.username;
-                const operatorHexColor = u.color || '#6C5CE7';
+        for (let u of users) {
+            const username = u.username;
+            const operatorHexColor = u.color || '#6C5CE7';
 
-                const userSchedules = schedules.filter(s => s.username === username);
-                const dayConfig = userSchedules.find(s => s.day_of_week === targetDayOfWeek);
+            const userSchedules = schedules.filter(s => s.username === username);
+            const dayConfig = userSchedules.find(s => s.day_of_week === targetDayOfWeek);
 
-                if (dayConfig && Number(dayConfig.is_working) === 1 && dayConfig.end_time_1 && dayConfig.start_time_2) {
-                    const targetTime = dayConfig.end_time_1;
-                    const targetEndTime = dayConfig.start_time_2;
+            if (dayConfig && Number(dayConfig.is_working) === 1 && dayConfig.end_time_1 && dayConfig.start_time_2) {
+                const targetTime = dayConfig.end_time_1;
+                const targetEndTime = dayConfig.start_time_2;
 
-                    if (targetTime < targetEndTime) {
-                        // Controlliamo se esiste GIÀ qualsiasi pausa in quella data (sia essa manuale o automatica)
-                        const exists = currentApps.some(a => 
-                            a.date === targetDateStr && 
-                            a.assigned_user === username && 
-                            (a.service && a.service.toLowerCase().includes('pausa'))
-                        );
+                if (targetTime < targetEndTime) {
+                    const exists = currentApps.some(a => 
+                        a.date === targetDateStr && 
+                        a.assigned_user === username && 
+                        (a.service && a.service.toLowerCase().includes('pausa'))
+                    );
 
-                        // Se non esiste alcuna pausa in quel giorno, creiamo il delta
-                        if (!exists) {
-                            const breakData = {
-                                cust_name: "☕ Pausa Pranzo",
-                                date: targetDateStr,
-                                time: targetTime,
-                                end_time: targetEndTime,
-                                service: "Pausa Pranzo",
-                                price: 0,
-                                notes: "Generato automaticamente dal rolling a 30 giorni",
-                                assigned_user: username,
-                                color: operatorHexColor
-                            };
-                            await window.universalQuery({ action: 'INSERT', table: 'appointments', data: breakData });
-                            console.log(`[Rolling Delta] Creata pausa standard per ${username} a ${targetDateStr}`);
-                        }
+                    if (!exists) {
+                        const breakData = {
+                            id: crypto.randomUUID(),
+                            salon_id: u.salon_id || currentUser.salon_id,
+                            cust_name: "☕ Pausa Pranzo",
+                            date: targetDateStr,
+                            time: targetTime,
+                            end_time: targetEndTime,
+                            service: "Pausa Pranzo",
+                            price: 0,
+                            notes: "Generato automaticamente dal rolling a 90 giorni",
+                            assigned_user: username,
+                            color: operatorHexColor
+                        };
+                        await window.universalQuery({ action: 'INSERT', table: 'appointments', data: breakData });
+                        console.log(`[Rolling Delta 90gg] Creata pausa standard per ${username} a ${targetDateStr}`);
                     }
                 }
             }
-        } catch (err) {
-            console.error("Errore durante il controllo del rolling delta delle pause:", err);
         }
+    } catch (err) {
+        console.error("Errore durante il controllo del rolling delta a 90 giorni:", err);
     }
+}
     
 
 
