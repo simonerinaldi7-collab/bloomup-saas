@@ -515,31 +515,27 @@ async function handleSpecialAction(action, data, id) {
        if (action === 'UPSERT_SETTING') {
             const { key, value } = data;
             
-            // 🛡️ Normalizzazione stringa per preservare le emoji da mobile
-            const safeValue = typeof value === 'string' ? String(value) : value;
+            // 🛡️ BLINDATURA 100%: Codifica in Base64 sicuro per evitare qualsiasi corruzione di emoji/accenti su mobile
+            const safeValue = typeof value === 'string' ? btoa(encodeURIComponent(value)) : value;
 
-            // 1. Salvataggio / Aggiornamento locale su Dexie (Usa put per chiave primaria)
             try {
                 await localDb.settings.put({
                     key: key,
                     value: safeValue,
                     salon_id: salonId
                 });
-                console.log("Configurazione salvata in locale:", key);
             } catch (dbErr) {
                 console.error("Errore salvataggio settings locale:", dbErr);
             }
 
-            // 2. Salvataggio su Supabase (Cloud) con parametri di conflitto corretti per PostgREST
             if (navigator.onLine) {
                 try {
-                    // Per fare l'upsert pulito su Supabase indicando la chiave di conflitto (key, salon_id)
-                    const response = await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key,salon_id`, {
+                    await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key,salon_id`, {
                         method: 'POST',
                         headers: {
                             'apikey': SUPABASE_KEY,
                             'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json; charset=utf-8',
+                            'Content-Type': 'application/json',
                             'Prefer': 'resolution=merge-duplicates'
                         },
                         body: JSON.stringify({
@@ -548,22 +544,7 @@ async function handleSpecialAction(action, data, id) {
                             salon_id: salonId
                         })
                     });
-
-                    if (response.ok) {
-                        console.log("Configurazione sincronizzata su Supabase senza duplicati.");
-                    } else {
-                        const errText = await response.text();
-                        console.error("Errore Supabase UPSERT_SETTING:", response.status, errText);
-                        
-                        await localDb.sync_queue.add({
-                            action: 'INSERT',
-                            table_name: 'settings',
-                            data: { key, value: safeValue, salon_id: salonId },
-                            target_id: key
-                        });
-                    }
                 } catch (netErr) {
-                    console.error("Errore di rete su UPSERT_SETTING:", netErr);
                     await localDb.sync_queue.add({
                         action: 'INSERT',
                         table_name: 'settings',

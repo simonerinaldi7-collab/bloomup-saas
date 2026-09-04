@@ -4774,21 +4774,26 @@ let currentSelectedServices = [];
             allLogs = await window.api.query({ action: 'GET_ALL', table: 'message_logs' }) || [];
             allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
             
-            // Caricamento in sicurezza dei turni operatore per la vista agenda
             window.cachedOperatorSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
 
             const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
-
+            
+            sysSettings = {};
             if (Array.isArray(settingsData)) {
-                // Reset e popolamento pulito dell'oggetto di configurazione globale
-                sysSettings = {};
                 settingsData.forEach(s => {
                     if (s && s.key) {
-                        sysSettings[s.key] = s.value;
+                        let decodedVal = s.value;
+                        // 🛡️ DECOodifichiamo in sicurezza dal Base64 se il testo era codificato
+                        try {
+                            if (typeof s.value === 'string' && (s.key.includes('template') || s.key.includes('msg'))) {
+                                decodedVal = decodeURIComponent(atob(s.value));
+                            }
+                        } catch (e) {
+                            decodedVal = s.value; // Fallback se il testo era in chiaro
+                        }
+                        sysSettings[s.key] = decodedVal;
                     }
                 });
-            } else {
-                console.warn("Nessuna impostazione trovata o errore nel caricamento.");
             }
             
             updateStats(); 
@@ -10007,25 +10012,18 @@ function urlBase64ToUint8Array(base64String) {
             async function askAI() { /* Gemini AI logic as before */ }
             function toggleAllLogs(c) { document.querySelectorAll('.log-cb:not(:disabled)').forEach(x => x.checked = c); }
             function loadSettingsFields() {
-                const remHoursEl = document.getElementById('set-rem-hours');
-                const msgConfirmEl = document.getElementById('set-msg-confirm');
-                const msgReminderEl = document.getElementById('set-msg-reminder');
-                const dupDaysEl = document.getElementById('set-duplicate-days');
-                const imminentLeadEl = document.getElementById('set-imminent-lead');
+        const remHoursEl = document.getElementById('set-rem-hours');
+        const msgConfirmEl = document.getElementById('set-msg-confirm');
+        const msgReminderEl = document.getElementById('set-msg-reminder');
+        const dupDaysEl = document.getElementById('set-duplicate-days');
+        const imminentLeadEl = document.getElementById('set-imminent-lead');
 
-                if (remHoursEl) remHoursEl.value = sysSettings.reminder_hours || 48;
-                
-                // 🌟 Uso esplicito di decodeURIComponent o assegnazione diretta sicura
-                if (msgConfirmEl) {
-                    msgConfirmEl.value = sysSettings.template_confirm ? decodeURIComponent(encodeURIComponent(sysSettings.template_confirm)) : "";
-                }
-                if (msgReminderEl) {
-                    msgReminderEl.value = sysSettings.template_reminder ? decodeURIComponent(encodeURIComponent(sysSettings.template_reminder)) : "";
-                }
-                
-                if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
-                if (imminentLeadEl) imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
-            }
+        if (remHoursEl) remHoursEl.value = sysSettings.reminder_hours || 48;
+        if (msgConfirmEl) msgConfirmEl.value = sysSettings.template_confirm || "";
+        if (msgReminderEl) msgReminderEl.value = sysSettings.template_reminder || "";
+        if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
+        if (imminentLeadEl) imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
+    }
             
             window.api.onReminder((data) => {
                 const alertBox = document.getElementById('reminder-alert');
