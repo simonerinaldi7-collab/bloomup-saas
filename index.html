@@ -2358,18 +2358,15 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
     }
 
    // 🕒 Generazione automatica delle pause estesa a 3 mesi (90 giorni) in modalità batch non bloccante
-// 🕒 Generazione automatica delle pause estesa a 90 giorni (Anti-duplicazione blindata)
+// 🕒 Generazione automatica delle pause estesa a 90 giorni (Blindata contro i duplicati)
 async function generateBreakAppointments(username) {
     if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     
-    // Evitiamo esecuzioni sovrapposte simultanee salvando un flag di blocco in memoria
-    if (window._isGeneratingBreaks) return;
-    window._isGeneratingBreaks = true;
-
-    try {
-        console.log(`[DEBUG PAUSE 90GG] 🔄 Avvio verifica e generazione sicura per: '${cleanUsername}'`);
+    // Eseguiamo in background per non bloccare mai la UI principale
+    setTimeout(async () => {
+        console.log(`[DEBUG PAUSE 90GG] 🔄 Avvio verifica e generazione per utente: '${cleanUsername}'`);
 
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
@@ -2390,6 +2387,10 @@ async function generateBreakAppointments(username) {
         const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
 
         const today = new Date();
+        
+        // 🔄 Ricarichiamo la lista aggiornata degli appuntamenti dal DB per avere una fotografia freschissima
+        const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        
         let batchPayloads = [];
 
         // 📅 Ciclo esteso a 90 giorni (3 mesi)
@@ -2397,22 +2398,14 @@ async function generateBreakAppointments(username) {
             const d = new Date(today);
             d.setDate(today.getDate() + i);
             const dayOfWeek = d.getDay(); 
-            const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' assoluto
+            const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
 
             const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
-            const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
-            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
-
-            // Ricarichiamo gli appuntamenti freschissimi dal DB locale per ogni giorno per avere la certezza matematica
-            const latestApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-
-            // 🛡️ CONTROLLO DUPLICATO MASTER: Cerca se esiste già una pausa per questo operatore in questa data esatta
-            let existingBreak = latestApps.find(a => {
-                if (!a.date) return false;
-                // Normalizziamo la data del DB prendendo solo i primi 10 caratteri (YYYY-MM-DD)
-                const appDateOnly = String(a.date).substring(0, 10);
-                if (appDateOnly !== dateStr) return false;
-
+            
+            // 🛡️ VERIFICA ANTI-DUPLICATO RIGOROSA:
+            // Controlliamo se esiste già una pausa per questo operatore in questa specifica data
+            let existingBreak = currentApps.find(a => {
+                if (!a.date || a.date !== dateStr) return false;
                 const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
                 if (appUser !== cleanUsername) return false;
                 
@@ -2421,8 +2414,11 @@ async function generateBreakAppointments(username) {
                 return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
             });
 
+            const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
+            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
+
             if (!hasValidSplitShift) {
-                // Se il giorno non è più lavorativo ma c'è una vecchia pausa automatica, rimuovila
+                // Se il giorno non è più lavorativo ma c'è una vecchia pausa automatica, la rimuoviamo
                 if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
                     await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
                 }
@@ -2432,7 +2428,7 @@ async function generateBreakAppointments(username) {
             const targetTime = dayConfig.end_time_1;
             const targetEndTime = dayConfig.start_time_2;
 
-            // Se il turno prevede una pausa E NON ESISTE ALCUN RECORD GIÀ REGISTRATO IN QUELLA DATA
+            // Se il turno prevede una pausa valida E non esiste già alcun record in quella data
             if (targetTime < targetEndTime && !existingBreak) {
                 const breakData = {
                     id: crypto.randomUUID(),
@@ -2448,16 +2444,20 @@ async function generateBreakAppointments(username) {
                     color: operatorHexColor
                 };
 
-                // Scrittura immediata locale in IndexedDB
+                // Salvataggio immediato in locale su Dexie
                 if (window.localDb && window.localDb.appointments) {
                     await window.localDb.appointments.put(breakData);
                 }
                 
                 batchPayloads.push(breakData);
+                
+                // Aggiungiamo temporaneamente l'oggetto anche in currentApps in memoria 
+                // per evitare duplicati nel caso lo stesso giorno venga analizzato due volte
+                currentApps.push(breakData);
             }
         }
 
-        // Sincronizzazione cloud in blocco su Supabase
+        // Sincronizzazione Cloud in blocco (Batch) su Supabase
         if (navigator.onLine && batchPayloads.length > 0) {
             try {
                 const SUPABASE_URL = window.SUPABASE_CONFIG.url;
@@ -2473,18 +2473,14 @@ async function generateBreakAppointments(username) {
                     },
                     body: JSON.stringify(batchPayloads)
                 });
-                console.log(`🚀 [SYNC 90GG] Sincronizzate ${batchPayloads.length} nuove pause pranzo sul cloud.`);
+                console.log(`🚀 [SYNC 90GG] Sincronizzate ${batchPayloads.length} nuove pause pranzo su Supabase.`);
             } catch (netErr) {
-                console.warn("⚠️ [SYNC 90GG] Sincronizzazione cloud rimandata (offline).", netErr);
+                console.warn("⚠️ [SYNC 90GG] Sincronizzazione cloud rimandata (modalità offline).", netErr);
             }
         }
         
-        console.log(`[DEBUG PAUSE 90GG] ✅ Generazione completata senza duplicati.`);
-    } catch (err) {
-        console.error("Errore critico in generateBreakAppointments:", err);
-    } finally {
-        window._isGeneratingBreaks = false; // Rilascia il blocco di esecuzione
-    }
+        console.log(`[DEBUG PAUSE 90GG] ✅ Verifica e generazione completate senza duplicati.`);
+    }, 500);
 }
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
