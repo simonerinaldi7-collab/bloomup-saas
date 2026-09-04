@@ -2145,21 +2145,73 @@ console.error = function(...args) {
             console.error("Errore nel caricamento del foglio dashboard:", err);
         }
     }
-// ⚡ INTERCETTAZIONE RAPIDA ALL'AVVIO SE APERTO DA NOTIFICA PUSH
-window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const alertAppId = urlParams.get('open_alert');
+
+    
+
+
+    // ⚡ INTERCETTAZIONE ULTRA-RAPIDA (Esegue PRIMA di qualsiasi altra cosa all'avvio)
+(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const alertAppId = urlParams.get('open_alert');
+    
+    if (alertAppId) {
+        console.log("⚡ [BOOT ISTANTANO] Intercettato allarme push prima del caricamento generale, ID:", alertAppId);
+        window._urgentAlarmAppId = alertAppId;
         
-        if (alertAppId) {
-            console.log("⚡ [BOOT RAPIDO] Rilevato allarme in sospeso da notifica push per app ID:", alertAppId);
-            // Puliamo subito l'URL per estetica pulita
-            window.history.replaceState({}, document.title, window.location.pathname);
-            
-            // Tentiamo di aprire subito il modale d'allarme
-            await forceOpenAlarmModalById(alertAppId);
+        // Puliamo subito l'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+})();
+
+// All'interno del DOMContentLoaded principale, diamo la precedenza assoluta all'allarme urgente
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App avviata. Controllo priorità allarme urgente...");
+    
+    // Se c'è un allarme urgente in memoria, sblocchiamo subito la grafica di base
+    if (window._urgentAlarmAppId) {
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.classList.add('hidden');
+        const appShell = document.getElementById('app-shell');
+        if (appShell) appShell.style.display = 'flex';
+
+        // Proviamo a estrarre l'appuntamento direttamente da IndexedDB al millisecondo
+        if (window.Dexie && typeof Dexie !== 'undefined') {
+            try {
+                const db = new Dexie("RetailMasterPWA");
+                db.version(21).stores({ appointments: 'id, salon_id, date, time' });
+                const app = await db.appointments.get(window._urgentAlarmAppId);
+                
+                if (app) {
+                    console.log("🚀 [APERTURA FULMINEA] Trovato appuntamento in locale, mostro il modale istantaneamente!");
+                    const now = new Date();
+                    const appDateTime = new Date(`${app.date}T${app.time}:00`);
+                    const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
+                    
+                    // Mostra il modale immediatamente
+                    if (typeof triggerProfessionalAlarmModal === 'function') {
+                        triggerProfessionalAlarmModal(app, diffMinutes);
+                    }
+                }
+            } catch (dbEx) {
+                console.warn("Impossibile leggere l'appuntamento in modalità flash da Dexie:", dbEx);
+            }
         }
-    }, 400); // 400ms il tempo tecnico di montaggio della pagina
+    }
+
+    // Prosegui poi con il normale controllo della sessione e il caricamento dei dati
+    const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
+    if (savedSessionJson) {
+        try {
+            const sessionData = JSON.parse(savedSessionJson);
+            if (sessionData && sessionData.username) {
+                currentUser = sessionData;
+                await loginSuccess();
+                return;
+            }
+        } catch (e) {
+            localStorage.removeItem('VaiMUp_logged_session');
+        }
+    }
 });
 
 // Ascoltatore di messaggi diretti dal Service Worker se l'app era già aperta in background
