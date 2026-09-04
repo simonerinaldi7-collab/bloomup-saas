@@ -9458,12 +9458,8 @@ async function subscribeUserToPush(isManualAction = false) {
             });
         }
 
-        if (!currentUser || !currentUser.username) {
-            console.warn("Impossibile registrare le push: utente non loggato.");
-            return;
-        }
+        if (!currentUser || !currentUser.username) return;
 
-        // 🌟 Estrazione pulita e standard dell'oggetto JSON della subscription
         const rawJson = subscription.toJSON();
         const cleanSubscriptionObject = {
             endpoint: rawJson.endpoint,
@@ -9476,27 +9472,33 @@ async function subscribeUserToPush(isManualAction = false) {
         const payload = {
             id: crypto.randomUUID(),
             salon_id: currentUser.salon_id || 'SALON_001',
-            username: currentUser.username.trim().toLowerCase(), // 👈 Salvato sempre in minuscolo per coerenza con la ricerca
+            username: currentUser.username.trim().toLowerCase(),
             subscription: cleanSubscriptionObject
         };
 
-        // Salvataggio tramite il bridge universale
-        await window.universalQuery({
-            action: 'INSERT',
-            table: 'push_subscriptions',
-            data: payload
-        });
+        // 🌟 USIAMO L'UPSERT DI SUPABASE TRAMITE FETCH DIRETTA O UNIVERSALQUERY CON MERGE
+        if (navigator.onLine) {
+            const SUPABASE_URL = window.SUPABASE_CONFIG.url;
+            const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
 
-        console.log("✅ [PUSH] Dispositivo registrato e sincronizzato con successo!");
-        if (isManualAction) {
-            alert("✅ Notifiche push attivate con successo su questo dispositivo!");
+            await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?on_conflict=salon_id,username`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify(payload)
+            });
         }
+
+        console.log("✅ [PUSH] Sottoscrizione push registrata senza conflitti.");
+        if (isManualAction) alert("✅ Notifiche push attivate con successo!");
 
     } catch (err) {
-        console.error("❌ [PUSH ERROR] Errore durante la sottoscrizione push:", err);
-        if (isManualAction) {
-            alert(`Errore attivazione notifiche: ${err.message}`);
-        }
+        console.error("❌ [PUSH ERROR]:", err);
+        if (isManualAction) alert(`Errore attivazione: ${err.message}`);
     }
 }
 
