@@ -8219,38 +8219,38 @@ async function updateReminderBadgeCount() {
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
+    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto e rigoroso)
     const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
     
     const matchedServiceItems = [];
     for (let nameStr of savedServiceNames) {
         if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
         
-        // Cerchiamo il servizio nel listino
-        const foundServ = allInventory.find(i => i.type === 'servizio' && (
-            i.name.toLowerCase().trim() === nameStr || 
-            nameStr.includes(i.name.toLowerCase().trim()) ||
-            i.name.toLowerCase().trim().includes(nameStr)
-        ));
+        // 🛡️ CORRETTO: Cerchiamo il servizio nel listino con UGUAGLIANZA ESATTA (nessun includes parziale rischioso)
+        const foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
         
         if (foundServ) {
             // Recuperiamo il prezzo corrente del servizio
             const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
             const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
             
-            // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
+            // Generiamo un UID univoco per ogni istanza
             const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
             matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
+        } else {
+            // Fallbck di sicurezza se il nome esatto non viene trovato ma l'utente aveva scritto una voce personalizzata
+            console.warn(`⚠️ Servizio esatto non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
+            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+            matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
         }
     }
 
-    // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
+    // Iniettiamo le istanze in currentSelectedServices
     if (typeof renderSelectedServiceTags === 'function') {
         currentSelectedServices = matchedServiceItems;
         renderSelectedServiceTags();
     } else if (typeof initServiceAutocomplete === 'function') {
-        // Fallback di compatibilità
-        const matchedIds = matchedServiceItems.map(s => s.id);
+        const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
         await initServiceAutocomplete(matchedIds);
     }
 
