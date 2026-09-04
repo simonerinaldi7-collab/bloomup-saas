@@ -515,12 +515,15 @@ async function handleSpecialAction(action, data, id) {
         if (action === 'UPSERT_SETTING') {
             const { key, value } = data;
             
+            // 🛡️ PULIZIA E SANIFICAZIONE SICURA DEL TESTO (Anti-corruzione Emoji)
+            // Convertiamo in stringa e normalizziamo i caratteri speciali per il trasporto UTF-8
+            const safeValue = typeof value === 'string' ? value.normalize('NFC') : value;
+
             // 1. Salvataggio in IndexedDB (Locale)
             try {
-                // Usiamo put invece di add per fare un update se esiste già o insert se è nuova
                 await localDb.settings.put({
                     key: key,
-                    value: value,
+                    value: safeValue,
                     salon_id: salonId
                 });
                 console.log("Configurazione salvata in locale:", key);
@@ -528,37 +531,34 @@ async function handleSpecialAction(action, data, id) {
                 console.error("Errore salvataggio settings locale:", dbErr);
             }
 
-            // 2. Salvataggio su Supabase (Cloud) con Upsert corretto
+            // 2. Salvataggio su Supabase (Cloud) con payload JSON strict UTF-8
             if (navigator.onLine) {
                 try {
-                    // Per fare l'upsert su Supabase con chiave primaria composta, 
-                    // dobbiamo usare l'header 'Prefer: resolution=merge-duplicates' e indicare on_conflict se necessario
                     const response = await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-                        method: 'POST', // Supabase usa POST per l'upsert
+                        method: 'POST',
                         headers: {
                             'apikey': SUPABASE_KEY,
                             'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'resolution=merge-duplicates' // Fondamentale per non avere errori 409
+                            'Content-Type': 'application/json; charset=utf-8', // 👈 Forza esplicitamente charset UTF-8
+                            'Prefer': 'resolution=merge-duplicates'
                         },
                         body: JSON.stringify({
                             key: key,
-                            value: value,
+                            value: safeValue, // 👈 Usa il valore sanificato
                             salon_id: salonId
                         })
                     });
 
                     if (response.ok) {
-                        console.log("Configurazione sincronizzata su Supabase con successo.");
+                        console.log("Configurazione con emoji sincronizzata su Supabase con successo.");
                     } else {
                         const errText = await response.text();
                         console.error("Errore Supabase UPSERT_SETTING:", response.status, errText);
                         
-                        // Fallback in sync_queue se fallisce
                         await localDb.sync_queue.add({
                             action: 'INSERT',
                             table_name: 'settings',
-                            data: { key, value, salon_id: salonId },
+                            data: { key, value: safeValue, salon_id: salonId },
                             target_id: key
                         });
                     }
@@ -567,16 +567,15 @@ async function handleSpecialAction(action, data, id) {
                     await localDb.sync_queue.add({
                         action: 'INSERT',
                         table_name: 'settings',
-                        data: { key, value, salon_id: salonId },
+                        data: { key, value: safeValue, salon_id: salonId },
                         target_id: key
                     });
                 }
             } else {
-                // Se offline, mettiamo in coda
                 await localDb.sync_queue.add({
                     action: 'INSERT',
                     table_name: 'settings',
-                    data: { key, value, salon_id: salonId },
+                    data: { key, value: safeValue, salon_id: salonId },
                     target_id: key
                 });
             }
