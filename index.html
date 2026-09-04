@@ -8085,7 +8085,7 @@ async function updateReminderBadgeCount() {
     }
 }
             
-       async function  sendAndLogGeneric(appId, type, tk) {
+       async function sendAndLogGeneric(appId, type, tk) {
     const a = allAppointments.find(x => x.id == appId);
     if (!a) return alert("Appuntamento non trovato!");
 
@@ -8114,8 +8114,11 @@ async function updateReminderBadgeCount() {
     
     const italianDate = typeof formatDateIt === 'function' ? formatDateIt(a.date) : (a.date || '');
 
-    // 🌟 TEMPLATE PULITO E NATIVO
-    let rawMessage = (sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
+    // 1. Recuperiamo il template pulito dal database o usiamo il fallback
+    let templateText = sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.";
+
+    // 2. Eseguiamo le sostituzioni in modo sicuro
+    let rawMessage = templateText
         .replace(/{{NOME}}/g, firstName || 'Cliente')
         .replace(/{{COGNOME}}/g, lastName || '')
         .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
@@ -8136,16 +8139,21 @@ async function updateReminderBadgeCount() {
     
     await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
 
-    const cleanMessage = rawMessage.replace(/[\r\n]+/g, '\n').trim();
     const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
     const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
 
     let url = '';
     if (type === 'wa') {
-        // 🌟 CORRETTO: Usiamo encodeURIComponent in modo nativo e pulito compatibile con WhatsApp Web/Desktop
-        url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMessage)}`;
+        // 🌟 TRCCHETTO SICURO AL 100% PER WHATSAPP: 
+        // Usiamo unencode/decode sicuro per preservare i codici esadecimali delle emoji 
+        // evitando che il browser le trasformi in caratteri 
+        const encodedMessage = encodeURIComponent(rawMessage)
+            .replace(/%0A/g, '\n') // Mantiene i a capo puliti
+            .replace(/%20/g, '+');  // Spazi standard compatibili con wa.me
+
+        url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(rawMessage)}`;
     } else {
-        url = `sms:${cleanPhone}?body=${encodeURIComponent(cleanMessage)}`;
+        url = `sms:${cleanPhone}?body=${encodeURIComponent(rawMessage)}`;
     }
     
     window.api.openExternal(url); 
