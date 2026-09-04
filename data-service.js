@@ -6,7 +6,7 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(20).stores({
+    localDb.version(21).stores({
         users: 'id, salon_id, username, status',
         customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
         inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment', // 👈 Aggiunto 'size'
@@ -23,6 +23,7 @@ if (typeof Dexie !== 'undefined') {
         supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid', // 👈 NUOVA TABELLA
         stock_lots: 'id, salon_id, product_id, created_at', // 👈 NUOVA TABELLA PER GESTIONE LOTTI FIFO
         push_subscriptions: 'id, salon_id, username', // 👈 NUOVA TABELLA LOCALE PER LE PUSH NOTIFICATIONS
+        appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date',
         settings: 'key, salon_id',
         sync_queue: '++local_id, action, table_name, data, target_id'
     });
