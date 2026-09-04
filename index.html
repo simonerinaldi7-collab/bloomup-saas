@@ -2163,18 +2163,35 @@ console.error = function(...args) {
     }
 })();
 
-// All'interno del DOMContentLoaded principale, diamo la precedenza assoluta all'allarme urgente
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log("App avviata. Controllo priorità allarme urgente...");
+// ⚡ 1. INTERCETTAZIONE ULTRA-RAPIDA (Esegue PRIMA del DOMContentLoaded per leggere l'allarme istantaneamente)
+(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const alertAppId = urlParams.get('open_alert');
     
-    // Se c'è un allarme urgente in memoria, sblocchiamo subito la grafica di base
+    if (alertAppId) {
+        console.log("⚡ [BOOT ISTANTANEO] Intercettato allarme urgente, ID:", alertAppId);
+        window._urgentAlarmAppId = alertAppId;
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+})();
+
+// 🚀 2. UNICO DOMContentLoaded UNIFICATO (Gestisce Allarme Urgente, Recovery Password e Auto-Login)
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App avviata. Esecuzione boot unificato...");
+
+    // --- PRIORITÀ 1: APERTURA ISTANTANEA ALLARME PUSH (< 0.1s) ---
     if (window._urgentAlarmAppId) {
         const loginScreen = document.getElementById('login-screen');
         if (loginScreen) loginScreen.classList.add('hidden');
         const appShell = document.getElementById('app-shell');
         if (appShell) appShell.style.display = 'flex';
 
-        // Proviamo a estrarre l'appuntamento direttamente da IndexedDB al millisecondo
+        // Ripristiniamo l'utente in memoria se c'è la sessione salvata
+        const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
+        if (savedSessionJson) {
+            try { currentUser = JSON.parse(savedSessionJson); } catch(e){}
+        }
+
         if (window.Dexie && typeof Dexie !== 'undefined') {
             try {
                 const db = new Dexie("RetailMasterPWA");
@@ -2187,31 +2204,59 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const appDateTime = new Date(`${app.date}T${app.time}:00`);
                     const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
                     
-                    // Mostra il modale immediatamente
                     if (typeof triggerProfessionalAlarmModal === 'function') {
                         triggerProfessionalAlarmModal(app, diffMinutes);
                     }
                 }
             } catch (dbEx) {
-                console.warn("Impossibile leggere l'appuntamento in modalità flash da Dexie:", dbEx);
+                console.warn("Errore lettura flash da Dexie:", dbEx);
             }
         }
+        return; // Interrompiamo qui per garantire zero lag all'apertura dell'allarme!
     }
 
-    // Prosegui poi con il normale controllo della sessione e il caricamento dei dati
+    // --- PRIORITÀ 2: INTERCETTAZIONE FLUSSO DI RECUPERO PASSWORD DA SUPABASE ---
+    try {
+        const supabaseClient = window.supabase ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key) : null;
+        if (supabaseClient) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const queryParams = new URLSearchParams(window.location.search);
+            const isRecovery = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery' || window.location.hash.includes('access_token');
+
+            if (isRecovery) {
+                const modal = document.getElementById('mod-update-new-pass');
+                if (modal) modal.classList.add('active');
+            }
+
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    const modal = document.getElementById('mod-update-new-pass');
+                    if (modal) modal.classList.add('active');
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Errore nell'inizializzazione listener recovery:", e);
+    }
+
+    // --- PRIORITÀ 3: SESSIONE PERSISTENTE (AUTO-LOGIN) ---
     const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
     if (savedSessionJson) {
         try {
             const sessionData = JSON.parse(savedSessionJson);
             if (sessionData && sessionData.username) {
+                console.log("⚡ [AUTO-LOGIN] Trovata sessione attiva per:", sessionData.username);
                 currentUser = sessionData;
                 await loginSuccess();
                 return;
             }
         } catch (e) {
+            console.error("Errore nel parsing della sessione salvata:", e);
             localStorage.removeItem('VaiMUp_logged_session');
         }
     }
+
+    console.log("In attesa di login manuale...");
 });
 
 // Ascoltatore di messaggi diretti dal Service Worker se l'app era già aperta in background
@@ -5679,33 +5724,7 @@ function resetExpenseForm() {
         area.innerHTML = html + '</div>';
     }
 
-document.addEventListener('DOMContentLoaded', async () => {
-        console.log("App avviata. Controllo sessione persistente...");
-        
-        const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
-        if (savedSessionJson) {
-            try {
-                const sessionData = JSON.parse(savedSessionJson);
-                if (sessionData && sessionData.username) {
-                    console.autoLogin = true;
-                    console.log("⚡ [AUTO-LOGIN] Trovata sessione attiva per:", sessionData.username);
-                    
-                    // Ripristiniamo l'utente corrente in memoria
-                    currentUser = sessionData;
-                    
-                    // Eseguiamo direttamente il flusso di successo senza mostrare il login
-                    await loginSuccess();
-                    return;
-                }
-            } catch (e) {
-                console.error("Errore nel parsing della sessione salvata:", e);
-                localStorage.removeItem('VaiMUp_logged_session');
-            }
-        }
-        
-        // Se non c'è sessione salvata, mostra regolarmente la schermata di login
-        console.log("In attesa di login manuale...");
-    });
+
 
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
