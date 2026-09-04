@@ -65,7 +65,7 @@ self.addEventListener('notificationclick', function (event) {
     notification.close();
 
     if (action === 'dismiss') {
-        // L'utente ha cliccato "Ho capito": inviamo un messaggio ai client aperti per chiudere l'allarme ovunque
+        // L'utente ha cliccato "Ho capito": salviamo subito nello storage condiviso e avvisiamo i client
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
                 clientList.forEach(client => {

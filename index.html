@@ -3234,6 +3234,7 @@ async function submitPasswordReset() {
 
 
 // Ascolta i comandi provenienti dal Service Worker (interazione dai bottoni della notifica nativa)
+// Ascoltatore dei messaggi provenienti dal Service Worker
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', async (event) => {
         if (!event.data) return;
@@ -3241,9 +3242,13 @@ if ('serviceWorker' in navigator) {
         if (event.data.type === 'DISMISS_ALARM') {
             const appId = event.data.appId;
             if (appId) {
+                const todayKeyDate = new Date().toISOString().split('T')[0];
                 const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
-                dismissedAlerts[`${appId}_${new Date().toISOString().split('T')[0]}`] = new Date().toISOString().split('T')[0];
+                
+                // Registriamo l'esclusione definitiva per questo appuntamento oggi
+                dismissedAlerts[`${appId}_${todayKeyDate}`] = todayKeyDate;
                 localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+                console.log(`🛡️ [ALARM] Appuntamento ${appId} marcato come 'Ho capito'. Nessun altro avviso verrà mostrato.`);
             }
             if (typeof closeLocalAlarmModal === 'function') closeLocalAlarmModal();
         } 
@@ -7648,8 +7653,6 @@ async function checkImminentAppointmentsNow() {
 
         const now = new Date();
         const currentUsername = currentUser.username.trim().toLowerCase();
-        
-        // Recuperiamo i minuti di anticipo configurati (ora sincronizzati via sysSettings/Supabase)
         const leadTimeMinutes = getOperatorImminentLeadTime();
 
         const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
@@ -7663,12 +7666,16 @@ async function checkImminentAppointmentsNow() {
             if (srv.includes('pausa') || srv.includes('pranzo')) return;
             if (!app.date || !app.time) return;
 
-            const uniqueAlertId = `${app.id}_${app.date}`;
-            if (dismissedAlerts[uniqueAlertId] === todayKeyDate) return;
+            // 🛑 BLOCCO ANTIDOPPIO / DISMISS: Se l'utente ha già premuto "Ho capito" oggi per questo appuntamento, salta!
+            const uniqueAlertKey = `${app.id}_${app.date}`;
+            if (dismissedAlerts[uniqueAlertKey] === todayKeyDate) {
+                return; // Esce silenziosamente senza fare nulla
+            }
 
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
+            // Gestione Snooze (se attivo, rispetta il tempo posticipato)
             if (window.activeSnoozes && window.activeSnoozes[app.id]) {
                 const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                 if (now < snoozeUntil) return;
@@ -7677,10 +7684,8 @@ async function checkImminentAppointmentsNow() {
             const diffMs = appDateTime - now;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-            console.log(`⏱️ [CHECK ALLARME] App: ${app.cust_name} (${app.date} ${timeClean}) | Mancano: ${diffMinutes} min (Target: 0 - ${leadTimeMinutes} min)`);
-
             if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
-                const sessionKey = `pro_alert_notified_${uniqueAlertId}`;
+                const sessionKey = `pro_alert_notified_${uniqueAlertKey}`;
                 
                 if (!sessionStorage.getItem(sessionKey)) {
                     sessionStorage.setItem(sessionKey, 'true');
@@ -7852,17 +7857,20 @@ function closeLocalAlarmModal() {
     if (overlay) overlay.remove();
 }
 
+// Funzione richiamata quando l'operatore clicca "Ho capito / Procedi" nel modale in-app
 async function requestDismissBroadcast(appId) {
-    // Troviamo la data dell'appuntamento corrente dal DOM o dall'array globale per blindare il blocco giornaliero
     const app = (allAppointments || []).find(x => x.id === appId);
-    if (app && app.date) {
-        const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
-        dismissedAlerts[`${appId}_${app.date}`] = new Date().toISOString().split('T')[0];
-        localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
-    }
+    const todayKeyDate = new Date().toISOString().split('T')[0];
+    const targetDate = app ? app.date : todayKeyDate;
+
+    // Salvataggio immediato nel localStorage del client corrente
+    const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+    dismissedAlerts[`${appId}_${targetDate}`] = todayKeyDate;
+    localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
 
     closeLocalAlarmModal();
 
+    // Sincronizzazione via BroadcastChannel / Supabase Realtime verso gli altri dispositivi dell'operatore
     if (typeof realtimeAlertChannel !== 'undefined' && realtimeAlertChannel) {
         await realtimeAlertChannel.send({
             type: 'broadcast',
