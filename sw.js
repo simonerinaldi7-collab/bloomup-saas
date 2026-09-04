@@ -69,35 +69,18 @@ self.addEventListener('notificationclick', function (event) {
     notification.close();
 
     if (action === 'dismiss') {
-        // L'utente ha cliccato "Ho capito" direttamente dalla notifica (anche ad app chiusa!)
         if (appId) {
             const todayKeyDate = new Date().toISOString().split('T')[0];
-            
-            // Eseguiamo la chiamata di inserimento asincrona direttamente da background
+            const salonId = notification.data?.salonId || 'SALON_001';
+            const username = notification.data?.username || 'system';
+
+            // Salviamo in IndexedDB e registriamo il sync in background nativo
             event.waitUntil(
-                fetch(`${SUPABASE_URL}/rest/v1/appointment_dismissals?on_conflict=salon_id,appointment_id,dismissed_date`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
-                    },
-                    body: JSON.stringify({
-                        salon_id: notification.data?.salonId || 'SALON_001',
-                        appointment_id: appId,
-                        username: notification.data?.username || 'system',
-                        dismissed_date: todayKeyDate
-                    })
-                }).then(() => {
-                    console.log(`✅ [SW DISMISS] Record salvato su Supabase per app ID: ${appId}`);
-                }).catch(err => {
-                    console.error("❌ [SW DISMISS ERROR] Impossibile registrare il click su Supabase:", err);
-                })
+                storeDismissAndRegisterSync(salonId, appId, username, todayKeyDate)
             );
         }
 
-        // Avvisiamo anche eventuali client (pagine aperte) per sincronizzare la UI al volo
+        // Avvisiamo le finestre aperte (se l'app è aperta)
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
                 clientList.forEach(client => {
@@ -106,7 +89,6 @@ self.addEventListener('notificationclick', function (event) {
             })
         );
     } else if (action === 'snooze') {
-        // L'utente ha cliccato "Posticipa 5m"
         const snoozeUntil = new Date(new Date().getTime() + 5 * 60000).toISOString();
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
@@ -116,7 +98,6 @@ self.addEventListener('notificationclick', function (event) {
             })
         );
     } else {
-        // Click normale sul corpo della notifica: apre l'app
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
                 for (let i = 0; i < clientList.length; i++) {
@@ -132,3 +113,114 @@ self.addEventListener('notificationclick', function (event) {
         );
     }
 });
+
+// 📦 1. Salva in IndexedDB e richiede il Background Sync al browser
+function storeDismissAndRegisterSync(salonId, appId, username, todayKeyDate) {
+    return new Promise((resolve) => {
+        const request = indexedDB.open("RetailMasterPWA", 21);
+
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            try {
+                const transaction = db.transaction(['appointment_dismissals', 'sync_queue'], 'readwrite');
+                
+                // Salvataggio locale immediato per spegnere l'allarme ovunque
+                const dismissalsStore = transaction.objectStore('appointment_dismissals');
+                dismissalsStore.put({
+                    id: `${salonId}_${appId}_${todayKeyDate}`,
+                    salon_id: salonId,
+                    appointment_id: appId,
+                    username: username,
+                    dismissed_date: todayKeyDate
+                });
+
+                // Coda di sincronizzazione per Supabase
+                const syncQueueStore = transaction.objectStore('sync_queue');
+                syncQueueStore.add({
+                    action: 'INSERT',
+                    table_name: 'appointment_dismissals',
+                    data: {
+                        salon_id: salonId,
+                        appointment_id: appId,
+                        username: username,
+                        dismissed_date: todayKeyDate
+                    },
+                    target_id: appId
+                });
+
+                transaction.oncomplete = async () => {
+                    // Chiediamo al browser di eseguire la sincronizzazione in background appena possibile
+                    try {
+                        if ('serviceWorker' in registration && 'sync' in registration) {
+                            await registration.sync.register('sync-vaimup-dismissals');
+                        }
+                    } catch (e) {
+                        console.log("Background Sync non supportato o fallito, verrà inviato alla prossima apertura.");
+                    }
+                    resolve();
+                };
+                transaction.onerror = () => resolve();
+            } catch (err) {
+                resolve();
+            }
+        };
+        request.onerror = () => resolve();
+    });
+}
+
+// 🌐 2. Evento di Background Sync nativo (Il browser risveglia il SW per inviare i dati)
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'sync-vaimup-dismissals') {
+        event.waitUntil(processBackgroundSyncQueueDirectly());
+    }
+});
+
+async function processBackgroundSyncQueueDirectly() {
+    // Esegue lo svuotamento della sync_queue verso Supabase direttamente in background
+    const SUPABASE_URL = 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+
+    return new Promise((resolve) => {
+        const request = indexedDB.open("RetailMasterPWA", 21);
+        request.onsuccess = async (event) => {
+            const db = event.target.result;
+            try {
+                const transaction = db.transaction(['sync_queue'], 'readwrite');
+                const store = transaction.objectStore('sync_queue');
+                const getAllReq = store.getAll();
+
+                getAllReq.onsuccess = async () => {
+                    const queue = getAllReq.result || [];
+                    const dismissalsItems = queue.filter(item => item.table_name === 'appointment_dismissals');
+
+                    for (let item of dismissalsItems) {
+                        try {
+                            const res = await fetch(`${SUPABASE_URL}/rest/v1/appointment_dismissals?on_conflict=salon_id,appointment_id,dismissed_date`, {
+                                method: 'POST',
+                                headers: {
+                                    'apikey': SUPABASE_KEY,
+                                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                                    'Content-Type': 'application/json',
+                                    'Prefer': 'resolution=merge-duplicates'
+                                },
+                                body: JSON.stringify(item.data)
+                            });
+
+                            if (res.ok || res.status === 409) {
+                                // Rimuoviamo l'elemento dalla coda locale se è andato a buon fine
+                                const delTx = db.transaction(['sync_queue'], 'readwrite');
+                                delTx.objectStore('sync_queue').delete(item.local_id);
+                            }
+                        } catch (netErr) {
+                            console.log("Tentativo di sync in background fallito per assenza rete, riproverà più tardi.");
+                        }
+                    }
+                    resolve();
+                };
+            } catch (e) {
+                resolve();
+            }
+        };
+        request.onerror = () => resolve();
+    });
+}
