@@ -10396,15 +10396,15 @@ async function renderCart() {
         }
 
         html += `
-            class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
+            <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div style="flex:1;">
                         <div style="font-weight:600;">${item.name}</div>
                         <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                         
-                        <!-- 💡 ALERT MARGINE REALE -->
+                        <!-- 💡 INFO MARGINE -->
                         <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine effettivo stimato di competenza del salone">
+                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
                                 Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
                             </span>
                         </div>
@@ -10421,12 +10421,12 @@ async function renderCart() {
                             </div>
                         </div>
 
-                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV -->
+                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV (Inserito subito sotto il box sconto) -->
                         ${discountAbsorptionSelectorHtml}
                     </div>
                     <div style="text-align:right;">
                         <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                        <button onclick="cart.splice(${i},1);renderCart()" style="border-name; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
+                        <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
                     </div>
                 </div>
             </div>`; 
