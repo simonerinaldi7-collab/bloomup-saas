@@ -10273,11 +10273,13 @@ async function renderCart() {
     
     let html = "";
     
-    // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi
+    // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi e delle quote CV
     const allInventoryData = allInventory || [];
     const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
     const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
     const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+    const todayStr = new Date().toISOString().split('T')[0];
 
     for (let i = 0; i < cart.length; i++) {
         const item = cart[i];
@@ -10287,23 +10289,37 @@ async function renderCart() {
         const finalPrice = item.price - discountAmount;
         total += finalPrice; 
 
-        // 🧮 CALCOLO DEL COSTO E DEL MARGINE REALE
+        // 🧮 CALCOLO DEL COSTO / QUOTA FORNITORE E DEL MARGINE REALE AL CENTESIMO
         let unitCostOrPayout = 0;
         let isConsignment = false;
-        let discountAbsorptionSelectorHtml = ''; // 👈 Inizializzazione della variabile per il selettore
+        let discountAbsorptionSelectorHtml = ''; 
         
         if (item.id) {
             const productDb = allInventoryData.find(p => p.id === item.id);
             if (productDb) {
+                const phList = priceHistory.filter(ph => ph.product_id === productDb.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
+                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || item.price) : item.price;
+
                 if (productDb.type === 'servizio') {
-                    // ✂️ SE È UN SERVIZIO IN CONTO VENDITA
                     isConsignment = productDb.is_consignment;
                     if (isConsignment) {
+                        // ✂️💶 SERVIZIO IN CONTO VENDITA (Con logica di assorbimento sconto)
                         const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        unitCostOrPayout = (item.price * splitPct) / 100;
-                        
                         const currentRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
-                        // 🌟 PUNTO ESATTO DI INSERIMENTO HTML DEL SELETTORE
+                        
+                        const basePayout = (listinoPienoOriginale * splitPct) / 100;
+                        const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+
+                        if (currentRule === 'supplier') {
+                            unitCostOrPayout = finalPrice - salonShareFull;
+                        } else if (currentRule === 'split') {
+                            unitCostOrPayout = basePayout - (discountAmount / 2);
+                        } else {
+                            // 'salon'
+                            unitCostOrPayout = basePayout;
+                        }
+
+                        // Selettore visivo in cassa per cambiare la regola d'assorbimento al volo
                         discountAbsorptionSelectorHtml = `
                             <div style="margin-top: 6px; background: #fffbeb; border: 1px solid #fde68a; padding: 6px 8px; border-radius: 6px;">
                                 <small style="font-size: 9px; color: #b45309; font-weight: bold; display: block; margin-bottom: 2px;">ASSORBIMENTO SCONTO CV:</small>
@@ -10315,7 +10331,7 @@ async function renderCart() {
                             </div>
                         `;
                     } else {
-                        // ✂️ SERVIZIO STANDARD: Il costo è la somma dei costi FIFO dei materiali consumabili associati
+                        // ✂️ SERVIZIO STANDARD (Costo FIFO materiali consumabili)
                         const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
                         let totalConsumablesCost = 0;
 
@@ -10340,7 +10356,7 @@ async function renderCart() {
                     }
 
                 } else {
-                    // PRODOTTO FISICO (Proprietà o Conto Vendita)
+                    // 📦 PRODOTTO FISICO (Proprietà o Conto Vendita)
                     isConsignment = productDb.is_consignment;
                     if (isConsignment) {
                         const links = productSuppliers.filter(l => l.product_id === productDb.id);
@@ -10350,7 +10366,7 @@ async function renderCart() {
                         } else {
                             totalPct = parseFloat(productDb.consignment_split_pct) || 0;
                         }
-                        unitCostOrPayout = (item.price * totalPct) / 100;
+                        unitCostOrPayout = (listinoPienoOriginale * totalPct) / 100;
                     } else {
                         const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
                         if (prodLots.length > 0) {
@@ -10368,27 +10384,27 @@ async function renderCart() {
         const itemMarginEuro = finalPrice - unitCostOrPayout;
         const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
 
-        // 🎨 SOGLIE COLORE ALERT MARGINE
+        // 🎨 SOGLIE COLORE ALERT MARGINE IN CASSA
         let marginBadgeColor = '#00B894'; // Verde (> 10%)
         let marginText = 'Ottimale';
         if (itemMarginEuro <= 0) {
-            marginBadgeColor = '#E17055'; // Rosso (Negativo o Zero)
+            marginBadgeColor = '#E17055'; // Rosso (In perdita o azzerato dallo sconto)
             marginText = 'In Perdita!';
         } else if (itemMarginPct < 10) {
-            marginBadgeColor = '#F39C12'; // Arancione (Sotto il 10%)
+            marginBadgeColor = '#F39C12'; // Arancione (Margine basso)
             marginText = 'Margine Basso';
         }
 
         html += `
-            <div class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
+            class="cart-item" style="border-bottom:1px solid #eee; padding:12px 0;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div style="flex:1;">
                         <div style="font-weight:600;">${item.name}</div>
                         <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                         
-                        <!-- 💡 INFO MARGINE -->
+                        <!-- 💡 ALERT MARGINE REALE -->
                         <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine effettivo stimato di competenza del salone">
                                 Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
                             </span>
                         </div>
@@ -10405,12 +10421,12 @@ async function renderCart() {
                             </div>
                         </div>
 
-                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV (Inserito subito sotto il box sconto) -->
+                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV -->
                         ${discountAbsorptionSelectorHtml}
                     </div>
                     <div style="text-align:right;">
                         <div style="font-weight:bold; font-size:16px;">€${finalPrice.toFixed(2)}</div>
-                        <button onclick="cart.splice(${i},1);renderCart()" style="border:none; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
+                        <button onclick="cart.splice(${i},1);renderCart()" style="border-name; background:none; cursor:pointer; color:red; font-size:12px; margin-top:5px;">Rimuovi</button>
                     </div>
                 </div>
             </div>`; 
