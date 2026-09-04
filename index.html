@@ -4778,9 +4778,15 @@ let currentSelectedServices = [];
             window.cachedOperatorSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
 
             const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
-            
+
             if (Array.isArray(settingsData)) {
-                settingsData.forEach(s => sysSettings[s.key] = s.value);
+                // Reset e popolamento pulito dell'oggetto di configurazione globale
+                sysSettings = {};
+                settingsData.forEach(s => {
+                    if (s && s.key) {
+                        sysSettings[s.key] = s.value;
+                    }
+                });
             } else {
                 console.warn("Nessuna impostazione trovata o errore nel caricamento.");
             }
@@ -6702,22 +6708,24 @@ async function registerOperatorPushNotifications() {
     }
 
             // --- SISTEMA ---
-            async function saveSystemSettings() {
+           async function saveSystemSettings() {
                 const fields = [
                     { key: 'reminder_hours', id: 'set-rem-hours' },
                     { key: 'template_confirm', id: 'set-msg-confirm' },
                     { key: 'template_reminder', id: 'set-msg-reminder' },
                     { key: 'duplicate_check_days', id: 'set-duplicate-days' },
-                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' }
+                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' } // 👈 Già presente correttamente
                 ];
                 
                 for (let f of fields) {
                     const el = document.getElementById(f.id);
                     if (el) {
                         await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: f.key, value: el.value } });
+                        // Aggiorniamo anche lo stato in memoria all'istante
+                        sysSettings[f.key] = el.value;
                     }
                 }
-                alert("Configurazione salvata."); 
+                alert("Configurazione salvata con successo."); 
                 refreshAllData();
             }
 
@@ -10000,11 +10008,21 @@ function urlBase64ToUint8Array(base64String) {
             async function askAI() { /* Gemini AI logic as before */ }
             function toggleAllLogs(c) { document.querySelectorAll('.log-cb:not(:disabled)').forEach(x => x.checked = c); }
             function loadSettingsFields() {
-                document.getElementById('set-rem-hours').value = sysSettings.reminder_hours || 48;
-                document.getElementById('set-msg-confirm').value = sysSettings.template_confirm || "";
-                document.getElementById('set-msg-reminder').value = sysSettings.template_reminder || "";
-                document.getElementById('set-duplicate-days').value = sysSettings.duplicate_check_days || 30;
-                document.getElementById('set-imminent-lead').value = sysSettings.imminent_lead_minutes || 15;
+                const remHoursEl = document.getElementById('set-rem-hours');
+                const msgConfirmEl = document.getElementById('set-msg-confirm');
+                const msgReminderEl = document.getElementById('set-msg-reminder');
+                const dupDaysEl = document.getElementById('set-duplicate-days');
+                const imminentLeadEl = document.getElementById('set-imminent-lead');
+
+                if (remHoursEl) remHoursEl.value = sysSettings.reminder_hours || 48;
+                if (msgConfirmEl) msgConfirmEl.value = sysSettings.template_confirm || "";
+                if (msgReminderEl) msgReminderEl.value = sysSettings.template_reminder || "";
+                if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
+                
+                // 👈 Correzione mirata per il campo anticipo minuti notifiche imminenti
+                if (imminentLeadEl) {
+                    imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
+                }
             }
             
             window.api.onReminder((data) => {
