@@ -55,6 +55,10 @@ self.addEventListener('push', function (event) {
     );
 });
 
+// 🌐 CONFIGURAZIONE SUPABASE DIRETTA PER IL SERVICE WORKER
+const SUPABASE_URL = 'https://uartaeqbcfxxsyksbnty.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+
 // 👆 CLICK SULLA NOTIFICA O SUI BOTTONI DI AZIONE
 self.addEventListener('notificationclick', function (event) {
     const notification = event.notification;
@@ -65,7 +69,35 @@ self.addEventListener('notificationclick', function (event) {
     notification.close();
 
     if (action === 'dismiss') {
-        // L'utente ha cliccato "Ho capito": salviamo subito nello storage condiviso e avvisiamo i client
+        // L'utente ha cliccato "Ho capito" direttamente dalla notifica (anche ad app chiusa!)
+        if (appId) {
+            const todayKeyDate = new Date().toISOString().split('T')[0];
+            
+            // Eseguiamo la chiamata di inserimento asincrona direttamente da background
+            event.waitUntil(
+                fetch(`${SUPABASE_URL}/rest/v1/appointment_dismissals?on_conflict=salon_id,appointment_id,dismissed_date`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                        salon_id: notification.data?.salonId || 'SALON_001',
+                        appointment_id: appId,
+                        username: notification.data?.username || 'system',
+                        dismissed_date: todayKeyDate
+                    })
+                }).then(() => {
+                    console.log(`✅ [SW DISMISS] Record salvato su Supabase per app ID: ${appId}`);
+                }).catch(err => {
+                    console.error("❌ [SW DISMISS ERROR] Impossibile registrare il click su Supabase:", err);
+                })
+            );
+        }
+
+        // Avvisiamo anche eventuali client (pagine aperte) per sincronizzare la UI al volo
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
                 clientList.forEach(client => {
