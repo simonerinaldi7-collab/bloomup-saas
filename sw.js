@@ -24,12 +24,12 @@ self.addEventListener('push', function (event) {
         title: '⏰ Appuntamento Imminente', 
         body: 'Hai un trattamento in agenda a breve.', 
         icon: './icon-192.png',
-        url: './index.html' 
+        tag: 'general-alert',
+        data: { appId: null, url: './index.html' }
     };
     
     if (event.data) {
         try { 
-            // Il server invia un pacchetto JSON formattato con i dettagli dell'appuntamento
             data = event.data.json(); 
         } catch (e) { 
             data.body = event.data.text(); 
@@ -40,9 +40,14 @@ self.addEventListener('push', function (event) {
         body: data.body,
         icon: data.icon || './icon-192.png',
         badge: './icon-192.png',
-        vibrate: [300, 100, 300, 100, 300], // 📳 Vibrazione stile Google Calendar
-        requireInteraction: true,          // 📌 Mantiene la notifica attiva finché non viene letta
-        data: { url: data.url || './index.html' }
+        vibrate: [300, 100, 300, 100, 300],
+        requireInteraction: true, // Mantiene la notifica aperta finché l'utente non agisce
+        tag: data.tag || 'appointment-alert',
+        data: data.data || { appId: null, url: './index.html' },
+        actions: [
+            { action: 'dismiss', title: '✓ Ho capito' },
+            { action: 'snooze', title: '⏳ Posticipa 5m' }
+        ]
     };
 
     event.waitUntil(
@@ -50,23 +55,48 @@ self.addEventListener('push', function (event) {
     );
 });
 
-// 👆 CLICK SULLA NOTIFICA NATIVA: Apre o porta in primo piano la PWA
+// 👆 CLICK SULLA NOTIFICA O SUI BOTTONI DI AZIONE
 self.addEventListener('notificationclick', function (event) {
-    event.notification.close();
+    const notification = event.notification;
+    const action = event.action;
+    const appId = notification.data ? notification.data.appId : null;
+    const targetUrl = notification.data ? notification.data.url : './index.html';
 
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            // Se l'app è già aperta in qualche finestra, la portiamo in primo piano (focus)
-            for (let i = 0; i < clientList.length; i++) {
-                let client = clientList[i];
-                if ('focus' in client) {
-                    return client.focus();
+    notification.close();
+
+    if (action === 'dismiss') {
+        // L'utente ha cliccato "Ho capito": inviamo un messaggio ai client aperti per chiudere l'allarme ovunque
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+                clientList.forEach(client => {
+                    client.postMessage({ type: 'DISMISS_ALARM', appId });
+                });
+            })
+        );
+    } else if (action === 'snooze') {
+        // L'utente ha cliccato "Posticipa 5m"
+        const snoozeUntil = new Date(new Date().getTime() + 5 * 60000).toISOString();
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+                clientList.forEach(client => {
+                    client.postMessage({ type: 'SNOOZE_ALARM', appId, snoozeTime: snoozeUntil });
+                });
+            })
+        );
+    } else {
+        // Click normale sul corpo della notifica: apre l'app
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+                for (let i = 0; i < clientList.length; i++) {
+                    let client = clientList[i];
+                    if ('focus' in client) {
+                        return client.focus();
+                    }
                 }
-            }
-            // Altrimenti apriamo una nuova finestra della PWA
-            if (clients.openWindow) {
-                return clients.openWindow(event.notification.data.url || './index.html');
-            }
-        })
-    );
+                if (clients.openWindow) {
+                    return clients.openWindow(targetUrl);
+                }
+            })
+        );
+    }
 });

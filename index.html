@@ -3233,6 +3233,35 @@ async function submitPasswordReset() {
     }
 
 
+// Ascolta i comandi provenienti dal Service Worker (interazione dai bottoni della notifica nativa)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+        if (!event.data) return;
+
+        if (event.data.type === 'DISMISS_ALARM') {
+            const appId = event.data.appId;
+            if (appId) {
+                const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+                dismissedAlerts[`${appId}_${new Date().toISOString().split('T')[0]}`] = new Date().toISOString().split('T')[0];
+                localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+            }
+            if (typeof closeLocalAlarmModal === 'function') closeLocalAlarmModal();
+        } 
+        
+        else if (event.data.type === 'SNOOZE_ALARM') {
+            const appId = event.data.appId;
+            const snoozeTime = event.data.snoozeTime;
+            if (appId && snoozeTime) {
+                window.activeSnoozes = window.activeSnoozes || {};
+                window.activeSnoozes[appId] = snoozeTime;
+                localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
+            }
+            if (typeof closeLocalAlarmModal === 'function') closeLocalAlarmModal();
+        }
+    });
+}
+
+
 async function voidSaleTransaction(saleId) {
         if (!confirm("⚠️ ATTENZIONE: Stai per stornare questa vendita.\n\nQuesta operazione avrà un EFFETTO RETROATTIVO:\n- Il magazzino e i lotti FIFO verranno ripristinati.\n- Gli incassi e i margini verranno ricalcolati ed eliminati dal bilancio.\n\nVuoi procedere con lo storno?")) {
             return;
