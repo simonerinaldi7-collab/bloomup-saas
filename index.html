@@ -8085,7 +8085,7 @@ async function updateReminderBadgeCount() {
     }
 }
             
-        sendAndLogGeneric(appId, type, tk) {
+       async function  sendAndLogGeneric(appId, type, tk) {
     const a = allAppointments.find(x => x.id == appId);
     if (!a) return alert("Appuntamento non trovato!");
 
