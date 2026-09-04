@@ -1,7 +1,7 @@
     <!DOCTYPE html>
 <html lang="it">
-<head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>VaiMUp - Gestionale Beauty & Retail</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -10014,14 +10014,17 @@ function urlBase64ToUint8Array(base64String) {
                 const imminentLeadEl = document.getElementById('set-imminent-lead');
 
                 if (remHoursEl) remHoursEl.value = sysSettings.reminder_hours || 48;
-                if (msgConfirmEl) msgConfirmEl.value = sysSettings.template_confirm || "";
-                if (msgReminderEl) msgReminderEl.value = sysSettings.template_reminder || "";
-                if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
                 
-                // 👈 Correzione mirata per il campo anticipo minuti notifiche imminenti
-                if (imminentLeadEl) {
-                    imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
+                // 🌟 Uso esplicito di decodeURIComponent o assegnazione diretta sicura
+                if (msgConfirmEl) {
+                    msgConfirmEl.value = sysSettings.template_confirm ? decodeURIComponent(encodeURIComponent(sysSettings.template_confirm)) : "";
                 }
+                if (msgReminderEl) {
+                    msgReminderEl.value = sysSettings.template_reminder ? decodeURIComponent(encodeURIComponent(sysSettings.template_reminder)) : "";
+                }
+                
+                if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
+                if (imminentLeadEl) imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
             }
             
             window.api.onReminder((data) => {
