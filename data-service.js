@@ -512,14 +512,13 @@ async function handleSpecialAction(action, data, id) {
             return null;
         }
 
-        if (action === 'UPSERT_SETTING') {
+       if (action === 'UPSERT_SETTING') {
             const { key, value } = data;
             
-            // 🛡️ PULIZIA E SANIFICAZIONE SICURA DEL TESTO (Anti-corruzione Emoji)
-            // Convertiamo in stringa e normalizziamo i caratteri speciali per il trasporto UTF-8
-            const safeValue = typeof value === 'string' ? value.normalize('NFC') : value;
+            // 🛡️ Normalizzazione stringa per preservare le emoji da mobile
+            const safeValue = typeof value === 'string' ? String(value) : value;
 
-            // 1. Salvataggio in IndexedDB (Locale)
+            // 1. Salvataggio / Aggiornamento locale su Dexie (Usa put per chiave primaria)
             try {
                 await localDb.settings.put({
                     key: key,
@@ -531,26 +530,27 @@ async function handleSpecialAction(action, data, id) {
                 console.error("Errore salvataggio settings locale:", dbErr);
             }
 
-            // 2. Salvataggio su Supabase (Cloud) con payload JSON strict UTF-8
+            // 2. Salvataggio su Supabase (Cloud) con parametri di conflitto corretti per PostgREST
             if (navigator.onLine) {
                 try {
-                    const response = await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                    // Per fare l'upsert pulito su Supabase indicando la chiave di conflitto (key, salon_id)
+                    const response = await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key,salon_id`, {
                         method: 'POST',
                         headers: {
                             'apikey': SUPABASE_KEY,
                             'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json; charset=utf-8', // 👈 Forza esplicitamente charset UTF-8
+                            'Content-Type': 'application/json; charset=utf-8',
                             'Prefer': 'resolution=merge-duplicates'
                         },
                         body: JSON.stringify({
                             key: key,
-                            value: safeValue, // 👈 Usa il valore sanificato
+                            value: safeValue,
                             salon_id: salonId
                         })
                     });
 
                     if (response.ok) {
-                        console.log("Configurazione con emoji sincronizzata su Supabase con successo.");
+                        console.log("Configurazione sincronizzata su Supabase senza duplicati.");
                     } else {
                         const errText = await response.text();
                         console.error("Errore Supabase UPSERT_SETTING:", response.status, errText);
