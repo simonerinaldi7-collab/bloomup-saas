@@ -8085,75 +8085,74 @@ async function updateReminderBadgeCount() {
     }
 }
             
-        async function sendAndLogGeneric(appId, type, tk) {
-        const a = allAppointments.find(x => x.id == appId);
-        if (!a) return alert("Appuntamento non trovato!");
+        sendAndLogGeneric(appId, type, tk) {
+    const a = allAppointments.find(x => x.id == appId);
+    if (!a) return alert("Appuntamento non trovato!");
 
-        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
-        
-        const matchedCust = allCustomers.find(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            const legacyName = (c.name || "").trim().toLowerCase();
-            return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
-        });
+    const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+    
+    const matchedCust = allCustomers.find(c => {
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+        const legacyName = (c.name || "").trim().toLowerCase();
+        return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
+    });
 
-        const phone = matchedCust ? matchedCust.phone : "";
-        if (!phone) return alert("Nessun numero di telefono trovato per questo cliente!");
-        
-        // Estrazione separata di Nome e Cognome con fallback intelligente
-        let firstName = matchedCust ? (matchedCust.first_name || '') : '';
-        let lastName = matchedCust ? (matchedCust.last_name || '') : '';
+    const phone = matchedCust ? matchedCust.phone : "";
+    if (!phone) return alert("Nessun numero di telefono trovato per questo cliente!");
+    
+    let firstName = matchedCust ? (matchedCust.first_name || '') : '';
+    let lastName = matchedCust ? (matchedCust.last_name || '') : '';
 
-        if (!firstName && a.cust_name) {
-            const parts = a.cust_name.trim().split(' ');
-            firstName = parts[0] || '';
-            lastName = parts.slice(1).join(' ') || '';
-        }
-
-        // NUOVA CHIAVE: salon_id + cliente + data + ora + servizio
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
-        
-        /// 📅 formattazione della data in formato italiano (es. GG/MM/AAAA)
-        const italianDate = typeof formatDateIt === 'function' ? formatDateIt(a.date) : (a.date || '');
-
-        let rawMessage = (sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
-            .replace(/{{NOME}}/g, firstName || 'Cliente')
-            .replace(/{{COGNOME}}/g, lastName || '')
-            .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
-            .replace(/{{DATA}}/g, italianDate) // 👈 Sostituito con la data formattata in italiano
-            .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
-            .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
-        
-        let logData = { 
-            id: crypto.randomUUID(),
-            salon_id: salonId,
-            cust_name: a.cust_name, 
-            phone: phone, 
-            msg_type: type.toUpperCase()+'_'+tk.toUpperCase(), 
-            appointment_info: logKey, 
-            sent_at: getNowLocal(),
-            created_by: currentUser ? currentUser.username : 'Admin'
-        };
-        
-        await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
-
-        // Rimuoviamo caratteri di controllo o spazi multipli per la massima compatibilità
-        const cleanMessage = rawMessage.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-        const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
-const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
-
-        let url = '';
-        if (type === 'wa') {
-            url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMessage)}`;
-        } else {
-            url = `sms:${cleanPhone}?body=${encodeURIComponent(cleanMessage)}`;
-        }
-        
-        window.api.openExternal(url); 
-        await refreshAllData();
-        if (typeof renderLogs === 'function') renderLogs();
+    if (!firstName && a.cust_name) {
+        const parts = a.cust_name.trim().split(' ');
+        firstName = parts[0] || '';
+        lastName = parts.slice(1).join(' ') || '';
     }
+
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
+    
+    const italianDate = typeof formatDateIt === 'function' ? formatDateIt(a.date) : (a.date || '');
+
+    // 🌟 TEMPLATE PULITO E NATIVO
+    let rawMessage = (sysSettings['template_' + tk] || "Gentile {{NOME}}, ti confermiamo l'appuntamento per il {{DATA}} alle {{ORA}} per {{SERVIZIO}}.")
+        .replace(/{{NOME}}/g, firstName || 'Cliente')
+        .replace(/{{COGNOME}}/g, lastName || '')
+        .replace(/{{CLIENTE}}/g, a.cust_name || 'Cliente')
+        .replace(/{{DATA}}/g, italianDate)
+        .replace(/{{ORA}}/g, a.time ? a.time.substring(0, 5) : '')
+        .replace(/{{SERVIZIO}}/g, a.service || 'Trattamento');
+    
+    let logData = { 
+        id: crypto.randomUUID(),
+        salon_id: salonId,
+        cust_name: a.cust_name, 
+        phone: phone, 
+        msg_type: type.toUpperCase()+'_'+tk.toUpperCase(), 
+        appointment_info: logKey, 
+        sent_at: getNowLocal(),
+        created_by: currentUser ? currentUser.username : 'Admin'
+    };
+    
+    await window.api.query({ action: 'INSERT', table: 'message_logs', data: logData });
+
+    const cleanMessage = rawMessage.replace(/[\r\n]+/g, '\n').trim();
+    const rawPhone = matchedCust ? matchedCust.phone : (a.phone || '');
+    const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
+
+    let url = '';
+    if (type === 'wa') {
+        // 🌟 CORRETTO: Usiamo encodeURIComponent in modo nativo e pulito compatibile con WhatsApp Web/Desktop
+        url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMessage)}`;
+    } else {
+        url = `sms:${cleanPhone}?body=${encodeURIComponent(cleanMessage)}`;
+    }
+    
+    window.api.openExternal(url); 
+    await refreshAllData();
+    if (typeof renderLogs === 'function') renderLogs();
+}
+
 
             function sendAndLog(t, k) { if(currentViewApp) sendAndLogGeneric(currentViewApp.id, t, k); }
             function sendIndividualRem(id, type) { sendAndLogGeneric(id, type, 'reminder'); }
