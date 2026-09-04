@@ -1644,8 +1644,8 @@
             </div>
 
             <label style="margin-top:20px;">Anticipo Notifica Imminente Operatore (Minuti)</label>
-            <input type="number" id="set-imminent-lead" value="15" min="1" max="120" onchange="saveImminentLeadSetting(this.value)">
-            <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
+<input type="number" id="set-imminent-lead" min="1" max="120">
+<small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
             
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
@@ -5621,19 +5621,7 @@ async function executePasswordUpdate() {
     }
 }
 
-function saveImminentLeadSetting(val) {
-    const mins = parseInt(val) || 15;
-    setOperatorImminentLeadTime(mins);
-    alert(`✅ Impostato preavviso di ${mins} minuti per i promemoria imminenti.`);
-}
 
-// All'avvio della schermata settings, carica il valore salvato
-const originalLoadSettings = window.loadSettingsFields;
-window.loadSettingsFields = function() {
-    if (typeof originalLoadSettings === 'function') originalLoadSettings();
-    const leadInput = document.getElementById('set-imminent-lead');
-    if (leadInput) leadInput.value = getOperatorImminentLeadTime();
-};
 
     function renderTimeline(area, cols) {
         area.innerHTML = ''; 
@@ -6719,7 +6707,8 @@ async function registerOperatorPushNotifications() {
                     { key: 'reminder_hours', id: 'set-rem-hours' },
                     { key: 'template_confirm', id: 'set-msg-confirm' },
                     { key: 'template_reminder', id: 'set-msg-reminder' },
-                    { key: 'duplicate_check_days', id: 'set-duplicate-days' }
+                    { key: 'duplicate_check_days', id: 'set-duplicate-days' },
+                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' }
                 ];
                 
                 for (let f of fields) {
@@ -6731,7 +6720,6 @@ async function registerOperatorPushNotifications() {
                 alert("Configurazione salvata."); 
                 refreshAllData();
             }
-            
 
 
 
@@ -7538,7 +7526,7 @@ if (typeof window.activeSnoozes === 'undefined') {
 let realtimeAlertChannel = null;
 
 function getOperatorImminentLeadTime() {
-    return parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15; 
+    return parseInt(sysSettings.imminent_lead_minutes) || 15;
 }
 
 function setOperatorImminentLeadTime(minutes) {
@@ -7612,8 +7600,8 @@ async function checkImminentAppointmentsNow() {
         const now = new Date();
         const currentUsername = currentUser.username.trim().toLowerCase();
         
-        // Recuperiamo i minuti di anticipo configurati (default 15 minuti)
-        const leadTimeMinutes = parseInt(localStorage.getItem('VaiMUp_imminent_lead_time')) || 15;
+        // Recuperiamo i minuti di anticipo configurati (ora sincronizzati via sysSettings/Supabase)
+        const leadTimeMinutes = getOperatorImminentLeadTime();
 
         const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
         const todayKeyDate = now.toISOString().split('T')[0];
@@ -7629,13 +7617,9 @@ async function checkImminentAppointmentsNow() {
             const uniqueAlertId = `${app.id}_${app.date}`;
             if (dismissedAlerts[uniqueAlertId] === todayKeyDate) return;
 
-            // Pulizia orario (es. "09:30:00" o "09:30" -> "09:30")
             const timeClean = app.time.substring(0, 5);
-            
-            // Creazione esatta dell'oggetto Data dell'appuntamento nel fuso locale
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-            // Gestione Snooze (Posticipa)
             if (window.activeSnoozes && window.activeSnoozes[app.id]) {
                 const snoozeUntil = new Date(window.activeSnoozes[app.id]);
                 if (now < snoozeUntil) return;
@@ -7646,9 +7630,6 @@ async function checkImminentAppointmentsNow() {
 
             console.log(`⏱️ [CHECK ALLARME] App: ${app.cust_name} (${app.date} ${timeClean}) | Mancano: ${diffMinutes} min (Target: 0 - ${leadTimeMinutes} min)`);
 
-            // 🛑 CONDIZIONE RIGOROSA: 
-            // 1. L'appuntamento deve essere nel futuro (o iniziato da pochissimo, max 2 minuti fa per evitare ritardi di visualizzazione)
-            // 2. Mancano meno o uguale ai minuti di anticipo configurati (es. <= 15 min)
             if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
                 const sessionKey = `pro_alert_notified_${uniqueAlertId}`;
                 
@@ -10022,7 +10003,8 @@ function urlBase64ToUint8Array(base64String) {
                 document.getElementById('set-rem-hours').value = sysSettings.reminder_hours || 48;
                 document.getElementById('set-msg-confirm').value = sysSettings.template_confirm || "";
                 document.getElementById('set-msg-reminder').value = sysSettings.template_reminder || "";
-            document.getElementById('set-duplicate-days').value = sysSettings.duplicate_check_days || 30;
+                document.getElementById('set-duplicate-days').value = sysSettings.duplicate_check_days || 30;
+                document.getElementById('set-imminent-lead').value = sysSettings.imminent_lead_minutes || 15;
             }
             
             window.api.onReminder((data) => {
