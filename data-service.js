@@ -34,55 +34,60 @@ if (typeof Dexie !== 'undefined') {
 }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE CON CANCELLAZIONE) ---
+// --- 🔄 MODULO DI SINCRONIZZAZIONE OTTIMIZZATO (SMART POLLING & PAGE VISIBILITY) ---
 let backgroundSyncInterval = null;
 
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // Esegue una sincronizzazione silente ogni 20 secondi
-    backgroundSyncInterval = setInterval(async () => {
-        if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
+    const runSyncCycle = async () => {
+        // 🛑 Ottimizzazione 1: Se la scheda del browser non è visibile o siamo offline, non spreciamo chiamate su Supabase!
+        if (document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id) {
+            return;
+        }
 
         const salonId = currentUser.salon_id;
-        console.log("🔄 [AUTO-SYNC] Controllo modifiche ed eliminazioni in parallelo da altri operatori...");
+        console.log("🔄 [SMART-SYNC] Controllo rapido agenda in background...");
 
-        const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
+        // 🛑 Ottimizzazione 2: Nel polling frequente (20s) teniamo SOLO la tabella "calda" dell'agenda. 
+        // Le altre tabelle (inventario, clienti) si sincronizzano all'apertura delle rispettive viste o via WebSocket.
+        const tablesToSync = ['appointments'];
         
         try {
-            // Eseguiamo il pull in background per le tabelle calde (con gestione della rimozione record eliminati)
             for (let table of tablesToSync) {
                 await backgroundPullFromSupabase(table, salonId);
             }
 
-            // Ricarichiamo le variabili globali in memoria silenziosamente
+            // Aggiorniamo la memoria globale degli appuntamenti
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
-            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
-            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
-            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
 
-            // Se siamo nella vista Agenda o Cassa, aggiorniamo l'interfaccia al volo senza perdere il focus dei modali chiusi
+            // Se siamo nella vista Agenda, aggiorniamo l'interfaccia se non ci sono modali aperti
             const activeView = document.querySelector('.view.active');
-            if (activeView) {
-                const viewId = activeView.id;
+            if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
                 const isModalOpen = document.querySelector('.modal.active');
                 if (!isModalOpen) {
-                    if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
-                        renderCalendar();
-                        console.log("📅 [AUTO-SYNC] Agenda aggiornata con le modifiche degli altri operatori.");
-                    } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
-                        renderProducts();
-                    }
+                    renderCalendar();
+                    console.log("📅 [SMART-SYNC] Agenda sincronizzata.");
                 }
             }
             
-            // Aggiorna i KPI globali
             if (typeof updateStats === 'function') updateStats();
 
         } catch (err) {
-            console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
+            console.warn("⚠️ [SMART-SYNC] Errore non bloccante:", err);
         }
-    }, 20000); // Ogni 20 secondi
+    };
+
+    // Avvio dell'intervallo a 20 secondi
+    backgroundSyncInterval = setInterval(runSyncCycle, 20000);
+
+    // 📱 Ottimizzazione 3: Ascoltatore di visibilità. Appena l'utente rimette a fuoco la pagina, esegue un sync immediato
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log("📱 [SMART-SYNC] Pagina tornata visibile: eseguo sync immediato.");
+            runSyncCycle();
+        }
+    });
 }
 
 // Aggiunta/Modifica nel file data-service.js dentro window.appDataService
