@@ -44,62 +44,107 @@ window.appDataService = async function(action, table, data = null, id = null) {
     }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE) ---
-let backgroundSyncInterval = null;
+// --- ⚡ MODULO REALTIME (WEBSOCKETS) + FALLBACK DI SICUREZZA A 20 MINUTI ---
+let safetySyncInterval = null;
+let activeRealtimeChannel = null;
 
 function startBackgroundMultiOperatorSync() {
-    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+    // 1. Pulizia di eventuali vecchi intervalli
+    if (safetySyncInterval) clearInterval(safetySyncInterval);
+    if (window.supabase && activeRealtimeChannel) {
+        window.supabase.removeChannel(activeRealtimeChannel);
+    }
 
-    // Esegue una sincronizzazione silente ogni 25 secondi
-    backgroundSyncInterval = setInterval(async () => {
+    if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
+    const salonId = currentUser.salon_id;
+
+    console.log("🌐 [REALTIME] Attivazione canale WebSocket in tempo reale per il salon_id:", salonId);
+
+    try {
+        // Inizializziamo il client Supabase per il Realtime
+        const supabaseClient = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+
+        // Apriamo un canale unico per le tabelle calde del salone
+        activeRealtimeChannel = supabaseClient.channel(`salon_sync_${salonId}`);
+
+        // Ascoltiamo qualsiasi modifica (INSERT, UPDATE, DELETE) sulle tabelle principali
+        const tablesToWatch = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
+
+        tablesToWatch.forEach(tableName => {
+            activeRealtimeChannel.on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: tableName,
+                    filter: `salon_id=eq.${salonId}` // 🔒 Isolamento rigoroso multi-tenant
+                },
+                async (payload) => {
+                    console.log(`⚡ [REALTIME EVENT] Modifica ricevuta su [${tableName}]:`, payload.eventType);
+
+                    try {
+                        // Sincronizziamo subito il singolo record modificato nel DB locale (Dexie)
+                        if (payload.eventType === 'DELETE') {
+                            await localDb.table(tableName).delete(payload.old.id);
+                        } else if (payload.new) {
+                            await localDb.table(tableName).put(payload.new);
+                        }
+
+                        // Aggiorniamo le variabili globali in memoria al volo
+                        allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+                        allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+                        allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+                        allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+
+                        // Aggiorniamo la UI se non ci sono modali aperti di scrittura
+                        const activeView = document.querySelector('.view.active');
+                        if (activeView && !document.querySelector('.modal.active')) {
+                            const viewId = activeView.id;
+                            if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
+                                renderCalendar();
+                            } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
+                                renderProducts();
+                            }
+                        }
+
+                        if (typeof updateStats === 'function') updateStats();
+
+                    } catch (syncEx) {
+                        console.error("Errore elaborazione evento realtime locale:", syncEx);
+                    }
+                }
+            );
+        });
+
+        activeRealtimeChannel.subscribe((status) => {
+            console.log(`📡 [REALTIME STATUS] Canale WebSocket: ${status}`);
+        });
+
+    } catch (realtimeErr) {
+        console.warn("⚠️ Impossibile attivare il Realtime WebSocket, attivo fallback robusto:", realtimeErr);
+    }
+
+    // 2. 🛡️ FALLBACK DI SICUREZZA A 20 MINUTI (20 * 60 * 1000 ms)
+    // Serve solo a sanare eventuali disallineamenti di rete invisibili dopo molte ore
+    safetySyncInterval = setInterval(async () => {
         if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
-
-        const salonId = currentUser.salon_id;
-        console.log("🔄 [AUTO-SYNC] Controllo modifiche in parallelo da altri operatori...");
+        console.log("🔄 [FALLBACK SYNC] Esecuzione controllo di sincronizzazione periodico (20 min)...");
 
         const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
-        
         try {
-            // Salviamo una fotografia dello stato appuntamenti prima del fetch per capire se ci sono novità
-            const oldAppsCount = allAppointments ? allAppointments.length : 0;
-
-            // Eseguiamo il pull in background per le tabelle calde
             for (let table of tablesToSync) {
                 await backgroundPullFromSupabase(table, salonId);
             }
-
-            // Ricarichiamo le variabili globali in memoria silenziosamente
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
-
-            // Se siamo nella vista Agenda o Cassa, aggiorniamo l'interfaccia al volo senza perdere il focus dei modali chiusi
-            const activeView = document.querySelector('.view.active');
-            if (activeView) {
-                const viewId = activeView.id;
-                if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
-                    // Aggiorna l'agenda solo se non ci sono modali aperti (per evitare di chiudere finestre di scrittura dell'utente)
-                    const isModalOpen = document.querySelector('.modal.active');
-                    if (!isModalOpen) {
-                        renderCalendar();
-                        console.log("📅 [AUTO-SYNC] Agenda aggiornata con le modifiche degli altri operatori.");
-                    }
-                } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
-                    const isModalOpen = document.querySelector('.modal.active');
-                    if (!isModalOpen) {
-                        renderProducts();
-                    }
-                }
-            }
             
-            // Aggiorna i KPI globali
             if (typeof updateStats === 'function') updateStats();
-
         } catch (err) {
-            console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
+            console.warn("⚠️ [FALLBACK SYNC] Errore durante il pull di sicurezza:", err);
         }
-    }, 5000); // Ogni 5 secondi
+    }, 1200000); // 1200000 ms = 20 minuti esatti
 }
 
 // Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
@@ -486,17 +531,21 @@ async function handleSpecialAction(action, data, id) {
                         console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username}`);
                     }
 
-                    // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
-                    if (localDb) {
-                        try {
-                            await localDb.delete();
-                            await localDb.open();
-                        } catch (dbEx) {
-                            console.error("Errore azzeramento IndexedDB:", dbEx);
-                        }
-                        
-                        await localDb.users.put(user);
-                    }
+                    // Invece di localDb.delete() che cancella tutto:
+if (localDb) {
+    // 1. Verifichiamo se l'utente che sta entrando è diverso da quello precedente in locale
+    const existingUser = await localDb.users.toCollection().first();
+    
+    if (existingUser && existingUser.id !== user.id) {
+        // Se cambia utente/salone sullo stesso dispositivo, allora sì, puliamo per sicurezza
+        console.warn("⚠️ Cambio utente rilevato sullo stesso dispositivo: pulizia dati locali del vecchio utente.");
+        await localDb.delete();
+        await localDb.open();
+    }
+    
+    // In ogni caso registriamo il nuovo utente attivo
+    await localDb.users.put(user);
+}
 
                     currentUser = user; 
                     
