@@ -2099,6 +2099,31 @@ console.error = function(...args) {
                 return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
             }
 
+// ⚡ BOOTSTRAP UNICO DI SESSIONE E AUTOLOGIN (Garantisce l'avvio del Delta Sync)
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("🔒 [BOOT SESSIONE] Verifica credenziali salvate...");
+    
+    const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
+    if (savedSessionJson) {
+        try {
+            const sessionData = JSON.parse(savedSessionJson);
+            if (sessionData && sessionData.username && sessionData.salon_id) {
+                console.log("⚡ [AUTO-LOGIN] Sessione ripristinata per l'utente:", sessionData.username);
+                
+                // 1. Assegniamo l'utente globale
+                currentUser = sessionData;
+                
+                // 2. Avviamo la funzione di successo del login che accende anche il delta sync
+                await loginSuccess();
+                return;
+            }
+        } catch (e) {
+            console.error("Errore nel parsing della sessione automatica:", e);
+            localStorage.removeItem('VaiMUp_logged_session');
+        }
+    }
+    console.log("ℹ️ Nessuna sessione automatica trovata. In attesa di login manuale.");
+});
 
             // Funzione per navigare i fogli
         // Funzione aggiornata per la navigazione dei tab
@@ -2198,20 +2223,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Prosegui poi con il normale controllo della sessione e il caricamento dei dati
-    const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
-    if (savedSessionJson) {
-        try {
-            const sessionData = JSON.parse(savedSessionJson);
-            if (sessionData && sessionData.username) {
-                currentUser = sessionData;
-                await loginSuccess();
-                return;
-            }
-        } catch (e) {
-            localStorage.removeItem('VaiMUp_logged_session');
-        }
-    }
 });
 
 // Ascoltatore di messaggi diretti dal Service Worker se l'app era già aperta in background
@@ -7528,85 +7539,68 @@ async function doLogin() {
     }
 
     async function loginSuccess() {
-        const isAdmin = (currentUser.role === 'admin');
+    const isAdmin = (currentUser.role === 'admin');
 
-        // 1. Setup visibilità menu laterale
-        document.getElementById('n-dash').style.display = isAdmin ? 'flex' : 'none';
-        document.getElementById('n-sett').style.display = isAdmin ? 'flex' : 'none';
-        document.getElementById('n-repo').style.display = isAdmin ? 'flex' : 'none';
-        document.getElementById('n-users').style.display = isAdmin ? 'flex' : 'none';
-        document.getElementById('n-schedules').style.display = isAdmin ? 'flex' : 'none';
-        document.getElementById('n-payouts').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-dash').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-sett').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-repo').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-users').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-schedules').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('n-payouts').style.display = isAdmin ? 'flex' : 'none';
 
-        // 2. ⚡ INGRESSO ISTANTANEO: Spegniamo subito il login e mostriamo l'app
-        const loginScreen = document.getElementById('login-screen');
-        if (loginScreen) {
-            loginScreen.classList.add('fade-out-screen');
-            setTimeout(() => {
-                loginScreen.classList.add('hidden');
-                loginScreen.classList.remove('fade-out-screen');
-            }, 500);
-        }
-        document.getElementById('app-shell').style.display = 'flex';
-        
-        const loadingOverlay = document.getElementById('login-loading-overlay');
-        if (loadingOverlay) loadingOverlay.classList.remove('active');
-
-        // 3. Impostiamo subito la rotta iniziale
-        if (isAdmin) {
-            const startV = document.getElementById('d-start-v');
-            const endV = document.getElementById('d-end-v');
-            if (startV && endV) {
-                startV.value = '2020-01-01';
-                endV.value = new Date().toISOString().split('T')[0];
-            }
-            await changePage('dashboard');
-        } else {
-            await changePage('sales');
-        }
-
-        // 4. Caricamento immediato dai dati locali
-        await refreshAllData();
-        if (typeof renderCalendar === 'function') renderCalendar();
-
-        // 5. 🚀 ATTIVAZIONE SINCRONIZZAZIONE IN PARALLELO TRA OPERATORI DELLO STESSO SALONE
-        if (typeof window.startBackgroundMultiOperatorSync === 'function') {
-            window.startBackgroundMultiOperatorSync();
-        }
-
-        // 6. Idratazione in background non bloccante
-        setTimeout(async () => {
-            if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
-                await window.hydrateLocalDatabase(currentUser.salon_id);
-                await refreshAllData();
-                if (typeof renderCalendar === 'function') renderCalendar();
-            }
-            
-            try {
-                const users = await window.universalQuery({ action: 'GET_ALL', table: 'users' });
-                if (Array.isArray(users)) {
-                    for (let u of users) {
-                        await generateBreakAppointments(u.username);
-                    }
-                }
-                if (typeof checkAndRollBreakAppointments === 'function') {
-                    await checkAndRollBreakAppointments();
-                }
-                await refreshAllData();
-                if (typeof renderCalendar === 'function') renderCalendar();
-            } catch (breakErr) {
-                console.error("Errore background pause:", breakErr);
-            }
-        }, 300);
-
-        requestNativeNotificationPermission();
-        startProfessionalOperatorAlertSystem();
-
-        // 🌟 AGGIUNTA: Sottoscrizione push automatica all'ingresso se il permesso è attivo
-        autoRegisterPushOnLogin();
-
-        resetLogoutTimer();
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+        loginScreen.classList.add('fade-out-screen');
+        setTimeout(() => {
+            loginScreen.classList.add('hidden');
+            loginScreen.classList.remove('fade-out-screen');
+        }, 500);
     }
+    document.getElementById('app-shell').style.display = 'flex';
+    
+    const loadingOverlay = document.getElementById('login-loading-overlay');
+    if (loadingOverlay) loadingOverlay.classList.remove('active');
+
+    if (isAdmin) {
+        const startV = document.getElementById('d-start-v');
+        const endV = document.getElementById('d-end-v');
+        if (startV && endV) {
+            startV.value = '2020-01-01';
+            endV.value = new Date().toISOString().split('T')[0];
+        }
+        await changePage('dashboard');
+    } else {
+        await changePage('sales');
+    }
+
+    // Caricamento immediato
+    await refreshAllData();
+    if (typeof renderCalendar === 'function') renderCalendar();
+
+    // ==========================================================
+    // 🚀 ACCENSIONE FORZATA DEL MOTORE DI SINCRONIZZAZIONE (DELTA SYNC)
+    // ==========================================================
+    if (typeof startBackgroundMultiOperatorSync === 'function') {
+        startBackgroundMultiOperatorSync();
+        console.log("✅ [BOOT] Motore di sincronizzazione multi-operatore avviato con successo.");
+    } else {
+        console.error("❌ ERRORE CRITICO: startBackgroundMultiOperatorSync non trovata in data-service.js!");
+    }
+
+    // Idratazione in background e notifiche
+    setTimeout(async () => {
+        if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
+            await window.hydrateLocalDatabase(currentUser.salon_id);
+            await refreshAllData();
+            if (typeof renderCalendar === 'function') renderCalendar();
+        }
+    }, 300);
+
+    requestNativeNotificationPermission();
+    startProfessionalOperatorAlertSystem();
+    autoRegisterPushOnLogin();
+    resetLogoutTimer();
+}
 
 // --- 📱 GESTIONE SWIPE ORIZZONTALE PER CAMBIO SETTIMANA / GIORNO (CORRETTO E ANTI-SALTO) ---
 let touchStartX = 0;
