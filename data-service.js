@@ -147,14 +147,13 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
-// Sincronizzazione in background universale con supporto paginazione per TUTTE le tabelle oltre i 1000 record
 async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
     let limit = 1000;
     let offset = 0;
     let hasMore = true;
-    let allCloudRecords = []; // 👈 Raccogliamo tutti i record del cloud per il confronto delle eliminazioni
+    let allCloudRecords = [];
 
     while (hasMore) {
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
@@ -180,7 +179,7 @@ async function backgroundPullFromSupabase(table, salonId) {
                 if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                     for (let record of cloudRecords) {
                         await localDb.table(table).put(record);
-                        allCloudRecords.push(record); // Aggiungiamo alla lista totale cloud
+                        allCloudRecords.push(record);
                     }
                     if (cloudRecords.length < limit) {
                         hasMore = false;
@@ -191,39 +190,24 @@ async function backgroundPullFromSupabase(table, salonId) {
                     hasMore = false;
                 }
             } else {
-                console.warn(`⚠️ Pull fallito per ${table} (Status: ${response.status})`);
                 hasMore = false;
             }
         } catch (err) {
-            console.warn(`❌ Errore di rete durante il pull di ${table}:`, err);
             hasMore = false;
         }
 
         if (table === 'users') break;
     }
 
-    // 🧹 GESTIONE CANCELLAZIONE IN TEMPO REALE:
-    // Se abbiamo scaricato con successo i dati dal cloud per le tabelle chiave, verifichiamo se 
-    // qualche record in locale è stato eliminato dall'altro operatore.
-    if (['appointments', 'customers', 'inventory', 'sales'].includes(table) && allCloudRecords.length >= 0) {
+    // 🧹 PULIZIA AUTOMATICA DEI RECORD CANCELLATI SUL CLOUD ANCHE PER CUSTOMERS E INVENTORY
+    if (['customers', 'inventory', 'sales'].includes(table) && allCloudRecords.length >= 0) {
         const cloudIdsSet = new Set(allCloudRecords.map(r => r.id));
         const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
 
         for (let localRec of localRecords) {
-            // Per gli appuntamenti verifichiamo la finestra temporale recente/futura (da ieri in poi) per evitare di cancellare storico vecchio se non paginato
-            if (table === 'appointments') {
-                const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
-                    await localDb.table(table).delete(localRec.id);
-                    console.log(`🗑️ [AUTO-SYNC] Appuntamento eliminato sul cloud rilevato e rimosso localmente ID: ${localRec.id} (${localRec.cust_name})`);
-                }
-            } else {
-                // Per clienti, prodotti e vendite verifichiamo se l'ID non esiste più nel set cloud
-                // (Attenzione: eseguiamo il delete solo se il cloud ha restituito dati per evitare falsi positivi offline)
-                if (allCloudRecords.length > 0 && !cloudIdsSet.has(localRec.id)) {
-                    await localDb.table(table).delete(localRec.id);
-                    console.log(`🗑️ [AUTO-SYNC] Record eliminato sul cloud rimosso localmente in [${table}] ID: ${localRec.id}`);
-                }
+            if (!cloudIdsSet.has(localRec.id)) {
+                await localDb.table(table).delete(localRec.id);
+                console.log(`🗑️ [VIEW-SYNC] Record rimosso localmente in [${table}] ID: ${localRec.id} (eliminato da altro operatore)`);
             }
         }
     }

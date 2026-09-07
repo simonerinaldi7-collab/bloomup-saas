@@ -4958,32 +4958,61 @@ let currentSelectedServices = [];
         grid.innerHTML = html;
     }
 
-            function renderActiveView() {
-                const active = document.querySelector('.view.active').id;
-                const t = { 'v-dashboard':'Riepilogo', 'v-sales':'Cassa', 'v-calendar':'Agenda', 'v-customers':'Clienti', 'v-services':'Listino servizi','v-products':'Magazzino Prodotti','v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni',  'v-users': 'Gestione Utenti','v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff','v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'};
-                document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
-                if(active === 'v-dashboard') {
-            refreshDashboard();      // Carica i grafici
-            loadSleepingClients();   // Carica i clienti dormienti
-        }
-        if(active === 'v-calendar') {
-            updateCalendarUI(); // <--- CHIAMA QUESTA (l'avevi chiamata loadUserFilter in precedenza, ora usiamo il nome corretto)
-            renderCalendar();
-        }
+            async function renderActiveView() {
+    const activeViewElement = document.querySelector('.view.active');
+    if (!activeViewElement) return;
+    
+    const active = activeViewElement.id;
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    
+    const t = { 
+        'v-dashboard':'Riepilogo', 'v-sales':'Cassa', 'v-calendar':'Agenda', 
+        'v-customers':'Clienti', 'v-services':'Listino servizi', 'v-products':'Magazzino Prodotti',
+        'v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni', 'v-users': 'Gestione Utenti',
+        'v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff',
+        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'
+    };
+    
+    document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
 
-        
+    // 🚀 SYNC MIRATO ON-DEMAND AL CAMBIO SCHERMATA (Garantisce dati freschi senza pesare su Supabase)
+    if (navigator.onLine) {
+        if (active === 'v-customers') {
+            console.log("👥 [VIEW-SYNC] Aggiornamento anagrafica clienti dal cloud...");
+            await window.universalQuery({ action: 'GET_ALL', table: 'customers' });
+            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+            renderCust();
+        } else if (active === 'v-products') {
+            console.log("📦 [VIEW-SYNC] Aggiornamento magazzino dal cloud...");
+            await window.universalQuery({ action: 'GET_ALL', table: 'inventory' });
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            renderProducts();
+        } else if (active === 'v-suppliers') {
+            await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' });
+            renderSuppliers();
+        } else if (active === 'v-services') {
+            await window.universalQuery({ action: 'GET_ALL', table: 'inventory' });
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            renderServices();
+        }
+    }
 
-                if(active === 'v-customers') renderCust();
-                if(active === 'v-products') renderProducts(); // 👈 Render prodotti
-                if(active === 'v-suppliers') renderSuppliers(); // 👈 Aggiunto
-                if(active === 'v-services') renderServices(); // 👈 Render servizi
-                if(active === 'v-sales-report') renderSalesReport();
-                if(active === 'v-sales') renderSalesList();
-                if(active === 'v-supplier-payouts') renderSupplierPayouts(); // 👈 AGGIUNGI QUESTO
-                if(active === 'v-logs') renderLogs();
-                if(active === 'v-settings') loadSettingsFields();
-                if(active === 'v-users') renderUsers();
-            }
+    // Esecuzione dei render standard per le altre viste
+    if(active === 'v-dashboard') {
+        refreshDashboard();
+        loadSleepingClients();
+    }
+    if(active === 'v-calendar') {
+        updateCalendarUI();
+        renderCalendar();
+    }
+    if(active === 'v-sales-report') renderSalesReport();
+    if(active === 'v-sales') renderSalesList();
+    if(active === 'v-supplier-payouts') renderSupplierPayouts();
+    if(active === 'v-logs') renderLogs();
+    if(active === 'v-settings') loadSettingsFields();
+    if(active === 'v-users') renderUsers();
+}
 
 
         
