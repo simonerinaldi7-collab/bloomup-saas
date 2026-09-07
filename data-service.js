@@ -45,25 +45,27 @@ window.appDataService = async function(action, table, data = null, id = null) {
 
 
 // ==========================================
-// 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC OTTIMIZZATO
+// 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC (FUSO ORARIO PROTETTO)
 // ==========================================
 
 let backgroundSyncInterval = null;
-let lastSyncTimestamp = null; // 👈 Mantiene memoria dell'ultimo allineamento riuscito
+let lastSyncTimestamp = null; 
 
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // Registriamo l'istante di partenza della sessione
-    lastSyncTimestamp = new Date(Date.now() - 60000).toISOString(); // 1 minuto fa
+    // 🕒 SICUREZZA FUSO ORARIO: Retrocediamo la partenza di 3 ore (10800000 ms) 
+    // per coprire perfettamente qualsiasi scarto UTC / ora legale tra client e server Supabase.
+    lastSyncTimestamp = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
 
-    // Esegue una sincronizzazione incrementale (delta sync) silente ogni 15 secondi (ottimizzato per i limiti Supabase)
     backgroundSyncInterval = setInterval(async () => {
         if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
 
         const salonId = currentUser.salon_id;
-        const currentFetchTime = new Date().toISOString();
-        console.log("🔄 [DELTA-SYNC] Controllo modifiche incrementali in parallelo...");
+        // Memorizziamo l'istante di inizio pull (retrocesso di 3 ore per il prossimo ciclo)
+        const currentFetchTime = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+        
+        console.log("🔄 [DELTA-SYNC] Controllo modifiche incrementali cross-device...");
 
         const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
         
@@ -71,16 +73,15 @@ function startBackgroundMultiOperatorSync() {
             let hasNewChanges = false;
 
             for (let table of tablesToSync) {
-                // 🚀 DELTA PULL: Scarichiamo SOLO i record modificati dopo l'ultimo sync
                 const updatedCount = await backgroundDeltaPullFromSupabase(table, salonId, lastSyncTimestamp);
                 if (updatedCount > 0) hasNewChanges = true;
             }
 
-            // Aggiorniamo il timestamp di riferimento all'istante corrente
+            // Aggiorniamo il cursore temporale per il prossimo giro
             lastSyncTimestamp = currentFetchTime;
 
-            // Se ci sono state novità, ricarichiamo le variabili globali in memoria e aggiorniamo la UI
             if (hasNewChanges) {
+                // Ricarichiamo le variabili globali in memoria
                 allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
                 allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
                 allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
@@ -94,7 +95,7 @@ function startBackgroundMultiOperatorSync() {
                     if (!isModalOpen) {
                         if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
                             renderCalendar();
-                            console.log("📅 [DELTA-SYNC] Agenda aggiornata in tempo reale.");
+                            console.log("📅 [DELTA-SYNC] Agenda sincronizzata in tempo reale dal cloud!");
                         } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
                             renderProducts();
                         } else if (viewId === 'v-sales' && typeof renderSalesList === 'function') {
@@ -104,24 +105,31 @@ function startBackgroundMultiOperatorSync() {
                 }
                 
                 if (typeof updateStats === 'function') updateStats();
+                if (typeof updateReminderBadgeCount === 'function') updateReminderBadgeCount();
             }
 
         } catch (err) {
-            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante durante la sincronizzazione incrementale:", err);
+            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante nel sync incrementale:", err);
         }
-    }, 15000); // 15 secondi (riduce drasticamente il consumo di chiamate API su Supabase)
+    }, 15000); // Ogni 15 secondi
 }
 
-// 🚀 Delta Pull: Scarica solo le righe modificate dopo un certo timestamp (sfruttando indici e filtri PostgREST)
 async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
     if (!salonId) return 0;
     
-    // Se la tabella possiede updated_at usiamo il filtro gt (greater than), altrimenti fallback limitato
     let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
-    if (sinceTimestamp) {
+    
+    const supportsTimestamp = TABLES_WITH_TIMESTAMP.includes(table);
+
+    if (supportsTimestamp && sinceTimestamp) {
+        // Sfruttiamo il filtro >= con il timestamp protetto dall'offset di 3 ore
         url += `&updated_at=gte.${sinceTimestamp}`;
+    } else if (table === 'appointments' || table === 'sales') {
+        // Finestra di sicurezza basata sugli ultimi 7 giorni per le tabelle chiave
+        const pastLimit = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        url += `&date=gte.${pastLimit}&order=updated_at.desc&limit=150`;
     } else {
-        url += `&limit=100`; // Limite di sicurezza per tabelle senza tracking fine
+        url += `&limit=100&order=id.desc`;
     }
 
     try {
@@ -130,22 +138,23 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Range': '0-999'
+                'Range': '0-499'
             }
         });
         
         if (response.ok) {
             const cloudRecords = await response.json();
             if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                let changedCount = 0;
                 for (let record of cloudRecords) {
                     await localDb.table(table).put(record);
+                    changedCount++;
                 }
-                console.log(`📥 [DELTA] Sincronizzati ${cloudRecords.length} record aggiornati per la tabella '${table}'`);
-                return cloudRecords.length;
+                return changedCount;
             }
         }
     } catch (err) {
-        console.warn(`❌ Errore di rete durante il delta pull di ${table}:`, err);
+        console.warn(`❌ Errore durante il delta pull di ${table}:`, err);
     }
     return 0;
 }
