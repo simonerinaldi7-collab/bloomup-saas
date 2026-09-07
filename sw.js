@@ -54,32 +54,30 @@ self.addEventListener('push', function (event) {
 });
 
 // --- START OF FILE sw.js (Aggiornato per profonda reattività al click) ---
+// --- START OF FILE sw.js (Aggiornato per la modalità Alarm-Only) ---
 self.addEventListener('notificationclick', function (event) {
     const notification = event.notification;
     const data = notification.data || {};
     const appId = data.appId;
     
-    // Costruiamo un URL con l'ID dell'appuntamento in chiaro nei parametri di ricerca
+    // Costruiamo un URL mirato che attiva la schermata minimale di allarme
     let targetUrl = data.url || './index.html';
     if (appId) {
         const separator = targetUrl.includes('?') ? '&' : '?';
-        targetUrl = `${targetUrl}${separator}open_alert=${appId}`;
+        targetUrl = `${targetUrl}${separator}alarm_action=true&open_alert=${appId}`;
     }
 
     notification.close();
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            // Se l'app è già aperta in una finestra, la portiamo in primo piano e navighiamo/forziamo l'apertura
             for (let i = 0; i < clientList.length; i++) {
                 let client = clientList[i];
                 if ('focus' in client) {
-                    // Inviamo anche un messaggio diretto al client attivo se la pagina è già aperta
                     client.postMessage({ type: 'FORCE_OPEN_ALARM', appId: appId });
                     return client.focus();
                 }
             }
-            // Altrimenti apriamo una nuova finestra passando l'URL con il parametro di avvio rapido
             if (clients.openWindow) {
                 return clients.openWindow(targetUrl);
             }
