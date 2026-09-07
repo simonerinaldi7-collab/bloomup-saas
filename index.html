@@ -2111,46 +2111,79 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (window._isQuickAlarmMode) {
-        console.log("🛡️ [QUICK ALARM] Modalità micro-view attiva. Blocco avvio applicazione standard.");
+        console.log("🛡️ [QUICK ALARM] Modalità micro-view attiva.");
         
-        // Nascondiamo tutto il resto
         const loginScreen = document.getElementById('login-screen');
         if (loginScreen) loginScreen.style.display = 'none';
         const appShell = document.getElementById('app-shell');
         if (appShell) appShell.style.display = 'none';
 
-        // Mostriamo la schermata dedicata
         const quickScreen = document.getElementById('quick-alarm-screen');
         if (quickScreen) quickScreen.style.display = 'flex';
 
-        // Carichiamo i dati dell'appuntamento da Dexie
-        if (window.Dexie && typeof Dexie !== 'undefined' && window._quickAlarmAppId) {
+        const alertAppId = window._quickAlarmAppId;
+        let appointmentFound = null;
+
+        // Tentativo 1: Usiamo direttamente il database globale 'localDb' se già pronto
+        try {
+            if (window.localDb) {
+                // Assicuriamoci che il DB sia aperto
+                if (!window.localDb.isOpen()) await window.localDb.open();
+                appointmentFound = await window.localDb.appointments.get(alertAppId);
+            }
+        } catch (e) {
+            console.warn("Tentativo 1 di lettura appuntamento fallito:", e);
+        }
+
+        // Tentativo 2 di emergenza: Se localDb non è pronto, apriamo Dexie con la versione corretta 21
+        if (!appointmentFound && window.Dexie) {
             try {
-                const db = new Dexie("RetailMasterPWA");
-                db.version(21).stores({ appointments: 'id, salon_id, date, time' });
-                const app = await db.appointments.get(window._quickAlarmAppId);
-
-                if (app) {
-                    const now = new Date();
-                    const appDateTime = new Date(`${app.date}T${app.time}:00`);
-                    const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
-
-                    document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
-                    document.getElementById('qa-cust-name').innerText = `👤 ${app.cust_name}`;
-                    document.getElementById('qa-service-name').innerText = `✂️ ${app.service || 'Trattamento'}`;
-                    document.getElementById('qa-time-details').innerText = `🕒 Data: ${app.date} alle ${app.time.substring(0, 5)}`;
-                } else {
-                    document.getElementById('qa-time-title').innerText = "Appuntamento imminente";
-                    document.getElementById('qa-cust-name').innerText = "👤 Dettagli appuntamento";
-                }
-            } catch (err) {
-                console.warn("Errore lettura rapida appuntamento da Dexie:", err);
+                const tempDb = new Dexie("RetailMasterPWA");
+                tempDb.version(21).stores({
+                    users: 'id, salon_id, username, status',
+                    customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
+                    inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment',
+                    appointments: 'id, salon_id, date, time',
+                    sales: 'id, salon_id, date, appointment_id',
+                    sale_items: 'id, salon_id, sale_id, is_paid',
+                    message_logs: 'id, salon_id',
+                    expenses: 'id, salon_id, date',
+                    price_history: 'id, salon_id, product_id',
+                    service_consumables: 'id, salon_id, service_id',
+                    operator_schedules: 'id, salon_id, username, day_of_week',
+                    suppliers: 'id, salon_id, name',
+                    product_suppliers: 'id, salon_id, product_id, supplier_id',
+                    supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid',
+                    stock_lots: 'id, salon_id, product_id, created_at',
+                    push_subscriptions: 'id, salon_id, username',
+                    appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date',
+                    settings: 'key, salon_id',
+                    sync_queue: '++local_id, action, table_name, data, target_id'
+                });
+                appointmentFound = await tempDb.appointments.get(alertAppId);
+            } catch (ex) {
+                console.warn("Tentativo 2 di lettura appuntamento fallito:", ex);
             }
         }
-        return; // 🛑 INTERROMPE L'ESECUZIONE: Niente login, niente idratazione, niente dashboard!
-    }
 
-   
+        // Popolamento della UI minimale
+        if (appointmentFound) {
+            const now = new Date();
+            const appDateTime = new Date(`${appointmentFound.date}T${appointmentFound.time}:00`);
+            const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
+
+            document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
+            document.getElementById('qa-cust-name').innerText = `👤 ${appointmentFound.cust_name}`;
+            document.getElementById('qa-service-name').innerText = `✂️ ${appointmentFound.service || 'Trattamento'}`;
+            document.getElementById('qa-time-details').innerText = `🕒 Data: ${appointmentFound.date} alle ${appointmentFound.time.substring(0, 5)}`;
+        } else {
+            document.getElementById('qa-time-title').innerText = "Appuntamento imminente";
+            document.getElementById('qa-cust-name').innerText = "👤 Promemoria attivo in agenda";
+            document.getElementById('qa-service-name').innerText = "✂️ Controlla l'agenda principale";
+            document.getElementById('qa-time-details').innerText = `ID Rif: ${alertAppId}`;
+        }
+        return; // Interrompe l'avvio dell'app pesante
+    }
 });
 
 // 🛡️ FILTRO CONSOLE: Ignora i log di telemetria interna di terze parti (WhatsApp/Meta)
@@ -4972,7 +5005,68 @@ let currentSelectedServices = [];
         if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
     }
 
+async function quickAlarmAction(actionType) {
+    const appId = window._quickAlarmAppId;
+    const todayKeyDate = new Date().toISOString().split('T')[0];
+    
+    // Disabilitiamo i bottoni per evitare doppi click
+    document.querySelectorAll('#quick-alarm-screen button').forEach(b => b.disabled = true);
 
+    try {
+        if (actionType === 'dismiss') {
+            if (appId) {
+                // Salvataggio locale immediato del dismiss
+                const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+                dismissedAlerts[`${appId}_${todayKeyDate}`] = todayKeyDate;
+                localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
+
+                // Invio a Supabase se online (senza dipendere da currentUser)
+                if (navigator.onLine && window.SUPABASE_CONFIG) {
+                    const SUPABASE_URL = window.SUPABASE_CONFIG.url;
+                    const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
+                    await fetch(`${SUPABASE_URL}/rest/v1/appointment_dismissals`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify({
+                            id: crypto.randomUUID(),
+                            appointment_id: appId,
+                            dismissed_date: todayKeyDate
+                        })
+                    }).catch(e => console.warn("Sync dismiss cloud rimandata:", e));
+                }
+            }
+            console.log("✅ Allarme chiuso e registrato.");
+        } else if (actionType === 'snooze') {
+            if (appId) {
+                const snoozeTime = new Date(new Date().getTime() + 5 * 60000).toISOString();
+                const activeSnoozes = JSON.parse(localStorage.getItem('VaiMUp_active_snoozes') || '{}');
+                activeSnoozes[appId] = snoozeTime;
+                localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(activeSnoozes));
+            }
+            console.log("⏳ Allarme posticipato di 5 minuti.");
+        }
+    } catch (err) {
+        console.error("Errore durante l'azione rapida:", err);
+    }
+
+    // Chiusura pulita della schermata o reindirizzamento
+    setTimeout(() => {
+        try {
+            if (window.opener) {
+                window.close();
+            } else {
+                window.location.href = 'about:blank';
+            }
+        } catch (e) {
+            window.location.href = 'about:blank';
+        }
+    }, 400);
+}
     async function performLogout() {
         resetGlobalState();
         localStorage.removeItem('VaiMUp_logged_session'); // 👈 Cancella la sessione automatica
