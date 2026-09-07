@@ -2083,6 +2083,24 @@
 
     <div id="mod-warning" class="modal"><div class="modal-box" style="text-align:center;"><h3>Sessione in scadenza</h3><button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button></div></div>
         <script>
+    // ⚡ INTERCETTAZIONE FULMINEA ANTI-CONFLITTO (Esegue prima di qualsiasi DOMContentLoaded)
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAlarmAction = urlParams.get('alarm_action');
+        const alertAppId = urlParams.get('open_alert');
+
+        if (isAlarmAction && alertAppId) {
+            console.log("🚀 [QUICK ALARM] Rilevato click su notifica imminente per ID:", alertAppId);
+            window._isQuickAlarmMode = true;
+            window._quickAlarmAppId = alertAppId;
+
+            // Puliamo subito l'URL per evitare loop se si ricarica
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    })();
+</script>
+        
+        <script>
             let currentUser = null;
             const GEMINI_KEY = "INSERISCI_CHIAVE_QUI";
             let allCustomers=[], allInventory=[], allAppointments=[], allSales=[], allLogs=[],allUsers=[],  sysSettings={};
@@ -2090,6 +2108,51 @@
             let inventoryFilter = "all"; // "all" o "lowstock"
             
             
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (window._isQuickAlarmMode) {
+        console.log("🛡️ [QUICK ALARM] Modalità micro-view attiva. Blocco avvio applicazione standard.");
+        
+        // Nascondiamo tutto il resto
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.style.display = 'none';
+        const appShell = document.getElementById('app-shell');
+        if (appShell) appShell.style.display = 'none';
+
+        // Mostriamo la schermata dedicata
+        const quickScreen = document.getElementById('quick-alarm-screen');
+        if (quickScreen) quickScreen.style.display = 'flex';
+
+        // Carichiamo i dati dell'appuntamento da Dexie
+        if (window.Dexie && typeof Dexie !== 'undefined' && window._quickAlarmAppId) {
+            try {
+                const db = new Dexie("RetailMasterPWA");
+                db.version(21).stores({ appointments: 'id, salon_id, date, time' });
+                const app = await db.appointments.get(window._quickAlarmAppId);
+
+                if (app) {
+                    const now = new Date();
+                    const appDateTime = new Date(`${app.date}T${app.time}:00`);
+                    const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
+
+                    document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
+                    document.getElementById('qa-cust-name').innerText = `👤 ${app.cust_name}`;
+                    document.getElementById('qa-service-name').innerText = `✂️ ${app.service || 'Trattamento'}`;
+                    document.getElementById('qa-time-details').innerText = `🕒 Data: ${app.date} alle ${app.time.substring(0, 5)}`;
+                } else {
+                    document.getElementById('qa-time-title').innerText = "Appuntamento imminente";
+                    document.getElementById('qa-cust-name').innerText = "👤 Dettagli appuntamento";
+                }
+            } catch (err) {
+                console.warn("Errore lettura rapida appuntamento da Dexie:", err);
+            }
+        }
+        return; // 🛑 INTERROMPE L'ESECUZIONE: Niente login, niente idratazione, niente dashboard!
+    }
+
+   
+});
+
 // 🛡️ FILTRO CONSOLE: Ignora i log di telemetria interna di terze parti (WhatsApp/Meta)
 const originalConsoleError = console.error;
 console.error = function(...args) {
@@ -10792,83 +10855,8 @@ async function deleteExpense(id) {
 
 
     document.addEventListener('DOMContentLoaded', () => {
-        // ⚡ INTERCETTAZIONE RAPIDA MODALITÀ ALARM-ONLY (All'avvio del DOM)
-(async function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const isAlarmAction = urlParams.get('alarm_action');
-    const alertAppId = urlParams.get('open_alert');
-
-    if (isAlarmAction && alertAppId) {
-        console.log("🚀 [QUICK ALARM] Avvio in modalità schermata apposita per ID:", alertAppId);
-        
-        // Salviamo l'ID globalmente per le azioni rapide
-        window._currentQuickAlarmId = alertAppId;
-
-        // Spegniamo subito login e app-shell per non sprecare risorse
-        const loginScreen = document.getElementById('login-screen');
-        if (loginScreen) loginScreen.style.display = 'none';
-        const appShell = document.getElementById('app-shell');
-        if (appShell) appShell.style.display = 'none';
-
-        // Mostriamo la schermata dedicata
-        const quickScreen = document.getElementById('quick-alarm-screen');
-        if (quickScreen) quickScreen.style.display = 'flex';
-
-        // Peschiamo l'appuntamento direttamente da Dexie locale (senza idratazione cloud)
-        if (window.Dexie && typeof Dexie !== 'undefined') {
-            try {
-                const db = new Dexie("RetailMasterPWA");
-                db.version(21).stores({ appointments: 'id, salon_id, date, time' });
-                const app = await db.appointments.get(alertAppId);
-
-                if (app) {
-                    const now = new Date();
-                    const appDateTime = new Date(`${app.date}T${app.time}:00`);
-                    const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
-
-                    document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
-                    document.getElementById('qa-cust-name').innerText = `👤 ${app.cust_name}`;
-                    document.getElementById('qa-service-name').innerText = `✂️ ${app.service || 'Trattamento'}`;
-                    document.getElementById('qa-time-details').innerText = `🕒 Data: ${app.date} alle ${app.time.substring(0, 5)}`;
-                } else {
-                    document.getElementById('qa-time-title').innerText = "Appuntamento imminente";
-                    document.getElementById('qa-cust-name').innerText = "👤 Dettagli non disponibili offline";
-                }
-            } catch (err) {
-                console.warn("Errore lettura rapida appuntamento da Dexie:", err);
-            }
-        }
-    }
-})();
-
-// Gestione dei bottoni "Ho capito" o "Posticipa" nella schermata apposita
-async function quickAlarmAction(actionType) {
-    const appId = window._currentQuickAlarmId;
-
-    if (actionType === 'dismiss') {
-        if (appId) {
-            await requestDismissBroadcast(appId);
-        }
-        alert("✅ Appuntamento confermato.");
-    } else if (actionType === 'snooze') {
-        if (appId) {
-            await requestSnoozeBroadcast(appId, 5);
-        }
-        alert("⏳ Promemoria posticipato di 5 minuti.");
-    }
-
-    // Riduzione a icona / chiusura della schermata o invio in background
-    try {
-        if (window.opener) {
-            window.close();
-        } else {
-            // Se siamo in una PWA standalone o scheda, proviamo a chiudere o reindirizzare a pagina vuota
-            window.location.href = 'about:blank';
-        }
-    } catch (e) {
-        window.location.href = 'about:blank';
-    }
-}
+        // NON caricare nulla finché non c'è il login. 
+        // Mostriamo solo la schermata di login che è già gestita dall'HTML.
         console.log("App avviata. In attesa di login...");
     });
         </script>
