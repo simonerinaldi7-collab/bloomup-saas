@@ -45,36 +45,37 @@ window.appDataService = async function(action, table, data = null, id = null) {
 
 
 // ==========================================
-// 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC DEFINITIVO
+// 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC (CON LOG DI DIAGNOSTICA)
 // ==========================================
 
 let backgroundSyncInterval = null;
 let lastSyncTimestamp = null; 
 
-// 🛡️ Elenco ufficiale delle tabelle che supportano updated_at su Supabase
-const TABLES_WITH_TIMESTAMP = ['appointments', 'inventory', 'sales', 'customers', 'users', 'expenses'];
-
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // 🕒 SICUREZZA FUSO ORARIO: Retrocediamo la partenza di 3 ore (10800000 ms) 
-    // per coprire perfettamente qualsiasi scarto UTC tra client e server Supabase.
     lastSyncTimestamp = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-
-    console.log("🚀 [AUTO-SYNC] Servizio di sincronizzazione multi-operatore avviato.");
+    console.log("🟢 [SYNC-DIAGNOSTIC] ➔ startBackgroundMultiOperatorSync() AVVIATO con successo. Timer attivo ogni 15s.");
 
     backgroundSyncInterval = setInterval(async () => {
+        console.log("⏰ [SYNC-DIAGNOSTIC] ➔ Timer 15s scattato. Esecuzione ciclo di sync in corso...");
         await executeDeltaSyncCycle();
-    }, 15000); // Ogni 15 secondi
+    }, 15000); 
 }
 
-// Funzione isolata del ciclo di sincronizzazione eseguibile anche on-demand
 async function executeDeltaSyncCycle() {
-    if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
+    if (!navigator.onLine) {
+        console.log("⚠️ [SYNC-DIAGNOSTIC] ➔ Sintonizzazione saltata: Browser OFFLINE.");
+        return;
+    }
+    if (!currentUser || !currentUser.salon_id) {
+        console.log("⚠️ [SYNC-DIAGNOSTIC] ➔ Sintonizzazione saltata: Utente non loggato o salon_id mancante.");
+        return;
+    }
 
     const salonId = currentUser.salon_id;
-    const currentFetchTime = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-    
+    console.log(`🔄 [SYNC-DIAGNOSTIC] ➔ Inizio ciclo Delta Sync per il salone: ${salonId}`);
+
     const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
     
     try {
@@ -82,13 +83,15 @@ async function executeDeltaSyncCycle() {
 
         for (let table of tablesToSync) {
             const updatedCount = await backgroundDeltaPullFromSupabase(table, salonId, lastSyncTimestamp);
-            if (updatedCount > 0) hasNewChanges = true;
+            if (updatedCount > 0) {
+                hasNewChanges = true;
+                console.log(`✨ [SYNC-DIAGNOSTIC] ➔ Rilevate ${updatedCount} novità per la tabella: ${table}`);
+            }
         }
 
-        lastSyncTimestamp = currentFetchTime;
-
         if (hasNewChanges) {
-            // Ricarichiamo le variabili globali in memoria
+            console.log("📥 [SYNC-DIAGNOSTIC] ➔ Aggiornamento delle variabili globali in memoria e refresh della vista...");
+            
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
@@ -102,39 +105,37 @@ async function executeDeltaSyncCycle() {
                 if (!isModalOpen) {
                     if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
                         renderCalendar();
-                        console.log("📅 [AUTO-SYNC] Agenda aggiornata in tempo reale!");
+                        console.log("📅 [SYNC-DIAGNOSTIC] ➔ Agenda ridisegnata automaticamente con i dati del cloud!");
                     } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
                         renderProducts();
                     } else if (viewId === 'v-sales' && typeof renderSalesList === 'function') {
                         renderSalesList();
                     }
+                } else {
+                    console.log("🔒 [SYNC-DIAGNOSTIC] ➔ Modale aperto: salto il refresh grafico per non chiudere la schermata dell'utente.");
                 }
             }
             
             if (typeof updateStats === 'function') updateStats();
             if (typeof updateReminderBadgeCount === 'function') updateReminderBadgeCount();
+        } else {
+            console.log("💤 [SYNC-DIAGNOSTIC] ➔ Nessuna nuova modifica trovata sul cloud in questo ciclo.");
         }
 
     } catch (err) {
-        console.warn("⚠️ [AUTO-SYNC] Errore non bloccante nel ciclo di sync:", err);
+        console.error("❌ [SYNC-DIAGNOSTIC] ➔ Errore critico nel ciclo di sync:", err);
     }
 }
-
 
 async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
     if (!salonId) return 0;
     
     let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
     
-    // 🛡️ STRATEGIA BLINDATA PER L'AGENDA: 
-    // Invece di dipendere da logiche complesse di timestamp, per gli appuntamenti 
-    // scarichiamo sempre gli appuntamenti da ieri fino a 90 giorni nel futuro.
-    // Questo garantisce al 100% che se l'altro dispositivo crea un appuntamento, lo troverai subito.
     if (table === 'appointments') {
         const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         url += `&date=gte.${yesterdayStr}&order=date.asc&limit=300`;
     } else if (table === 'customers' || table === 'inventory') {
-        // Per clienti e magazzino prendiamo gli ultimi 200 modificati di recente
         url += `&order=id.desc&limit=200`;
     } else {
         url += `&limit=100&order=id.desc`;
@@ -147,7 +148,7 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY,
                 'Range': '0-499',
-                'Cache-Control': 'no-cache' // 👈 Evita che il browser usi risposte cache fittizie
+                'Cache-Control': 'no-cache'
             }
         });
         
@@ -156,29 +157,28 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
             if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                 let changedCount = 0;
                 for (let record of cloudRecords) {
-                    // Controlliamo se il record locale è diverso o assente
                     const localExisting = await localDb.table(table).get(record.id);
-                    // Se non esiste o ha dati differenti, lo salviamo in locale
                     if (!localExisting || JSON.stringify(localExisting) !== JSON.stringify(record)) {
                         await localDb.table(table).put(record);
                         changedCount++;
+                        console.log(`📥 [SYNC-DIAGNOSTIC] ➔ Inserito/Aggiornato in Dexie [${table}] ID:`, record.id);
                     }
                 }
                 return changedCount;
             }
         } else {
-            console.warn(`⚠️ Safe Pull fallito per ${table}:`, response.status);
+            console.warn(`⚠️ [SYNC-DIAGNOSTIC] ➔ Fetch fallito per ${table} (Status: ${response.status})`);
         }
     } catch (err) {
-        console.warn(`❌ Errore di rete durante il safe pull di ${table}:`, err);
+        console.warn(`❌ [SYNC-DIAGNOSTIC] ➔ Errore di rete su ${table}:`, err);
     }
     return 0;
 }
 
-// 📱 Trigger di sincronizzazione immediata quando l'app torna in primo piano (es. sblocco schermo o cambio scheda)
+// Trigger immediato al ritorno in primo piano
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        console.log("📱 [FOCUS SYNC] App in primo piano: forzatura controllo delta sync immediato.");
+        console.log("📱 [SYNC-DIAGNOSTIC] ➔ Finestra tornata visibile (Focus). Lancio sync immediato...");
         executeDeltaSyncCycle();
     }
 });
