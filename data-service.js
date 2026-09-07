@@ -34,26 +34,23 @@ if (typeof Dexie !== 'undefined') {
 }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE) ---
+// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE CON CANCELLAZIONE) ---
 let backgroundSyncInterval = null;
 
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // Esegue una sincronizzazione silente ogni 25 secondi
+    // Esegue una sincronizzazione silente ogni 20 secondi
     backgroundSyncInterval = setInterval(async () => {
         if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
 
         const salonId = currentUser.salon_id;
-        console.log("🔄 [AUTO-SYNC] Controllo modifiche in parallelo da altri operatori...");
+        console.log("🔄 [AUTO-SYNC] Controllo modifiche ed eliminazioni in parallelo da altri operatori...");
 
         const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
         
         try {
-            // Salviamo una fotografia dello stato appuntamenti prima del fetch per capire se ci sono novità
-            const oldAppsCount = allAppointments ? allAppointments.length : 0;
-
-            // Eseguiamo il pull in background per le tabelle calde
+            // Eseguiamo il pull in background per le tabelle calde (con gestione della rimozione record eliminati)
             for (let table of tablesToSync) {
                 await backgroundPullFromSupabase(table, salonId);
             }
@@ -68,16 +65,12 @@ function startBackgroundMultiOperatorSync() {
             const activeView = document.querySelector('.view.active');
             if (activeView) {
                 const viewId = activeView.id;
-                if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
-                    // Aggiorna l'agenda solo se non ci sono modali aperti (per evitare di chiudere finestre di scrittura dell'utente)
-                    const isModalOpen = document.querySelector('.modal.active');
-                    if (!isModalOpen) {
+                const isModalOpen = document.querySelector('.modal.active');
+                if (!isModalOpen) {
+                    if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
                         renderCalendar();
                         console.log("📅 [AUTO-SYNC] Agenda aggiornata con le modifiche degli altri operatori.");
-                    }
-                } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
-                    const isModalOpen = document.querySelector('.modal.active');
-                    if (!isModalOpen) {
+                    } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
                         renderProducts();
                     }
                 }
@@ -89,7 +82,7 @@ function startBackgroundMultiOperatorSync() {
         } catch (err) {
             console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
         }
-    }, 5000); // Ogni 5 secondi
+    }, 20000); // Ogni 20 secondi
 }
 
 // Aggiunta/Modifica nel file data-service.js dentro window.appDataService
@@ -156,11 +149,11 @@ async function backgroundPullFromSupabase(table, salonId) {
     let limit = 1000;
     let offset = 0;
     let hasMore = true;
+    let allCloudRecords = []; // 👈 Raccogliamo tutti i record del cloud per il confronto delle eliminazioni
 
     while (hasMore) {
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
         
-        // Per la tabella users, non serve la paginazione massiva
         if (table === 'users') {
             url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
             hasMore = false;
@@ -172,7 +165,8 @@ async function backgroundPullFromSupabase(table, salonId) {
                 headers: {
                     'apikey': SUPABASE_KEY,
                     'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Range': `${offset}-${offset + limit - 1}`
+                    'Range': `${offset}-${offset + limit - 1}`,
+                    'Cache-Control': 'no-cache'
                 }
             });
             
@@ -181,8 +175,8 @@ async function backgroundPullFromSupabase(table, salonId) {
                 if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                     for (let record of cloudRecords) {
                         await localDb.table(table).put(record);
+                        allCloudRecords.push(record); // Aggiungiamo alla lista totale cloud
                     }
-                    // Se il numero di record ricevuti è inferiore al limite, significa che siamo arrivati alla fine
                     if (cloudRecords.length < limit) {
                         hasMore = false;
                     } else {
@@ -201,6 +195,32 @@ async function backgroundPullFromSupabase(table, salonId) {
         }
 
         if (table === 'users') break;
+    }
+
+    // 🧹 GESTIONE CANCELLAZIONE IN TEMPO REALE:
+    // Se abbiamo scaricato con successo i dati dal cloud per le tabelle chiave, verifichiamo se 
+    // qualche record in locale è stato eliminato dall'altro operatore.
+    if (['appointments', 'customers', 'inventory', 'sales'].includes(table) && allCloudRecords.length >= 0) {
+        const cloudIdsSet = new Set(allCloudRecords.map(r => r.id));
+        const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
+
+        for (let localRec of localRecords) {
+            // Per gli appuntamenti verifichiamo la finestra temporale recente/futura (da ieri in poi) per evitare di cancellare storico vecchio se non paginato
+            if (table === 'appointments') {
+                const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
+                    await localDb.table(table).delete(localRec.id);
+                    console.log(`🗑️ [AUTO-SYNC] Appuntamento eliminato sul cloud rilevato e rimosso localmente ID: ${localRec.id} (${localRec.cust_name})`);
+                }
+            } else {
+                // Per clienti, prodotti e vendite verifichiamo se l'ID non esiste più nel set cloud
+                // (Attenzione: eseguiamo il delete solo se il cloud ha restituito dati per evitare falsi positivi offline)
+                if (allCloudRecords.length > 0 && !cloudIdsSet.has(localRec.id)) {
+                    await localDb.table(table).delete(localRec.id);
+                    console.log(`🗑️ [AUTO-SYNC] Record eliminato sul cloud rimosso localmente in [${table}] ID: ${localRec.id}`);
+                }
+            }
+        }
     }
 }
 
