@@ -158,6 +158,7 @@ async function backgroundPullFromSupabase(table, salonId) {
     while (hasMore) {
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
         
+        // Per la tabella users, non serve la paginazione massiva
         if (table === 'users') {
             url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
             hasMore = false;
@@ -190,24 +191,36 @@ async function backgroundPullFromSupabase(table, salonId) {
                     hasMore = false;
                 }
             } else {
+                console.warn(`⚠️ Pull fallito per ${table} (Status: ${response.status})`);
                 hasMore = false;
             }
         } catch (err) {
+            console.warn(`❌ Errore di rete durante il pull di ${table}:`, err);
             hasMore = false;
         }
 
         if (table === 'users') break;
     }
 
-    // 🧹 PULIZIA AUTOMATICA DEI RECORD CANCELLATI SUL CLOUD ANCHE PER CUSTOMERS E INVENTORY
-    if (['customers', 'inventory', 'sales'].includes(table) && allCloudRecords.length >= 0) {
+    // 🧹 GESTIONE CANCELLAZIONE SICURA E MIRATA
+    if (allCloudRecords.length >= 0) {
         const cloudIdsSet = new Set(allCloudRecords.map(r => r.id));
         const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
 
         for (let localRec of localRecords) {
-            if (!cloudIdsSet.has(localRec.id)) {
-                await localDb.table(table).delete(localRec.id);
-                console.log(`🗑️ [VIEW-SYNC] Record rimosso localmente in [${table}] ID: ${localRec.id} (eliminato da altro operatore)`);
+            if (table === 'appointments') {
+                // Per gli appuntamenti verifichiamo la finestra recente/futura (da ieri in poi)
+                const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
+                    await localDb.table(table).delete(localRec.id);
+                    console.log(`🗑️ [SYNC-DELETE] Appuntamento rimosso localmente ID: ${localRec.id} (${localRec.cust_name})`);
+                }
+            } else if (['customers', 'inventory', 'sales'].includes(table)) {
+                // Per anagrafiche e vendite, se il record locale non è più presente nel set completo del cloud
+                if (!cloudIdsSet.has(localRec.id)) {
+                    await localDb.table(table).delete(localRec.id);
+                    console.log(`🗑️ [SYNC-DELETE] Record rimosso localmente in [${table}] ID: ${localRec.id}`);
+                }
             }
         }
     }
