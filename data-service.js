@@ -33,16 +33,6 @@ if (typeof Dexie !== 'undefined') {
     console.error("ATTENZIONE: Libreria Dexie.js non caricata!");
 }
 
-// Aggiunta/Modifica nel file data-service.js dentro window.appDataService
-window.appDataService = async function(action, table, data = null, id = null) {
-    const isOnline = navigator.onLine;
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-
-    if (action === 'FORCE_SYNC') {
-        await processBrowserSyncQueue();
-        return { status: 'ok' };
-    }
-
 
 // ==========================================
 // 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC (CON LOG DI DIAGNOSTICA)
@@ -59,26 +49,17 @@ function startBackgroundMultiOperatorSync() {
 
     backgroundSyncInterval = setInterval(async () => {
         console.log("⏰ [SYNC-DIAGNOSTIC] ➔ Timer 15s scattato. Esecuzione ciclo di sync in corso...");
-        await executeDeltaSyncCycle();let backgroundSyncInterval = null;
-let lastSyncTimestamp = null; 
-const TABLES_WITH_TIMESTAMP = ['appointments', 'inventory', 'sales', 'customers', 'users', 'expenses'];
-
-// 🌟 DICHIARATA GLOBALE FUORI DA ALTRE FUNZIONI (Risolve l'errore "non trovata")
-window.startBackgroundMultiOperatorSync = function() {
-    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
-
-    lastSyncTimestamp = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-    console.log("🟢 [SYNC-DIAGNOSTIC] ➔ startBackgroundMultiOperatorSync() AVVIATO. Timer attivo ogni 15s.");
-
-    backgroundSyncInterval = setInterval(async () => {
-        console.log("⏰ [SYNC-DIAGNOSTIC] ➔ Timer 15s scattato. Esecuzione ciclo di sync in corso...");
         await executeDeltaSyncCycle();
     }, 15000); 
 }
 
 async function executeDeltaSyncCycle() {
-    if (!navigator.onLine || !currentUser || !currentUser.salon_id) {
-        console.log("⚠️ [SYNC-DIAGNOSTIC] ➔ Sync saltata (Offline o utente non loggato).");
+    if (!navigator.onLine) {
+        console.log("⚠️ [SYNC-DIAGNOSTIC] ➔ Sintonizzazione saltata: Browser OFFLINE.");
+        return;
+    }
+    if (!currentUser || !currentUser.salon_id) {
+        console.log("⚠️ [SYNC-DIAGNOSTIC] ➔ Sintonizzazione saltata: Utente non loggato o salon_id mancante.");
         return;
     }
 
@@ -114,12 +95,14 @@ async function executeDeltaSyncCycle() {
                 if (!isModalOpen) {
                     if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
                         renderCalendar();
-                        console.log("📅 [SYNC-DIAGNOSTIC] ➔ Agenda ridisegnata automaticamente!");
+                        console.log("📅 [SYNC-DIAGNOSTIC] ➔ Agenda ridisegnata automaticamente con i dati del cloud!");
                     } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
                         renderProducts();
                     } else if (viewId === 'v-sales' && typeof renderSalesList === 'function') {
                         renderSalesList();
                     }
+                } else {
+                    console.log("🔒 [SYNC-DIAGNOSTIC] ➔ Modale aperto: salto il refresh grafico per non chiudere la schermata dell'utente.");
                 }
             }
             
@@ -130,7 +113,7 @@ async function executeDeltaSyncCycle() {
         }
 
     } catch (err) {
-        console.error("❌ [SYNC-DIAGNOSTIC] ➔ Errore nel ciclo di sync:", err);
+        console.error("❌ [SYNC-DIAGNOSTIC] ➔ Errore critico nel ciclo di sync:", err);
     }
 }
 
@@ -173,6 +156,8 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
                 }
                 return changedCount;
             }
+        } else {
+            console.warn(`⚠️ [SYNC-DIAGNOSTIC] ➔ Fetch fallito per ${table} (Status: ${response.status})`);
         }
     } catch (err) {
         console.warn(`❌ [SYNC-DIAGNOSTIC] ➔ Errore di rete su ${table}:`, err);
@@ -180,16 +165,17 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
     return 0;
 }
 
-// Trigger immediato al ritorno in primo piano (focus)
+// Trigger immediato al ritorno in primo piano
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        console.log("📱 [SYNC-DIAGNOSTIC] ➔ Finestra tornata visibile. Lancio sync immediato...");
+        console.log("📱 [SYNC-DIAGNOSTIC] ➔ Finestra tornata visibile (Focus). Lancio sync immediato...");
         executeDeltaSyncCycle();
     }
 });
 
 
-// Servizio Centrale di Data Service
+
+// Aggiunta/Modifica nel file data-service.js dentro window.appDataService
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -199,14 +185,35 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return { status: 'ok' };
     }
 
+
+
+
+
+// Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
+
+    
+     // Gestione azioni speciali (non standard INSERT/UPDATE/DELETE su tabelle)
     const isStandardWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(action);
     if (!isStandardWrite && !table && [
-        'GET_MARGIN_INSIGHTS', 'GET_VOLUME_INSIGHTS', 'GET_MONTHLY_BALANCE', 
-        'GET_SEASONAL_INSIGHTS', 'GET_CROSS_SELLING', 'GET_RFM_ANALYSIS', 
-        'GET_SALES_REPORT', 'GET_CUSTOMER_INSIGHTS', 'GET_CURRENT_PRICE',
-        'GET_HISTORY', 'CHECK_OVERLAP', 'GET_CONSUMABLES_BY_SERVICE',
-        'VERIFY_LOGIN', 'INSERT_PRICE_HISTORY', 'UPDATE_PASSWORD',
-        'UPSERT_SETTING', 'RESET_PASSWORD', 'SAVE_USER', 'VOID_SALE'
+        'GET_MARGIN_INSIGHTS', 
+        'GET_VOLUME_INSIGHTS', 
+        'GET_MONTHLY_BALANCE', 
+        'GET_SEASONAL_INSIGHTS', 
+        'GET_CROSS_SELLING', 
+        'GET_RFM_ANALYSIS', 
+        'GET_SALES_REPORT', 
+        'GET_CUSTOMER_INSIGHTS', 
+        'GET_CURRENT_PRICE',
+        'GET_HISTORY',
+        'CHECK_OVERLAP',
+        'GET_CONSUMABLES_BY_SERVICE',
+        'VERIFY_LOGIN',
+        'INSERT_PRICE_HISTORY',
+        'UPDATE_PASSWORD',
+        'UPSERT_SETTING',
+        'RESET_PASSWORD',
+        'SAVE_USER',
+        'VOID_SALE'
         ].includes(action)) {
         return await handleSpecialAction(action, data, id);
     }
@@ -222,7 +229,63 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
+    // ✍️ GESTIONE CENTRALIZZATA SCRITTURE (INSERT, UPDATE, DELETE) PER QUALSIASI TABELLA
     return await handleWriteOperation(action, table, data, id, isOnline);
+}
+
+// Sincronizzazione in background universale con supporto paginazione per TUTTE le tabelle oltre i 1000 record
+async function backgroundPullFromSupabase(table, salonId) {
+    if (!salonId) return;
+    
+    let limit = 1000;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
+        
+        // Per la tabella users, non serve la paginazione massiva
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`
+                }
+            });
+            
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    for (let record of cloudRecords) {
+                        await localDb.table(table).put(record);
+                    }
+                    // Se il numero di record ricevuti è inferiore al limite, significa che siamo arrivati alla fine
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                console.warn(`⚠️ Pull fallito per ${table} (Status: ${response.status})`);
+                hasMore = false;
+            }
+        } catch (err) {
+            console.warn(`❌ Errore di rete durante il pull di ${table}:`, err);
+            hasMore = false;
+        }
+
+        if (table === 'users') break;
+    }
 }
 
 async function handleWriteOperation(action, table, data, id, isOnline) {
