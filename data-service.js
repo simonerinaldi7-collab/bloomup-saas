@@ -365,20 +365,39 @@ async function processBrowserSyncQueue() {
     }
 }
 
+// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine) return;
-    console.log("🚀 [FAST SYNC] Avvio idratazione parallela dal Cloud per il salon_id:", salonId);
-    
-    const tables = ['customers', 'inventory', 'appointments', 'sales', 'sale_items', 'message_logs', 'expenses', 'price_history', 'service_consumables', 'suppliers','product_suppliers', 'settings'];
-    
-    // ⚡ Eseguiamo il download di TUTTE le tabelle in parallelo contemporaneamente
-    const promises = tables.map(table => backgroundPullFromSupabase(table, salonId));
+    console.log("🚀 [FAST SYNC] Avvio idratazione intelligente e scaglionata per il salon_id:", salonId);
     
     try {
-        await Promise.all(promises);
-        console.log("⚡ [FAST SYNC] Idratazione parallela completata con successo!");
+        // FASE 1: Dati essenziali per l'operatività immediata (Agenda e Clienti)
+        // Eseguiamo in sequenza controllata con una micro-pausa per non sovraccaricare il server
+        const criticalTables = ['users', 'settings', 'customers', 'appointments'];
+        for (let table of criticalTables) {
+            await backgroundPullFromSupabase(table, salonId);
+            await new Promise(r => setTimeout(r, 80)); // Pausa di cortesia
+        }
+        console.log("⚡ [FAST SYNC] Fase 1 (Critica) completata.");
+
+        // FASE 2: Dati di magazzino e fornitori (Caricati subito dopo in background leggero)
+        setTimeout(async () => {
+            if (!navigator.onLine) return;
+            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history'];
+            for (let table of inventoryTables) {
+                await backgroundPullFromSupabase(table, salonId);
+                await new Promise(r => setTimeout(r, 120));
+            }
+            console.log("⚡ [FAST SYNC] Fase 2 (Magazzino e Listini) completata in background.");
+        }, 1500);
+
+        // FASE 3: Dati storici pesanti (sales, sale_items, expenses, message_logs)
+        // NON li scarichiamo più d'un blocco all'avvio per risparmiare risorse critiche di Supabase. 
+        // Verranno scaricati in modo lazy solo quando l'utente aprirà la Cassa, il Bilancio o i Report.
+        console.log("⚡ [FAST SYNC] Idratazione dati storici rimandata a richiesta (Lazy/On-Demand).");
+
     } catch (err) {
-        console.warn("⚠️ Alcune tabelle non sono state idratate completamente:", err);
+        console.warn("⚠️ [FAST SYNC] Errore durante l'idratazione scaglionata:", err);
     }
 }
 
