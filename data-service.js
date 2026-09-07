@@ -41,65 +41,86 @@ if (typeof Dexie !== 'undefined') {
 let backgroundSyncInterval = null;
 let lastSyncTimestamp = null; // 👈 Mantiene memoria dell'ultimo allineamento riuscito
 
-function startBackgroundMultiOperatorSync() {
-    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
+    if (!salonId) return 0;
+    
+    // 🌐 Chiediamo la lista dei record correnti al cloud
+    let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
+    
+    if (table === 'appointments') {
+        const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        url += `&date=gte.${yesterdayStr}&order=date.asc&limit=300`;
+    } else if (table === 'customers' || table === 'inventory') {
+        url += `&order=id.desc&limit=200`;
+    } else {
+        url += `&limit=100&order=id.desc`;
+    }
 
-    // Registriamo l'istante di partenza della sessione
-    lastSyncTimestamp = new Date(Date.now() - 60000).toISOString(); // 1 minuto fa
-
-    // Esegue una sincronizzazione incrementale (delta sync) silente ogni 15 secondi (ottimizzato per i limiti Supabase)
-    backgroundSyncInterval = setInterval(async () => {
-        if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
-
-        const salonId = currentUser.salon_id;
-        const currentFetchTime = new Date().toISOString();
-        console.log("🔄 [DELTA-SYNC] Controllo modifiche incrementali in parallelo...");
-
-        const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
-        
-        try {
-            let hasNewChanges = false;
-
-            for (let table of tablesToSync) {
-                // 🚀 DELTA PULL: Scarichiamo SOLO i record modificati dopo l'ultimo sync
-                const updatedCount = await backgroundDeltaPullFromSupabase(table, salonId, lastSyncTimestamp);
-                if (updatedCount > 0) hasNewChanges = true;
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Range': '0-499',
+                'Cache-Control': 'no-cache'
             }
+        });
+        
+        if (response.ok) {
+            const cloudRecords = await response.json();
+            if (Array.isArray(cloudRecords)) {
+                let changeCount = 0;
+                
+                // 1. Raccogliamo tutti gli ID validi attualmente sul cloud per questa finestra
+                const cloudIdsSet = new Set(cloudRecords.map(r => r.id));
 
-            // Aggiorniamo il timestamp di riferimento all'istante corrente
-            lastSyncTimestamp = currentFetchTime;
+                // 2. Inseriamo o aggiorniamo i record ricevuti dal cloud in Dexie
+                for (let record of cloudRecords) {
+                    const localExisting = await localDb.table(table).get(record.id);
+                    if (!localExisting || JSON.stringify(localExisting) !== JSON.stringify(record)) {
+                        await localDb.table(table).put(record);
+                        changeCount++;
+                        console.log(`📥 [SYNC-PULL] ➔ Aggiornato/Inserito in Dexie [${table}] ID:`, record.id);
+                    }
+                }
 
-            // Se ci sono state novità, ricarichiamo le variabili globali in memoria e aggiorniamo la UI
-            if (hasNewChanges) {
-                allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
-                allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
-                allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
-                allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
-
-                const activeView = document.querySelector('.view.active');
-                if (activeView) {
-                    const viewId = activeView.id;
-                    const isModalOpen = document.querySelector('.modal.active');
+                // 3. 🧹 PULIZIA / CANCELLAZIONE IN TEMPO REALE:
+                // Controlliamo se in locale abbiamo record di questa tabella/salone che sul cloud 
+                // NON esistono più (perché sono stati eliminati dall'altro operatore)
+                if (table === 'appointments' || table === 'customers' || table === 'inventory') {
+                    const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
                     
-                    if (!isModalOpen) {
-                        if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
-                            renderCalendar();
-                            console.log("📅 [DELTA-SYNC] Agenda aggiornata in tempo reale.");
-                        } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
-                            renderProducts();
-                        } else if (viewId === 'v-sales' && typeof renderSalesList === 'function') {
-                            renderSalesList();
+                    for (let localRec of localRecords) {
+                        // Se il record locale rientra nel range temporale monitorato (es. appuntamenti da ieri in poi)
+                        // ma il suo ID non è più presente nella lista del cloud, lo eliminiamo!
+                        if (table === 'appointments') {
+                            const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                            if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
+                                await localDb.table(table).delete(localRec.id);
+                                changeCount++;
+                                console.log(`🗑️ [SYNC-DELETE] ➔ Rimosso localmente da [${table}] ID: ${localRec.id} (${localRec.cust_name || 'N/D'}) perché eliminato sul cloud.`);
+                            }
+                        } else {
+                            // Per tabelle come inventory o customers verificao se l'ID è uscito dal perimetro degli ultimi 200 ma 
+                            // per sicurezza evitiamo di cancellare tutto lo storico. Ci affidiamo a cloudIdsSet solo se la lista è piena.
+                            if (cloudRecords.length >= 200 && !cloudIdsSet.has(localRec.id)) {
+                                // Se gestito con soft-delete o cancellazione puntuale
+                                // (lasciamo attivo il controllo pulito per evitare falsi positivi di paginazione)
+                            }
                         }
                     }
                 }
-                
-                if (typeof updateStats === 'function') updateStats();
-            }
 
-        } catch (err) {
-            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante durante la sincronizzazione incrementale:", err);
+                return changeCount;
+            }
+        } else {
+            console.warn(`⚠️ [SYNC-DIAGNOSTIC] ➔ Fetch fallito per ${table} (Status: ${response.status})`);
         }
-    }, 15000); // 15 secondi (riduce drasticamente il consumo di chiamate API su Supabase)
+    } catch (err) {
+        console.warn(`❌ [SYNC-DIAGNOSTIC] ➔ Errore di rete su ${table}:`, err);
+    }
+    return 0;
 }
 
 // 🚀 Delta Pull: Scarica solo le righe modificate dopo un certo timestamp (sfruttando indici e filtri PostgREST)
