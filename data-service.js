@@ -33,16 +33,6 @@ if (typeof Dexie !== 'undefined') {
     console.error("ATTENZIONE: Libreria Dexie.js non caricata!");
 }
 
-// Aggiunta/Modifica nel file data-service.js dentro window.appDataService
-window.appDataService = async function(action, table, data = null, id = null) {
-    const isOnline = navigator.onLine;
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-
-    if (action === 'FORCE_SYNC') {
-        await processBrowserSyncQueue();
-        return { status: 'ok' };
-    }
-
 
 // --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE) ---
 let backgroundSyncInterval = null;
@@ -99,8 +89,21 @@ function startBackgroundMultiOperatorSync() {
         } catch (err) {
             console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
         }
-    }, 15000); // Ogni 5 secondi
+    }, 5000); // Ogni 5 secondi
 }
+
+// Aggiunta/Modifica nel file data-service.js dentro window.appDataService
+window.appDataService = async function(action, table, data = null, id = null) {
+    const isOnline = navigator.onLine;
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    if (action === 'FORCE_SYNC') {
+        await processBrowserSyncQueue();
+        return { status: 'ok' };
+    }
+
+
+
 
 // Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
 
