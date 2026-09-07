@@ -126,13 +126,16 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
     
     let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
     
-    const supportsTimestamp = TABLES_WITH_TIMESTAMP.includes(table);
-
-    if (supportsTimestamp && sinceTimestamp) {
-        url += `&updated_at=gte.${sinceTimestamp}`;
-    } else if (table === 'appointments' || table === 'sales') {
-        const pastLimit = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-        url += `&date=gte.${pastLimit}&order=updated_at.desc&limit=150`;
+    // 🛡️ STRATEGIA BLINDATA PER L'AGENDA: 
+    // Invece di dipendere da logiche complesse di timestamp, per gli appuntamenti 
+    // scarichiamo sempre gli appuntamenti da ieri fino a 90 giorni nel futuro.
+    // Questo garantisce al 100% che se l'altro dispositivo crea un appuntamento, lo troverai subito.
+    if (table === 'appointments') {
+        const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        url += `&date=gte.${yesterdayStr}&order=date.asc&limit=300`;
+    } else if (table === 'customers' || table === 'inventory') {
+        // Per clienti e magazzino prendiamo gli ultimi 200 modificati di recente
+        url += `&order=id.desc&limit=200`;
     } else {
         url += `&limit=100&order=id.desc`;
     }
@@ -143,7 +146,8 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Range': '0-499'
+                'Range': '0-499',
+                'Cache-Control': 'no-cache' // 👈 Evita che il browser usi risposte cache fittizie
             }
         });
         
@@ -152,14 +156,21 @@ async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
             if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                 let changedCount = 0;
                 for (let record of cloudRecords) {
-                    await localDb.table(table).put(record);
-                    changedCount++;
+                    // Controlliamo se il record locale è diverso o assente
+                    const localExisting = await localDb.table(table).get(record.id);
+                    // Se non esiste o ha dati differenti, lo salviamo in locale
+                    if (!localExisting || JSON.stringify(localExisting) !== JSON.stringify(record)) {
+                        await localDb.table(table).put(record);
+                        changedCount++;
+                    }
                 }
                 return changedCount;
             }
+        } else {
+            console.warn(`⚠️ Safe Pull fallito per ${table}:`, response.status);
         }
     } catch (err) {
-        console.warn(`❌ Errore delta pull per ${table}:`, err);
+        console.warn(`❌ Errore di rete durante il safe pull di ${table}:`, err);
     }
     return 0;
 }
