@@ -5009,6 +5009,19 @@ async function quickAlarmAction(actionType) {
     const appId = window._quickAlarmAppId;
     const todayKeyDate = new Date().toISOString().split('T')[0];
     
+    // 🛡️ Recupero sicuro del salon_id da currentUser o dal localStorage di sessione
+    let salonId = 'SALON_001';
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) {
+        salonId = currentUser.salon_id;
+    } else {
+        try {
+            const sessionData = JSON.parse(localStorage.getItem('VaiMUp_logged_session') || '{}');
+            if (sessionData && sessionData.salon_id) {
+                salonId = sessionData.salon_id;
+            }
+        } catch (e) {}
+    }
+
     // Disabilitiamo i bottoni per evitare doppi click
     document.querySelectorAll('#quick-alarm-screen button').forEach(b => b.disabled = true);
 
@@ -5020,10 +5033,11 @@ async function quickAlarmAction(actionType) {
                 dismissedAlerts[`${appId}_${todayKeyDate}`] = todayKeyDate;
                 localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
 
-                // Invio a Supabase se online (senza dipendere da currentUser)
+                // Invio a Supabase con il salon_id corretto
                 if (navigator.onLine && window.SUPABASE_CONFIG) {
                     const SUPABASE_URL = window.SUPABASE_CONFIG.url;
                     const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
+                    
                     await fetch(`${SUPABASE_URL}/rest/v1/appointment_dismissals`, {
                         method: 'POST',
                         headers: {
@@ -5034,6 +5048,7 @@ async function quickAlarmAction(actionType) {
                         },
                         body: JSON.stringify({
                             id: crypto.randomUUID(),
+                            salon_id: salonId, // 👈 ORA IL SALON_ID È COMPILATO CORRETTAMENTE!
                             appointment_id: appId,
                             dismissed_date: todayKeyDate
                         })
