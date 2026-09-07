@@ -5009,16 +5009,18 @@ async function quickAlarmAction(actionType) {
     const appId = window._quickAlarmAppId;
     const todayKeyDate = new Date().toISOString().split('T')[0];
     
-    // 🛡️ Recupero sicuro del salon_id da currentUser o dal localStorage di sessione
+    // 🛡️ Recupero sicuro di salon_id e username da currentUser o dal localStorage di sessione
     let salonId = 'SALON_001';
-    if (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) {
-        salonId = currentUser.salon_id;
+    let username = 'admin';
+
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        if (currentUser.salon_id) salonId = currentUser.salon_id;
+        if (currentUser.username) username = currentUser.username.trim().toLowerCase();
     } else {
         try {
             const sessionData = JSON.parse(localStorage.getItem('VaiMUp_logged_session') || '{}');
-            if (sessionData && sessionData.salon_id) {
-                salonId = sessionData.salon_id;
-            }
+            if (sessionData && sessionData.salon_id) salonId = sessionData.salon_id;
+            if (sessionData && sessionData.username) username = sessionData.username.trim().toLowerCase();
         } catch (e) {}
     }
 
@@ -5033,7 +5035,7 @@ async function quickAlarmAction(actionType) {
                 dismissedAlerts[`${appId}_${todayKeyDate}`] = todayKeyDate;
                 localStorage.setItem('VaiMUp_dismissed_alerts', JSON.stringify(dismissedAlerts));
 
-                // Invio a Supabase con il salon_id corretto
+                // Invio a Supabase con tutti i campi obbligatori compilati
                 if (navigator.onLine && window.SUPABASE_CONFIG) {
                     const SUPABASE_URL = window.SUPABASE_CONFIG.url;
                     const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
@@ -5048,8 +5050,9 @@ async function quickAlarmAction(actionType) {
                         },
                         body: JSON.stringify({
                             id: crypto.randomUUID(),
-                            salon_id: salonId, // 👈 ORA IL SALON_ID È COMPILATO CORRETTAMENTE!
+                            salon_id: salonId,
                             appointment_id: appId,
+                            username: username, // 👈 ORA ANCHE LO USERNAME È COMPILATO CORRETTAMENTE!
                             dismissed_date: todayKeyDate
                         })
                     }).catch(e => console.warn("Sync dismiss cloud rimandata:", e));
