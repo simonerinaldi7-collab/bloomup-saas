@@ -44,63 +44,112 @@ window.appDataService = async function(action, table, data = null, id = null) {
     }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE CONTINUA IN PARALLELO (MULTI-OPERATORE) ---
+// ==========================================
+// 🔄 MODULO DI SINCRONIZZAZIONE INCREMENTALE & DELTA SYNC OTTIMIZZATO
+// ==========================================
+
 let backgroundSyncInterval = null;
+let lastSyncTimestamp = null; // 👈 Mantiene memoria dell'ultimo allineamento riuscito
 
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // Esegue una sincronizzazione silente ogni 25 secondi
+    // Registriamo l'istante di partenza della sessione
+    lastSyncTimestamp = new Date(Date.now() - 60000).toISOString(); // 1 minuto fa
+
+    // Esegue una sincronizzazione incrementale (delta sync) silente ogni 15 secondi (ottimizzato per i limiti Supabase)
     backgroundSyncInterval = setInterval(async () => {
         if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
 
         const salonId = currentUser.salon_id;
-        console.log("🔄 [AUTO-SYNC] Controllo modifiche in parallelo da altri operatori...");
+        const currentFetchTime = new Date().toISOString();
+        console.log("🔄 [DELTA-SYNC] Controllo modifiche incrementali in parallelo...");
 
         const tablesToSync = ['appointments', 'inventory', 'sales', 'sale_items', 'customers'];
         
         try {
-            // Salviamo una fotografia dello stato appuntamenti prima del fetch per capire se ci sono novità
-            const oldAppsCount = allAppointments ? allAppointments.length : 0;
+            let hasNewChanges = false;
 
-            // Eseguiamo il pull in background per le tabelle calde
             for (let table of tablesToSync) {
-                await backgroundPullFromSupabase(table, salonId);
+                // 🚀 DELTA PULL: Scarichiamo SOLO i record modificati dopo l'ultimo sync
+                const updatedCount = await backgroundDeltaPullFromSupabase(table, salonId, lastSyncTimestamp);
+                if (updatedCount > 0) hasNewChanges = true;
             }
 
-            // Ricarichiamo le variabili globali in memoria silenziosamente
-            allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
-            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
-            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
-            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+            // Aggiorniamo il timestamp di riferimento all'istante corrente
+            lastSyncTimestamp = currentFetchTime;
 
-            // Se siamo nella vista Agenda o Cassa, aggiorniamo l'interfaccia al volo senza perdere il focus dei modali chiusi
-            const activeView = document.querySelector('.view.active');
-            if (activeView) {
-                const viewId = activeView.id;
-                if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
-                    // Aggiorna l'agenda solo se non ci sono modali aperti (per evitare di chiudere finestre di scrittura dell'utente)
+            // Se ci sono state novità, ricarichiamo le variabili globali in memoria e aggiorniamo la UI
+            if (hasNewChanges) {
+                allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+                allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+                allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+                allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+
+                const activeView = document.querySelector('.view.active');
+                if (activeView) {
+                    const viewId = activeView.id;
                     const isModalOpen = document.querySelector('.modal.active');
+                    
                     if (!isModalOpen) {
-                        renderCalendar();
-                        console.log("📅 [AUTO-SYNC] Agenda aggiornata con le modifiche degli altri operatori.");
-                    }
-                } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
-                    const isModalOpen = document.querySelector('.modal.active');
-                    if (!isModalOpen) {
-                        renderProducts();
+                        if (viewId === 'v-calendar' && typeof renderCalendar === 'function') {
+                            renderCalendar();
+                            console.log("📅 [DELTA-SYNC] Agenda aggiornata in tempo reale.");
+                        } else if (viewId === 'v-products' && typeof renderProducts === 'function') {
+                            renderProducts();
+                        } else if (viewId === 'v-sales' && typeof renderSalesList === 'function') {
+                            renderSalesList();
+                        }
                     }
                 }
+                
+                if (typeof updateStats === 'function') updateStats();
             }
-            
-            // Aggiorna i KPI globali
-            if (typeof updateStats === 'function') updateStats();
 
         } catch (err) {
-            console.warn("⚠️ [AUTO-SYNC] Errore durante la sincronizzazione multi-operatore:", err);
+            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante durante la sincronizzazione incrementale:", err);
         }
-    }, 5000); // Ogni 5 secondi
+    }, 15000); // 15 secondi (riduce drasticamente il consumo di chiamate API su Supabase)
 }
+
+// 🚀 Delta Pull: Scarica solo le righe modificate dopo un certo timestamp (sfruttando indici e filtri PostgREST)
+async function backgroundDeltaPullFromSupabase(table, salonId, sinceTimestamp) {
+    if (!salonId) return 0;
+    
+    // Se la tabella possiede updated_at usiamo il filtro gt (greater than), altrimenti fallback limitato
+    let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}`;
+    if (sinceTimestamp) {
+        url += `&updated_at=gte.${sinceTimestamp}`;
+    } else {
+        url += `&limit=100`; // Limite di sicurezza per tabelle senza tracking fine
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Range': '0-999'
+            }
+        });
+        
+        if (response.ok) {
+            const cloudRecords = await response.json();
+            if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                for (let record of cloudRecords) {
+                    await localDb.table(table).put(record);
+                }
+                console.log(`📥 [DELTA] Sincronizzati ${cloudRecords.length} record aggiornati per la tabella '${table}'`);
+                return cloudRecords.length;
+            }
+        }
+    } catch (err) {
+        console.warn(`❌ Errore di rete durante il delta pull di ${table}:`, err);
+    }
+    return 0;
+}
+
 
 // Avviamo il servizio automaticamente dopo il login riuscito dentro loginSuccess()
 
@@ -340,21 +389,28 @@ async function processBrowserSyncQueue() {
     }
 }
 
+// ⚡ IdRATAZIONE OTTIMIZZATA (Caricamento scaglionato per evitare 429 Too Many Requests)
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine) return;
-    console.log("🚀 [FAST SYNC] Avvio idratazione parallela dal Cloud per il salon_id:", salonId);
+    console.log("🚀 [FAST SYNC] Avvio idratazione scaglionata dal Cloud per il salon_id:", salonId);
     
-    const tables = ['customers', 'inventory', 'appointments', 'sales', 'sale_items', 'message_logs', 'expenses', 'price_history', 'service_consumables', 'suppliers','product_suppliers', 'settings'];
-    
-    // ⚡ Eseguiamo il download di TUTTE le tabelle in parallelo contemporaneamente
-    const promises = tables.map(table => backgroundPullFromSupabase(table, salonId));
-    
-    try {
-        await Promise.all(promises);
-        console.log("⚡ [FAST SYNC] Idratazione parallela completata con successo!");
-    } catch (err) {
-        console.warn("⚠️ Alcune tabelle non sono state idratate completamente:", err);
+    // Tabelle prioritarie (caricate subito per rendere l'app usabile all'istante)
+    const priorityTables = ['users', 'settings', 'customers', 'inventory', 'appointments'];
+    for (let table of priorityTables) {
+        await backgroundPullFromSupabase(table, salonId);
+        // Breve pausa di cortesia tra una tabella e l'altra per non saturare la connessione REST di Supabase
+        await new Promise(r => setTimeout(r, 100));
     }
+
+    // Tabelle secondarie storiche/analitiche (caricate in differito per non appesantire l'avvio)
+    setTimeout(async () => {
+        const secondaryTables = ['sales', 'sale_items', 'message_logs', 'expenses', 'price_history', 'service_consumables', 'suppliers', 'product_suppliers'];
+        for (let table of secondaryTables) {
+            await backgroundPullFromSupabase(table, salonId);
+            await new Promise(r => setTimeout(r, 150));
+        }
+        console.log("⚡ [FAST SYNC] Idratazione secondaria completata in background!");
+    }, 1000);
 }
 
 
