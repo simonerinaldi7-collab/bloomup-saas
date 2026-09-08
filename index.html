@@ -8605,17 +8605,17 @@ async function updateReminderBadgeCount() {
 
     // Se NON è una chiusura, estraiamo le voci di servizio normalmente
     if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Con logica di doppio livello: esatto + fallback parziale sicuro)
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto + fallback sicuro)
         const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
             if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
             
-            // 1. Tentativo con UGUAGLIANZA ESATTA
+            // 1. Match esatto
             let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
             
-            // 2. Fallback per inclusione sicura se il nome esatto non combacia perfettamente nel listino
+            // 2. Fallback per inclusione sicura
             if (!foundServ) {
                 foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes(nameStr) || nameStr.includes(i.name.toLowerCase().trim())));
             }
@@ -8625,11 +8625,10 @@ async function updateReminderBadgeCount() {
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza nel tag-pill list
+                // Generiamo un UID univoco per ogni istanza
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
             } else {
-                // Fallback di sicurezza estrema se il servizio non esiste più nel catalogo
                 console.warn(`⚠️ Servizio non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
@@ -8645,15 +8644,42 @@ async function updateReminderBadgeCount() {
             await initServiceAutocomplete(matchedIds);
         }
     } else {
-        // Se è chiusura, puliamo i tag dei servizi a schermo
         if (typeof renderSelectedServiceTags === 'function') {
             renderSelectedServiceTags();
         }
     }
 
+    // 👤 RISOLUZIONE E PREPOLARIZZAZIONE DEL CLIENTE (Nome e ID nascosto)
+    let resolvedCustName = "";
+    let resolvedCustId = "";
+
+    if (!isClosureApp && a.cust_name) {
+        resolvedCustName = a.cust_name;
+        // Cerchiamo se esiste in anagrafica clienti per recuperare l'ID esatto
+        const cleanAppCust = a.cust_name.trim().toLowerCase();
+        const foundCustomer = (allCustomers || []).find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            const legacyName = (c.name || '').trim().toLowerCase();
+            return c.id === a.cust_id || fullName === cleanAppCust || legacyName === cleanAppCust || fullName.includes(cleanAppCust);
+        });
+
+        if (foundCustomer) {
+            resolvedCustId = foundCustomer.id;
+            resolvedCustName = `${foundCustomer.first_name || ''} ${foundCustomer.last_name || ''}`.trim() || foundCustomer.name || a.cust_name;
+        } else {
+            resolvedCustId = a.cust_id || "";
+        }
+    }
+
     // Mappatura campi base del modale
     document.getElementById('edit-a-id').value = id;
-    document.getElementById('f-a-search').value = isClosureApp ? "" : (a.cust_name || '');
+    
+    const searchInput = document.getElementById('f-a-search');
+    if (searchInput) searchInput.value = isClosureApp ? "" : resolvedCustName;
+
+    const custIdInput = document.getElementById('f-a-cust-id');
+    if (custIdInput) custIdInput.value = isClosureApp ? "" : resolvedCustId;
+
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
