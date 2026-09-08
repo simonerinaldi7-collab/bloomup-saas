@@ -8588,11 +8588,25 @@ async function updateReminderBadgeCount() {
     const a = allAppointments.find(x => x.id === id); 
     if (!a) return;
 
+    // 🏖️ Verifichiamo se l'appuntamento salvato è una Chiusura / Ferie
+    const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
+                         (a.cust_name || '').toLowerCase().includes('ferie') ||
+                         (a.service || '').toLowerCase().includes('chiusura') || 
+                         (a.service || '').toLowerCase().includes('ferie');
+
+    // Spuntiamo o despunto la checkbox di chiusura nel modale se presente
+    const closureCheckbox = document.getElementById('f-a-is-closure');
+    if (closureCheckbox) {
+        closureCheckbox.checked = isClosureApp;
+    }
+
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
-    const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
+    // Se NON è una chiusura, estraiamo le voci di servizio
+    if (!isClosureApp) {
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
@@ -8606,34 +8620,47 @@ async function updateReminderBadgeCount() {
                 foundServ = allInventory.find(i => i.type === 'servizio' && i.id === nameStr);
             }
         
-        if (foundServ) {
-            // Recuperiamo il prezzo corrente del servizio
-            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
-            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
-            
-            // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
-            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-            matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
+            if (foundServ) {
+                // Recuperiamo il prezzo corrente del servizio
+                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+                const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
+                
+                // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
+                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+                matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
+            }
+        }
+
+        // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
+        if (typeof renderSelectedServiceTags === 'function') {
+            currentSelectedServices = matchedServiceItems;
+            renderSelectedServiceTags();
+        } else if (typeof initServiceAutocomplete === 'function') {
+            // Fallback di compatibilità
+            const matchedIds = matchedServiceItems.map(s => s.id);
+            await initServiceAutocomplete(matchedIds);
+        }
+    } else {
+        if (typeof renderSelectedServiceTags === 'function') {
+            renderSelectedServiceTags();
         }
     }
 
-    // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
-    if (typeof renderSelectedServiceTags === 'function') {
-        currentSelectedServices = matchedServiceItems;
-        renderSelectedServiceTags();
-    } else if (typeof initServiceAutocomplete === 'function') {
-        // Fallback di compatibilità
-        const matchedIds = matchedServiceItems.map(s => s.id);
-        await initServiceAutocomplete(matchedIds);
-    }
+    // 👤 Pulisci eventuale prefisso di preview dal nome cliente
+    const cleanCustName = (a.cust_name || '').replace(/⭐\s*\[Preview\]/gi, '').trim();
 
     // Mappatura campi base del modale
     document.getElementById('edit-a-id').value = id;
-    document.getElementById('f-a-search').value = a.cust_name || '';
+    document.getElementById('f-a-search').value = isClosureApp ? "" : cleanCustName;
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
     document.getElementById('f-a-notes').value = a.notes || '';
+    
+    // Attiva lo stato visivo della chiusura se la funzione è presente
+    if (typeof toggleClosureMode === 'function') {
+        toggleClosureMode(isClosureApp);
+    }
     
     const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
     const userSelect = document.getElementById('f-a-user');
@@ -8643,16 +8670,20 @@ async function updateReminderBadgeCount() {
     }
 
     const titleEl = document.getElementById('mod-cale-title');
-    if (titleEl) titleEl.innerText = "Modifica Appuntamento";
+    if (titleEl) {
+        titleEl.innerText = isClosureApp ? "Modifica Giornata di Chiusura / Ferie" : "Modifica Appuntamento";
+    }
 
     document.getElementById('mod-cale').classList.add('active'); 
 
-    // Riavviamo i controlli di validità e duplicati
-    if (typeof checkDuplicateAppointments === 'function') {
-        checkDuplicateAppointments();
-    }
-    if (typeof checkOperatorScheduleValidity === 'function') {
-        checkOperatorScheduleValidity();
+    // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
+    if (!isClosureApp) {
+        if (typeof checkDuplicateAppointments === 'function') {
+            checkDuplicateAppointments();
+        }
+        if (typeof checkOperatorScheduleValidity === 'function') {
+            checkOperatorScheduleValidity();
+        }
     }
 }
             
