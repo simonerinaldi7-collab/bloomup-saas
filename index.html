@@ -2097,6 +2097,17 @@
             // Puliamo subito l'URL per evitare loop se si ricarica
             window.history.replaceState({}, document.title, window.location.pathname);
         }
+
+        // Controlliamo se veniamo da un'azione rapida che richiede di aprire l'agenda
+const generalParams = new URLSearchParams(window.location.search);
+if (generalParams.get('open_tab') === 'calendar') {
+    // Puliamo l'URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Cambiamo pagina sull'agenda non appena l'app è pronta
+    setTimeout(() => {
+        if (typeof changePage === 'function') changePage('calendar');
+    }, 500);
+}
     })();
 </script>
         
@@ -5072,18 +5083,20 @@ async function quickAlarmAction(actionType) {
         console.error("Errore durante l'azione rapida:", err);
     }
 
-    // Chiusura pulita della schermata o reindirizzamento
+    // Gestione della chiusura pulita e professionale dopo il click
     setTimeout(() => {
         try {
-            if (window.opener) {
+            // Se la finestra è stata aperta dal Service Worker appositamente per la notifica, proviamo a chiuderla
+            if (window.opener || window.history.length <= 1) {
                 window.close();
-            } else {
-                window.location.href = 'about:blank';
             }
+            
+            // Fallback elegante: se il browser blocca la chiusura, apriamo direttamente l'agenda nell'app principale!
+            window.location.href = './index.html?open_tab=calendar';
         } catch (e) {
-            window.location.href = 'about:blank';
+            window.location.href = './index.html';
         }
-    }, 400);
+    }, 300);
 }
     async function performLogout() {
         resetGlobalState();
