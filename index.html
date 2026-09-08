@@ -8586,7 +8586,10 @@ async function updateReminderBadgeCount() {
     const event = window.event; 
     if (event) event.stopPropagation();
     const a = allAppointments.find(x => x.id === id); 
-    if (!a) return;
+    if (!a) {
+        console.warn("⚠️ Appuntamento non trovato con ID:", id);
+        return;
+    }
 
     // 🏖️ Verifichiamo se l'appuntamento salvato è una Chiusura / Ferie
     const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
@@ -8594,7 +8597,7 @@ async function updateReminderBadgeCount() {
                          (a.service || '').toLowerCase().includes('chiusura') || 
                          (a.service || '').toLowerCase().includes('ferie');
 
-    // Spuntiamo o despunto la checkbox di chiusura nel modale se presente nell'HTML
+    // Spuntiamo o despunto la checkbox di chiusura nel modale se presente
     const closureCheckbox = document.getElementById('f-a-is-closure');
     if (closureCheckbox) {
         closureCheckbox.checked = isClosureApp;
@@ -8603,69 +8606,79 @@ async function updateReminderBadgeCount() {
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // Se NON è una chiusura, estraiamo le voci di servizio normalmente
+    // Se NON è una chiusura, estraiamo le voci di servizio
     if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Cercando per ID se salvato, per stringa esatta o per inclusione)
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim()).filter(Boolean);
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
-            if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
+            const nameLower = nameStr.toLowerCase();
+            if (!nameLower || nameLower === 'servizio' || nameLower === 'trattamento' || nameLower.includes('pausa')) continue;
             
-            // Cerchiamo il servizio nel listino
-            const foundServ = allInventory.find(i => i.type === 'servizio' && (
-                i.name.toLowerCase().trim() === nameStr || 
-                nameStr.includes(i.name.toLowerCase().trim()) ||
-                i.name.toLowerCase().trim().includes(nameStr)
-            ));
+            // 1. Cerca per stringa ESATTA nel nome o per ID (se la stringa corrisponde all'id)
+            let foundServ = allInventory.find(i => i.type === 'servizio' && (i.id === nameStr || i.name.toLowerCase().trim() === nameLower));
+            
+            // 2. Se non trovato, cerca per stringa parziale sicura (inclusione)
+            if (!foundServ) {
+                foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes(nameLower) || nameLower.includes(i.name.toLowerCase().trim())));
+            }
             
             if (foundServ) {
                 // Recuperiamo il prezzo corrente del servizio
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
+                // Generiamo un UID univoco per ogni istanza (mantiene i duplicati come pillole separate)
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
+            } else {
+                console.warn(`⚠️ Servizio non trovato nel listino per: "${nameStr}". Creo voce temporanea.`);
+                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+                matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
             }
         }
 
-        // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
+        // Iniettiamo le istanze in currentSelectedServices
+        currentSelectedServices = matchedServiceItems;
         if (typeof renderSelectedServiceTags === 'function') {
-            currentSelectedServices = matchedServiceItems;
             renderSelectedServiceTags();
         } else if (typeof initServiceAutocomplete === 'function') {
-            // Fallback di compatibilità
-            const matchedIds = matchedServiceItems.map(s => s.id);
+            const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
             await initServiceAutocomplete(matchedIds);
         }
     } else {
-        // Se è chiusura, puliamo i tag dei servizi a schermo
         if (typeof renderSelectedServiceTags === 'function') {
             renderSelectedServiceTags();
         }
     }
 
-    // 👤 RISOLUZIONE ROBUSTA DEL CLIENTE (Nome e ID nascosto)
+    // 👤 PREPOLARIZZAZIONE INFALLIBILE DEL CLIENTE
     let resolvedCustName = "";
     let resolvedCustId = "";
 
-    if (!isClosureApp && a.cust_name) {
-        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
-        
-        // Cerchiamo il cliente nell'anagrafica con match flessibile
-        const matchedCust = (allCustomers || []).find(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            const legacyName = (c.name || "").trim().toLowerCase();
-            return c.id === a.cust_id || fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
-        });
+    if (!isClosureApp) {
+        // Cerchiamo nell'appuntamento il nome o l'ID cliente
+        const rawCustRef = (a.cust_name || a.cust_id || "").trim();
+        const rawCustRefLower = rawCustRef.toLowerCase();
 
-        if (matchedCust) {
-            resolvedCustId = matchedCust.id;
-            resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || a.cust_name;
-        } else {
-            resolvedCustId = a.cust_id || "";
-            resolvedCustName = a.cust_name; // Fallback al nome salvato nell'appuntamento
+        if (rawCustRef) {
+            // Cerchiamo nell'anagrafica globale allCustomers
+            const matchedCust = (allCustomers || []).find(c => {
+                const cId = String(c.id || "").trim();
+                const fName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                const lName = (c.name || "").trim().toLowerCase();
+                
+                return cId === rawCustRef || fName === rawCustRefLower || lName === rawCustRefLower || fName.includes(rawCustRefLower) || rawCustRefLower.includes(fName);
+            });
+
+            if (matchedCust) {
+                resolvedCustId = matchedCust.id;
+                resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || rawCustRef;
+            } else {
+                resolvedCustId = a.cust_id || "";
+                resolvedCustName = rawCustRef; // Fallback al testo salvato se non c'è match esatto in anagrafica
+            }
         }
     }
 
@@ -8683,7 +8696,7 @@ async function updateReminderBadgeCount() {
     document.getElementById('f-a-end').value = a.end_time || "";
     document.getElementById('f-a-notes').value = a.notes || '';
     
-    // Applichiamo lo stato visivo della chiusura tramite la funzione toggle esistente se presente
+    // Applichiamo lo stato visivo della chiusura se la funzione esiste
     if (typeof toggleClosureMode === 'function') {
         toggleClosureMode(isClosureApp);
     }
@@ -8700,7 +8713,12 @@ async function updateReminderBadgeCount() {
         titleEl.innerText = isClosureApp ? "Modifica Giornata di Chiusura / Ferie" : "Modifica Appuntamento";
     }
 
-    document.getElementById('mod-cale').classList.add('active'); 
+    // Forza l'apertura del modale
+    const modCale = document.getElementById('mod-cale');
+    if (modCale) {
+        modCale.classList.add('active');
+        modCale.style.display = 'flex'; // Assicura che display flex sovrascriva eventuali conflitti inline
+    }
 
     // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
     if (!isClosureApp) {
