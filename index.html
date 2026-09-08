@@ -8592,18 +8592,19 @@ async function updateReminderBadgeCount() {
     currentSelectedServices = [];
 
     // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
-    const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
-    
-    const matchedServiceItems = [];
-    for (let nameStr of savedServiceNames) {
-        if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
+    const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
         
-        // Cerchiamo il servizio nel listino
-        const foundServ = allInventory.find(i => i.type === 'servizio' && (
-            i.name.toLowerCase().trim() === nameStr || 
-            nameStr.includes(i.name.toLowerCase().trim()) ||
-            i.name.toLowerCase().trim().includes(nameStr)
-        ));
+        const matchedServiceItems = [];
+        for (let nameStr of savedServiceNames) {
+            const nameLower = nameStr.toLowerCase();
+            if (!nameLower || nameLower === 'servizio' || nameLower === 'trattamento' || nameLower.includes('pausa')) continue;
+            
+            // 🎯 RICERCA ESATTA (Exact match case-insensitive)
+            let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameLower);
+            
+            if (!foundServ) {
+                foundServ = allInventory.find(i => i.type === 'servizio' && i.id === nameStr);
+            }
         
         if (foundServ) {
             // Recuperiamo il prezzo corrente del servizio
