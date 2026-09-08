@@ -8605,35 +8605,40 @@ async function updateReminderBadgeCount() {
 
     // Se NON è una chiusura, estraiamo le voci di servizio normalmente
     if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto e rigoroso)
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Con logica di doppio livello: esatto + fallback parziale sicuro)
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
             if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
             
-            // 🛡️ CORRETTO: Cerchiamo il servizio nel listino con UGUAGLIANZA ESATTA (nessun includes parziale rischioso)
-            const foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
+            // 1. Tentativo con UGUAGLIANZA ESATTA
+            let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
+            
+            // 2. Fallback per inclusione sicura se il nome esatto non combacia perfettamente nel listino
+            if (!foundServ) {
+                foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes(nameStr) || nameStr.includes(i.name.toLowerCase().trim())));
+            }
             
             if (foundServ) {
                 // Recuperiamo il prezzo corrente del servizio
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza
+                // Generiamo un UID univoco per ogni istanza nel tag-pill list
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
             } else {
-                // Fallback di sicurezza se il nome esatto non viene trovato ma l'utente aveva scritto una voce personalizzata
-                console.warn(`⚠️ Servizio esatto non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
+                // Fallback di sicurezza estrema se il servizio non esiste più nel catalogo
+                console.warn(`⚠️ Servizio non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
             }
         }
 
         // Iniettiamo le istanze in currentSelectedServices
+        currentSelectedServices = matchedServiceItems;
         if (typeof renderSelectedServiceTags === 'function') {
-            currentSelectedServices = matchedServiceItems;
             renderSelectedServiceTags();
         } else if (typeof initServiceAutocomplete === 'function') {
             const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
@@ -8646,7 +8651,7 @@ async function updateReminderBadgeCount() {
         }
     }
 
-    // Mappatura campi base del modale (se è chiusura, puliamo o nascondiamo la ricerca cliente)
+    // Mappatura campi base del modale
     document.getElementById('edit-a-id').value = id;
     document.getElementById('f-a-search').value = isClosureApp ? "" : (a.cust_name || '');
     document.getElementById('f-a-date').value = a.date || '';
