@@ -8608,32 +8608,31 @@ async function updateReminderBadgeCount() {
 
     // Se NON è una chiusura, estraiamo le voci di servizio
     if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Cercando per ID se salvato, per stringa esatta o per inclusione)
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim()).filter(Boolean);
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti)
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
-            const nameLower = nameStr.toLowerCase();
-            if (!nameLower || nameLower === 'servizio' || nameLower === 'trattamento' || nameLower.includes('pausa')) continue;
+            if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
             
-            // 1. Cerca per stringa ESATTA nel nome o per ID (se la stringa corrisponde all'id)
-            let foundServ = allInventory.find(i => i.type === 'servizio' && (i.id === nameStr || i.name.toLowerCase().trim() === nameLower));
-            
-            // 2. Se non trovato, cerca per stringa parziale sicura (inclusione)
-            if (!foundServ) {
-                foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes(nameLower) || nameLower.includes(i.name.toLowerCase().trim())));
-            }
+            // Cerchiamo il servizio nel listino
+            const foundServ = allInventory.find(i => i.type === 'servizio' && (
+                i.id === nameStr ||
+                i.name.toLowerCase().trim() === nameStr || 
+                nameStr.includes(i.name.toLowerCase().trim()) ||
+                i.name.toLowerCase().trim().includes(nameStr)
+            ));
             
             if (foundServ) {
                 // Recuperiamo il prezzo corrente del servizio
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza (mantiene i duplicati come pillole separate)
+                // Generiamo un UID univoco per ogni istanza
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
             } else {
-                console.warn(`⚠️ Servizio non trovato nel listino per: "${nameStr}". Creo voce temporanea.`);
+                // Fallback se il servizio non è nel listino attivo ma era stato salvato
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
             }
@@ -8654,31 +8653,26 @@ async function updateReminderBadgeCount() {
     }
 
     // 👤 PREPOLARIZZAZIONE INFALLIBILE DEL CLIENTE
-    let resolvedCustName = "";
-    let resolvedCustId = "";
+    // Usiamo direttamente a.cust_name come sorgente primaria per il campo di testo
+    let resolvedCustName = isClosureApp ? "" : (a.cust_name || "");
+    let resolvedCustId = a.cust_id || "";
 
-    if (!isClosureApp) {
-        // Cerchiamo nell'appuntamento il nome o l'ID cliente
-        const rawCustRef = (a.cust_name || a.cust_id || "").trim();
-        const rawCustRefLower = rawCustRef.toLowerCase();
+    if (!isClosureApp && resolvedCustName) {
+        const aCustNameClean = resolvedCustName.trim().toLowerCase();
+        
+        // Cerchiamo un riscontro pulito in anagrafica per recuperare l'ID cliente associato
+        const matchedCust = (allCustomers || []).find(c => {
+            const cId = String(c.id || "").trim();
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            const legacyName = (c.name || "").trim().toLowerCase();
+            
+            return cId === a.cust_id || fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
+        });
 
-        if (rawCustRef) {
-            // Cerchiamo nell'anagrafica globale allCustomers
-            const matchedCust = (allCustomers || []).find(c => {
-                const cId = String(c.id || "").trim();
-                const fName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                const lName = (c.name || "").trim().toLowerCase();
-                
-                return cId === rawCustRef || fName === rawCustRefLower || lName === rawCustRefLower || fName.includes(rawCustRefLower) || rawCustRefLower.includes(fName);
-            });
-
-            if (matchedCust) {
-                resolvedCustId = matchedCust.id;
-                resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || rawCustRef;
-            } else {
-                resolvedCustId = a.cust_id || "";
-                resolvedCustName = rawCustRef; // Fallback al testo salvato se non c'è match esatto in anagrafica
-            }
+        if (matchedCust) {
+            resolvedCustId = matchedCust.id;
+            // Ricostruiamo il nome formattato ufficiale dell'anagrafica se lo troviamo
+            resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || resolvedCustName;
         }
     }
 
@@ -8686,10 +8680,10 @@ async function updateReminderBadgeCount() {
     document.getElementById('edit-a-id').value = id;
     
     const searchInput = document.getElementById('f-a-search');
-    if (searchInput) searchInput.value = isClosureApp ? "" : resolvedCustName;
+    if (searchInput) searchInput.value = resolvedCustName;
 
     const custIdInput = document.getElementById('f-a-cust-id');
-    if (custIdInput) custIdInput.value = isClosureApp ? "" : resolvedCustId;
+    if (custIdInput) custIdInput.value = resolvedCustId;
 
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
@@ -8717,7 +8711,7 @@ async function updateReminderBadgeCount() {
     const modCale = document.getElementById('mod-cale');
     if (modCale) {
         modCale.classList.add('active');
-        modCale.style.display = 'flex'; // Assicura che display flex sovrascriva eventuali conflitti inline
+        modCale.style.display = 'flex';
     }
 
     // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
