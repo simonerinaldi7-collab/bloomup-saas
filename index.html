@@ -8412,8 +8412,8 @@ async function updateReminderBadgeCount() {
     }
 }
 
-            async function viewApp(id) {
-    const a = allAppointments.find(x => x.id === id); 
+    async function viewApp(id) {
+    const a = allAppointments.find(x => String(x.id) === String(id)); 
     if(!a) return; 
     currentViewApp = a;
 
@@ -8426,9 +8426,11 @@ async function updateReminderBadgeCount() {
     // Verifichiamo se l'appuntamento è pagato
     const isPaid = !isClosureApp && (allSales || []).some(s => s.appointment_id === a.id);
     
-    // Individuiamo i contenitori dei bottoni di notifica (WhatsApp / SMS) presenti nel modale
+    // Individuiamo il contenitore modale e le sezioni dei bottoni
     const modalBox = document.querySelector('#mod-view-app .modal-box');
-    const actionGroups = modalBox ? modalBox.querySelectorAll('label, div[style*="display:flex; gap:10px"]') : [];
+    
+    // Selezioniamo specificamente i blocchi label e div dei bottoni di comunicazione
+    const actionElements = modalBox ? modalBox.querySelectorAll('#v-app-content ~ label, #v-app-content ~ div[style*="display:flex"]') : [];
 
     if (isClosureApp) {
         // Layout pulito e mirato per la chiusura
@@ -8439,19 +8441,20 @@ async function updateReminderBadgeCount() {
             <b>NOTE:</b> ${a.notes || 'Nessuna nota'}
         `;
 
-        // Nascondiamo i blocchi di invio messaggi WhatsApp/SMS se è una chiusura
-        actionGroups.forEach(el => {
+        // Nascondiamo i blocchi di invio messaggi se è una chiusura
+        actionElements.forEach(el => {
             const text = el.innerText || '';
-            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.includes('WhatsApp') || text.includes('SMS')) {
+            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.querySelector('button[class*="btn-w"]')) {
                 el.style.display = 'none';
             }
         });
     } else {
-        // Ripristiniamo la visibilità delle sezioni messaggi per appuntamenti normali
-        actionGroups.forEach(el => {
+        // 🌟 RIPRISTINO FORZATO DELLA VISIBILITÀ DEI TASTI WA/SMS PER APPUNTAMENTI STANDARD
+        actionElements.forEach(el => {
             const text = el.innerText || '';
-            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.includes('WhatsApp') || text.includes('SMS')) {
-                el.style.display = '';
+            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || el.querySelector('button[class*="btn-w"]') || el.querySelector('button[style*="background:#25D366"]')) {
+                el.style.display = 'block'; // Ripristina il blocco dei bottoni
+                el.style.display = 'flex';  // Forza il flex container per i bottoni affiancati
             }
         });
 
@@ -8491,15 +8494,12 @@ async function updateReminderBadgeCount() {
 
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
-        // Nascondiamo il tasto cassa se è un giorno di chiusura
         btnCheckout.style.display = isClosureApp ? 'none' : 'block';
 
         if (!isClosureApp) {
             btnCheckout.onclick = async () => { 
-                // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
                 const targetAppId = currentViewApp.id;
 
-                // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
                 try {
                     const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
                     const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
@@ -8512,7 +8512,6 @@ async function updateReminderBadgeCount() {
                     console.warn("Controllo appuntamento già pagato non riuscito:", e);
                 }
 
-                // Impostiamo l'ID dell'appuntamento da passare alla cassa
                 currentCheckoutAppointmentId = targetAppId;
 
                 const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
@@ -8563,7 +8562,6 @@ async function updateReminderBadgeCount() {
             e.stopPropagation();
             if (!currentViewApp || !currentViewApp.id) return;
             editApp(currentViewApp.id); 
-            document.getElementById('mod-view-app').classList.remove('active');
         };
     }
 
@@ -8580,7 +8578,6 @@ async function updateReminderBadgeCount() {
     
     document.getElementById('mod-view-app').classList.add('active');
 }
-
 
    async function editApp(id) { 
     const event = window.event; 
