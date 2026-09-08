@@ -4864,7 +4864,8 @@ function dismissExpenseReminderAndGoToExpenses() {
         if (filter !== "") {
             baseList = baseList.filter(d => d.item_name.toLowerCase().includes(filter));
         }
-// 🌟 Ordiniamo in modo DECRESCENTE: dal margine più alto al margine più basso
+
+        // 🌟 Ordiniamo in modo DECRESCENTE: dal margine più alto al margine più basso
         baseList.sort((a, b) => b.total_margin - a.total_margin);
 
         let chartData = [];
@@ -4875,8 +4876,6 @@ function dismissExpenseReminderAndGoToExpenses() {
             if (totalItems <= 1) {
                 chartData = baseList;
             } else if (totalItems < 10) {
-                // Sotto i 10 elementi: ordiniamo per margine decrescente e dividiamo a metà (Verde sopra, Rosso sotto)
-                baseList.sort((a, b) => b.total_margin - a.total_margin);
                 chartData = baseList;
             } else {
                 const top5 = baseList.slice(0, 5);
@@ -4903,6 +4902,7 @@ function dismissExpenseReminderAndGoToExpenses() {
                 datasets: [{
                     label: 'Margine Totale (€)',
                     data: chartData.map(d => d.total_margin),
+                    // 🎨 Assegnazione colore basata sul VALORE del margine e non sulla posizione in classifica!
                     backgroundColor: chartData.map((d) => {
                         if (filter !== "") return '#6C5CE7'; // Viola se filtrato
                         if (d.total_margin < 0) return '#E17055'; // Rosso se in perdita
@@ -4935,9 +4935,7 @@ function dismissExpenseReminderAndGoToExpenses() {
             }
         });
     }
-
-
-
+    
 let currentSelectedServices = [];
 
     async function initServiceAutocomplete(selectedIds = []) {
