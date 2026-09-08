@@ -8621,21 +8621,17 @@ async function updateReminderBadgeCount() {
             }
             
             if (foundServ) {
-                // Recuperiamo il prezzo corrente del servizio
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
             } else {
-                console.warn(`⚠️ Servizio non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
             }
         }
 
-        // Iniettiamo le istanze in currentSelectedServices
         currentSelectedServices = matchedServiceItems;
         if (typeof renderSelectedServiceTags === 'function') {
             renderSelectedServiceTags();
@@ -8649,25 +8645,26 @@ async function updateReminderBadgeCount() {
         }
     }
 
-    // 👤 RISOLUZIONE E PREPOLARIZZAZIONE DEL CLIENTE (Nome e ID nascosto)
+    // 👤 RISOLUZIONE ROBUSTA DEL CLIENTE (Usando la tua logica testata)
     let resolvedCustName = "";
     let resolvedCustId = "";
 
     if (!isClosureApp && a.cust_name) {
-        resolvedCustName = a.cust_name;
-        // Cerchiamo se esiste in anagrafica clienti per recuperare l'ID esatto
-        const cleanAppCust = a.cust_name.trim().toLowerCase();
-        const foundCustomer = (allCustomers || []).find(c => {
+        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+        
+        // Sfruttiamo il codice della vecchia versione che cercava in modo flessibile
+        const matchedCust = (allCustomers || []).find(c => {
             const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            const legacyName = (c.name || '').trim().toLowerCase();
-            return c.id === a.cust_id || fullName === cleanAppCust || legacyName === cleanAppCust || fullName.includes(cleanAppCust);
+            const legacyName = (c.name || "").trim().toLowerCase();
+            return c.id === a.cust_id || fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
         });
 
-        if (foundCustomer) {
-            resolvedCustId = foundCustomer.id;
-            resolvedCustName = `${foundCustomer.first_name || ''} ${foundCustomer.last_name || ''}`.trim() || foundCustomer.name || a.cust_name;
+        if (matchedCust) {
+            resolvedCustId = matchedCust.id;
+            resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || a.cust_name;
         } else {
             resolvedCustId = a.cust_id || "";
+            resolvedCustName = a.cust_name; // Fallback diretto al nome salvato nell'appuntamento
         }
     }
 
