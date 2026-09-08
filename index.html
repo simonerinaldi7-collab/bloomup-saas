@@ -1799,6 +1799,15 @@
             <div id="duplicate-apps-list" style="display:flex; flex-direction:column; gap:4px;"></div>
         </div>
 
+<!-- 🏖️ Checkbox Chiusura / Ferie Giornaliera -->
+<div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 12px; margin: 12px 0; display: flex; align-items: center; gap: 10px;">
+    <input type="checkbox" id="f-a-is-closure" onchange="toggleClosureMode(this.checked)" style="width: 20px; height: 20px; accent-color: #dc2626; cursor: pointer; margin: 0;">
+    <label for="f-a-is-closure" style="margin: 0; font-weight: bold; color: #991b1b; cursor: pointer; text-transform: none; font-size: 13px;">
+        🏖️ Segna come Giornata di Chiusura / Ferie (Tutto il giorno)
+    </label>
+</div>
+
+
         <div style="display:flex; gap:10px; margin-top: 10px;">
             <div style="flex:1"><label>Data</label><input type="date" id="f-a-date" onchange="checkDuplicateAppointments(); checkOperatorScheduleValidity()"></div>
             <div style="flex:1"><label>Inizio</label><input type="time" id="f-a-time" onchange="autoSetEndTime(); checkOperatorScheduleValidity();" oninput="autoSetEndTime();"></div>
@@ -7404,10 +7413,13 @@ async function registerOperatorPushNotifications() {
         // Modifica della funzione saveApp per attivare il flusso Ghost post-salvataggio
     async function saveApp() {
         const id = document.getElementById('edit-a-id').value; 
-        const custName = document.getElementById('f-a-search').value.trim();
+        const isClosureCheckbox = document.getElementById('f-a-is-closure');
+        const isClosure = isClosureCheckbox ? isClosureCheckbox.checked : false;
+
+        const custName = isClosure ? "Chiusura / Ferie" : document.getElementById('f-a-search').value.trim();
         const date = document.getElementById('f-a-date').value;
-        const start = document.getElementById('f-a-time').value;
-        const end = document.getElementById('f-a-end').value;
+        const start = isClosure ? "07:00" : document.getElementById('f-a-time').value;
+        const end = isClosure ? "22:00" : document.getElementById('f-a-end').value;
         const notes = document.getElementById('f-a-notes').value;
         const assignedUser = document.getElementById('f-a-user').value;
         
@@ -7415,14 +7427,20 @@ async function registerOperatorPushNotifications() {
             return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
         }
 
-        // 🎯 LETTURA DIRETTA DAL MEMORANDUM A PILLOLE (currentSelectedServices)
-        let totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
-        let selectedServiceNames = currentSelectedServices.map(s => s.name);
+        let totalPrice = 0;
+        let selectedServiceNames = [];
+        let finalService = "Chiusura / Ferie";
 
-        let finalService = selectedServiceNames.join(', ') || "Servizio";
-        if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
-            finalService = "Pausa Pranzo";
-            totalPrice = 0;
+        if (!isClosure) {
+            // 🎯 LETTURA DIRETTA DAL MEMORANDUM A PILLOLE (currentSelectedServices)
+            totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
+            selectedServiceNames = currentSelectedServices.map(s => s.name);
+
+            finalService = selectedServiceNames.join(', ') || "Servizio";
+            if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
+                finalService = "Pausa Pranzo";
+                totalPrice = 0;
+            }
         }
 
         const data = { 
@@ -7452,35 +7470,41 @@ async function registerOperatorPushNotifications() {
         if (typeof renderCalendar === 'function') renderCalendar();
         closeMod();
 
-        // ✨ SMART REBOOKING CON PREVIEW VISIVA IN AGENDA
-        const avgDays = getCustomerAverageFrequency(custName);
-        if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
-            const baseDate = new Date(date);
-            baseDate.setDate(baseDate.getDate() + avgDays);
+        // Reset della checkbox di chiusura per i prossimi inserimenti
+        if (isClosureCheckbox) isClosureCheckbox.checked = false;
+        if (typeof toggleClosureMode === 'function') toggleClosureMode(false);
 
-            const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
-            const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
-            const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
-            const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
+        // ✨ SMART REBOOKING (Escluso automaticamente se è una giornata di Chiusura/Ferie o Pausa)
+        if (!isClosure && !custName.toLowerCase().includes('pausa') && !custName.toLowerCase().includes('pranzo')) {
+            const avgDays = getCustomerAverageFrequency(custName);
+            if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
+                const baseDate = new Date(date);
+                baseDate.setDate(baseDate.getDate() + avgDays);
 
-            window.pendingSmartPreview = {
-                custName: custName,
-                date: targetDate,
-                time: targetTime,
-                end_time: targetEndTime,
-                service: finalService,
-                assigned_user: assignedUser,
-                notes: notes,
-                selectedServices: selectedServiceNames 
-            };
+                const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
+                const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
+                const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
+                const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
 
-            viewDate = new Date(targetDate);
-            
-            const userFilter = document.getElementById('user-filter');
-            if (userFilter) userFilter.value = assignedUser;
+                window.pendingSmartPreview = {
+                    custName: custName,
+                    date: targetDate,
+                    time: targetTime,
+                    end_time: targetEndTime,
+                    service: finalService,
+                    assigned_user: assignedUser,
+                    notes: notes,
+                    selectedServices: selectedServiceNames 
+                };
 
-            changePage('calendar');
-            if (typeof renderCalendar === 'function') renderCalendar();
+                viewDate = new Date(targetDate);
+                
+                const userFilter = document.getElementById('user-filter');
+                if (userFilter) userFilter.value = assignedUser;
+
+                changePage('calendar');
+                if (typeof renderCalendar === 'function') renderCalendar();
+            }
         }
     }
 
@@ -7659,6 +7683,37 @@ async function doLogin() {
     }
 }
 
+
+
+
+function toggleClosureMode(isClosure) {
+    const searchInput = document.getElementById('f-a-search');
+    const timeInput = document.getElementById('f-a-time');
+    const endInput = document.getElementById('f-a-end');
+    const notesInput = document.getElementById('f-a-notes');
+
+    if (isClosure) {
+        // Salviamo i valori precedenti se vogliamo ripristinarli (opzionale)
+        if (searchInput) {
+            searchInput.dataset.prevVal = searchInput.value;
+            searchInput.value = "Chiusura / Ferie";
+        }
+        if (timeInput) timeInput.value = "07:00"; // Inizio giornata agenda
+        if (endInput) endInput.value = "22:00";   // Fine giornata agenda
+        if (notesInput && !notesInput.value) notesInput.value = "Giornata di chiusura / ferie del salone";
+        
+        // Disabilitiamo temporaneamente la ricerca cliente per evitare confusione
+        if (searchInput) searchInput.disabled = true;
+    } else {
+        if (searchInput) {
+            searchInput.disabled = false;
+            searchInput.value = searchInput.dataset.prevVal || "";
+        }
+        if (notesInput && notesInput.value === "Giornata di chiusura / ferie del salone") {
+            notesInput.value = "";
+        }
+    }
+}
 
     async function applyNewPassword() {
         const newPass = document.getElementById('new-pass-val').value;
@@ -8299,10 +8354,45 @@ async function updateReminderBadgeCount() {
     if(!a) return; 
     currentViewApp = a;
 
+    // 🏖️ Verifichiamo se l'appuntamento è una Chiusura / Ferie
+    const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
+                         (a.cust_name || '').toLowerCase().includes('ferie') ||
+                         (a.service || '').toLowerCase().includes('chiusura') || 
+                         (a.service || '').toLowerCase().includes('ferie');
+
     // Verifichiamo se l'appuntamento è pagato
-        const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
+    const isPaid = !isClosureApp && (allSales || []).some(s => s.appointment_id === a.id);
     
-    const services = (a.service || "").split(',').map(s => s.trim());
+    // Individuiamo i contenitori dei bottoni di notifica (WhatsApp / SMS) presenti nel modale
+    const modalBox = document.querySelector('#mod-view-app .modal-box');
+    const actionGroups = modalBox ? modalBox.querySelectorAll('label, div[style*="display:flex; gap:10px"]') : [];
+
+    if (isClosureApp) {
+        // Layout pulito e mirato per la chiusura
+        document.getElementById('v-app-content').innerHTML = `
+            <div style="text-align: center; color: #dc2626; font-weight: bold; font-size: 16px; margin-bottom: 8px;">🏖️ GIORNATA DI CHIUSURA / FERIE</div>
+            <b>DATA:</b> ${a.date}<br>
+            <b>OPERATORE:</b> ${a.assigned_user || 'Tutti (Globale)'}<br>
+            <b>NOTE:</b> ${a.notes || 'Nessuna nota'}
+        `;
+
+        // Nascondiamo i blocchi di invio messaggi WhatsApp/SMS se è una chiusura
+        actionGroups.forEach(el => {
+            const text = el.innerText || '';
+            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.includes('WhatsApp') || text.includes('SMS')) {
+                el.style.display = 'none';
+            }
+        });
+    } else {
+        // Ripristiniamo la visibilità delle sezioni messaggi per appuntamenti normali
+        actionGroups.forEach(el => {
+            const text = el.innerText || '';
+            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.includes('WhatsApp') || text.includes('SMS')) {
+                el.style.display = '';
+            }
+        });
+
+        const services = (a.service || "").split(',').map(s => s.trim());
         let calculatedTotalPrice = 0;
 
         for (let servName of services) {
@@ -8334,68 +8424,74 @@ async function updateReminderBadgeCount() {
             <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
             <b>NOTE:</b> ${a.notes || '-'}
         `;
+    }
 
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
-        btnCheckout.onclick = async () => { 
-            // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
-            const targetAppId = currentViewApp.id;
+        // Nascondiamo il tasto cassa se è un giorno di chiusura
+        btnCheckout.style.display = isClosureApp ? 'none' : 'block';
 
-            // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
-            try {
-                const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-                const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
+        if (!isClosureApp) {
+            btnCheckout.onclick = async () => { 
+                // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
+                const targetAppId = currentViewApp.id;
 
-                if (alreadyPaid) {
-                    const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
-                    if (!proceed) return;
+                // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
+                try {
+                    const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+                    const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
+
+                    if (alreadyPaid) {
+                        const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
+                        if (!proceed) return;
+                    }
+                } catch (e) {
+                    console.warn("Controllo appuntamento già pagato non riuscito:", e);
                 }
-            } catch (e) {
-                console.warn("Controllo appuntamento già pagato non riuscito:", e);
-            }
 
-            // Impostiamo l'ID dell'appuntamento da passare alla cassa
-            currentCheckoutAppointmentId = targetAppId;
+                // Impostiamo l'ID dell'appuntamento da passare alla cassa
+                currentCheckoutAppointmentId = targetAppId;
 
-            const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
-            cart = []; 
-            for (let servizio of cartServices) {
-                if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
+                const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
+                cart = []; 
+                for (let servizio of cartServices) {
+                    if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
 
-                const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
-                if (product) {
-                    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                    const price = pInfo ? parseFloat(pInfo.price) : 0;
-                    cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
+                    const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
+                    if (product) {
+                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                        const price = pInfo ? parseFloat(pInfo.price) : 0;
+                        cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
+                    } else {
+                        cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
+                    }
+                }
+
+                let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
+
+                const fc = allCustomers.find(c => {
+                    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                    const legacyName = (c.name || "").trim().toLowerCase();
+                    return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
+                });
+
+                if (fc) {
+                    const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
+                    currentCheckoutCustomer = { id: fc.id, name: formattedName };
                 } else {
-                    cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
+                    currentCheckoutCustomer = { id: 0, name: rawCustName };
                 }
-            }
 
-            let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
+                const custDisplayEl = document.getElementById('cart-selected-cust');
+                if (custDisplayEl) {
+                    custDisplayEl.innerText = currentCheckoutCustomer.name;
+                }
 
-            const fc = allCustomers.find(c => {
-                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                const legacyName = (c.name || "").trim().toLowerCase();
-                return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
-            });
-
-            if (fc) {
-                const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
-                currentCheckoutCustomer = { id: fc.id, name: formattedName };
-            } else {
-                currentCheckoutCustomer = { id: 0, name: rawCustName };
-            }
-
-            const custDisplayEl = document.getElementById('cart-selected-cust');
-            if (custDisplayEl) {
-                custDisplayEl.innerText = currentCheckoutCustomer.name;
-            }
-
-            renderCart(); 
-            closeMod(); 
-            changePage('sales', true); 
-        };
+                renderCart(); 
+                closeMod(); 
+                changePage('sales', true); 
+            };
+        }
     }
 
     const btnEdit = document.getElementById('btn-edit-app');
@@ -8411,7 +8507,7 @@ async function updateReminderBadgeCount() {
     const btnDel = document.getElementById('btn-del-app');
     if (btnDel) {
         btnDel.onclick = async () => {
-            if(!confirm("Eliminare l'appuntamento?")) return;
+            if(!confirm(isClosureApp ? "Eliminare questa giornata di chiusura?" : "Eliminare l'appuntamento?")) return;
             await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
             closeMod(); 
             await refreshAllData();
@@ -8429,51 +8525,76 @@ async function updateReminderBadgeCount() {
     const a = allAppointments.find(x => x.id === id); 
     if (!a) return;
 
+    // 🏖️ Verifichiamo se l'appuntamento salvato è una Chiusura / Ferie
+    const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
+                         (a.cust_name || '').toLowerCase().includes('ferie') ||
+                         (a.service || '').toLowerCase().includes('chiusura') || 
+                         (a.service || '').toLowerCase().includes('ferie');
+
+    // Spuntiamo o despunto la checkbox di chiusura nel modale se presente nell'HTML
+    const closureCheckbox = document.getElementById('f-a-is-closure');
+    if (closureCheckbox) {
+        closureCheckbox.checked = isClosureApp;
+    }
+
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto e rigoroso)
-    const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
-    
-    const matchedServiceItems = [];
-    for (let nameStr of savedServiceNames) {
-        if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
+    // Se NON è una chiusura, estraiamo le voci di servizio normalmente
+    if (!isClosureApp) {
+        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto e rigoroso)
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
         
-        // 🛡️ CORRETTO: Cerchiamo il servizio nel listino con UGUAGLIANZA ESATTA (nessun includes parziale rischioso)
-        const foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
-        
-        if (foundServ) {
-            // Recuperiamo il prezzo corrente del servizio
-            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
-            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
+        const matchedServiceItems = [];
+        for (let nameStr of savedServiceNames) {
+            if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
             
-            // Generiamo un UID univoco per ogni istanza
-            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-            matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
-        } else {
-            // Fallbck di sicurezza se il nome esatto non viene trovato ma l'utente aveva scritto una voce personalizzata
-            console.warn(`⚠️ Servizio esatto non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
-            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-            matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
+            // 🛡️ CORRETTO: Cerchiamo il servizio nel listino con UGUAGLIANZA ESATTA (nessun includes parziale rischioso)
+            const foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
+            
+            if (foundServ) {
+                // Recuperiamo il prezzo corrente del servizio
+                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+                const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
+                
+                // Generiamo un UID univoco per ogni istanza
+                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+                matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
+            } else {
+                // Fallback di sicurezza se il nome esatto non viene trovato ma l'utente aveva scritto una voce personalizzata
+                console.warn(`⚠️ Servizio esatto non trovato nel listino per la stringa: "${nameStr}". Creo voce temporanea.`);
+                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+                matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
+            }
+        }
+
+        // Iniettiamo le istanze in currentSelectedServices
+        if (typeof renderSelectedServiceTags === 'function') {
+            currentSelectedServices = matchedServiceItems;
+            renderSelectedServiceTags();
+        } else if (typeof initServiceAutocomplete === 'function') {
+            const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
+            await initServiceAutocomplete(matchedIds);
+        }
+    } else {
+        // Se è chiusura, puliamo i tag dei servizi a schermo
+        if (typeof renderSelectedServiceTags === 'function') {
+            renderSelectedServiceTags();
         }
     }
 
-    // Iniettiamo le istanze in currentSelectedServices
-    if (typeof renderSelectedServiceTags === 'function') {
-        currentSelectedServices = matchedServiceItems;
-        renderSelectedServiceTags();
-    } else if (typeof initServiceAutocomplete === 'function') {
-        const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
-        await initServiceAutocomplete(matchedIds);
-    }
-
-    // Mappatura campi base del modale
+    // Mappatura campi base del modale (se è chiusura, puliamo o nascondiamo la ricerca cliente)
     document.getElementById('edit-a-id').value = id;
-    document.getElementById('f-a-search').value = a.cust_name || '';
+    document.getElementById('f-a-search').value = isClosureApp ? "" : (a.cust_name || '');
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
     document.getElementById('f-a-notes').value = a.notes || '';
+    
+    // Applichiamo lo stato visivo della chiusura tramite la funzione toggle esistente
+    if (typeof toggleClosureMode === 'function') {
+        toggleClosureMode(isClosureApp);
+    }
     
     const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
     const userSelect = document.getElementById('f-a-user');
@@ -8483,16 +8604,20 @@ async function updateReminderBadgeCount() {
     }
 
     const titleEl = document.getElementById('mod-cale-title');
-    if (titleEl) titleEl.innerText = "Modifica Appuntamento";
+    if (titleEl) {
+        titleEl.innerText = isClosureApp ? "Modifica Giornata di Chiusura / Ferie" : "Modifica Appuntamento";
+    }
 
     document.getElementById('mod-cale').classList.add('active'); 
 
-    // Riavviamo i controlli di validità e duplicati
-    if (typeof checkDuplicateAppointments === 'function') {
-        checkDuplicateAppointments();
-    }
-    if (typeof checkOperatorScheduleValidity === 'function') {
-        checkOperatorScheduleValidity();
+    // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
+    if (!isClosureApp) {
+        if (typeof checkDuplicateAppointments === 'function') {
+            checkDuplicateAppointments();
+        }
+        if (typeof checkOperatorScheduleValidity === 'function') {
+            checkOperatorScheduleValidity();
+        }
     }
 }
             
