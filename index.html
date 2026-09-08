@@ -8585,8 +8585,13 @@ async function updateReminderBadgeCount() {
    async function editApp(id) { 
     const event = window.event; 
     if (event) event.stopPropagation();
-    const a = allAppointments.find(x => x.id === id); 
-    if (!a) return;
+    
+    // Assicuriamoci che l'ID sia confrontato correttamente (stringa o numero)
+    const a = allAppointments.find(x => String(x.id) === String(id)); 
+    if (!a) {
+        console.warn("⚠️ Appuntamento non trovato con ID:", id);
+        return;
+    }
 
     // 🏖️ Verifichiamo se l'appuntamento salvato è una Chiusura / Ferie
     const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
@@ -8603,45 +8608,40 @@ async function updateReminderBadgeCount() {
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // Se NON è una chiusura, estraiamo le voci di servizio
+    // Se NON è una chiusura, estraiamo le voci di servizio con match ESATTO
     if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+        // Dividiamo per virgola le stringhe salvate (es. "Taglio, Piega")
+        const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
         
         const matchedServiceItems = [];
         for (let nameStr of savedServiceNames) {
-            if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
+            const nameLower = nameStr.toLowerCase();
+            if (!nameLower || nameLower === 'servizio' || nameLower === 'trattamento' || nameLower.includes('pausa')) continue;
             
-            // Cerchiamo il servizio nel listino con corrispondenza esatta o inclusione pulita
-            const foundServ = allInventory.find(i => i.type === 'servizio' && (
-                i.name.toLowerCase().trim() === nameStr || 
-                nameStr === i.name.toLowerCase().trim() ||
-                nameStr.includes(i.name.toLowerCase().trim()) ||
-                i.name.toLowerCase().trim().includes(nameStr)
-            ));
+            // 🎯 RICERCA ESATTA (Exact match case-insensitive): Evita il problema del "LIKE" generico
+            let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameLower);
+            
+            // Fallback secondario: se non trova l'esatto match testuale, prova a vedere se l'id corrisponde
+            if (!foundServ) {
+                foundServ = allInventory.find(i => i.type === 'servizio' && i.id === nameStr);
+            }
             
             if (foundServ) {
-                // Recuperiamo il prezzo corrente del servizio
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
                 
-                // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
             } else {
-                // Fallback se il servizio scritto nel testo non è più nel listino attivo
+                // Se non esiste nel listino attuale, manteniamo la stringa originale come voce personalizzata
                 const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
                 matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
             }
         }
 
-        // Iniettiamo direttamente le istanze multiple in currentSelectedServices
         if (typeof renderSelectedServiceTags === 'function') {
             currentSelectedServices = matchedServiceItems;
             renderSelectedServiceTags();
-        } else if (typeof initServiceAutocomplete === 'function') {
-            const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
-            await initServiceAutocomplete(matchedIds);
         }
     } else {
         if (typeof renderSelectedServiceTags === 'function') {
@@ -8649,7 +8649,7 @@ async function updateReminderBadgeCount() {
         }
     }
 
-    // 👤 Pulisci eventuale prefisso di preview dal nome cliente
+    // 👤 PRECARICAMENTO NOME CLIENTE (Pulito da eventuali tag di preview)
     const cleanCustName = (a.cust_name || '').replace(/⭐\s*\[Preview\]/gi, '').trim();
 
     // Mappatura campi base del modale
@@ -8660,7 +8660,6 @@ async function updateReminderBadgeCount() {
     document.getElementById('f-a-end').value = a.end_time || "";
     document.getElementById('f-a-notes').value = a.notes || '';
     
-    // Attiva lo stato visivo della chiusura se la funzione è presente
     if (typeof toggleClosureMode === 'function') {
         toggleClosureMode(isClosureApp);
     }
@@ -8677,9 +8676,16 @@ async function updateReminderBadgeCount() {
         titleEl.innerText = isClosureApp ? "Modifica Giornata di Chiusura / Ferie" : "Modifica Appuntamento";
     }
 
-    document.getElementById('mod-cale').classList.add('active'); 
+    // Chiudiamo il modale di dettaglio (view-app) se era aperto e apriamo quello di modifica
+    const viewAppModal = document.getElementById('mod-view-app');
+    if (viewAppModal) viewAppModal.classList.remove('active');
 
-    // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
+    const editModal = document.getElementById('mod-cale');
+    if (editModal) {
+        editModal.classList.add('active');
+        editModal.style.display = 'flex';
+    }
+
     if (!isClosureApp) {
         if (typeof checkDuplicateAppointments === 'function') {
             checkDuplicateAppointments();
