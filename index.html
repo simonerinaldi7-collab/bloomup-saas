@@ -4858,84 +4858,89 @@ function dismissExpenseReminderAndGoToExpenses() {
     }
 
    function updateMarginChart() {
-        const filter = document.getElementById('src-margin-prod').value.toLowerCase();
-        
-        let baseList = [...currentMarginData];
-        if (filter !== "") {
-            baseList = baseList.filter(d => d.item_name.toLowerCase().includes(filter));
-        }
+    const filter = document.getElementById('src-margin-prod').value.toLowerCase();
+    
+    let baseList = [...currentMarginData];
+    if (filter !== "") {
+        baseList = baseList.filter(d => d.item_name.toLowerCase().includes(filter));
+    }
 
-        // 🌟 Ordiniamo in modo DECRESCENTE: dal margine più alto al margine più basso
-        baseList.sort((a, b) => b.total_margin - a.total_margin);
+    // 🌟 Ordinamento in modo DECRESCENTE: dal margine più alto al margine più basso
+    baseList.sort((a, b) => b.total_margin - a.total_margin);
 
-        let chartData = [];
+    let chartData = [];
 
-        if (filter === "") {
-            const totalItems = baseList.length;
+    if (filter === "") {
+        const totalItems = baseList.length;
 
-            if (totalItems <= 1) {
-                chartData = baseList;
-            } else if (totalItems < 10) {
-                chartData = baseList;
-            } else {
-                const top5 = baseList.slice(0, 5);
-                const bottom5 = baseList.slice(-5).reverse();
-                
-                const topNames = new Set(top5.map(x => x.item_name));
-                const uniqueBottom5 = bottom5.filter(x => !topNames.has(x.item_name));
-                
-                chartData = [...top5, ...uniqueBottom5];
-            }
-        } else {
+        if (totalItems <= 1) {
             chartData = baseList;
+        } else if (totalItems < 10) {
+            chartData = baseList;
+        } else {
+            const top5 = baseList.slice(0, 5);
+            // Prendiamo gli ultimi 5 dal fondo e li invertiamo per una visualizzazione pulita sul grafico a barre orizzontali
+            const bottom5 = baseList.slice(-5).reverse();
+            
+            const topNames = new Set(top5.map(x => x.item_name));
+            const uniqueBottom5 = bottom5.filter(x => !topNames.has(x.item_name));
+            
+            chartData = [...top5, ...uniqueBottom5];
         }
-        
-        const ctx = document.getElementById('marginChart').getContext('2d');
-        if (window.myChart) window.myChart.destroy();
-        
-        const totalItemsInChart = chartData.length;
-
-        window.myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: chartData.map(d => d.item_name),
-                datasets: [{
-                    label: 'Margine Totale (€)',
-                    data: chartData.map(d => d.total_margin),
-                    // 🎨 Assegnazione colore basata sul VALORE del margine e non sulla posizione in classifica!
-                    backgroundColor: chartData.map((d) => {
-                        if (filter !== "") return '#6C5CE7'; // Viola se filtrato
-                        if (d.total_margin < 0) return '#E17055'; // Rosso se in perdita
-                        if (d.total_margin === 0) return '#b2bec3'; // Grigio se zero
-                        
-                        // Sfumatura intelligente basata sulle performance (Verde per i più alti, Arancione/Rosso per i più bassi)
-                        return '#00B894'; 
-                    })
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '€ ' + value.toFixed(0);
-                            }
-                        }
-                    }
-                },
-                onClick: (event, elements) => {
-                    if (elements.length > 0) {
-                        showDetails(chartData[elements[0].index]); 
-                    }
-                }
-            }
-        });
+    } else {
+        chartData = baseList;
     }
     
+    const ctx = document.getElementById('marginChart').getContext('2d');
+    if (window.myChart) window.myChart.destroy();
+    
+    const totalItemsInChart = chartData.length;
+
+    window.myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.map(d => d.item_name),
+            datasets: [{
+                label: 'Margine Totale (€)',
+                data: chartData.map(d => d.total_margin),
+                // 🎨 Assegnazione colore basata sulla POSIZIONE (Top 5 Verdi, Ultimi 5 Rossi)
+                backgroundColor: chartData.map((d, index) => {
+                    if (filter !== "") return '#6C5CE7'; // Viola se è attivo un filtro di ricerca testuale
+                    
+                    if (totalItemsInChart < 10) {
+                        // Sotto i 10 elementi: la metà superiore è verde, la metà inferiore è rossa
+                        const mid = totalItemsInChart / 2;
+                        return index < mid ? '#00B894' : '#E17055';
+                    } else {
+                        // Standard: i primi 5 indici sono verdi (#00B894), gli ultimi 5 sono rossi (#E17055)
+                        return index < 5 ? '#00B894' : '#E17055';
+                    }
+                })
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '€ ' + value.toFixed(0);
+                        }
+                    }
+                }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    showDetails(chartData[elements[0].index]); 
+                }
+            }
+        }
+    });
+}
+
 let currentSelectedServices = [];
 
     async function initServiceAutocomplete(selectedIds = []) {
