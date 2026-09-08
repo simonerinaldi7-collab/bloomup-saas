@@ -1197,47 +1197,48 @@
         </div>
     </section>
 
-   <!-- VISTA AGENDA (Ridisegnata con header collassabile e compatibile al 100% con il CSS .view) -->
+   <!-- VISTA AGENDA -->
     <section id="v-calendar" class="view" style="padding:0;">
         <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
             
             <!-- HEADER AGENDA COLLAPSIBLE -->
-            <div class="cal-header" style="flex-direction: column; align-items: stretch; padding: 12px 20px; gap: 8px; border-bottom: 1px solid #e2e8f0; background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-shrink: 0;">
+            <div class="cal-header" style="flex-direction: column; align-items: stretch; padding: 12px 16px; gap: 10px; border-bottom: 1px solid #e2e8f0; background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-shrink: 0;">
                 
-                <!-- RIGA PRINCIPALE (Sempre Visibile e Pulita) -->
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <!-- RIGA PRINCIPALE (Sempre Visibile e Spaziata) -->
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; flex-wrap: wrap;">
+                    
                     <!-- Gruppo Data e Scorrimento Rapido -->
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <h2 id="cal-label" style="margin: 0; font-size: 16px; font-weight: 700; color: #1e1b4b; min-width: 140px;">Agenda</h2>
-                        <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px;">
-                            <button class="btn" style="padding: 4px 10px; min-height: unset; background: transparent; border: none; font-size: 13px;" onclick="moveDate(-1)" title="Precedente">◀</button>
-                            <button class="btn" style="padding: 4px 10px; min-height: unset; background: white; border: none; font-size: 12px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-radius: 6px;" onclick="moveDate(0)">Oggi</button>
-                            <button class="btn" style="padding: 4px 10px; min-height: unset; background: transparent; border: none; font-size: 13px;" onclick="moveDate(1)" title="Successivo">▶</button>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <h2 id="cal-label" style="margin: 0; font-size: 15px; font-weight: 700; color: #1e1b4b;">Agenda</h2>
+                        <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px; gap: 2px;">
+                            <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveDate(-1)" title="Precedente">◀</button>
+                            <button class="btn" style="padding: 4px 10px; min-height: unset; background: white; border: none; font-size: 11px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-radius: 6px;" onclick="moveDate(0)">Oggi</button>
+                            <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveDate(1)" title="Successivo">▶</button>
                         </div>
                     </div>
 
-                    <!-- Gruppo Azioni Rapide a Destra -->
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <button class="btn" id="cal-toggle-filters-btn" style="padding: 8px 12px; min-height: unset; background: #f8fafc; color: #475569; border: 1px solid var(--border); font-size: 12px; border-radius: 8px;" onclick="toggleCalendarToolbar()">
+                    <!-- Gruppo Azioni Rapide a Destra (Con distanziamento sicuro) -->
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <button class="btn" id="cal-toggle-filters-btn" style="padding: 6px 12px; min-height: unset; background: #f8fafc; color: #475569; border: 1px solid var(--border); font-size: 12px; border-radius: 8px;" onclick="toggleCalendarToolbar()">
                             ⚙️ Filtri <span id="filters-chevron">▾</span>
                         </button>
-                        <button class="btn btn-p" style="padding: 8px 14px; min-height: unset; font-size: 12px; border-radius: 8px;" onclick="openMod('cale')">+ Nuovo</button>
+                        <button class="btn btn-p" style="padding: 6px 14px; min-height: unset; font-size: 12px; border-radius: 8px;" onclick="openMod('cale')">+ Nuovo</button>
                     </div>
                 </div>
 
                 <!-- RIGA SECONDARIA A SCOMPARSA (Filtri Operatore & Viste Calendario) -->
                 <div id="cal-collapsible-toolbar" style="display: none; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 180px;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 160px;">
                         <label style="margin: 0; font-size: 10px; color: #64748b; white-space: nowrap;">Operatore:</label>
                         <select id="user-filter" onchange="renderCalendar()" style="margin: 0; padding: 6px 10px; font-size: 13px; background: #f8fafc; border-radius: 8px;">
                             <option value="all">Tutti gli Operatori</option>
                         </select>
                     </div>
 
-                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 2px;">
-                        <button class="btn cal-view-btn" id="btn-view-month" style="padding: 5px 12px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="setCalView('month')">Mese</button>
-                        <button class="btn cal-view-btn btn-p" id="btn-view-week" style="padding: 5px 12px; min-height: unset; font-size: 12px;" onclick="setCalView('week')">Sett</button>
-                        <button class="btn cal-view-btn" id="btn-view-day" style="padding: 5px 12px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="setCalView('day')">Giorno</button>
+                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 4px;">
+                        <button class="btn cal-view-btn" id="btn-view-month" style="padding: 5px 10px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="setCalView('month')">Mese</button>
+                        <button class="btn cal-view-btn btn-p" id="btn-view-week" style="padding: 5px 10px; min-height: unset; font-size: 11px;" onclick="setCalView('week')">Sett</button>
+                        <button class="btn cal-view-btn" id="btn-view-day" style="padding: 5px 10px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="setCalView('day')">Giorno</button>
                     </div>
                 </div>
 
@@ -5385,7 +5386,35 @@ async function quickAlarmAction(actionType) {
         setTimeout(initColorSwatches, 300);
     });
 
+// Funzione blindata per aprire/chiudere la barra dei filtri in agenda
+function toggleCalendarToolbar() {
+    const toolbar = document.getElementById('cal-collapsible-toolbar');
+    const chevron = document.getElementById('filters-chevron');
+    const btn = document.getElementById('cal-toggle-filters-btn');
 
+    if (!toolbar) return;
+
+    // Verifichiamo lo stile computato o inline anziché solo === 'flex'
+    const currentDisplay = window.getComputedStyle(toolbar).display;
+
+    if (currentDisplay === 'flex' && toolbar.style.display !== 'none') {
+        toolbar.style.display = 'none';
+        if (chevron) chevron.innerText = '▾';
+        if (btn) {
+            btn.style.background = '#f8fafc';
+            btn.style.color = '#475569';
+            btn.style.borderColor = '#DFE6E9';
+        }
+    } else {
+        toolbar.style.display = 'flex';
+        if (chevron) chevron.innerText = '▴';
+        if (btn) {
+            btn.style.background = '#ede9fe';
+            btn.style.color = '#4338ca';
+            btn.style.borderColor = '#c4b5fd';
+        }
+    }
+}
  async function loadDailyTargetWidget() {
         const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
         const currentMonthPrefix = todayStr.substring(0, 7);     // 'YYYY-MM'
