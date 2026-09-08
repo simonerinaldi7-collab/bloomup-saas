@@ -8413,52 +8413,14 @@ async function updateReminderBadgeCount() {
 }
 
     async function viewApp(id) {
-    const a = allAppointments.find(x => String(x.id) === String(id)); 
+    const a = allAppointments.find(x => x.id === id); 
     if(!a) return; 
     currentViewApp = a;
 
-    // 🏖️ Verifichiamo se l'appuntamento è una Chiusura / Ferie
-    const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
-                         (a.cust_name || '').toLowerCase().includes('ferie') ||
-                         (a.service || '').toLowerCase().includes('chiusura') || 
-                         (a.service || '').toLowerCase().includes('ferie');
-
     // Verifichiamo se l'appuntamento è pagato
-    const isPaid = !isClosureApp && (allSales || []).some(s => s.appointment_id === a.id);
+        const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
     
-    // Individuiamo il contenitore modale e le sezioni dei bottoni
-    const modalBox = document.querySelector('#mod-view-app .modal-box');
-    
-    // Selezioniamo specificamente i blocchi label e div dei bottoni di comunicazione
-    const actionElements = modalBox ? modalBox.querySelectorAll('#v-app-content ~ label, #v-app-content ~ div[style*="display:flex"]') : [];
-
-    if (isClosureApp) {
-        // Layout pulito e mirato per la chiusura
-        document.getElementById('v-app-content').innerHTML = `
-            <div style="text-align: center; color: #dc2626; font-weight: bold; font-size: 16px; margin-bottom: 8px;">🏖️ GIORNATA DI CHIUSURA / FERIE</div>
-            <b>DATA:</b> ${a.date}<br>
-            <b>OPERATORE:</b> ${a.assigned_user || 'Tutti (Globale)'}<br>
-            <b>NOTE:</b> ${a.notes || 'Nessuna nota'}
-        `;
-
-        // Nascondiamo i blocchi di invio messaggi se è una chiusura
-        actionElements.forEach(el => {
-            const text = el.innerText || '';
-            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || text.querySelector('button[class*="btn-w"]')) {
-                el.style.display = 'none';
-            }
-        });
-    } else {
-        // 🌟 RIPRISTINO FORZATO DELLA VISIBILITÀ DEI TASTI WA/SMS PER APPUNTAMENTI STANDARD
-        actionElements.forEach(el => {
-            const text = el.innerText || '';
-            if (text.includes('CONFERMA') || text.includes('PROMEMORIA') || el.querySelector('button[class*="btn-w"]') || el.querySelector('button[style*="background:#25D366"]')) {
-                el.style.display = 'block'; // Ripristina il blocco dei bottoni
-                el.style.display = 'flex';  // Forza il flex container per i bottoni affiancati
-            }
-        });
-
-        const services = (a.service || "").split(',').map(s => s.trim());
+    const services = (a.service || "").split(',').map(s => s.trim());
         let calculatedTotalPrice = 0;
 
         for (let servName of services) {
@@ -8490,70 +8452,68 @@ async function updateReminderBadgeCount() {
             <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
             <b>NOTE:</b> ${a.notes || '-'}
         `;
-    }
 
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
-        btnCheckout.style.display = isClosureApp ? 'none' : 'block';
+        btnCheckout.onclick = async () => { 
+            // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
+            const targetAppId = currentViewApp.id;
 
-        if (!isClosureApp) {
-            btnCheckout.onclick = async () => { 
-                const targetAppId = currentViewApp.id;
+            // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
+            try {
+                const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+                const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
 
-                try {
-                    const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-                    const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
-
-                    if (alreadyPaid) {
-                        const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
-                        if (!proceed) return;
-                    }
-                } catch (e) {
-                    console.warn("Controllo appuntamento già pagato non riuscito:", e);
+                if (alreadyPaid) {
+                    const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
+                    if (!proceed) return;
                 }
+            } catch (e) {
+                console.warn("Controllo appuntamento già pagato non riuscito:", e);
+            }
 
-                currentCheckoutAppointmentId = targetAppId;
+            // Impostiamo l'ID dell'appuntamento da passare alla cassa
+            currentCheckoutAppointmentId = targetAppId;
 
-                const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
-                cart = []; 
-                for (let servizio of cartServices) {
-                    if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
+            const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
+            cart = []; 
+            for (let servizio of cartServices) {
+                if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
 
-                    const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
-                    if (product) {
-                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                        const price = pInfo ? parseFloat(pInfo.price) : 0;
-                        cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
-                    } else {
-                        cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
-                    }
-                }
-
-                let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
-
-                const fc = allCustomers.find(c => {
-                    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                    const legacyName = (c.name || "").trim().toLowerCase();
-                    return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
-                });
-
-                if (fc) {
-                    const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
-                    currentCheckoutCustomer = { id: fc.id, name: formattedName };
+                const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
+                if (product) {
+                    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                    const price = pInfo ? parseFloat(pInfo.price) : 0;
+                    cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
                 } else {
-                    currentCheckoutCustomer = { id: 0, name: rawCustName };
+                    cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
                 }
+            }
 
-                const custDisplayEl = document.getElementById('cart-selected-cust');
-                if (custDisplayEl) {
-                    custDisplayEl.innerText = currentCheckoutCustomer.name;
-                }
+            let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
 
-                renderCart(); 
-                closeMod(); 
-                changePage('sales', true); 
-            };
-        }
+            const fc = allCustomers.find(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                const legacyName = (c.name || "").trim().toLowerCase();
+                return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
+            });
+
+            if (fc) {
+                const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
+                currentCheckoutCustomer = { id: fc.id, name: formattedName };
+            } else {
+                currentCheckoutCustomer = { id: 0, name: rawCustName };
+            }
+
+            const custDisplayEl = document.getElementById('cart-selected-cust');
+            if (custDisplayEl) {
+                custDisplayEl.innerText = currentCheckoutCustomer.name;
+            }
+
+            renderCart(); 
+            closeMod(); 
+            changePage('sales', true); 
+        };
     }
 
     const btnEdit = document.getElementById('btn-edit-app');
@@ -8562,13 +8522,14 @@ async function updateReminderBadgeCount() {
             e.stopPropagation();
             if (!currentViewApp || !currentViewApp.id) return;
             editApp(currentViewApp.id); 
+            document.getElementById('mod-view-app').classList.remove('active');
         };
     }
 
     const btnDel = document.getElementById('btn-del-app');
     if (btnDel) {
         btnDel.onclick = async () => {
-            if(!confirm(isClosureApp ? "Eliminare questa giornata di chiusura?" : "Eliminare l'appuntamento?")) return;
+            if(!confirm("Eliminare l'appuntamento?")) return;
             await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
             closeMod(); 
             await refreshAllData();
