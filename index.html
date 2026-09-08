@@ -2135,49 +2135,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         const alertAppId = window._quickAlarmAppId;
         let appointmentFound = null;
 
-        // Tentativo 1: Usiamo direttamente il database globale 'localDb' se già pronto
-        try {
-            if (window.localDb) {
-                // Assicuriamoci che il DB sia aperto
-                if (!window.localDb.isOpen()) await window.localDb.open();
-                appointmentFound = await window.localDb.appointments.get(alertAppId);
-            }
-        } catch (e) {
-            console.warn("Tentativo 1 di lettura appuntamento fallito:", e);
-        }
-
-        // Tentativo 2 di emergenza: Se localDb non è pronto, apriamo Dexie con la versione corretta 21
-        if (!appointmentFound && window.Dexie) {
+        // 🔄 TENTATIVI MULTIPLI (ATTESA ATTIVA) PER GARANTire IL CARICAMENTO DA INDEXEDDB ANCHE A FREDDO
+        for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                const tempDb = new Dexie("RetailMasterPWA");
-                tempDb.version(21).stores({
-                    users: 'id, salon_id, username, status',
-                    customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
-                    inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment',
-                    appointments: 'id, salon_id, date, time',
-                    sales: 'id, salon_id, date, appointment_id',
-                    sale_items: 'id, salon_id, sale_id, is_paid',
-                    message_logs: 'id, salon_id',
-                    expenses: 'id, salon_id, date',
-                    price_history: 'id, salon_id, product_id',
-                    service_consumables: 'id, salon_id, service_id',
-                    operator_schedules: 'id, salon_id, username, day_of_week',
-                    suppliers: 'id, salon_id, name',
-                    product_suppliers: 'id, salon_id, product_id, supplier_id',
-                    supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid',
-                    stock_lots: 'id, salon_id, product_id, created_at',
-                    push_subscriptions: 'id, salon_id, username',
-                    appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date',
-                    settings: 'key, salon_id',
-                    sync_queue: '++local_id, action, table_name, data, target_id'
-                });
-                appointmentFound = await tempDb.appointments.get(alertAppId);
-            } catch (ex) {
-                console.warn("Tentativo 2 di lettura appuntamento fallito:", ex);
+                // Tentativo tramite l'istanza globale localDb
+                if (window.localDb) {
+                    if (!window.localDb.isOpen()) await window.localDb.open();
+                    appointmentFound = await window.localDb.appointments.get(alertAppId);
+                }
+
+                // Se non trovato, proviamo ad aprire una connessione Dexie temporanea
+                if (!appointmentFound && window.Dexie) {
+                    const tempDb = new Dexie("RetailMasterPWA");
+                    tempDb.version(21).stores({
+                        users: 'id, salon_id, username, status',
+                        customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
+                        inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment',
+                        appointments: 'id, salon_id, date, time',
+                        sales: 'id, salon_id, date, appointment_id',
+                        sale_items: 'id, salon_id, sale_id, is_paid',
+                        message_logs: 'id, salon_id',
+                        expenses: 'id, salon_id, date',
+                        price_history: 'id, salon_id, product_id',
+                        service_consumables: 'id, salon_id, service_id',
+                        operator_schedules: 'id, salon_id, username, day_of_week',
+                        suppliers: 'id, salon_id, name',
+                        product_suppliers: 'id, salon_id, product_id, supplier_id',
+                        supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid',
+                        stock_lots: 'id, salon_id, product_id, created_at',
+                        push_subscriptions: 'id, salon_id, username',
+                        appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date',
+                        settings: 'key, salon_id',
+                        sync_queue: '++local_id, action, table_name, data, target_id'
+                    });
+                    appointmentFound = await tempDb.appointments.get(alertAppId);
+                }
+
+                if (appointmentFound) break; // Trovato! Usciamo dal ciclo
+            } catch (err) {
+                console.warn(`Tentativo ${attempt} lettura appuntamento fallito:`, err);
+            }
+
+            // Se non trovato, attendiamo 150ms prima del prossimo tentativo
+            if (!appointmentFound && attempt < 3) {
+                await new Promise(r => setTimeout(r, 150));
             }
         }
 
-        // Popolamento della UI minimale
+        // Popolamento della UI minimale con i dati trovati
         if (appointmentFound) {
             const now = new Date();
             const appDateTime = new Date(`${appointmentFound.date}T${appointmentFound.time}:00`);
