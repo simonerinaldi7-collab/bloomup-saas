@@ -8582,110 +8582,57 @@ async function updateReminderBadgeCount() {
 }
 
 
-    async function editApp(id) { 
+   async function editApp(id) { 
     const event = window.event; 
     if (event) event.stopPropagation();
     const a = allAppointments.find(x => x.id === id); 
     if (!a) return;
 
-    // 🏖️ Verifichiamo se l'appuntamento salvato è una Chiusura / Ferie
-    const isClosureApp = (a.cust_name || '').toLowerCase().includes('chiusura') || 
-                         (a.cust_name || '').toLowerCase().includes('ferie') ||
-                         (a.service || '').toLowerCase().includes('chiusura') || 
-                         (a.service || '').toLowerCase().includes('ferie');
-
-    // Spuntiamo o despunto la checkbox di chiusura nel modale se presente nell'HTML
-    const closureCheckbox = document.getElementById('f-a-is-closure');
-    if (closureCheckbox) {
-        closureCheckbox.checked = isClosureApp;
-    }
-
     // 🧹 PULIZIA TOTALE PREVENTIVA
     currentSelectedServices = [];
 
-    // Se NON è una chiusura, estraiamo le voci di servizio normalmente
-    if (!isClosureApp) {
-        // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Match esatto + fallback sicuro)
-        const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
+    const savedServiceNames = (a.service || "").split(',').map(s => s.trim().toLowerCase());
+    
+    const matchedServiceItems = [];
+    for (let nameStr of savedServiceNames) {
+        if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
         
-        const matchedServiceItems = [];
-        for (let nameStr of savedServiceNames) {
-            if (!nameStr || nameStr === 'servizio' || nameStr === 'trattamento' || nameStr.includes('pausa')) continue;
+        // Cerchiamo il servizio nel listino
+        const foundServ = allInventory.find(i => i.type === 'servizio' && (
+            i.name.toLowerCase().trim() === nameStr || 
+            nameStr.includes(i.name.toLowerCase().trim()) ||
+            i.name.toLowerCase().trim().includes(nameStr)
+        ));
+        
+        if (foundServ) {
+            // Recuperiamo il prezzo corrente del servizio
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
             
-            // 1. Match esatto
-            let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameStr);
-            
-            // 2. Fallback per inclusione sicura
-            if (!foundServ) {
-                foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes(nameStr) || nameStr.includes(i.name.toLowerCase().trim())));
-            }
-            
-            if (foundServ) {
-                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
-                const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
-                
-                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-                matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
-            } else {
-                const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-                matchedServiceItems.push({ uid: uniqueInstanceId, id: null, name: nameStr, price: 0 });
-            }
-        }
-
-        currentSelectedServices = matchedServiceItems;
-        if (typeof renderSelectedServiceTags === 'function') {
-            renderSelectedServiceTags();
-        } else if (typeof initServiceAutocomplete === 'function') {
-            const matchedIds = matchedServiceItems.map(s => s.id).filter(Boolean);
-            await initServiceAutocomplete(matchedIds);
-        }
-    } else {
-        if (typeof renderSelectedServiceTags === 'function') {
-            renderSelectedServiceTags();
+            // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
+            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+            matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
         }
     }
 
-    // 👤 RISOLUZIONE ROBUSTA DEL CLIENTE (Usando la tua logica testata)
-    let resolvedCustName = "";
-    let resolvedCustId = "";
-
-    if (!isClosureApp && a.cust_name) {
-        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
-        
-        // Sfruttiamo il codice della vecchia versione che cercava in modo flessibile
-        const matchedCust = (allCustomers || []).find(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            const legacyName = (c.name || "").trim().toLowerCase();
-            return c.id === a.cust_id || fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
-        });
-
-        if (matchedCust) {
-            resolvedCustId = matchedCust.id;
-            resolvedCustName = `${matchedCust.first_name || ''} ${matchedCust.last_name || ''}`.trim() || matchedCust.name || a.cust_name;
-        } else {
-            resolvedCustId = a.cust_id || "";
-            resolvedCustName = a.cust_name; // Fallback diretto al nome salvato nell'appuntamento
-        }
+    // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
+    if (typeof renderSelectedServiceTags === 'function') {
+        currentSelectedServices = matchedServiceItems;
+        renderSelectedServiceTags();
+    } else if (typeof initServiceAutocomplete === 'function') {
+        // Fallback di compatibilità
+        const matchedIds = matchedServiceItems.map(s => s.id);
+        await initServiceAutocomplete(matchedIds);
     }
 
     // Mappatura campi base del modale
     document.getElementById('edit-a-id').value = id;
-    
-    const searchInput = document.getElementById('f-a-search');
-    if (searchInput) searchInput.value = isClosureApp ? "" : resolvedCustName;
-
-    const custIdInput = document.getElementById('f-a-cust-id');
-    if (custIdInput) custIdInput.value = isClosureApp ? "" : resolvedCustId;
-
+    document.getElementById('f-a-search').value = a.cust_name || '';
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
     document.getElementById('f-a-notes').value = a.notes || '';
-    
-    // Applichiamo lo stato visivo della chiusura tramite la funzione toggle esistente
-    if (typeof toggleClosureMode === 'function') {
-        toggleClosureMode(isClosureApp);
-    }
     
     const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
     const userSelect = document.getElementById('f-a-user');
@@ -8695,20 +8642,16 @@ async function updateReminderBadgeCount() {
     }
 
     const titleEl = document.getElementById('mod-cale-title');
-    if (titleEl) {
-        titleEl.innerText = isClosureApp ? "Modifica Giornata di Chiusura / Ferie" : "Modifica Appuntamento";
-    }
+    if (titleEl) titleEl.innerText = "Modifica Appuntamento";
 
     document.getElementById('mod-cale').classList.add('active'); 
 
-    // Riavviamo i controlli di validità e duplicati solo se non è un giorno di chiusura
-    if (!isClosureApp) {
-        if (typeof checkDuplicateAppointments === 'function') {
-            checkDuplicateAppointments();
-        }
-        if (typeof checkOperatorScheduleValidity === 'function') {
-            checkOperatorScheduleValidity();
-        }
+    // Riavviamo i controlli di validità e duplicati
+    if (typeof checkDuplicateAppointments === 'function') {
+        checkDuplicateAppointments();
+    }
+    if (typeof checkOperatorScheduleValidity === 'function') {
+        checkOperatorScheduleValidity();
     }
 }
             
