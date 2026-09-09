@@ -10648,7 +10648,7 @@ function urlBase64ToUint8Array(base64String) {
 
 
     function getUserColor(username) {
-        console.log("CERCO COLORE PER:", username); // Debug
+        //console.log("CERCO COLORE PER:", username); // Debug
         const user = allUsers.find(u => u.username === username);
         if (!user) {
             console.warn("Utente non trovato in allUsers:", username);
