@@ -6913,7 +6913,7 @@ async function registerOperatorPushNotifications() {
            function getEventStyles(a) {
         if (!a) return '';
         if (!allLogs || allLogs.length === 0) {
-            console.warn("🔍 [DEBUG STILI] Nessun log presente in allLogs.");
+           
             return '';
         }
         
@@ -6921,7 +6921,7 @@ async function registerOperatorPushNotifications() {
         const targetAppTime = (a.time || '').substring(0, 5).trim();
         const custNameRaw = (a.cust_name || '').trim().toLowerCase();
 
-        console.log(`🔍 [DEBUG STILI] Esamino appuntamento -> Cliente: "${custNameRaw}", Data: "${targetAppDate}", Ora: "${targetAppTime}"`);
+        
 
         // Cerchiamo un log corrispondente stampando le verifiche
         const matchedLog = allLogs.find(l => {
