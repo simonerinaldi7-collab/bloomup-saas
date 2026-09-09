@@ -8005,7 +8005,7 @@ function toggleClosureMode(isClosure) {
     } else {
         await changePage('sales');
     }
-
+await loadSecureAiKey();
     // Caricamento immediato
     await refreshAllData();
     if (typeof renderCalendar === 'function') renderCalendar();
@@ -10689,12 +10689,16 @@ async function sendAIQuery() {
     const userText = inputField ? inputField.value.trim() : '';
 
     if (!userText) return;
-    if (GEMINI_API_KEY === "INSERISCI_QUI_LA_ TUA_CHIAVE_GRATUITA_DI_GOOGLE_AI_STUDIO") {
-        alert("Configura la chiave API di Google Gemini nel codice per attivare l'assistente IA.");
+
+    // 🔒 1. Recuperiamo la chiave sicura salvata nel database del salone
+    const activeApiKey = window._runtimeAiKey;
+
+    if (!activeApiKey) {
+        alert("⚠️ Chiave API di Gemini non configurata nel database per questo salone.");
         return;
     }
 
-    // 1. Mostra il messaggio dell'utente nella chat
+    // 2. Mostra il messaggio dell'utente nella chat
     chatContainer.innerHTML += `
         <div style="background: #ede9fe; color: #4338ca; padding: 12px 16px; border-radius: 12px; align-self: flex-end; max-width: 85%; font-size: 13px; line-height: 1.4; font-weight: 500;">
             ${userText}
@@ -10703,52 +10707,46 @@ async function sendAIQuery() {
     inputField.value = '';
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    // 2. Mostra indicatore di scrittura "Attendere..."
     const loadingId = 'ai-loading-' + Date.now();
     chatContainer.innerHTML += `
         <div id="${loadingId}" style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; color: #64748b;">
-            🤖 Analisi dei dati e generazione risposta in corso...
+            🤖 Analisi in corso...
         </div>
     `;
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     try {
-        // 3. Raccogliamo un contesto sintetico in tempo reale dei dati del salone da passare all'IA
-        const totalCust = allCustomers.length;
-        const lowStockItems = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name);
-        const recentSales = allSales.slice(0, 10); // ultime 10 vendite
-
         const contextData = {
             salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
-            total_customers: totalCust,
-            low_stock_products: lowStockItems,
-            recent_sales_sample: recentSales
+            total_customers: (allCustomers || []).length,
+            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name),
+            recent_sales_count: (allSales || []).length
         };
 
-        // 4. Prompt di Sistema per istruire l'IA sul suo ruolo
-        const systemPrompt = `
-            Sei l'assistente virtuale ufficiale ed esperto di "VaiMUp", un gestionale B2B per saloni di bellezza e barbershop.
-            Conosci perfettamente le funzionalità dell'app (Cassa POS, Conto Vendita, FIFO, Agenda Google Calendar-style, RFM, Carico Merce).
-            Ecco i dati attuali in tempo reale del negozio dell'utente: ${JSON.stringify(contextData)}.
-            Rispondi in modo professionale, amichevole, conciso e strategico in lingua italiana. Se l'utente chiede come fare un'operazione nell'app, spiegagliela passo dopo passo. Se chiede dei dati, analizzali e dagli consigli di business.
-        `;
+        const systemPrompt = `Sei l'assistente virtuale di VaiMUp, un gestionale B2B per saloni di bellezza. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in italiano in modo conciso e utile.`;
 
-        // 5. Chiamata alle API ufficiali di Google Gemini (Gemini 1.5 Flash)
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const requestBody = {
+            contents: [{ parts: [{ text: systemPrompt + "\n\nRichiesta utente: " + userText }] }]
+        };
+
+        // 3. Eseguiamo la chiamata usando la chiave protetta proveniente da Supabase
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [
-                    { role: "user", parts: [{ text: systemPrompt + "\n\nDomanda dell'utente: " + userText }] }
-                ]
-            })
+            body: JSON.stringify(requestBody)
         });
 
-        const result = await response.json();
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
 
-        if (result.candidates && result.candidates[0].content.parts[0].text) {
+        if (!response.ok) {
+            const errJson = await response.json();
+            throw new Error(errJson.error?.message || `Errore HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
             const aiReply = result.candidates[0].content.parts[0].text;
             chatContainer.innerHTML += `
                 <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b;">
@@ -10756,7 +10754,7 @@ async function sendAIQuery() {
                 </div>
             `;
         } else {
-            throw500: throw new Error("Risposta non valida dal server IA.");
+            throw new Error("Formato di risposta non riconosciuto da Gemini.");
         }
 
     } catch (err) {
@@ -10766,7 +10764,7 @@ async function sendAIQuery() {
         
         chatContainer.innerHTML += `
             <div style="background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 12px; border: 1px solid #fecaca; align-self: flex-start; font-size: 13px;">
-                ⚠️ Si è verificato un errore di connessione con il servizio di intelligenza artificiale. Riprova tra poco.
+                ⚠️ Errore IA: ${err.message}
             </div>
         `;
     }

@@ -90,6 +90,26 @@ function startBackgroundMultiOperatorSync() {
     });
 }
 
+// Variabile globale protetta in memoria per l'istanza dell'IA
+window._runtimeAiKey = null;
+
+async function loadSecureAiKey() {
+    try {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        // Interroghiamo la tabella settings
+        const settingsList = await localDb.settings.where(' salon_id').equals(salonId).toArray() || [];
+        const settingRow = settingsList.find(s => s.key === 'gemini_api_key');
+        
+        if (settingRow && settingRow.value) {
+            // Nota: Se la chiave è salvata in chiaro sul DB di prova puoi leggerla direttamente, 
+            // altrimenti se usi una funzione di decifratura lato server o client la gestisci qui.
+            window._runtimeAiKey = settingRow.value; 
+        }
+    } catch (e) {
+        console.warn("Impossibile caricare la chiave IA di sicurezza:", e);
+    }
+}
+
 // Aggiunta/Modifica nel file data-service.js dentro window.appDataService
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
