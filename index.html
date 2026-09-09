@@ -2634,15 +2634,13 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
     }
 
    // 🕒 Generazione automatica delle pause estesa a 3 mesi (90 giorni) in modalità batch non bloccante
-// 🕒 Generazione automatica delle pause estesa a 90 giorni (Blindata contro i duplicati)
 async function generateBreakAppointments(username) {
     if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     
-    // Eseguiamo in background per non bloccare mai la UI principale
     setTimeout(async () => {
-        console.log(`[DEBUG PAUSE 90GG] 🔄 Avvio verifica e generazione per utente: '${cleanUsername}'`);
+        console.log(`[DEBUG PAUSE 90GG] 🔄 Verifica e generazione intelligente per utente: '${cleanUsername}'`);
 
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
@@ -2663,13 +2661,10 @@ async function generateBreakAppointments(username) {
         const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
 
         const today = new Date();
-        
-        // 🔄 Ricarichiamo la lista aggiornata degli appuntamenti dal DB per avere una fotografia freschissima
         const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         
         let batchPayloads = [];
 
-        // 📅 Ciclo esteso a 90 giorni (3 mesi)
         for (let i = 0; i < 90; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() + i);
@@ -2678,8 +2673,36 @@ async function generateBreakAppointments(username) {
 
             const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
             
-            // 🛡️ VERIFICA ANTI-DUPLICATO RIGOROSA:
-            // Controlliamo se esiste già una pausa per questo operatore in questa specifica data
+            // 🏖️ 1. VERIFICA DI CHIUSURA / FERIE STRAORDINARIA IN QUESTA DATA
+            const isDayClosedOrHoliday = currentApps.some(a => {
+                if (!a.date || a.date !== dateStr) return false;
+                const srv = (a.service || "").toLowerCase();
+                const cust = (a.cust_name || "").toLowerCase();
+                // Controlla se c'è un blocco di chiusura globale o specifico per l'operatore
+                const isGlobalClosure = srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie');
+                const isOperatorMatch = !a.assigned_user || a.assigned_user.trim().toLowerCase() === cleanUsername;
+                return isGlobalClosure && isOperatorMatch;
+            });
+
+            // Se il giorno è di chiusura/ferie, saltiamo completamente la generazione della pausa
+            if (isDayClosedOrHoliday) {
+                console.log(`🏖️ [PAUSE] Salto generazione pausa per ${cleanUsername} in data ${dateStr}: presente giorno di Chiusura/Ferie.`);
+                // Rimuoviamo eventuale pausa residua se la chiusura è stata aggiunta dopo
+                const existingBreakToClean = currentApps.find(a => a.date === dateStr && (a.assigned_user || '').trim().toLowerCase() === cleanUsername && ((a.service || '').toLowerCase().includes('pausa')));
+                if (existingBreakToClean) {
+                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreakToClean.id });
+                }
+                continue;
+            }
+
+            // 🛡️ 2. VERIFICA SE ESISTE GIÀ UNA PAUSA O SE ERA STATA CANCELLATA MANUALMENTE
+            // Per evitare che una pausa cancellata dall'utente venga reinserita, salviamo un flag locale nei localStorage delle pause ignorate
+            const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
+            const breakKey = `${cleanUsername}_${dateStr}`;
+            if (dismissedBreaks[breakKey]) {
+                continue; // L'utente l'ha cancellata manualmente, non la reinseriamo!
+            }
+
             let existingBreak = currentApps.find(a => {
                 if (!a.date || a.date !== dateStr) return false;
                 const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
@@ -2694,7 +2717,6 @@ async function generateBreakAppointments(username) {
             const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
 
             if (!hasValidSplitShift) {
-                // Se il giorno non è più lavorativo ma c'è una vecchia pausa automatica, la rimuoviamo
                 if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
                     await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
                 }
@@ -2704,7 +2726,6 @@ async function generateBreakAppointments(username) {
             const targetTime = dayConfig.end_time_1;
             const targetEndTime = dayConfig.start_time_2;
 
-            // Se il turno prevede una pausa valida E non esiste già alcun record in quella data
             if (targetTime < targetEndTime && !existingBreak) {
                 const breakData = {
                     id: crypto.randomUUID(),
@@ -2720,25 +2741,17 @@ async function generateBreakAppointments(username) {
                     color: operatorHexColor
                 };
 
-                // Salvataggio immediato in locale su Dexie
                 if (window.localDb && window.localDb.appointments) {
                     await window.localDb.appointments.put(breakData);
                 }
                 
                 batchPayloads.push(breakData);
-                
-                // Aggiungiamo temporaneamente l'oggetto anche in currentApps in memoria 
-                // per evitare duplicati nel caso lo stesso giorno venga analizzato due volte
                 currentApps.push(breakData);
             }
         }
 
-        // Sincronizzazione Cloud in blocco (Batch) su Supabase
         if (navigator.onLine && batchPayloads.length > 0) {
             try {
-                const SUPABASE_URL = window.SUPABASE_CONFIG.url;
-                const SUPABASE_KEY = window.SUPABASE_CONFIG.key;
-
                 await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
                     method: 'POST',
                     headers: {
@@ -2749,13 +2762,10 @@ async function generateBreakAppointments(username) {
                     },
                     body: JSON.stringify(batchPayloads)
                 });
-                console.log(`🚀 [SYNC 90GG] Sincronizzate ${batchPayloads.length} nuove pause pranzo su Supabase.`);
             } catch (netErr) {
-                console.warn("⚠️ [SYNC 90GG] Sincronizzazione cloud rimandata (modalità offline).", netErr);
+                console.warn("Sync cloud pause rimandata.", netErr);
             }
         }
-        
-        console.log(`[DEBUG PAUSE 90GG] ✅ Verifica e generazione completate senza duplicati.`);
     }, 500);
 }
     // Modifica renderMonth e renderTimeline per filtrare
@@ -8531,6 +8541,16 @@ async function updateReminderBadgeCount() {
         btnDel.onclick = async () => {
             if(!confirm("Eliminare l'appuntamento?")) return;
             await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
+            // All'atto di eliminare un appuntamento:
+const srvCheck = (currentViewApp.service || '').toLowerCase();
+const custCheck = (currentViewApp.cust_name || '').toLowerCase();
+if (srvCheck.includes('pausa') || custCheck.includes('pausa')) {
+    const cleanUser = (currentViewApp.assigned_user || 'admin').trim().toLowerCase();
+    const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
+    dismissedBreaks[`${cleanUser}_${currentViewApp.date}`] = true;
+    localStorage.setItem('VaiMUp_dismissed_breaks', JSON.stringify(dismissedBreaks));
+}
+            
             closeMod(); 
             await refreshAllData();
             renderCalendar();
