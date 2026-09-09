@@ -923,6 +923,7 @@
         <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
         <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
         <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
+        <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
     </div>
     <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
         <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
@@ -1658,6 +1659,28 @@
             <button class="btn btn-p" onclick="saveOperatorSchedules()">Salva Orari</button>
         </div>
     </section>
+
+
+<section id="v-ai-assistant" class="view">
+    <div class="card" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 140px);">
+        <h3 style="margin-top:0; color:var(--p);">🤖 VaiMUp AI Business Coach</h3>
+        <p style="color:#64748b; font-size:13px;">Chiedi informazioni su come usare l'app o un'analisi approfondita sull'andamento del tuo salone.</p>
+        
+        <!-- Box della chat scrollabile -->
+        <div id="ai-chat-messages" style="flex-grow: 1; overflow-y: auto; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 85%; font-size: 13px; line-height: 1.4;">
+                👋 Ciao! Sono il tuo assistente virtuale di VaiMUp. Posso analizzare i dati del tuo negozio o spiegarti come usare le funzioni di cassa, agenda e magazzino. Come posso aiutarti oggi?
+            </div>
+        </div>
+
+        <!-- Input e invio -->
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="ai-user-input" placeholder="Es. Quali sono i prodotti che hanno reso di più questo mese? o Come faccio a fare uno storno?" style="margin: 0; flex-grow: 1;" onkeypress="if(event.key==='Enter') sendAIQuery()">
+            <button class="btn btn-p" style="margin: 0; padding: 0 20px; justify-content: center;" onclick="sendAIQuery()">Invia ➔</button>
+        </div>
+    </div>
+</section>
+
 
     <section id="v-settings" class="view">
         <div class="card" style="max-width: 700px; margin: 0 auto;">
@@ -10657,37 +10680,99 @@ function urlBase64ToUint8Array(base64String) {
         
 
             
-            async function askAI() { /* Gemini AI logic as before */ }
-            function toggleAllLogs(c) { document.querySelectorAll('.log-cb:not(:disabled)').forEach(x => x.checked = c); }
-            function loadSettingsFields() {
-                const remHoursEl = document.getElementById('set-rem-hours');
-                const msgConfirmEl = document.getElementById('set-msg-confirm');
-                const msgReminderEl = document.getElementById('set-msg-reminder');
-                const dupDaysEl = document.getElementById('set-duplicate-days');
-                const imminentLeadEl = document.getElementById('set-imminent-lead');
+            // Sostituisci la tua chiave o usa una variabile di configurazione
+const GEMINI_API_KEY = (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey) || "INSERISCI_CHIAVE_QUI";
 
-                if (remHoursEl) remHoursEl.value = sysSettings.reminder_hours || 48;
-                
-                // 🌟 Uso esplicito di decodeURIComponent o assegnazione diretta sicura
-                if (msgConfirmEl) {
-                    msgConfirmEl.value = sysSettings.template_confirm ? decodeURIComponent(encodeURIComponent(sysSettings.template_confirm)) : "";
-                }
-                if (msgReminderEl) {
-                    msgReminderEl.value = sysSettings.template_reminder ? decodeURIComponent(encodeURIComponent(sysSettings.template_reminder)) : "";
-                }
-                
-                if (dupDaysEl) dupDaysEl.value = sysSettings.duplicate_check_days || 30;
-                if (imminentLeadEl) imminentLeadEl.value = sysSettings.imminent_lead_minutes || 15;
-            }
-            
-            window.api.onReminder((data) => {
-                const alertBox = document.getElementById('reminder-alert');
-                alertBox.innerText = `⚠️ ${data.length} Messaggi pronti!`;
-                alertBox.classList.remove('hidden');
-            });
-            window.api.onNoReminder(() => {
-                document.getElementById('reminder-alert').classList.add('hidden');
-            });
+async function sendAIQuery() {
+    const inputField = document.getElementById('ai-user-input');
+    const chatContainer = document.getElementById('ai-chat-messages');
+    const userText = inputField ? inputField.value.trim() : '';
+
+    if (!userText) return;
+    if (GEMINI_API_KEY === "INSERISCI_QUI_LA_ TUA_CHIAVE_GRATUITA_DI_GOOGLE_AI_STUDIO") {
+        alert("Configura la chiave API di Google Gemini nel codice per attivare l'assistente IA.");
+        return;
+    }
+
+    // 1. Mostra il messaggio dell'utente nella chat
+    chatContainer.innerHTML += `
+        <div style="background: #ede9fe; color: #4338ca; padding: 12px 16px; border-radius: 12px; align-self: flex-end; max-width: 85%; font-size: 13px; line-height: 1.4; font-weight: 500;">
+            ${userText}
+        </div>
+    `;
+    inputField.value = '';
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    // 2. Mostra indicatore di scrittura "Attendere..."
+    const loadingId = 'ai-loading-' + Date.now();
+    chatContainer.innerHTML += `
+        <div id="${loadingId}" style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; color: #64748b;">
+            🤖 Analisi dei dati e generazione risposta in corso...
+        </div>
+    `;
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    try {
+        // 3. Raccogliamo un contesto sintetico in tempo reale dei dati del salone da passare all'IA
+        const totalCust = allCustomers.length;
+        const lowStockItems = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name);
+        const recentSales = allSales.slice(0, 10); // ultime 10 vendite
+
+        const contextData = {
+            salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
+            total_customers: totalCust,
+            low_stock_products: lowStockItems,
+            recent_sales_sample: recentSales
+        };
+
+        // 4. Prompt di Sistema per istruire l'IA sul suo ruolo
+        const systemPrompt = `
+            Sei l'assistente virtuale ufficiale ed esperto di "VaiMUp", un gestionale B2B per saloni di bellezza e barbershop.
+            Conosci perfettamente le funzionalità dell'app (Cassa POS, Conto Vendita, FIFO, Agenda Google Calendar-style, RFM, Carico Merce).
+            Ecco i dati attuali in tempo reale del negozio dell'utente: ${JSON.stringify(contextData)}.
+            Rispondi in modo professionale, amichevole, conciso e strategico in lingua italiana. Se l'utente chiede come fare un'operazione nell'app, spiegagliela passo dopo passo. Se chiede dei dati, analizzali e dagli consigli di business.
+        `;
+
+        // 5. Chiamata alle API ufficiali di Google Gemini (Gemini 1.5 Flash)
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [
+                    { role: "user", parts: [{ text: systemPrompt + "\n\nDomanda dell'utente: " + userText }] }
+                ]
+            })
+        });
+
+        const result = await response.json();
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+
+        if (result.candidates && result.candidates[0].content.parts[0].text) {
+            const aiReply = result.candidates[0].content.parts[0].text;
+            chatContainer.innerHTML += `
+                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b;">
+                    🤖 ${aiReply.replace(/\n/g, '<br>')}
+                </div>
+            `;
+        } else {
+            throw500: throw new Error("Risposta non valida dal server IA.");
+        }
+
+    } catch (err) {
+        console.error("Errore assistente IA:", err);
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        
+        chatContainer.innerHTML += `
+            <div style="background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 12px; border: 1px solid #fecaca; align-self: flex-start; font-size: 13px;">
+                ⚠️ Si è verificato un errore di connessione con il servizio di intelligenza artificiale. Riprova tra poco.
+            </div>
+        `;
+    }
+
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
 
         function resetCassa() { 
         cart = []; 
