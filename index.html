@@ -5289,26 +5289,29 @@ async function quickAlarmAction(actionType) {
 
 
         
-            // --- CALENDAR ---
             function setCalView(v) { 
-        calView = v; 
-        
-        // Evidenzia visivamente il bottone attivo nell'header dell'agenda (Mese, Sett, Giorno)
-        const viewButtons = document.querySelectorAll('#v-calendar .cal-header-group button.btn');
-        viewButtons.forEach(btn => {
-            const text = btn.innerText.toLowerCase();
-            // Controlliamo quale vista è attiva in base al testo o all'attributo
-            if ((v === 'month' && text.includes('mese')) || 
-                (v === 'week' && text.includes('sett')) || 
-                (v === 'day' && text.includes('giorno'))) {
-                btn.classList.add('btn-p');
-            } else if (text.includes('mese') || text.includes('sett') || text.includes('giorno')) {
-                btn.classList.remove('btn-p');
-            }
-        });
+    calView = v; 
+    
+    // Rimuoviamo la classe 'btn-p' da tutti i bottoni delle viste in agenda
+    const monthBtn = document.getElementById('btn-view-month');
+    const weekBtn = document.getElementById('btn-view-week');
+    const dayBtn = document.getElementById('btn-view-day');
 
-        renderCalendar(); 
+    if (monthBtn) monthBtn.classList.remove('btn-p');
+    if (weekBtn) weekBtn.classList.remove('btn-p');
+    if (dayBtn) dayBtn.classList.remove('btn-p');
+
+    // Assegniamo 'btn-p' (viola) esclusivamente al bottone della vista attualmente scelta
+    if (v === 'month' && monthBtn) {
+        monthBtn.classList.add('btn-p');
+    } else if (v === 'week' && weekBtn) {
+        weekBtn.classList.add('btn-p');
+    } else if (v === 'day' && dayBtn) {
+        dayBtn.classList.add('btn-p');
     }
+
+    renderCalendar(); 
+}
             
         let allSuppliers = [];
 
