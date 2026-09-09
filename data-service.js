@@ -90,23 +90,57 @@ function startBackgroundMultiOperatorSync() {
     });
 }
 
-// Variabile globale protetta in memoria per l'istanza dell'IA
 window._runtimeAiKey = null;
 
 async function loadSecureAiKey() {
     try {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        // Interroghiamo la tabella settings
-        const settingsList = await localDb.settings.where(' salon_id').equals(salonId).toArray() || [];
-        const settingRow = settingsList.find(s => s.key === 'gemini_api_key');
-        
-        if (settingRow && settingRow.value) {
-            // Nota: Se la chiave è salvata in chiaro sul DB di prova puoi leggerla direttamente, 
-            // altrimenti se usi una funzione di decifratura lato server o client la gestisci qui.
-            window._runtimeAiKey = settingRow.value; 
+        if (!salonId) return;
+
+        let apiKeyVal = null;
+
+        // 1. Tentativo locale su Dexie (Tabella settings)
+        if (localDb && localDb.settings) {
+            // Proviamo a prenderla direttamente per chiave primaria 'gemini_api_key'
+            const localSetting = await localDb.settings.get('gemini_api_key');
+            if (localSetting && localSetting.value) {
+                apiKeyVal = localSetting.value;
+            }
         }
+
+        // 2. Se non c'è in locale e siamo online, peschiamo direttamente da Supabase Cloud
+        if (!apiKeyVal && navigator.onLine && typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.gemini_api_key&salon_id=eq.${salonId}&select=value`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY
+                    }
+                });
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (rows && rows.length > 0 && rows[0].value) {
+                        apiKeyVal = rows[0].value;
+                        // Salviamola subito in locale per le prossime volte (offline-ready)
+                        if (localDb && localDb.settings) {
+                            await localDb.settings.put({ key: 'gemini_api_key', value: apiKeyVal, salon_id: salonId });
+                        }
+                    }
+                }
+            } catch (cloudErr) {
+                console.warn("Impossibile recuperare la chiave IA dal cloud:", cloudErr);
+            }
+        }
+
+        if (apiKeyVal) {
+            window._runtimeAiKey = apiKeyVal;
+            console.log("✅ [AI KEY] Chiave di sicurezza caricata con successo in memoria.");
+        } else {
+            console.warn("⚠️ [AI KEY] Nessuna chiave 'gemini_api_key' trovata in locale o sul cloud per il salon_id:", salonId);
+        }
+
     } catch (e) {
-        console.warn("Impossibile caricare la chiave IA di sicurezza:", e);
+        console.error("Errore critico in loadSecureAiKey:", e);
     }
 }
 
