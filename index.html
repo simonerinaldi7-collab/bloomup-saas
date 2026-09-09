@@ -1236,10 +1236,12 @@
                     </div>
 
                     <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 4px;">
-                        <button class="btn cal-view-btn" id="btn-view-month" style="padding: 5px 10px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="setCalView('month')">Mese</button>
-                        <button class="btn cal-view-btn btn-p" id="btn-view-week" style="padding: 5px 10px; min-height: unset; font-size: 11px;" onclick="setCalView('week')">Sett</button>
-                        <button class="btn cal-view-btn" id="btn-view-day" style="padding: 5px 10px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="setCalView('day')">Giorno</button>
-                    </div>
+                        <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 4px;">
+    <button class="btn cal-view-btn" id="btn-view-month" style="padding: 5px 10px; min-height: unset; border: none; font-size: 11px;" onclick="setCalView('month')">Mese</button>
+    <button class="btn cal-view-btn" id="btn-view-week" style="padding: 5px 10px; min-height: unset; border: none; font-size: 11px;" onclick="setCalView('week')">Sett</button>
+    <button class="btn cal-view-btn" id="btn-view-day" style="padding: 5px 10px; min-height: unset; border: none; font-size: 11px;" onclick="setCalView('day')">Giorno</button>
+</div>
+</div>
                 </div>
 
                 <!-- BANNER FLUTTUANTE SMART PREVIEW ATTIVA -->
@@ -5289,26 +5291,35 @@ async function quickAlarmAction(actionType) {
 
 
         
-            function setCalView(v) { 
+          function setCalView(v) { 
     calView = v; 
     
-    // Rimuoviamo la classe 'btn-p' da tutti i bottoni delle viste in agenda
     const monthBtn = document.getElementById('btn-view-month');
     const weekBtn = document.getElementById('btn-view-week');
     const dayBtn = document.getElementById('btn-view-day');
 
-    if (monthBtn) monthBtn.classList.remove('btn-p');
-    if (weekBtn) weekBtn.classList.remove('btn-p');
-    if (dayBtn) dayBtn.classList.remove('btn-p');
+    const buttons = [
+        { id: 'month', el: monthBtn },
+        { id: 'week', el: weekBtn },
+        { id: 'day', el: dayBtn }
+    ];
 
-    // Assegniamo 'btn-p' (viola) esclusivamente al bottone della vista attualmente scelta
-    if (v === 'month' && monthBtn) {
-        monthBtn.classList.add('btn-p');
-    } else if (v === 'week' && weekBtn) {
-        weekBtn.classList.add('btn-p');
-    } else if (v === 'day' && dayBtn) {
-        dayBtn.classList.add('btn-p');
-    }
+    buttons.forEach(b => {
+        if (!b.el) return;
+        if (b.id === v) {
+            // 🟣 STATO ATTIVO: Sfondo viola primario, testo bianco, grassetto
+            b.el.style.background = 'var(--p)';
+            b.el.style.color = '#ffffff';
+            b.el.style.fontWeight = 'bold';
+            b.el.classList.add('btn-p');
+        } else {
+            // ⚪ STATO INATTIVO: Sfondo trasparente, testo scuro grigio, normale
+            b.el.style.background = 'transparent';
+            b.el.style.color = '#475569';
+            b.el.style.fontWeight = 'normal';
+            b.el.classList.remove('btn-p');
+        }
+    });
 
     renderCalendar(); 
 }
