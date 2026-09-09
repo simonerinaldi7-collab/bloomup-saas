@@ -5462,7 +5462,7 @@ function toggleCalendarToolbar() {
             let workingDaysRemaining = 0;
             const todayObj = new Date(todayStr + 'T00:00:00');
 
-            console.log("🎯 [DEBUG TARGET] Schedulazioni staff caricate:", schedules);
+           
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month - 1, d);
@@ -5476,7 +5476,7 @@ function toggleCalendarToolbar() {
 
                 // Se il giorno è segnato in agenda come chiusura straordinaria, lo scartiamo
                 if (closureDaysSet.has(dStr)) {
-                    console.log(`🎯 [DEBUG TARGET] Giorno ${dStr} saltato per chiusura in agenda.`);
+                    
                     continue;
                 }
 
@@ -5504,13 +5504,13 @@ function toggleCalendarToolbar() {
 
                 if (isWorkingDayForStaff) {
                     workingDaysRemaining++;
-                    console.log(`🎯 [DEBUG TARGET] Giorno ${dStr} (weekday: ${dayOfWeek}) conteggiato come LAVORATIVO.`);
+                    
                 } else {
-                    console.log(`🎯 [DEBUG TARGET] Giorno ${dStr} (weekday: ${dayOfWeek}) conteggiato come RIPOSO.`);
+                    //console.log(`🎯 [DEBUG TARGET] Giorno ${dStr} (weekday: ${dayOfWeek}) conteggiato come RIPOSO.`);
                 }
             }
 
-            console.log(`🎯 [DEBUG TARGET] Totale giorni lavorativi residui calcolati: ${workingDaysRemaining}`);
+            //console.log(`🎯 [DEBUG TARGET] Totale giorni lavorativi residui calcolati: ${workingDaysRemaining}`);
 
             if (workingDaysRemaining <= 0) workingDaysRemaining = 1;
 
@@ -6943,11 +6943,11 @@ async function registerOperatorPushNotifications() {
 
         if (matchedLog) {
             const type = (matchedLog.msg_type || '').toUpperCase();
-            console.log(`✨ [DEBUG STILI] Trovato log corrispondente! Tipo msg: ${type}`);
+            
             if (type.includes('REMINDER')) return 'st-remind';
             if (type.includes('CONFIRM')) return 'st-confirm';
         } else {
-            console.log(`❌ [DEBUG STILI] Nessun log valido trovato per l'appuntamento di ${custNameRaw}`);
+            //console.log(`❌ [DEBUG STILI] Nessun log valido trovato per l'appuntamento di ${custNameRaw}`);
         }
         
         return ''; 
