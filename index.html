@@ -8104,7 +8104,12 @@ async function checkImminentAppointmentsNow() {
         const leadTimeMinutes = getOperatorImminentLeadTime();
 
         const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
+        
+        // 🌟 Registro persistente delle notifiche già mostrate in questa sessione / giornata
+        const notifiedAppointments = JSON.parse(sessionStorage.getItem('VaiMUp_notified_history') || '{}');
         const todayKeyDate = now.toISOString().split('T')[0];
+
+        let stateChanged = false;
 
         apps.forEach(app => {
             const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
@@ -8114,29 +8119,47 @@ async function checkImminentAppointmentsNow() {
             if (srv.includes('pausa') || srv.includes('pranzo')) return;
             if (!app.date || !app.time) return;
 
-            // 🛑 Se è stato premuto "Ho capito", non mostriamo il popup in-app
+            // 1. Se l'utente ha fatto "Ho capito", saltiamo
             const uniqueAlertKey = `${app.id}_${app.date}`;
             if (dismissedAlerts[uniqueAlertKey] === todayKeyDate) return;
+
+            // 2. 🛑 SE QUESTO APPUNTAMENTO HA GIÀ NOTIFICATO IN QUESTA SESSIONE, LO SALTATIAMO RIGOROSAMENTE!
+            // A meno che non sia scaduto il tempo di Snooze.
+            if (notifiedAppointments[app.id] === 'notified') {
+                // Verifichiamo se c'è uno Snooze attivo
+                if (window.activeSnoozes && window.activeSnoozes[app.id]) {
+                    const snoozeUntil = new Date(window.activeSnoozes[app.id]);
+                    if (now < snoozeUntil) {
+                        return; // È ancora in fase di "Posticipa", quindi non suona
+                    } else {
+                        // Lo Snooze è scaduto: rimuoviamo lo snooze e permettiamo di suonare di nuovo una volta
+                        delete window.activeSnoozes[app.id];
+                        localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
+                        delete notifiedAppointments[app.id]; // Sblocca la notifica per il post-snooze
+                        stateChanged = true;
+                    }
+                } else {
+                    return; // Già notificato e nessun snooze attivo: non disturbare più!
+                }
+            }
 
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
 
-            if (window.activeSnoozes && window.activeSnoozes[app.id]) {
-                const snoozeUntil = new Date(window.activeSnoozes[app.id]);
-                if (now < snoozeUntil) return;
-            }
-
             const diffMs = appDateTime - now;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
+            // Finestra temporale di attivazione (es. da -2 minuti a +15 minuti dall'inizio)
             if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
-                const sessionKey = `pro_alert_notified_${uniqueAlertKey}`;
-                if (!sessionStorage.getItem(sessionKey)) {
-                    sessionStorage.setItem(sessionKey, 'true');
-                    triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
-                }
+                // Segnamo subito l'appuntamento come notificato per bloccare cicli futuri
+                notifiedAppointments[app.id] = 'notified';
+                sessionStorage.setItem('VaiMUp_notified_history', JSON.stringify(notifiedAppointments));
+
+                // Attiviamo il modale e il suono professionale una sola volta
+                triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
             }
         });
+
     } catch (e) {
         console.error("Errore nel controllo imminente:", e);
     }
@@ -8367,8 +8390,15 @@ async function requestSnoozeBroadcast(appId, minutes) {
     window.activeSnoozes[appId] = snoozeTime;
     localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
     
+    // 🌟 Sblocchiamo il flag di sessione così allo scadere dello snooze suonerà di nuovo
+    try {
+        const notifiedAppointments = JSON.parse(sessionStorage.getItem('VaiMUp_notified_history') || '{}');
+        delete notifiedAppointments[appId];
+        sessionStorage.setItem('VaiMUp_notified_history', JSON.stringify(notifiedAppointments));
+    } catch (e) {}
+
     closeLocalAlarmModal();
-    if (realtimeAlertChannel) {
+    if (typeof realtimeAlertChannel !== 'undefined' && realtimeAlertChannel) {
         await realtimeAlertChannel.send({
             type: 'broadcast',
             event: 'snooze_alarm',
@@ -8376,7 +8406,6 @@ async function requestSnoozeBroadcast(appId, minutes) {
         });
     }
 }
-
 
 async function updateReminderBadgeCount() {
     try {
