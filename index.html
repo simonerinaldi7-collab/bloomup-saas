@@ -2633,123 +2633,117 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
         alert("Orari salvati e pause pranzo generate con successo!");
     }
 
-   // 🕒 Generazione automatica delle pause estesa a 3 mesi (90 giorni) in modalità batch non bloccante
+// 🕒 Generazione Incrementale e Non Distruttiva (Riempibuchi a 90 giorni)
 async function generateBreakAppointments(username) {
     if (!username) return;
     const cleanUsername = username.trim().toLowerCase();
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     
+    // Eseguiamo in background non bloccante
     setTimeout(async () => {
-        console.log(`[DEBUG PAUSE 90GG] 🔄 Verifica e generazione intelligente per utente: '${cleanUsername}'`);
+        console.log(`[DEBUG PAUSE INCREMENTALI] 🔄 Verifica e riempimento buchi per utente: '${cleanUsername}'`);
 
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         let userSchedules = schedules.filter(s => s.username && s.username.trim().toLowerCase() === cleanUsername);
 
-        if (!userSchedules || userSchedules.length === 0) {
-            userSchedules = [1, 2, 3, 4, 5, 6].map(day => ({
-                username: username,
-                day_of_week: day,
-                is_working: 1,
-                start_time_1: '09:00',
-                end_time_1: '13:00',
-                start_time_2: '14:00',
-                end_time_2: '19:00'
-            }));
-        }
+        if (!userSchedules || userSchedules.length === 0) return; // Se non ci sono turni configurati, usciamo
 
         const targetUser = allUsers.find(u => u.username && u.username.trim().toLowerCase() === cleanUsername);
         const operatorHexColor = targetUser ? targetUser.color : '#6C5CE7';
 
         const today = new Date();
         const currentApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
         
         let batchPayloads = [];
 
+        // Scansiona i prossimi 90 giorni
         for (let i = 0; i < 90; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() + i);
             const dayOfWeek = d.getDay(); 
             const dateStr = d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
 
-            const dayConfig = userSchedules.find(s => s.day_of_week === dayOfWeek);
-            
-            // 🏖️ 1. VERIFICA DI CHIUSURA / FERIE STRAORDINARIA IN QUESTA DATA
+            const dayConfig = userSchedules.find(s => Number(s.day_of_week) === dayOfWeek);
+            const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
+            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
+
+            // Se il giorno non è lavorativo o non ha un turno spezzato valido, saltiamo
+            if (!hasValidSplitShift) continue;
+
+            // 🏖️ Verifichiamo se in questa data c'è una chiusura o ferie straordinaria
             const isDayClosedOrHoliday = currentApps.some(a => {
                 if (!a.date || a.date !== dateStr) return false;
                 const srv = (a.service || "").toLowerCase();
                 const cust = (a.cust_name || "").toLowerCase();
-                // Controlla se c'è un blocco di chiusura globale o specifico per l'operatore
                 const isGlobalClosure = srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie');
                 const isOperatorMatch = !a.assigned_user || a.assigned_user.trim().toLowerCase() === cleanUsername;
                 return isGlobalClosure && isOperatorMatch;
             });
 
-            // Se il giorno è di chiusura/ferie, saltiamo completamente la generazione della pausa
-            if (isDayClosedOrHoliday) {
-                console.log(`🏖️ [PAUSE] Salto generazione pausa per ${cleanUsername} in data ${dateStr}: presente giorno di Chiusura/Ferie.`);
-                // Rimuoviamo eventuale pausa residua se la chiusura è stata aggiunta dopo
-                const existingBreakToClean = currentApps.find(a => a.date === dateStr && (a.assigned_user || '').trim().toLowerCase() === cleanUsername && ((a.service || '').toLowerCase().includes('pausa')));
-                if (existingBreakToClean) {
-                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreakToClean.id });
-                }
-                continue;
-            }
+            if (isDayClosedOrHoliday) continue;
 
-            // 🛡️ 2. VERIFICA SE ESISTE GIÀ UNA PAUSA O SE ERA STATA CANCELLATA MANUALMENTE
-            // Per evitare che una pausa cancellata dall'utente venga reinserita, salviamo un flag locale nei localStorage delle pause ignorate
-            const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
+            // 🛡️ Se l'utente l'aveva cancellata manualmente, non la rigeneriamo
             const breakKey = `${cleanUsername}_${dateStr}`;
-            if (dismissedBreaks[breakKey]) {
-                continue; // L'utente l'ha cancellata manualmente, non la reinseriamo!
-            }
+            if (dismissedBreaks[breakKey]) continue;
 
-            let existingBreak = currentApps.find(a => {
+            // Verifichiamo se esiste già QUALSIASI appuntamento (pausa o cliente) in quello slot o in quella data per quell'operatore
+            const existingAppInSlot = currentApps.find(a => {
+                if (!a.date || a.date !== dateStr) return false;
+                const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
+                return appUser === cleanUsername;
+            });
+
+            // Se l'operatore ha già un impegno (es. un cliente o un'altra attività) in quella data, 
+            // non inseriamo la pausa automatica per evitare sovrapposizioni.
+            // Oppure verifichiamo specificamente se esiste già la pausa:
+            const existingBreak = currentApps.find(a => {
                 if (!a.date || a.date !== dateStr) return false;
                 const appUser = (a.assigned_user || 'admin').trim().toLowerCase();
                 if (appUser !== cleanUsername) return false;
-                
                 const srv = (a.service || "").toLowerCase();
                 const cust = (a.cust_name || "").toLowerCase();
                 return srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
             });
 
-            const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
-            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
+            // LOGICA DI RIEMPIMENTO BUCO: 
+            // Creiamo la pausa SOLO se non esiste già una pausa in quel giorno.
+            if (!existingBreak) {
+                // Se c'è già un appuntamento con un cliente nello stesso orario della pausa, evitiamo di metterla sopra
+                const targetTime = dayConfig.end_time_1;
+                const targetEndTime = dayConfig.start_time_2;
 
-            if (!hasValidSplitShift) {
-                if (existingBreak && existingBreak.notes && existingBreak.notes.includes("Generato automaticamente")) {
-                    await window.universalQuery({ action: 'DELETE', table: 'appointments', id: existingBreak.id });
+                const hasClientConflict = currentApps.some(a => {
+                    if (a.date !== dateStr || (a.assigned_user || 'admin').trim().toLowerCase() !== cleanUsername) return false;
+                    return (targetTime < (a.end_time || '23:59')) && (targetEndTime > a.time);
+                });
+
+                if (!hasClientConflict && targetTime < targetEndTime) {
+                    const breakData = {
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        cust_name: "☕ Pausa Pranzo",
+                        date: dateStr,
+                        time: targetTime,
+                        end_time: targetEndTime,
+                        service: "Pausa Pranzo",
+                        price: 0,
+                        notes: "Generato automaticamente dai turni",
+                        assigned_user: username,
+                        color: operatorHexColor
+                    };
+
+                    if (window.localDb && window.localDb.appointments) {
+                        await window.localDb.appointments.put(breakData);
+                    }
+                    
+                    batchPayloads.push(breakData);
+                    currentApps.push(breakData); // Aggiungiamo alla cache locale temporanea
                 }
-                continue;
-            }
-
-            const targetTime = dayConfig.end_time_1;
-            const targetEndTime = dayConfig.start_time_2;
-
-            if (targetTime < targetEndTime && !existingBreak) {
-                const breakData = {
-                    id: crypto.randomUUID(),
-                    salon_id: salonId,
-                    cust_name: "☕ Pausa Pranzo",
-                    date: dateStr,
-                    time: targetTime,
-                    end_time: targetEndTime,
-                    service: "Pausa Pranzo",
-                    price: 0,
-                    notes: "Generato automaticamente dai turni (90gg)",
-                    assigned_user: username,
-                    color: operatorHexColor
-                };
-
-                if (window.localDb && window.localDb.appointments) {
-                    await window.localDb.appointments.put(breakData);
-                }
-                
-                batchPayloads.push(breakData);
-                currentApps.push(breakData);
             }
         }
 
+        // Sincronizzazione Cloud in batch
         if (navigator.onLine && batchPayloads.length > 0) {
             try {
                 await fetch(`${SUPABASE_URL}/rest/v1/appointments`, {
@@ -2762,8 +2756,9 @@ async function generateBreakAppointments(username) {
                     },
                     body: JSON.stringify(batchPayloads)
                 });
+                console.log(`🚀 [SYNC PAUSE] Inserite ${batchPayloads.length} nuove pause mancanti (incrementale).`);
             } catch (netErr) {
-                console.warn("Sync cloud pause rimandata.", netErr);
+                console.warn("Sync cloud pause incrementali rimandata.", netErr);
             }
         }
     }, 500);
@@ -2771,12 +2766,11 @@ async function generateBreakAppointments(username) {
     // Modifica renderMonth e renderTimeline per filtrare
     function getFilteredAppointments() {
         const selectedUser = document.getElementById('user-filter').value;
-        console.log("Filtro attivo:", selectedUser); // DEBUG
+    
         
         return allAppointments.filter(a => {
             // Se l'operatore è vuoto, lo assegniamo all'Admin per default
             const user = a.assigned_user || 'admin'; 
-            console.log("Appuntamento:", a.cust_name, "Assegnato a:", user);
             return selectedUser === 'all' || user === selectedUser;
         });
     }
@@ -6943,9 +6937,7 @@ async function registerOperatorPushNotifications() {
                 custNameRaw.includes(logCust)
             );
 
-            // Stampiamo in console i dettagli del confronto per ogni log analizzato
-            console.log(`   └─ Confronto con Log ID ${l.id} | LogCust: "${logCust}" | MatchName: ${matchName} (App:"${custNameRaw}" vs Log:"${logCust}") | MatchDate: ${matchDate} (${targetAppDate}) | MatchTime: ${matchTime} (${targetAppTime})`);
-
+           
             return matchDate && matchTime && matchName;
         });
 
