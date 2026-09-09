@@ -6328,6 +6328,43 @@ async function executePasswordUpdate() {
         const appId = event.dataTransfer.getData('text/plain');
         if (!appId) return;
 
+// 👻 CASO SPECIALE: TRASCINAMENTO DELLA GHOST PREVIEW (SMART REBOOKING)
+    if (appId === 'ghost_preview_temp' || appId.startsWith('ghost_')) {
+        if (!window.pendingSmartPreview) {
+            return alert("Anteprima non più attiva.");
+        }
+
+        // Calcoliamo la durata originaria dell'anteprima
+        const [oldStartH, oldStartM] = (window.pendingSmartPreview.time || "09:00").split(':').map(Number);
+        const oldStartMin = oldStartH * 60 + oldStartM;
+        
+        let oldEndMin = oldStartMin + 60; 
+        if (window.pendingSmartPreview.end_time) {
+            const [oldEndH, oldEndM] = window.pendingSmartPreview.end_time.split(':').map(Number);
+            oldEndMin = oldEndH * 60 + oldEndM;
+        }
+        const durationMinutes = Math.max(oldEndMin - oldStartMin, 15);
+
+        const [newStartH, newStartM] = targetTimeStr.split(':').map(Number);
+        const newStartMin = newStartH * 60 + newStartM;
+        const newEndMin = newStartMin + durationMinutes;
+
+        const newEndH = Math.floor(newEndMin / 60) % 24;
+        const newEndM = newEndMin % 60;
+        const targetEndTimeStr = `${String(newEndH).padStart(2, '0')}:${String(newEndM).padStart(2, '0')}`;
+
+        // Aggiorniamo la data e l'ora nella preview corrente
+        window.pendingSmartPreview.date = targetDateStr;
+        window.pendingSmartPreview.time = targetTimeStr;
+        window.pendingSmartPreview.end_time = targetEndTimeStr;
+
+        // Ridisegnamo l'agenda per spostare visivamente il blocco ghost nella nuova posizione rilasciata
+        if (typeof renderCalendar === 'function') renderCalendar();
+        
+        return;
+    }
+
+
         const appToMove = allAppointments.find(a => a.id === appId);
         if (!appToMove) {
             return alert("Impossibile trovare l'appuntamento da spostare.");
