@@ -7359,7 +7359,7 @@ async function registerOperatorPushNotifications() {
                 return t;
             }
 
-            function renderLogs() {
+           function renderLogs() {
         const tbody = document.getElementById('list-logs'), 
             archive = document.getElementById('list-archive-logs');
         const fCust = document.getElementById('filter-log-cust').value.toLowerCase();
@@ -7372,7 +7372,7 @@ async function registerOperatorPushNotifications() {
         targetDate.setHours(targetDate.getHours() + targetHours);
         const dateStr = targetDate.toISOString().split('T')[0];
         
-        // Aggiorna Intestazione Tabella Promemoria (Rimossa colonna "Inviata da")
+        // Aggiorna Intestazione Tabella Promemoria
         document.querySelector('#v-logs table:first-of-type thead tr').innerHTML = `
             <th style="width:40px"><input type="checkbox" onclick="toggleAllLogs(this.checked)"></th>
             <th>Stato</th><th>Cliente</th><th>Tel</th><th>Appunt.</th><th>Azione</th>
@@ -7381,9 +7381,12 @@ async function registerOperatorPushNotifications() {
         let html = '';
         
         allAppointments.filter(a => {
-            // 🛑 FILTRO ESCLUSIONE PAUSE PRANZO
-            // 🛡️ 1. ESCLUSIONE RIGOROSA DI PAUSE E CHIUSURE / FERIE
-            const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa');
+            // 🛡️ 1. DICHIARAZIONE CORRETTA DELLE VARIABILI (Risolve il ReferenceError)
+            const custNameLower = (a.cust_name || '').toLowerCase();
+            const serviceLower = (a.service || '').toLowerCase();
+
+            // 🛑 2. ESCLUSIONE RIGOROSA DI PAUSE, CHIUSURE E FERIE
+            const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa') || custNameLower.includes('pranzo');
             const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || 
                                custNameLower.includes('ferie') || serviceLower.includes('ferie');
             
@@ -7391,22 +7394,21 @@ async function registerOperatorPushNotifications() {
 
             // Filtri standard (data, operatore, ricerca cliente)
             const matchDate = !fDate || a.date === fDate;
-            const matchCust = a.cust_name.toLowerCase().includes(fCust);
+            const matchCust = custNameLower.includes(fCust);
             return a.date === dateStr && matchCust && matchDate;
         }).forEach(a => {
-        const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
+            const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
             
             const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
             
-// Ricerca sicura del telefono del cliente per l'appuntamento corrente
-        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
-        const matchedCust = allCustomers.find(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            const legacyName = (c.name || "").trim().toLowerCase();
-            return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
-        });
-        const custPhone = matchedCust ? matchedCust.phone : '-';
-
+            // Ricerca sicura del telefono del cliente per l'appuntamento corrente
+            const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+            const matchedCust = allCustomers.find(c => {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+                const legacyName = (c.name || "").trim().toLowerCase();
+                return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
+            });
+            const custPhone = matchedCust ? matchedCust.phone : '-';
 
             if (fStatus === 'all' || (fStatus === 'pending' && !alreadySent) || (fStatus === 'sent' && alreadySent)) {
                 if (!alreadySent) {
@@ -7414,8 +7416,8 @@ async function registerOperatorPushNotifications() {
                         <td><input type="checkbox" class="log-cb" value="${a.id}"></td>
                         <td><span class="badge-alert">DA INV</span></td>
                         <td><b>${a.cust_name}</b></td>
-                    <td>${custPhone}</td>
-                    <td>${formatDateIt(a.date)} @ ${a.time}</td>
+                        <td>${custPhone}</td>
+                        <td>${formatDateIt(a.date)} @ ${a.time}</td>
                         <td>
                             <button class="btn btn-w" onclick="sendIndividualRem('${a.id}', 'wa')">WA</button>
                             <button class="btn" style="padding:5px 10px; background:#fff" onclick="sendIndividualRem('${a.id}', 'sms')">SMS</button>
@@ -7426,21 +7428,17 @@ async function registerOperatorPushNotifications() {
         });
         tbody.innerHTML = html;
 
-        // Aggiorna Intestazione Archivio (Qui lasciamo "Inviata da" se ti serve nello storico)
+        // Aggiorna Intestazione Archivio
         document.querySelector('#v-logs table:last-of-type thead tr').innerHTML = `
-            <th>Data Invio</th><th>Tipo</th><th>Cliente</th><th>Tel</th><th>Rif. Appuntamento</th><th>Azioni</th>
+            <th>Data Invio</th><th>Tipo</th><th>Cliente</th><th>Tel</th><th>Rif. Appuntamento</th><th>Autore</th>
         `;
 
-
-
-        // 🔄 ORDINAMENTO DECRESCENTE PER DATA E ORA DI INVIO (sent_at)
         const sortedLogs = allLogs
-            .filter(l => l.cust_name.toLowerCase().includes(fCust))
+            .filter(l => (l.cust_name || '').toLowerCase().includes(fCust))
             .sort((a, b) => {
-                // Confronto stringhe nel formato standard di invio (es. "YYYY-MM-DD HH:MM:SS" o similare)
                 const dateA = a.sent_at || '';
                 const dateB = b.sent_at || '';
-                return dateB.localeCompare(dateA); // Decrescente: dal più recente al più vecchio
+                return dateB.localeCompare(dateA);
             });
 
         archive.innerHTML = sortedLogs.map(l => `
