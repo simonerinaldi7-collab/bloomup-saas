@@ -305,6 +305,51 @@
     background-color: #e8eaed !important;
 }
 
+/* 🤖 STILI DRAWER ASSISTENTE IA & COACH */
+#ai-assistant-drawer {
+    position: fixed;
+    top: 0;
+    right: -420px;
+    width: 400px;
+    max-width: 100vw;
+    height: 100vh;
+    background: #ffffff;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+    z-index: 30000;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#ai-assistant-drawer.active {
+    right: 0;
+}
+
+.ai-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 29999;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.ai-drawer-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+@media screen and (max-width: 480px) {
+    #ai-assistant-drawer {
+        width: 100vw;
+        right: -100vw;
+    }
+}
+
+
+
 /* 🛒 STILI UNIFICATI POS / CASSA (Validi per qualsiasi schermo: PC, Tablet e Smartphone) */
     .pos-desktop-layout {
         display: flex;
@@ -946,9 +991,9 @@
                 </div>
                 <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
 <div style="display:flex; align-items:center; gap:8px;">
-    <button id="global-mic-trigger" class="btn" style="padding: 6px 14px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; transition: all 0.2s;" onclick="togglePushToTalkVoice()" title="Clicca per parlare con l'assistente">
-        🎙️ Parla con IA
-    </button>
+    <button class="btn" style="padding: 6px 14px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="toggleAiDrawer(true)" title="Apri Assistente IA">
+    🤖 Assistente IA
+</button>
 </div>
             </header>
 
@@ -1667,25 +1712,68 @@
     </section>
 
 
+<!-- VISTA PAGINA INTERNA (Mantenuta per compatibilità con il menu) -->
 <section id="v-ai-assistant" class="view">
     <div class="card" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 140px);">
-        <h3 style="margin-top:0; color:var(--p);">🤖 VaiMUp AI Business Coach</h3>
-        <p style="color:#64748b; font-size:13px;">Chiedi informazioni su come usare l'app o un'analisi approfondita sull'andamento del tuo salone.</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin:0; color:var(--p);">🤖 VaiMUp AI Business Coach & Guide</h3>
+            <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9;" onclick="toggleAiDrawer(false)">✕ Chiudi</button>
+        </div>
+        <p style="color:#64748b; font-size:13px; margin-top:0;">Chiedi informazioni su come utilizzare le funzioni del gestionale o analizza in tempo reale i dati del tuo salone.</p>
         
         <!-- Box della chat scrollabile -->
         <div id="ai-chat-messages" style="flex-grow: 1; overflow-y: auto; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
             <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 85%; font-size: 13px; line-height: 1.4;">
-                👋 Ciao! Sono il tuo assistente virtuale di VaiMUp. Posso analizzare i dati del tuo negozio o spiegarti come usare le funzioni di cassa, agenda e magazzino. Come posso aiutarti oggi?
+                👋 Ciao! Sono il tuo assistente virtuale di VaiMUp. Posso guidarti nell'uso dell'app (es. <i>"Come faccio uno storno?"</i>, <i>"Come carico merce?"</i>) oppure analizzare i dati del tuo salone. Come posso aiutarti?
             </div>
         </div>
 
+        <!-- Bottoni di suggerimento rapido -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+            <button class="btn" style="padding: 6px 10px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPrompt('Come faccio a fare uno storno di cassa?')">🛒 Come fare uno storno</button>
+            <button class="btn" style="padding: 6px 10px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPrompt('Come carico un prodotto in magazzino con FIFO?')">📦 Carico magazzino</button>
+            <button class="btn" style="padding: 6px 10px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPrompt('Analizza i miei margini e dammi consigli strategici')">📊 Analisi margini</button>
+        </div>
+
         <div style="display: flex; gap: 10px; align-items: center;">
-    <button id="ai-mic-btn" class="btn" style="background: #f1f5f9; color: #475569; border: 1px solid var(--border); padding: 0 14px; justify-content: center;" onclick="toggleVoiceRecognition()" ondblclick="toggleContinuousVoiceMode()" title="Clicca per parlare. Doppio click per attivare l'ascolto continuo con comando vocale 'Hey Vaimup'">🎙️</button>
-    <input type="text" id="ai-user-input" placeholder="Es. Quali servizi stanno crescendo di più? O chiedi a voce..." style="margin: 0; flex-grow: 1;" onkeypress="if(event.key==='Enter') sendAIQuery()">
-    <button class="btn btn-p" style="margin: 0; padding: 0 20px; justify-content: center;" onclick="sendAIQuery()">Invia ➔</button>
-</div>
+            <button id="ai-mic-btn" class="btn" style="background: #f1f5f9; color: #475569; border: 1px solid var(--border); padding: 0 14px; justify-content: center;" onclick="togglePushToTalkVoice()" title="Clicca per parlare">🎙️</button>
+            <input type="text" id="ai-user-input" placeholder="Scrivi una domanda o chiedi una guida..." style="margin: 0; flex-grow: 1;" onkeypress="if(event.key==='Enter') sendAIQuery()">
+            <button class="btn btn-p" style="margin: 0; padding: 0 20px; justify-content: center;" onclick="sendAIQuery()">Invia ➔</button>
+        </div>
     </div>
 </section>
+
+<!-- 🌟 DRAWER LATERALE FLUTTUANTE (Accessibile da ovunque nell'app) -->
+<div id="ai-drawer-overlay" class="ai-drawer-overlay" onclick="toggleAiDrawer(false)"></div>
+<div id="ai-assistant-drawer">
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">🤖</span>
+            <h3 style="margin: 0; font-size: 16px; color: #1e1b4b; font-weight: 700;">Assistente VaiMUp</h3>
+        </div>
+        <button onclick="toggleAiDrawer(false)" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; font-weight: bold;">✕</button>
+    </div>
+    
+    <!-- Contenuto Chat del Drawer -->
+    <div id="ai-drawer-messages" style="flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc;">
+        <div style="background: white; padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 90%; font-size: 13px; line-height: 1.4;">
+            👋 Ciao! Sono pronto ad aiutarti. Chiedimi pure una guida sulle operazioni del salone o un'analisi sull'incasso.
+        </div>
+    </div>
+
+    <!-- Suggerimenti rapidi nel Drawer -->
+    <div style="padding: 10px 15px; background: #fff; border-top: 1px solid #f1f5f9; display: flex; gap: 6px; flex-wrap: wrap;">
+        <button class="btn" style="padding: 4px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPromptDrawer('Come fare uno storno')">🛒 Storno</button>
+        <button class="btn" style="padding: 4px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPromptDrawer('Come pianificare un appuntamento')">📅 Agenda</button>
+        <button class="btn" style="padding: 4px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="sendQuickAiPromptDrawer('Qual è l andamento del mese?')">📊 Fatturato</button>
+    </div>
+
+    <!-- Input di scrittura nel Drawer -->
+    <div style="padding: 15px; background: white; border-top: 1px solid #e2e8f0; display: flex; gap: 8px;">
+        <input type="text" id="ai-drawer-input" placeholder="Scrivi una domanda..." style="margin: 0; flex-grow: 1; padding: 10px 12px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendAIDrawerQuery()">
+        <button class="btn btn-p" style="margin: 0; padding: 0 16px; justify-content: center;" onclick="sendAIDrawerQuery()">➔</button>
+    </div>
+</div>
 
 
     <section id="v-settings" class="view">
@@ -4103,6 +4191,72 @@ async function executeSafeUserDeletion() {
             alert("Nessun turno lavorativo disponibile in questa data per l'operatore selezionato.");
         }
     }
+
+
+
+// 🤖 Funzione per aprire/chiudere il Drawer laterale da qualsiasi punto dell'app
+function toggleAiDrawer(open) {
+    const drawer = document.getElementById('ai-assistant-drawer');
+    const overlay = document.getElementById('ai-drawer-overlay');
+    if (!drawer || !overlay) return;
+
+    if (open) {
+        drawer.classList.add('active');
+        overlay.classList.add('active');
+        setTimeout(() => {
+            const input = document.getElementById('ai-drawer-input');
+            if (input) input.focus();
+        }, 100);
+    } else {
+        drawer.classList.remove('active');
+        overlay.classList.remove('active');
+    }
+}
+
+// Funzione rapida per inviare un prompt preimpostato dal Drawer
+function sendQuickAiPromptDrawer(promptText) {
+    const input = document.getElementById('ai-drawer-input');
+    if (input) {
+        input.value = promptText;
+        sendAIDrawerQuery();
+    }
+}
+
+function sendQuickAiPrompt(promptText) {
+    const input = document.getElementById('ai-user-input');
+    if (input) {
+        input.value = promptText;
+        sendAIQuery();
+    }
+}
+
+// Gestione query specifica per il Drawer laterale
+async function sendAIDrawerQuery() {
+    const inputField = document.getElementById('ai-drawer-input');
+    const chatContainer = document.getElementById('ai-drawer-messages');
+    const userText = inputField ? inputField.value.trim() : '';
+
+    if (!userText || !chatContainer) return;
+
+    chatContainer.innerHTML += `
+        <div style="background: #ede9fe; color: #4338ca; padding: 10px 14px; border-radius: 12px; align-self: flex-end; max-width: 90%; font-size: 13px; line-height: 1.4; font-weight: 500;">
+            ${userText}
+        </div>
+    `;
+    inputField.value = '';
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    // Riutilizziamo la logica di risposta intelligente (o simulazione istantanea intelligente)
+    // Nel prossimo passo collegheremo il motore di intelligenza offline/ibrido.
+    setTimeout(() => {
+        chatContainer.innerHTML += `
+            <div style="background: white; padding: 10px 14px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 90%; font-size: 13px; line-height: 1.4; color: #1e293b;">
+                🤖 Sto elaborando la risposta per: "<i>${userText}</i>"... (Il motore intelligente e le guide app si attiveranno al prossimo step).
+            </div>
+        `;
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }, 400);
+}
 
 
     async function createNewUser() {
