@@ -8674,7 +8674,7 @@ async function processGlobalVoiceCommand(commandText) {
         const result = await response.json();
         console.log("📦 Risposta grezza OpenRouter (Voce):", result);
 
-        let aiReply = "";
+       let aiReply = "";
         try {
             if (result.choices && result.choices.length > 0) {
                 const choice = result.choices[0];
@@ -8683,8 +8683,17 @@ async function processGlobalVoiceCommand(commandText) {
                 else if (choice.text) aiReply = choice.text;
             }
             if (!aiReply && result.response) aiReply = result.response;
+
+            // 🛡️ FILTRO ANTI-THINKING: Rimuove i blocchi di ragionamento interni se presenti
+            aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+            // Rimuove eventuali intestazioni discorsive involontarie del tipo "Here's a thinking process..."
+            if (aiReply.includes("Here's a thinking process") || aiReply.includes("1. Analyze User Input")) {
+                // Prende solo l'ultima parte o pulisce il testo
+                const parts = aiReply.split('\n\n');
+                aiReply = parts[parts.length - 1] || aiReply;
+            }
         } catch (parseErr) {
-            console.error("Errore parsing voce:", parseErr);
+            console.error("Errore parsing:", parseErr);
         }
 
         if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
@@ -8753,28 +8762,32 @@ async function getAiBusinessContext() {
     try {
         const todayStr = new Date().toISOString().split('T')[0];
         
-        // 📅 Estraiamo gli appuntamenti di oggi e dei prossimi 5 giorni in modo esplicito
+        // ✂️ Contiamo precisamente quanti servizi e prodotti unici ci sono nel listino/magazzino
+        const inventory = allInventory || [];
+        const totalServicesCount = inventory.filter(p => p.type === 'servizio').length;
+        const totalProductsCount = inventory.filter(p => p.type === 'prodotto').length;
+        
+        const serviceNames = inventory.filter(p => p.type === 'servizio').map(p => p.name);
+        const productNames = inventory.filter(p => p.type === 'prodotto').map(p => p.name);
+
         const appointmentsList = (allAppointments || []).map(a => ({
             data: a.date,
             ora: a.time,
             cliente: a.cust_name,
             servizio: a.service || 'Trattamento',
-            operatore: a.assigned_user || 'Admin',
-            note: a.notes || ''
+            operatore: a.assigned_user || 'Admin'
         })).sort((a,b) => `${a.data} ${a.ora}`.localeCompare(`${b.data} ${b.ora}`));
-
-        // Magazzino sottosorta
-        const lowStock = (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => `${p.name} (giacenza: ${p.stock})`);
 
         return {
             data_oggi: todayStr,
-            tutti_gli_appuntamenti_in_agenda: appointmentsList, // 👈 L'intera agenda viene passata all'IA
-            prodotti_in_esaurimento: lowStock,
-            totale_clienti: (allCustomers || []).length
+            totale_servizi_nel_listino: totalServicesCount,
+            elenco_servizi_disponibili: serviceNames,
+            totale_prodotti_in_magazzino: totalProductsCount,
+            tutti_gli_appuntamenti_in_agenda: appointmentsList.slice(0, 30)
         };
     } catch (e) {
         console.error("Errore contesto IA:", e);
-        return { data_oggi: new Date().toISOString().split('T')[0], tutti_gli_appuntamenti_in_agenda: [] };
+        return { totale_servizi_nel_listino: 0 };
     }
 }
 
@@ -11170,7 +11183,7 @@ async function sendAIQuery() {
         const result = await response.json();
         console.log("📦 Risposta grezza OpenRouter (Testo):", result);
 
-        let aiReply = "";
+       let aiReply = "";
         try {
             if (result.choices && result.choices.length > 0) {
                 const choice = result.choices[0];
@@ -11179,6 +11192,15 @@ async function sendAIQuery() {
                 else if (choice.text) aiReply = choice.text;
             }
             if (!aiReply && result.response) aiReply = result.response;
+
+            // 🛡️ FILTRO ANTI-THINKING: Rimuove i blocchi di ragionamento interni se presenti
+            aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+            // Rimuove eventuali intestazioni discorsive involontarie del tipo "Here's a thinking process..."
+            if (aiReply.includes("Here's a thinking process") || aiReply.includes("1. Analyze User Input")) {
+                // Prende solo l'ultima parte o pulisce il testo
+                const parts = aiReply.split('\n\n');
+                aiReply = parts[parts.length - 1] || aiReply;
+            }
         } catch (parseErr) {
             console.error("Errore parsing:", parseErr);
         }
