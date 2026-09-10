@@ -8643,8 +8643,17 @@ async function processGlobalVoiceCommand(commandText) {
             trend_analisi_approfondita: advancedAnalytics
         };
 
-        const systemPrompt = `Sei l'assistente vocale di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo estremamente sintetico, diretto e colloquiale (massimo 2 frasi), perché la tua risposta verrà letta ad alta voce al titolare.`;
-
+        const systemPrompt = `
+            Sei l'assistente vocale e di business intelligence di VaiMUp, un gestionale avanzato per saloni di bellezza e barbershop.
+            Hai accesso completo ai dati in tempo reale del salone, inclusi magazzino, vendite, trend e soprattutto l'AGENDA degli appuntamenti.
+            
+            DATI E AGENDA DEL SALONE:
+            ${JSON.stringify(contextData, null, 2)}
+            
+            REGOLE IMPORTANTI:
+            - Quando il titolare ti chiede informazioni sugli appuntamenti (es. chi c'è oggi, domani, o con un determinato cliente/operatore), cerca nella sezione "agenda_appuntamenti_rilevanti" e dai risposte precise menzionando date, orari, clienti e servizi.
+            - Rispondi in modo estremamente sintetico, diretto e colloquiale (massimo 2-3 frasi), perché la tua risposta verrà convertita in voce e letta ad alta voce al titolare.
+        `;
         const requestBody = {
             contents: [{ parts: [{ text: systemPrompt + "\n\nDomanda del titolare: " + commandText }] }]
         };
@@ -8732,7 +8741,7 @@ async function getAdvancedBusinessAnalytics() {
     try {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
         
-        // A. Analisi Volumi e Margini reali dal report vendite
+        // 1. Analisi Volumi e Margini reali dal report vendite
         const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
         
         const productStats = {};
@@ -8740,9 +8749,8 @@ async function getAdvancedBusinessAnalytics() {
 
         salesReport.forEach(r => {
             const name = r.item_name || 'Altro';
-            // Capiamo se è un prodotto o un servizio incrociandolo con l'inventario in memoria
             const invMatch = (allInventory || []).find(i => i.name.toLowerCase() === name.toLowerCase());
-            const type = invMatch ? invMatch.type : 'prodotto'; // default prodotto
+            const type = invMatch ? invMatch.type : 'prodotto';
 
             if (type === 'servizio') {
                 if (!serviceStats[name]) serviceStats[name] = { vendite_totali: 0, ricavo_lordo: 0, margine_netto: 0 };
@@ -8757,11 +8765,10 @@ async function getAdvancedBusinessAnalytics() {
             }
         });
 
-        // Ordiniamo per identificare i Top e i Flop
         const topServices = Object.keys(serviceStats).map(k => ({ nome: k, ...serviceStats[k] })).sort((a,b) => b.ricavo_lordo - a.ricavo_lordo).slice(0, 5);
         const topProducts = Object.keys(productStats).map(k => ({ nome: k, ...productStats[k] })).sort((a,b) => b.fatturato - a.fatturato).slice(0, 5);
 
-        // B. Prodotti fermi in magazzino (Dead Stock)
+        // Prodotti fermi in magazzino (Dead Stock)
         const inventory = allInventory || [];
         const soldProductNames = new Set(Object.keys(productStats));
         const deadStock = inventory.filter(p => p.type === 'prodotto' && !soldProductNames.has(p.name) && p.stock > 0).map(p => ({
@@ -8770,14 +8777,41 @@ async function getAdvancedBusinessAnalytics() {
             valore_immobilizzato: p.stock * (p.price || 0)
         })).slice(0, 5);
 
+        // 📅 2. ESTRATTORE AGENDA (Appuntamenti da 3 giorni fa fino a 14 giorni nel futuro)
+        const now = new Date();
+        const pastLimit = new Date();
+        pastLimit.setDate(now.getDate() - 3);
+        const futureLimit = new Date();
+        futureLimit.setDate(now.getDate() + 14);
+
+        const pastStr = pastLimit.toISOString().split('T')[0];
+        const futureStr = futureLimit.toISOString().split('T')[0];
+        const todayStr = now.toISOString().split('T')[0];
+
+        const rawAppointments = allAppointments || [];
+        const filteredAppointments = rawAppointments.filter(a => a.date >= pastStr && a.date <= futureStr);
+
+        // Formattiamo gli appuntamenti in modo pulito ed esplicito per l'IA
+        const formattedAppointments = filteredAppointments.map(a => ({
+            data: a.date,
+            ora_inizio: a.time,
+            ora_fine: a.end_time || 'N/D',
+            cliente: a.cust_name,
+            trattamento_servizio: a.service || 'N/D',
+            operatore_assegnato: a.assigned_user || 'Admin',
+            note: a.notes || ''
+        })).sort((a, b) => `${a.data} ${a.ora_inizio}`.localeCompare(`${b.data} ${b.ora_inizio}`));
+
         return {
+            data_corrente_sistema: todayStr,
             servizi_top_per_fatturato: topServices,
             prodotti_rivendita_top: topProducts,
-            stock_immobilizzato_senza_vendite: deadStock
+            stock_immobilizzato_senza_vendite: deadStock,
+            agenda_appuntamenti_rilevanti: formattedAppointments
         };
     } catch (err) {
         console.error("Errore calcolo analytics avanzate:", err);
-        return { info: "Analisi di trend non disponibile al momento." };
+        return { info: "Analisi di trend e agenda non disponibile al momento." };
     }
 }
 
