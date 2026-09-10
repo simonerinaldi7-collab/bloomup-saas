@@ -4522,125 +4522,148 @@ function triggerLocalOperatorAlert(appointment) {
 // 🧠 MOTORE ANALITICO UNIVERSALE DI VAI MUP (BUSINESS ANALYST ENGINE)
 // =========================================================================
 
+// =========================================================================
+// 🧠 MOTORE AI NATURALE (NLP + CONTESTO FINANZIARIO E OPERATIVO)
+// =========================================================================
+
 async function processVaiMUpAssistantQuery(userQuery) {
     const q = userQuery.toLowerCase().trim();
-    
-    try {
-        // 1. ESTRAZIONE DATI UNIVERSALI DAL DB LOCALE (Tramite il bridge ufficiale)
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-        const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
-        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-        const monthlyBalance = await window.universalQuery({ action: 'GET_MONTHLY_BALANCE' }) || [];
-        const marginInsights = await window.universalQuery({ action: 'GET_MARGIN_INSIGHTS' }) || [];
 
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        // --- A. APP GUIDE (Procedure e Guide sull'App) ---
+    // 1. GESTIONE APP GUIDE (Se l'utente chiede "come si fa a..." diamo la guida istantanea senza sprecare token)
+    if (q.includes('come') || q.includes('guida') || q.includes('dove trovo') || q.includes('procedura')) {
         if (q.includes('storno') || q.includes('annullare') || q.includes('rimborso')) {
-            return `🛒 **Come effettuare uno Storno:**\n1. Vai nella sezione **Report Vendite**.\n2. Cerca la transazione e clicca sul tasto rosso **'Storna'**.\n*Effetto:* Il sistema ripristina in automatico la giacenza di magazzino, i lotti FIFO e aggiorna il bilancio.`;
+            return `🛒 **Come effettuare uno Storno:**\n1. Vai nella sezione **Report Vendite**.\n2. Cerca la transazione e clicca sul tasto rosso **'Storna'** a destra.\n*Effetto:* Il sistema ripristina la giacenza di magazzino, i lotti FIFO e aggiorna il bilancio.`;
         }
         if (q.includes('carico') || q.includes('magazzino') || q.includes('fornitore') || q.includes('fifo')) {
-            return `📦 **Come caricare merce:**\n1. Vai su **Magazzino Prodotti**.\n2. Clicca sull'icona del pacco **📦** in corrispondenza del prodotto.\n3. Inserisci quantità e costo totale: il sistema calcolerà il costo unitario FIFO e registrerà la spesa a bilancio.`;
+            return `📦 **Come caricare merce:**\n1. Vai su **Magazzino Prodotti**.\n2. Clicca sull'icona **📦** del prodotto.\n3. Inserisci quantità e costo totale: il sistema calcolerà il costo FIFO e registrerà la spesa a bilancio.`;
         }
         if (q.includes('chiusura') || q.includes('ferie')) {
             return `🏖️ **Come segnare una chiusura:**\n1. Apri il modale **'+ Nuovo'** in Agenda.\n2. Spunta la casella **'Segna come Giornata di Chiusura / Ferie'** e salva.`;
         }
-
-        // --- B. ANALISI BILANCIO & INCASSI (Fatturato, Spese, Utile Netto) ---
-        if (q.includes('bilancio') || q.includes('incassi') || q.includes('fatturato') || q.includes('guadagno') || q.includes('spese') || q.includes('utile')) {
-            let totalRev = 0, totalExp = 0;
-            monthlyBalance.forEach(m => {
-                totalRev += parseFloat(m.revenue) || 0;
-                totalExp += parseFloat(m.total_expenses) || 0;
-            });
-            const netProfit = totalRev - totalExp;
-
-            let recentExpHtml = expenses.slice(0, 3).map(e => `- ${formatDateIt(e.date)}: ${e.description} (€${parseFloat(e.amount).toFixed(2)})`).join('\n');
-
-            return `📊 **Report Economico e Bilancio (Storico Registrato):**\n` +
-                   `- **Incassi Netti Totali:** € ${totalRev.toFixed(2)}\n` +
-                   `- **Spese Totali Vive:** € ${totalExp.toFixed(2)}\n` +
-                   `- **Utile Netto Complessivo:** € ${netProfit.toFixed(2)}\n\n` +
-                   `📋 **Ultime Spese Registrate:**\n${recentExpHtml || 'Nessuna spesa recente.'}\n\n` +
-                   `💡 *Suggerimento:* Puoi filtrare i mesi specifici nel foglio 'Bilancio' della Dashboard.`;
-        }
-
-        // --- C. ANALISI MARGINI & PRODOTTI TOP ---
-        if (q.includes('margini') || q.includes('margine') || q.includes('redditività') || q.includes('prodotti top')) {
-            const topMargins = [...marginInsights].sort((a, b) => b.total_margin - a.total_margin).slice(0, 5);
-            let reply = `📈 **Top 5 Articoli / Servizi per Margine Reale:**\n`;
-            topMargins.forEach((m, idx) => {
-                reply += `${idx + 1}. **${m.item_name}** — Venduti: ${m.total_sold} | Margine: €${m.total_margin.toFixed(2)}\n`;
-            });
-            return reply;
-        }
-
-        // --- D. ANALISI VENDITE & ULTIME OPERAZIONI ---
-        if (q.includes('vendite') || q.includes('scontrini') || q.includes('cassa') || q.includes('ultime vendite')) {
-            const recentSales = salesReport.slice(0, 5);
-            let reply = `🛒 **Ultime Vendite Registrate in Cassa:**\n`;
-            if (recentSales.length === 0) return "🛒 Non ci sono vendite registrate nel periodo corrente.";
-            recentSales.forEach(s => {
-                reply += `- ${formatDateIt(s.date)} @ ${s.time?.substring(0,5) || ''} | **${s.item_name}** (${s.customer_name}) — Tot: €${parseFloat(s.final_price).toFixed(2)} (Margine: €${parseFloat(s.salon_revenue).toFixed(2)})\n`;
-            });
-            return reply;
-        }
-
-        // --- E. ANALISI AGENDA & APPUNTAMENTI ---
-        if (q.includes('appuntamenti') || q.includes('agenda') || q.includes('oggi') || q.includes('domani') || q.includes('chi viene')) {
-            const targetDate = q.includes('domani') ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : todayStr;
-            const targetApps = appointments.filter(a => a.date === targetDate && !a.service?.toLowerCase().includes('pausa'));
-            
-            let reply = `📅 **Agenda del ${formatDateIt(targetDate)} (${targetApps.length} appuntamenti):**\n`;
-            if (targetApps.length === 0) {
-                return `📅 Nessun appuntamento con clienti registrato per il ${formatDateIt(targetDate)}.`;
-            }
-            targetApps.sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
-                reply += `- **${a.time?.substring(0,5)}**: ${a.cust_name} — *${a.service || 'Trattamento'}* (Op: ${a.assigned_user || 'Admin'})\n`;
-            });
-            return reply;
-        }
-
-        // --- F. ANALISI CLIENTI & ANAGRAFICA ---
-        if (q.includes('clienti') || q.includes('cliente') || q.includes('quanti clienti')) {
-            return `👥 **Stato Anagrafica Clienti:**\n- Totale clienti registrati: **${customers.length}**\n- Consenso Privacy GDPR tracciato regolarmente.\n*Suggerimento:* Puoi analizzare i clienti dormienti o segmentarli con l'analisi RFM nella Dashboard.`;
-        }
-
-        // --- G. ANALISI MAGAZZINO & SCORTE ---
-        if (q.includes('magazzino') || q.includes('scorta') || q.includes('rimanenze') || q.includes('prodotti')) {
-            const lowStock = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
-            return `📦 **Situazione Magazzino Prodotti:**\n` +
-                   `- Totale articoli a catalogo: **${inventory.length}**\n` +
-                   `- Prodotti sottosoglia da riordinare: **${lowStock.length}**\n` + 
-                   (lowStock.length > 0 ? `\n⚠️ *Da riordinare:* ` + lowStock.map(p => `${p.name} (${p.stock} pz)`).join(', ') : '✅ Le scorte sono ottimali.');
-        }
-
-        // --- H. RICERCA LIBERA / GENERICA SUL DATABASE ---
-        // Se l'utente chiede informazioni su qualcosa di specifico (es. un cliente, un prodotto o un servizio)
-        const keyword = q.replace(/chi è|che cos'è|dimmi|informazioni su|info|cerca/gi, '').trim();
-        if (keyword.length > 2) {
-            const foundCust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(keyword));
-            const foundProd = inventory.find(p => p.name.toLowerCase().includes(keyword));
-            
-            if (foundCust) {
-                return `👤 **Trovato Cliente in Anagrafica:**\n- Nome: ${foundCust.first_name} ${foundCust.last_name}\n- Telefono: ${foundCust.phone || 'N/D'}\n- Email: ${foundCust.email || 'N/D'}\n- Note: ${foundCust.notes || 'Nessuna nota'}`;
-            }
-            if (foundProd) {
-                return `📦 **Trovato Articolo in Magazzino:**\n- Nome: ${foundProd.name}\n- Tipo: ${foundProd.type}\n- Giacenza: ${foundProd.stock} ${foundProd.unit || 'Pz'}\n- Prezzo listino: €${foundProd.price || 0}`;
-            }
-        }
-
-    } catch (err) {
-        console.error("Errore aggregatore analitico IA:", err);
-        return `⚠️ Si è verificato un errore durante la lettura dei dati dal database locale.`;
     }
 
-    // --- 4. DEFAULT GUIDATO ---
-    return `🤖 **Assistente e Business Coach VaiMUp:**\nHo accesso completo ai dati del tuo salone. Puoi chiedermi:\n- *"Qual è il bilancio e l'utile del mese?"*\n- *"Quali sono gli appuntamenti di oggi?"*\n- *"Quali prodotti sono sotto scorta?"*\n- *"Quali sono i servizi con il margine più alto?"*\n- *"Come faccio uno storno in cassa?"*`;
+    // 2. RACCOLTA DATI AGGREGATI IN TEMPO REALE DAL DB LOCALE
+    let contextPayload = {};
+    try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        const monthlyBalance = await window.universalQuery({ action: 'GET_MONTHLY_BALANCE' }) || [];
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+
+        // Calcoli deterministici mirati per l'IA
+        let incassoOggi = 0;
+        let venditeOggiCount = 0;
+        salesReport.forEach(s => {
+            if (s.date === todayStr) {
+                incassoOggi += parseFloat(s.final_price) || 0;
+                venditeOggiCount++;
+            }
+        });
+
+        const todayApps = appointments.filter(a => a.date === todayStr && !a.service?.toLowerCase().includes('pausa'));
+        const lowStock = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
+
+        contextPayload = {
+            data_corrente: todayStr,
+            incasso_odierno_euro: incassoOggi,
+            scontrini_emessi_oggi: venditeOggiCount,
+            appuntamenti_oggi: todayApps.map(a => ({ ora: a.time?.substring(0,5), cliente: a.cust_name, servizio: a.service, operatore: a.assigned_user })),
+            prodotti_sotto_scorta: lowStock.map(p => ({ nome: p.name, giacenza: p.stock, min: p.min_stock })),
+            bilancio_mensile: monthlyBalance.slice(0, 3) // Ultimi 3 mesi
+        };
+    } catch (err) {
+        console.warn("Impossibile assemblare il contesto dati per l'IA:", err);
+    }
+
+    // 3. INTERROGAZIONE LLM (OpenRouter / Gemini) CON COMPRENSIONE LINGUAGGIO NATURALE
+    const activeApiKey = window._runtimeAiKey;
+    if (!activeApiKey) {
+        // Fallback intelligente se manca la chiave API
+        return fallbackNaturalLanguageAnalysis(userQuery, contextPayload);
+    }
+
+    try {
+        const systemPrompt = `Sei l'assistente virtuale e Business Coach intelligente di VaiMUp, un gestionale B2B per saloni di bellezza. 
+        Hai a disposizione i dati reali del salone in formato JSON: ${JSON.stringify(contextPayload)}.
+        L'utente ti farà una domanda in linguaggio naturale (es. sul fatturato, sugli incassi di oggi, sugli appuntamenti o sull'andamento). 
+        Analizza la domanda, interpreta l'intento dell'utente, incrociala con i dati forniti e rispondi in modo discorsivo, professionale, cordiale e diretto in italiano. Non inventare dati: usa solo quelli presenti nel JSON.`;
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${activeApiKey}`,
+                'HTTP-Referer': window.location.origin,    
+                'X-Title': 'VaiMUp SaaS'                   
+            },
+            body: JSON.stringify({
+                model: "openrouter/free", 
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userQuery }
+                ],
+                temperature: 0.3,
+                max_tokens: 400
+            })
+        });
+
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+
+        const result = await response.json();
+        let aiReply = "";
+        
+        if (result.choices && result.choices.length > 0) {
+            aiReply = result.choices[0].message?.content || result.choices[0].text || "";
+        }
+
+        // Pulizia token di pensiero (Thinking tags)
+        aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+        if (aiReply) {
+            return aiReply;
+        } else {
+            throw new Error("Risposta vuota dall'intelligenza artificiale.");
+        }
+
+    } catch (aiErr) {
+        console.warn("⚠️ API IA non raggiungibile o errore di rete. Attivo il fallback analitico intelligente:", aiErr);
+        return fallbackNaturalLanguageAnalysis(userQuery, contextPayload);
+    }
+}
+
+// 🛡️ FALLBACK ANALITICO INTELLIGENTE (Garantisce il funzionamento RFM/Statistico anche offline o senza chiave IA)
+function fallbackNaturalLanguageAnalysis(query, data) {
+    const q = query.toLowerCase();
+    
+    if (q.includes('quanto') || q.includes('incasso') || q.includes('guadagnato') || q.includes('soldi') || q.includes('fatturato')) {
+        return `💰 Basandomi sui dati registrati per oggi (${data.data_corrente}), hai emesso ${data.scontrini_emessi_oggi} scontrini per un incasso totale di **€ ${data.incasso_odierno_euro.toFixed(2)}**.`;
+    }
+    
+    if (q.includes('appuntamento') || q.includes('chi') || q.includes('agenda') || q.includes('oggi')) {
+        if (!data.appuntamenti_oggi || data.appuntamenti_oggi.length === 0) {
+            return `📅 Non risultano appuntamenti registrati per la giornata odierna (${data.data_corrente}).`;
+        }
+        let text = `📅 **Appuntamenti di oggi (${data.appuntamenti_oggi.length}):**\n`;
+        data.appuntamenti_oggi.forEach(a => {
+            text += `- Ore ${a.ora}: ${a.cliente} (${a.servizio}) con ${a.operatore}\n`;
+        });
+        return text;
+    }
+
+    if (q.includes('scorta') || q.includes('magazzino') || q.includes('prodotti')) {
+        if (!data.prodotti_sotto_scorta || data.prodotti_sotto_scorta.length === 0) {
+            return `📦 Ottimo! Al momento non ci sono prodotti sotto la soglia di scorta minima.`;
+        }
+        let text = `⚠️ **Prodotti critici in magazzino:**\n`;
+        data.prodotti_sotto_scorta.forEach(p => {
+            text += `- ${p.name}: giacenza ${p.giacenza} (min: ${p.min})\n`;
+        });
+        return text;
+    }
+
+    return `🤖 Ho analizzato la tua richiesta ("${query}"). \n📊 **Riepilogo rapido di oggi:**\n- Incasso odierno: € ${data.incasso_odierno_euro.toFixed(2)}\n- Appuntamenti oggi: ${data.appuntamenti_oggi?.length || 0}\n- Prodotti sottosoglia: ${data.prodotti_sotto_scorta?.length || 0}\n\nChiedimi pure dettagli specifici su incassi, agenda o magazzino!`;
 }
 
 
