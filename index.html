@@ -8821,6 +8821,8 @@ async function updateReminderBadgeCount() {
 
         let pendingCount = 0;
         allAppointments.forEach(a => {
+            const custNameLower = (a.cust_name || '').toLowerCase();
+            const serviceLower = (a.service || '').toLowerCase();
             const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa');
             const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || 
                                custNameLower.includes('ferie') || serviceLower.includes('ferie');
