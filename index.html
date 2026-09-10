@@ -8539,21 +8539,84 @@ async function updateReminderBadgeCount() {
 
 
 
-// --- 🎙️ 3. GESTIONE VOCALE CONTINUA & WAKE WORD ---
-let continuousRecognition = null;
+// --- 🎙️ GESTIONE VOCALE GLOBALE (SINGOLO E CONTINUO) ---
+let recognitionInstance = null;
+let continuousRecognitionInstance = null;
+let isListeningSingle = false;
 let isContinuousModeActive = false;
+
+function toggleVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        return alert("Il tuo browser non supporta il riconoscimento vocale nativo. Usa Google Chrome o Microsoft Edge.");
+    }
+
+    const micBtn = document.getElementById('ai-mic-btn');
+    const inputField = document.getElementById('ai-user-input');
+
+    if (isListeningSingle) {
+        if (recognitionInstance) recognitionInstance.stop();
+        return;
+    }
+
+    recognitionInstance = new SpeechRecognition();
+    recognitionInstance.lang = 'it-IT';
+    recognitionInstance.interimResults = false;
+    recognitionInstance.maxAlternatives = 1;
+
+    recognitionInstance.onstart = () => {
+        isListeningSingle = true;
+        if (micBtn) {
+            micBtn.style.background = '#fee2e2';
+            micBtn.style.color = '#dc2626';
+            micBtn.innerText = '🔴 Ascolto...';
+        }
+    };
+
+    recognitionInstance.onresult = (event) => {
+        const speechText = event.results[0][0].transcript;
+        if (inputField) {
+            inputField.value = speechText;
+        }
+        sendAIQuery();
+    };
+
+    recognitionInstance.onerror = (event) => {
+        console.warn("Errore riconoscimento vocale:", event.error);
+        stopSingleMicUI();
+    };
+
+    recognitionInstance.onend = () => {
+        stopSingleMicUI();
+    };
+
+    try {
+        recognitionInstance.start();
+    } catch (e) {
+        console.error("Avvio microfono fallito:", e);
+        stopSingleMicUI();
+    }
+}
+
+function stopSingleMicUI() {
+    isListeningSingle = false;
+    const micBtn = document.getElementById('ai-mic-btn');
+    if (micBtn && !isContinuousModeActive) {
+        micBtn.style.background = '#f1f5f9';
+        micBtn.style.color = '#475569';
+        micBtn.innerText = '🎙️';
+    }
+}
 
 function toggleContinuousVoiceMode() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        return alert("Il tuo browser non supporta il riconoscimento vocale nativo.");
-    }
+    if (!SpeechRecognition) return;
 
     const micBtn = document.getElementById('ai-mic-btn');
 
     if (isContinuousModeActive) {
-        if (continuousRecognition) {
-            continuousRecognition.stop();
+        if (continuousRecognitionInstance) {
+            continuousRecognitionInstance.stop();
             isContinuousModeActive = false;
         }
         if (micBtn) {
@@ -8561,43 +8624,32 @@ function toggleContinuousVoiceMode() {
             micBtn.style.color = '#475569';
             micBtn.innerText = '🎙️';
         }
-        console.log("🛑 Modalità comando vocale continuo disattivata.");
         return;
     }
 
-    continuousRecognition = new SpeechRecognition();
-    continuousRecognition.lang = 'it-IT';
-    continuousRecognition.continuous = true;       // 👈 Mantiene l'ascolto attivo
-    continuousRecognition.interimResults = true;   // 👈 Raccoglie i risultati in tempo reale
+    continuousRecognitionInstance = new SpeechRecognition();
+    continuousRecognitionInstance.lang = 'it-IT';
+    continuousRecognitionInstance.continuous = true;
+    continuousRecognitionInstance.interimResults = true;
 
-    continuousRecognition.onstart = () => {
+    continuousRecognitionInstance.onstart = () => {
         isContinuousModeActive = true;
         if (micBtn) {
             micBtn.style.background = '#dcfce7';
             micBtn.style.color = '#15803d';
             micBtn.innerText = '👂 In ascolto ("Hey Vaimup")...';
         }
-        console.log("🟢 Microfono in ascolto continuo. Pronuncia 'Hey Vaimup' seguito dalla domanda.");
     };
 
-    continuousRecognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
+    continuousRecognitionInstance.onresult = (event) => {
+        let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-            } else {
-                interimTranscript += event.results[i][0].transcript;
-            }
+            transcript += event.results[i][0].transcript;
         }
 
-        const spokenText = (finalTranscript || interimTranscript).toLowerCase().trim();
-        console.log("🗣️ Rilevato parlato:", spokenText);
+        const spokenText = transcript.toLowerCase().trim();
 
-        // 🎯 WAKE WORD: Controlliamo se la frase pronunziata contiene la parola chiave "vaimup" o "assistente"
         if (spokenText.includes('vaimup') || spokenText.includes('assistente') || spokenText.includes('hey')) {
-            // Puliamo la frase rimuovendo la wake word per isolare il comando vero e proprio
             let cleanCommand = spokenText
                 .replace('hey vaimup', '')
                 .replace('vaimup', '')
@@ -8608,56 +8660,32 @@ function toggleContinuousVoiceMode() {
             if (cleanCommand.length > 2) {
                 const inputField = document.getElementById('ai-user-input');
                 if (inputField) inputField.value = cleanCommand;
-
-                console.log("🤖 Comando vocale riconosciuto:", cleanCommand);
-                
-                // Inviamo la query all'IA
                 sendAIQuery();
             }
         }
     };
 
-    continuousRecognition.onerror = (event) => {
-        console.warn("⚠️ Errore riconoscimento continuo:", event.error);
-        // Se il browser stoppa per silenzio, proviamo a riavviarlo in modo trasparente se l'utente non l'ha spento
+    continuousRecognitionInstance.onerror = (event) => {
         if (event.error === 'no-speech' && isContinuousModeActive) {
-            try { continuousRecognition.start(); } catch(e) {}
+            try { continuousRecognitionInstance.start(); } catch(e) {}
         }
     };
 
-    continuousRecognition.onend = () => {
-        // Riavvio automatico se l'ascolto continuo è abilitato ma il browser ha chiuso la sessione per timeout nativo
+    continuousRecognitionInstance.onend = () => {
         if (isContinuousModeActive) {
-            try { 
-                continuousRecognition.start(); 
-            } catch(e) {
-                isContinuousModeActive = false;
-                stopMicUI();
-            }
+            try { continuousRecognitionInstance.start(); } catch(e) { isContinuousModeActive = false; }
         }
     };
 
     try {
-        continuousRecognition.start();
+        continuousRecognitionInstance.start();
     } catch(e) {
-        console.error("Impossibile avviare il riconoscimento continuo:", e);
+        isContinuousModeActive = false;
     }
 }
 
-function stopMicUI() {
-    isListening = false;
-    const micBtn = document.getElementById('ai-mic-btn');
-    if (micBtn) {
-        micBtn.style.background = '#f1f5f9';
-        micBtn.style.color = '#475569';
-        micBtn.innerText = '🎙️';
-    }
-}
-
-// Funzione opzionale per far parlare l'IA (Text-to-Speech)
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window)) return;
-    // Pulisce eventuali tag HTML prima di leggerlo
     const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/🤖/g, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'it-IT';
