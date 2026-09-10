@@ -1673,11 +1673,11 @@
             </div>
         </div>
 
-        <!-- Input e invio -->
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="ai-user-input" placeholder="Es. Quali sono i prodotti che hanno reso di più questo mese? o Come faccio a fare uno storno?" style="margin: 0; flex-grow: 1;" onkeypress="if(event.key==='Enter') sendAIQuery()">
-            <button class="btn btn-p" style="margin: 0; padding: 0 20px; justify-content: center;" onclick="sendAIQuery()">Invia ➔</button>
-        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+    <button id="ai-mic-btn" class="btn" style="background: #f1f5f9; color: #475569; border: 1px solid var(--border); padding: 0 14px; justify-content: center;" onclick="toggleVoiceRecognition()" title="Parla con l'assistente">🎙️</button>
+    <input type="text" id="ai-user-input" placeholder="Es. Quali servizi stanno crescendo di più? O chiedi a voce..." style="margin: 0; flex-grow: 1;" onkeypress="if(event.key==='Enter') sendAIQuery()">
+    <button class="btn btn-p" style="margin: 0; padding: 0 20px; justify-content: center;" onclick="sendAIQuery()">Invia ➔</button>
+</div>
     </div>
 </section>
 
@@ -8537,6 +8537,138 @@ async function updateReminderBadgeCount() {
     }
 }
 
+
+
+// --- 🎙️ 1. GESTIONE VOCALE (SPEECH-TO-TEXT & TEXT-TO-SPEECH) ---
+let recognition = null;
+let isListening = false;
+
+function toggleVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        return alert("Il tuo browser non supporta il riconoscimento vocale nativo. Usa Google Chrome o Edge.");
+    }
+
+    const micBtn = document.getElementById('ai-mic-btn');
+    const inputField = document.getElementById('ai-user-input');
+
+    if (isListening) {
+        if (recognition) recognition.stop();
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'it-IT';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+        isListening = true;
+        if (micBtn) {
+            micBtn.style.background = '#fee2e2';
+            micBtn.style.color = '#dc2626';
+            micBtn.innerText = '🔴 Ascolto...';
+        }
+    };
+
+    recognition.onresult = (event) => {
+        const speechText = event.results[0][0].transcript;
+        if (inputField) {
+            inputField.value = speechText;
+        }
+        // Invia automaticamente la richiesta dopo la dettatura vocale
+        sendAIQuery();
+    };
+
+    recognition.onerror = (event) => {
+        console.warn("Errore riconoscimento vocale:", event.error);
+        stopMicUI();
+    };
+
+    recognition.onend = () => {
+        stopMicUI();
+    };
+
+    recognition.start();
+}
+
+function stopMicUI() {
+    isListening = false;
+    const micBtn = document.getElementById('ai-mic-btn');
+    if (micBtn) {
+        micBtn.style.background = '#f1f5f9';
+        micBtn.style.color = '#475569';
+        micBtn.innerText = '🎙️';
+    }
+}
+
+// Funzione opzionale per far parlare l'IA (Text-to-Speech)
+function speakAiResponse(text) {
+    if (!('speechSynthesis' in window)) return;
+    // Pulisce eventuali tag HTML prima di leggerlo
+    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/🤖/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'it-IT';
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
+
+
+// --- 📊 2. ESTRATTORE DI TREND AVANZATI (PRODOTTI & SERVIZI) ---
+async function getAdvancedBusinessAnalytics() {
+    try {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        
+        // A. Analisi Volumi e Margini reali dal report vendite
+        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        
+        const productStats = {};
+        const serviceStats = {};
+
+        salesReport.forEach(r => {
+            const name = r.item_name || 'Altro';
+            // Capiamo se è un prodotto o un servizio incrociandolo con l'inventario in memoria
+            const invMatch = (allInventory || []).find(i => i.name.toLowerCase() === name.toLowerCase());
+            const type = invMatch ? invMatch.type : 'prodotto'; // default prodotto
+
+            if (type === 'servizio') {
+                if (!serviceStats[name]) serviceStats[name] = { vendite_totali: 0, ricavo_lordo: 0, margine_netto: 0 };
+                serviceStats[name].vendite_totali += 1;
+                serviceStats[name].ricavo_lordo += parseFloat(r.final_price) || 0;
+                serviceStats[name].margine_netto += parseFloat(r.salon_revenue) || 0;
+            } else {
+                if (!productStats[name]) productStats[name] = { pezzi_venduti: 0, fatturato: 0, margine_netto: 0 };
+                productStats[name].pezzi_venduti += 1;
+                productStats[name].fatturato += parseFloat(r.final_price) || 0;
+                productStats[name].margine_netto += parseFloat(r.salon_revenue) || 0;
+            }
+        });
+
+        // Ordiniamo per identificare i Top e i Flop
+        const topServices = Object.keys(serviceStats).map(k => ({ nome: k, ...serviceStats[k] })).sort((a,b) => b.ricavo_lordo - a.ricavo_lordo).slice(0, 5);
+        const topProducts = Object.keys(productStats).map(k => ({ nome: k, ...productStats[k] })).sort((a,b) => b.fatturato - a.fatturato).slice(0, 5);
+
+        // B. Prodotti fermi in magazzino (Dead Stock)
+        const inventory = allInventory || [];
+        const soldProductNames = new Set(Object.keys(productStats));
+        const deadStock = inventory.filter(p => p.type === 'prodotto' && !soldProductNames.has(p.name) && p.stock > 0).map(p => ({
+            nome: p.name,
+            giacenza_ferma: p.stock,
+            valore_immobilizzato: p.stock * (p.price || 0)
+        })).slice(0, 5);
+
+        return {
+            servizi_top_per_fatturato: topServices,
+            prodotti_rivendita_top: topProducts,
+            stock_immobilizzato_senza_vendite: deadStock
+        };
+    } catch (err) {
+        console.error("Errore calcolo analytics avanzate:", err);
+        return { info: "Analisi di trend non disponibile al momento." };
+    }
+}
+
+
     async function viewApp(id) {
     const a = allAppointments.find(x => x.id === id); 
     if(!a) return; 
@@ -10683,6 +10815,79 @@ function urlBase64ToUint8Array(base64String) {
             // Sostituisci la tua chiave o usa una variabile di configurazione
 const GEMINI_API_KEY = (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey) || "INSERISCI_CHIAVE_QUI";
 
+// --- 🤖 ASSISTENTE IA AVANZATO (CON TREND DI BUSINESS E VOCE) ---
+
+async function getAdvancedBusinessAnalytics() {
+    try {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        
+        // Analisi Volumi e Margini reali dal report vendite
+        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        
+        const productStats = {};
+        const serviceStats = {};
+
+        salesReport.forEach(r => {
+            const name = r.item_name || 'Altro';
+            const invMatch = (allInventory || []).find(i => i.name.toLowerCase() === name.toLowerCase());
+            const type = invMatch ? invMatch.type : 'prodotto';
+
+            if (type === 'servizio') {
+                if (!serviceStats[name]) serviceStats[name] = { vendite_totali: 0, ricavo_lordo: 0, margine_netto: 0 };
+                serviceStats[name].vendite_totali += 1;
+                serviceStats[name].ricavo_lordo += parseFloat(r.final_price) || 0;
+                serviceStats[name].margine_netto += parseFloat(r.salon_revenue) || 0;
+            } else {
+                if (!productStats[name]) productStats[name] = { pezzi_venduti: 0, fatturato: 0, margine_netto: 0 };
+                productStats[name].pezzi_venduti += 1;
+                productStats[name].fatturato += parseFloat(r.final_price) || 0;
+                productStats[name].margine_netto += parseFloat(r.salon_revenue) || 0;
+            }
+        });
+
+        const topServices = Object.keys(serviceStats).map(k => ({ nome: k, ...serviceStats[k] })).sort((a,b) => b.ricavo_lordo - a.ricavo_lordo).slice(0, 5);
+        const topProducts = Object.keys(productStats).map(k => ({ nome: k, ...productStats[k] })).sort((a,b) => b.fatturato - a.fatturato).slice(0, 5);
+
+        // Prodotti fermi in magazzino (Dead Stock)
+        const inventory = allInventory || [];
+        const soldProductNames = new Set(Object.keys(productStats));
+        const deadStock = inventory.filter(p => p.type === 'prodotto' && !soldProductNames.has(p.name) && p.stock > 0).map(p => ({
+            nome: p.name,
+            giacenza_ferma: p.stock,
+            valore_immobilizzato: p.stock * (p.price || 0)
+        })).slice(0, 5);
+
+        return {
+            servizi_top_per_fatturato: topServices,
+            prodotti_rivendita_top: topProducts,
+            stock_immobilizzato_senza_vendite: deadStock
+        };
+    } catch (err) {
+        console.error("Errore calcolo analytics avanzate:", err);
+        return { info: "Analisi di trend non disponibile al momento." };
+    }
+}
+
+// Funzione di supporto per tentativi automatici in caso di alto traffico (High Demand)
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429 || res.status === 503) {
+                console.warn(`⚠️ Server IA sovraccarico (Tentativo ${i + 1}/${retries}). Riprovo tra ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; 
+                continue;
+            }
+            return res;
+        } catch (netErr) {
+            if (i === retries - 1) throw netErr;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw new Error("I server di Google Gemini sono momentaneamente troppo occupati. Riprova tra qualche istante.");
+}
+
 async function sendAIQuery() {
     const inputField = document.getElementById('ai-user-input');
     const chatContainer = document.getElementById('ai-chat-messages');
@@ -10690,7 +10895,7 @@ async function sendAIQuery() {
 
     if (!userText) return;
 
-    // 🔒 1. Recuperiamo la chiave sicura salvata nel database del salone
+    // 🔒 1. Recupero della chiave sicura in memoria dal database del salone
     const activeApiKey = window._runtimeAiKey;
 
     if (!activeApiKey) {
@@ -10707,35 +10912,51 @@ async function sendAIQuery() {
     inputField.value = '';
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
+    // 3. Indicatore di caricamento
     const loadingId = 'ai-loading-' + Date.now();
     chatContainer.innerHTML += `
         <div id="${loadingId}" style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; color: #64748b;">
-            🤖 Analisi in corso...
+            🤖 Analisi avanzata dei trend in corso...
         </div>
     `;
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     try {
+        // 📊 4. Estrazione dei trend profondi su prodotti e servizi
+        const advancedAnalytics = await getAdvancedBusinessAnalytics();
+
         const contextData = {
             salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
             total_customers: (allCustomers || []).length,
-            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name),
-            recent_sales_count: (allSales || []).length
+            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => ({ nome: p.name, giacenza: p.stock })),
+            trend_analisi_approfondita: advancedAnalytics
         };
 
-        const systemPrompt = `Sei l'assistente virtuale di VaiMUp, un gestionale B2B per saloni di bellezza. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in italiano in modo conciso e utile.`;
+        const systemPrompt = `
+            Sei il "Chief Business Analyst & Voice Assistant" senior di VaiMUp, un software gestionale avanzato per saloni di bellezza e barbershop.
+            Possiedi competenze di altissimo livello nell'analisi dei dati retail e beauty (rotazione magazzino, marginalità, cross-selling, ottimizzazione dei listini servizi).
+            
+            DATI E TREND REALI DEL SALONE:
+            ${JSON.stringify(contextData, null, 2)}
+            
+            REGOLE:
+            - Fornisci risposte analitiche, strutturate e orientate ad aumentare il profitto del salone.
+            - Evidenzia quali servizi trainano il fatturato e quali prodotti di rivendita generano più margine o rischiano di immobilizzare capitale (dead stock).
+            - Mantieni un tono professionale, amichevole e consulenziale in lingua italiana.
+        `;
 
         const requestBody = {
-            contents: [{ parts: [{ text: systemPrompt + "\n\nRichiesta utente: " + userText }] }]
+            contents: [{ parts: [{ text: systemPrompt + "\n\nRichiesta del titolare: " + userText }] }]
         };
 
-        const modelEndpoint = "gemini-3.7-flash"; // Modello stabile corrente ad alte prestazioni
+        // Modello stabile ad alte prestazioni con retry integrato
+        const modelEndpoint = "gemini-3.7-flash";
 
         const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${activeApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-        }, 3, 1500); // Fino a 3 tentativi automatici in caso di "high demand"
+        }, 3, 1500);
 
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
@@ -10749,11 +10970,18 @@ async function sendAIQuery() {
         
         if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
             const aiReply = result.candidates[0].content.parts[0].text;
+            
             chatContainer.innerHTML += `
-                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b;">
-                    🤖 ${aiReply.replace(/\n/g, '<br>')}
+                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
+                    <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
+                    <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
                 </div>
             `;
+
+            // Se l'utente aveva dettato la domanda a voce, riproduciamo automaticamente la risposta
+            if (typeof isListening !== 'undefined' && isListening) {
+                speakAiResponse(aiReply);
+            }
         } else {
             throw new Error("Formato di risposta non riconosciuto da Gemini.");
         }
