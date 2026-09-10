@@ -4519,7 +4519,7 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 // =========================================================================
-// 🧠 MOTORE ANALITICO AVANZATO CON INTENT ROUTER E QUERY DINAMICHE LOCALI
+// 🧠 MOTORE ANALITICO DEFINITIVO CON INTENT ROUTER AMPLIATO (TOP & FLOP)
 // =========================================================================
 
 async function processVaiMUpAssistantQuery(userQuery) {
@@ -4538,105 +4538,88 @@ async function processVaiMUpAssistantQuery(userQuery) {
         }
     }
 
-    // --- 2. QUERY DINAMICHE DEL DB LOCALE IN BASE ALL'INTENTO ---
+    // --- 2. QUERY DINAMICHE DEL DB LOCALE (TOP & FLOP INTENTS) ---
     let dynamicInsightText = "";
 
     try {
         const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-        const saleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
         const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
         const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
 
-        // A. INTENTO: "Prodotto o servizio che ha fatto guadagnare di più questo mese"
-        if (q.includes('prodotto') || q.includes('servizio') || q.includes('articolo') || q.includes('guadagnare di più') || q.includes('venduto di più') || q.includes('top')) {
+        // A. INTENTO: Prodotto / Servizio MIGLIORE (Top)
+        if ((q.includes('prodotto') || q.includes('servizio') || q.includes('articolo') || q.includes('cosa')) && (q.includes('più') || q.includes('migliore') || q.includes('guadagnare di più') || q.includes('venduto di più') || q.includes('top'))) {
             const monthItems = salesReport.filter(r => r.date && r.date.startsWith(currentYearMonth));
-            
             const productMarginMap = {};
             monthItems.forEach(item => {
                 const name = item.item_name || 'Altro';
-                if (!productMarginMap[name]) {
-                    productMarginMap[name] = { totalSold: 0, totalRevenue: 0, totalMargin: 0 };
-                }
+                if (!productMarginMap[name]) productMarginMap[name] = { totalSold: 0, totalMargin: 0 };
                 productMarginMap[name].totalSold += 1;
-                productMarginMap[name].totalRevenue += parseFloat(item.final_price) || 0;
                 productMarginMap[name].totalMargin += parseFloat(item.salon_revenue) || 0;
             });
-
-            const sortedProducts = Object.keys(productMarginMap).map(name => ({
-                name,
-                ...productMarginMap[name]
-            })).sort((a, b) => b.totalMargin - a.totalMargin); // Ordinati per margine netto reale
-
-            if (sortedProducts.length > 0) {
-                const top = sortedProducts[0];
-                dynamicInsightText = `📊 [Dato Calcolato dal DB per ${currentYearMonth}] Il prodotto/servizio che ti ha fatto guadagnare di più questo mese è **${top.name}**, con un margine netto di **€ ${top.totalMargin.toFixed(2)}** (${top.totalSold} vendite, fatturato totale: € ${top.totalRevenue.toFixed(2)}).`;
-            } else {
-                dynamicInsightText = `📊 [Dato Calcolato dal DB] Non ci sono vendite registrate per il mese di ${currentYearMonth}.`;
+            const sorted = Object.keys(productMarginMap).map(name => ({ name, ...productMarginMap[name] })).sort((a, b) => b.totalMargin - a.totalMargin);
+            if (sorted.length > 0) {
+                dynamicInsightText = `Il prodotto/servizio migliore del mese (${currentYearMonth}) per margine è ${sorted[0].name} con € ${sorted[0].totalMargin.toFixed(2)} di guadagno (${sorted[0].totalSold} vendite).`;
             }
         }
 
-        // B. INTENTO: "Il giorno in cui ho guadagnato di più / fatturato di più"
-        else if (q.includes('giorno') || q.includes('giornata') || q.includes('incassato di più') || q.includes('data')) {
+        // B. INTENTO: Prodotto / Servizio PEGGIORE (Flop / Meno redditizio)
+        else if ((q.includes('peggiore') || q.includes('meno') || q.includes('scarso') || q.includes('fondo') || q.includes('non rende')) && (q.includes('prodotto') || q.includes('servizio') || q.includes('articolo') || q.includes('cosa') || q.includes('questo'))) {
+            const monthItems = salesReport.filter(r => r.date && r.date.startsWith(currentYearMonth));
+            const productMarginMap = {};
+            monthItems.forEach(item => {
+                const name = item.item_name || 'Altro';
+                if (!productMarginMap[name]) productMarginMap[name] = { totalSold: 0, totalMargin: 0 };
+                productMarginMap[name].totalSold += 1;
+                productMarginMap[name].totalMargin += parseFloat(item.salon_revenue) || 0;
+            });
+            // Ordinati dal margine più basso al più alto (Flop)
+            const sorted = Object.keys(productMarginMap).map(name => ({ name, ...productMarginMap[name] })).sort((a, b) => a.totalMargin - b.totalMargin);
+            if (sorted.length > 0) {
+                dynamicInsightText = `Il prodotto/servizio con le performance peggiori (minor margine o guadagno) questo mese è ${sorted[0].name}, con un margine di € ${sorted[0].totalMargin.toFixed(2)} (${sorted[0].totalSold} vendite).`;
+            } else {
+                dynamicInsightText = `Non ci abbastanza dati di vendita questo mese per determinare un articolo con performance negative.`;
+            }
+        }
+
+        // C. INTENTO: Giorno con più incassi / meno incassi
+        else if (q.includes('giorno') || q.includes('giornata')) {
             const monthSales = sales.filter(s => s.date && s.date.startsWith(currentYearMonth));
+            const dailyMap = {};
+            monthSales.forEach(s => { dailyMap[s.date] = (dailyMap[s.date] || 0) + (parseFloat(s.total) || 0); });
+            const sortedDays = Object.keys(dailyMap).map(date => ({ date, total: dailyMap[date] })).sort((a, b) => b.total - a.total);
             
-            const dailyRevenueMap = {};
-            monthSales.forEach(s => {
-                const d = s.date;
-                dailyRevenueMap[d] = (dailyRevenueMap[d] || 0) + (parseFloat(s.total) || 0);
-            });
-
-            const sortedDays = Object.keys(dailyRevenueMap).map(date => ({
-                date,
-                total: dailyRevenueMap[date]
-            })).sort((a, b) => b.total - a.total);
-
             if (sortedDays.length > 0) {
-                const topDay = sortedDays[0];
-                dynamicInsightText = `📅 [Dato Calcolato dal DB per ${currentYearMonth}] Il giorno in cui hai incassato di più questo mese è il **${formatDateIt(topDay.date)}**, con un totale di **€ ${topDay.total.toFixed(2)}**.`;
-            } else {
-                dynamicInsightText = `📅 [Dato Calcolato dal DB] Nessun incasso registrato nel mese corrente.`;
+                const isWorst = q.includes('peggiore') || q.includes('meno') || q.includes('basso');
+                const targetDay = isWorst ? sortedDays[sortedDays.length - 1] : sortedDays[0];
+                dynamicInsightText = `Il giorno con ${isWorst ? 'il minor' : 'il maggior'} incasso questo mese è stato il ${targetDay.date} con un totale di € ${targetDay.total.toFixed(2)}.`;
             }
         }
 
-        // C. INTENTO: "Cliente che ha speso di più"
-        else if (q.includes('cliente') || q.includes('chi ha speso') || q.includes('miglior cliente')) {
-            const customerSpendMap = {};
-            sales.forEach(s => {
-                if (!s.cust_id || s.cust_id === 'CLIENTE_STORICO') return;
-                customerSpendMap[s.cust_id] = (customerSpendMap[s.cust_id] || 0) + (parseFloat(s.total) || 0);
-            });
-
-            const sortedCusts = Object.keys(customerSpendMap).map(id => ({
-                id,
-                total: customerSpendMap[id]
-            })).sort((a, b) => b.total - a.total);
-
-            if (sortedCusts.length > 0) {
-                const topCustId = sortedCusts[0].id;
-                const custObj = customers.find(c => c.id === topCustId);
-                const custName = custObj ? `${custObj.first_name || ''} ${custObj.last_name || ''}`.trim() : 'Cliente ID: ' + topCustId;
-                
-                dynamicInsightText = `👥 [Dato Calcolato dal DB] Il cliente che ha speso di più in assoluto è **${custName}**, con una spesa complessiva di **€ ${sortedCusts[0].total.toFixed(2)}**.`;
-            } else {
-                dynamicInsightText = `👥 [Dato Calcolato dal DB] Non ci sono dati sufficienti sui clienti associati alle vendite.`;
-            }
-        }
-
-    } catch (dbQueryErr) {
-        console.error("Errore nell'esecuzione della query dinamica locale:", dbQueryErr);
+    } catch (dbErr) {
+        console.error("Errore query dinamica:", dbErr);
     }
 
-    // 4. INTERROGAZIONE LLM (OpenRouter / Gemini) PER LA RIFINITURA LINGUISTICA
+    // Se il router non ha intercettato un dato specifico, passiamo un contesto generale
+    if (!dynamicInsightText) {
+        try {
+            const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+            let totalMonthRev = sales.filter(s => s.date?.startsWith(currentYearMonth)).reduce((acc, s) => acc + (s.total || 0), 0);
+            dynamicInsightText = `Fatturato totale registrato nel mese corrente (${currentYearMonth}): € ${totalMonthRev.toFixed(2)}.`;
+        } catch(e) {
+            dynamicInsightText = "Nessun dato analitico specifico estratto al momento.";
+        }
+    }
+
+    // --- 3. INTERROGAZIONE LLM (Con prompt blindato anti-thinking) ---
     const activeApiKey = window._runtimeAiKey;
-    if (!activeApiKey) {
-        return dynamicInsightText || "🤖 Ciao! Chiedimi pure un'analisi sui prodotti più venduti, sui giorni di massimo incasso o sui clienti top.";
-    }
+    if (!activeApiKey) return dynamicInsightText;
 
     try {
-        const systemPrompt = `Sei il Business Coach intelligente di VaiMUp. 
-        L'utente ha fatto questa domanda: "${userQuery}".
-        Il nostro sistema ha estratto questo dato analitico preciso dal database: "${dynamicInsightText}".
-        Formula una risposta brillante, professionale, discorsiva e naturale in italiano, usando il dato calcolato come base. Sii diretto e d'aiuto.`;
+        const systemPrompt = `Sei il Business Coach di VaiMUp. 
+        REGOLE ASSOLUTE: 
+        1. Non mostrare MAI i tuoi processi di pensiero interni, tag <think> o elenchi puntati di analisi ("Analyze user input", ecc.). 
+        2. Rispondi DIRETTAMENTE alla domanda dell'utente in italiano fluente, professionale e colloquiale.
+        3. Usa rigorosamente questo dato estratto dal database come base: "${dynamicInsightText}".`;
 
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -4652,8 +4635,8 @@ async function processVaiMUpAssistantQuery(userQuery) {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userQuery }
                 ],
-                temperature: 0.3,
-                max_tokens: 300
+                temperature: 0.2,
+                max_tokens: 250
             })
         });
 
@@ -4662,18 +4645,23 @@ async function processVaiMUpAssistantQuery(userQuery) {
         const result = await response.json();
         let aiReply = "";
         if (result.choices && result.choices.length > 0) {
-            aiReply = result.choices[0].message?.content || result.choices[0].text || "";
+            aiReply = result.choices[0].message?.content || "";
         }
 
+        // Pulizia aggressiva di sicurezza contro qualsiasi residuo di tag di pensiero
         aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        // Se per errore l'LLM include ancora il testo di analisi iniziale, lo scartiamo
+        if (aiReply.includes("Here's a thinking process") || aiReply.includes("1. Analyze")) {
+            return dynamicInsightText;
+        }
+
         return aiReply || dynamicInsightText;
 
     } catch (aiErr) {
-        console.warn("⚠️ API IA non disponibile, restituisco il dato analitico calcolato direttamente:", aiErr);
-        return dynamicInsightText || "🤖 Non sono riuscito a elaborare la richiesta con l'IA, ma il sistema è attivo.";
+        console.warn("⚠️ Fallback attivato per errore LLM:", aiErr);
+        return dynamicInsightText;
     }
 }
-
 
 
     async function renderSupplierPayouts() {
