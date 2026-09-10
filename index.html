@@ -11051,11 +11051,10 @@ async function sendAIQuery() {
 
     if (!userText) return;
 
-    // 🔒 1. Recupero della chiave sicura in memoria dal database del salone
+    // 1. Recupero della chiave sicura dal database
     const activeApiKey = window._runtimeAiKey;
-
     if (!activeApiKey) {
-        alert("⚠️ Chiave API di Gemini non configurata nel database per questo salone.");
+        alert("⚠️ Chiave API dell'intelligenza artificiale non configurata nel database.");
         return;
     }
 
@@ -11072,60 +11071,56 @@ async function sendAIQuery() {
     const loadingId = 'ai-loading-' + Date.now();
     chatContainer.innerHTML += `
         <div id="${loadingId}" style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; color: #64748b;">
-            🤖 Analisi avanzata dei trend in corso...
+            🤖 Elaborazione risposta in corso...
         </div>
     `;
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     try {
-        // 📊 4. Estrazione dei trend profondi su prodotti e servizi
+        // 4. Estrazione dei dati e trend avanzati del salone
         const advancedAnalytics = await getAdvancedBusinessAnalytics();
-
         const contextData = {
             salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
             total_customers: (allCustomers || []).length,
-            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => ({ nome: p.name, giacenza: p.stock })),
+            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name),
             trend_analisi_approfondita: advancedAnalytics
         };
 
-        const systemPrompt = `
-            Sei il "Chief Business Analyst & Voice Assistant" senior di VaiMUp, un software gestionale avanzato per saloni di bellezza e barbershop.
-            Possiedi competenze di altissimo livello nell'analisi dei dati retail e beauty (rotazione magazzino, marginalità, cross-selling, ottimizzazione dei listini servizi).
-            
-            DATI E TREND REALI DEL SALONE:
-            ${JSON.stringify(contextData, null, 2)}
-            
-            REGOLE:
-            - Fornisci risposte analitiche, strutturate e orientate ad aumentare il profitto del salone.
-            - Evidenzia quali servizi trainano il fatturato e quali prodotti di rivendita generano più margine o rischiano di immobilizzare capitale (dead stock).
-            - Mantieni un tono professionale, amichevole e consulenziale in lingua italiana.
-        `;
+        const systemPrompt = `Sei l'assistente virtuale e business analyst di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo professionale, chiaro e strutturato.`;
 
-        const requestBody = {
-            contents: [{ parts: [{ text: systemPrompt + "\n\nRichiesta del titolare: " + userText }] }]
-        };
-
-        // Modello stabile ad alte prestazioni con retry integrato
-        const modelEndpoint = "gemini-3.7-flash";
-
-        const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${activeApiKey}`, {
+        // 🚀 Chiamata unificata a OpenRouter (utilizzando la stessa chiave sk-or-v1-... della voce)
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        }, 3, 1500);
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${activeApiKey}`,
+                'HTTP-Referer': window.location.origin,    
+                'X-Title': 'VaiMUp SaaS'                   
+            },
+            body: JSON.stringify({
+                model: "openrouter/free", // Router automatico gratuito
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userText }
+                ],
+                temperature: 0.5,
+                max_tokens: 500
+            })
+        });
 
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
 
         if (!response.ok) {
-            const errJson = await response.json();
-            throw new Error(errJson.error?.message || `Errore HTTP ${response.status}`);
+            const errBody = await response.text();
+            console.error("Errore OpenRouter API (Testo):", errBody);
+            throw new Error(`Errore HTTP ${response.status}`);
         }
 
         const result = await response.json();
         
-        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            const aiReply = result.candidates[0].content.parts[0].text;
+        if (result.choices && result.choices[0]?.message?.content) {
+            let aiReply = result.choices[0].message.content;
             
             chatContainer.innerHTML += `
                 <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
@@ -11133,30 +11128,25 @@ async function sendAIQuery() {
                     <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
                 </div>
             `;
-
-            // Se l'utente aveva dettato la domanda a voce, riproduciamo automaticamente la risposta
-            if (typeof isListening !== 'undefined' && isListening) {
-                speakAiResponse(aiReply);
-            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         } else {
-            throw new Error("Formato di risposta non riconosciuto da Gemini.");
+            throw new Error("Formato di risposta non valido da OpenRouter.");
         }
 
     } catch (err) {
-        console.error("Errore assistente IA:", err);
+        console.error("Errore assistente IA (Testo):", err);
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
         
         chatContainer.innerHTML += `
             <div style="background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 12px; border: 1px solid #fecaca; align-self: flex-start; font-size: 13px;">
-                ⚠️ Errore IA: ${err.message}
+                ⚠️ Errore assistente IA: ${err.message}
             </div>
         `;
     }
 
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
-
 
 // Funzione di supporto per tentativi automatici in caso di alto traffico
         async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
