@@ -946,9 +946,9 @@
                 </div>
                 <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
 <div style="display:flex; align-items:center; gap:8px;">
-    <button id="global-mic-trigger" class="btn" style="padding: 6px 12px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="toggleGlobalVoiceCommand()" title="Attiva/Disattiva assistente vocale">
-    🎙️ Assistente Vocale Off
-</button>
+    <button id="global-mic-trigger" class="btn" style="padding: 6px 14px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; transition: all 0.2s;" onclick="togglePushToTalkVoice()" title="Clicca per parlare con l'assistente">
+        🎙️ Parla con IA
+    </button>
 </div>
             </header>
 
@@ -7680,29 +7680,7 @@ function cancelSmartPreview() {
         if (typeof renderCalendar === 'function') renderCalendar();
     }
 
-function toggleGlobalVoiceAssistant() {
-    const btn = document.getElementById('global-voice-toggle-btn');
-    
-    if (!isContinuousModeActive) {
-        // Avvia la modalità continua
-        toggleContinuousVoiceMode();
-        if (btn) {
-            btn.style.background = '#dcfce7';
-            btn.style.color = '#15803d';
-            btn.style.borderColor = '#86efac';
-            btn.innerText = '🟢 Voce Attiva (Hey Vaimup)';
-        }
-    } else {
-        // Spegne la modalità continua
-        toggleContinuousVoiceMode();
-        if (btn) {
-            btn.style.background = '#ede9fe';
-            btn.style.color = '#6d28d9';
-            btn.style.borderColor = '#c4b5fd';
-            btn.innerText = '🎙️ Attiva Voce';
-        }
-    }
-}
+
 
     // Inizializzazione del box Smart Rebooking post-salvataggio con ricerca del primo slot reale disponibile
     async function evaluateSmartRebookingInModal(custName, startDate, originalAssignedUser, originalServiceNames, originalNotes) {
@@ -8036,15 +8014,6 @@ function toggleClosureMode(isClosure) {
     }
 await loadSecureAiKey();
 
-// Inserisci questo all'interno della funzione loginSuccess() nel tuo index.html
-// In questo modo, appena l'utente clicca "Accedi", il browser autorizza i flussi audio/vocali
-setTimeout(() => {
-    if (typeof toggleContinuousVoiceMode === 'function') {
-        // Avvia l'ascolto in background subito dopo il login
-        toggleContinuousVoiceMode();
-       
-    }
-l}, 1000);
     // Caricamento immediato
     await refreshAllData();
     if (typeof renderCalendar === 'function') renderCalendar();
@@ -8578,144 +8547,91 @@ async function updateReminderBadgeCount() {
 
 
 
-// --- 🎙️ MOTORE VOCALE GLOBALE STABILE (WAKE WORD + AUDIO + SINTESI PULITA) ---
-let globalSpeechRecognizer = null;
-let isGlobalVoiceActive = false;
+// --- 🎙️ MODULO VOCALE PROFESSIONALE PUSH-TO-TALK ---
+let pttRecognizer = null;
+let isPttActive = false;
 
-// 🔔 1. Suono di risveglio acustico (Bip armonico di conferma)
-function playWakeUpChime() {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-        if (ctx.state === 'suspended') ctx.resume();
-
-        const now = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.15);
-
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.1, now + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.3);
-    } catch (e) {
-        console.warn("Impossibile riprodurre il suono di risveglio:", e);
-    }
-}
-
-// 🎙️ 2. Attivazione/Disattivazione dell'Assistente Vocale Globale dall'Header
-function toggleGlobalVoiceCommand() {
+function togglePushToTalkVoice() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         return alert("Il tuo browser non supporta il riconoscimento vocale. Usa Google Chrome o Microsoft Edge.");
     }
 
-    const micHeaderBtn = document.getElementById('global-mic-trigger');
+    const micBtn = document.getElementById('global-mic-trigger');
 
-    if (isGlobalVoiceActive) {
-        isGlobalVoiceActive = false;
-        if (globalSpeechRecognizer) {
-            try { globalSpeechRecognizer.stop(); } catch(e) {}
+    if (isPttActive) {
+        if (pttRecognizer) {
+            try { pttRecognizer.stop(); } catch(e) {}
         }
-        if (micHeaderBtn) {
-            micHeaderBtn.style.background = '#ede9fe';
-            micHeaderBtn.style.color = '#6d28d9';
-            micHeaderBtn.innerText = '🎙️ Assistente Vocale Off';
-        }
-        console.log("🛑 Assistente vocale globale spento.");
+        resetPttUI(micBtn);
         return;
     }
 
-    isGlobalVoiceActive = true;
-    if (micHeaderBtn) {
-        micHeaderBtn.style.background = '#dcfce7';
-        micHeaderBtn.style.color = '#15803d';
-        micHeaderBtn.innerText = '🟢 In ascolto ("Hey Vaimup")...';
-    }
-
-    startRobustListeningCycle(SpeechRecognition);
-}
-
-// 🔄 3. Ciclo di ascolto robusto (Anti-errore network tramite sessioni brevi e riavvio trasparente)
-function startRobustListeningCycle(SpeechRecognitionClass) {
-    if (!isGlobalVoiceActive) return;
-
     try {
-        globalSpeechRecognizer = new SpeechRecognitionClass();
-        globalSpeechRecognizer.lang = 'it-IT';
-        globalSpeechRecognizer.interimResults = false; 
-        globalSpeechRecognizer.maxAlternatives = 1;
+        pttRecognizer = new SpeechRecognition();
+        pttRecognizer.lang = 'it-IT';
+        pttRecognizer.interimResults = false; 
+        pttRecognizer.maxAlternatives = 1;
 
-        globalSpeechRecognizer.onresult = (event) => {
-            const spokenText = event.results[0][0].transcript.toLowerCase().trim();
-            console.log("🗣️ [VOCE RILEVATA]:", spokenText);
+        pttRecognizer.onstart = () => {
+            isPttActive = true;
+            if (micBtn) {
+                micBtn.style.background = '#fee2e2';
+                micBtn.style.color = '#dc2626';
+                micBtn.style.borderColor = '#fca5a5';
+                micBtn.innerText = '🔴 In ascolto... Parla ora';
+            }
+            console.log("🎙️ [PTT] Registrazione vocale avviata.");
+        };
 
-            // Controllo fonetico flessibile ("vaimup", "veimap", "vaimap", "assistente")
-            const isWakeWordDetected = 
-                spokenText.includes('vaimup') || 
-                spokenText.includes('veimap') || 
-                spokenText.includes('vaimap') || 
-                spokenText.includes('vai map') || 
-                spokenText.includes('vei map') ||
-                spokenText.includes('assistente');
+        pttRecognizer.onresult = (event) => {
+            const spokenText = event.results[0][0].transcript.trim();
+            console.log("🗣️ [PTT TRASCRITTO]:", spokenText);
+            
+            resetPttUI(micBtn);
 
-            if (isWakeWordDetected) {
-                playWakeUpChime(); // Emette il Bip acustico di risveglio
-
-                let cleanCommand = spokenText
-                    .replace(/hey vaimup|hey veimap|hey vaimap|hey vai map|hey/g, '')
-                    .replace(/vaimup|veimap|vaimap|vai map|vei map|assistente/g, '')
-                    .trim();
-
-                if (cleanCommand.length > 1) {
-                    console.log("🤖 [COMANDO VOCALE]:", cleanCommand);
-                    processGlobalVoiceCommand(cleanCommand);
-                }
+            if (spokenText.length > 1) {
+                processGlobalVoiceCommand(spokenText);
             }
         };
 
-        globalSpeechRecognizer.onerror = (event) => {
-            // Ignora gli errori di rete o silenzio, il ciclo onend provvederà a riavviare
-            console.warn("⚠️ Nota vocale (ignorata/riavvio):", event.error);
-        };
-
-        globalSpeechRecognizer.onend = () => {
-            // Riavvio immediato e trasparente del ciclo breve per mantenere l'ascolto sempre attivo
-            if (isGlobalVoiceActive) {
-                setTimeout(() => {
-                    startRobustListeningCycle(SpeechRecognitionClass);
-                }, 250);
+        pttRecognizer.onerror = (event) => {
+            console.warn("⚠️ [PTT ERRORE]:", event.error);
+            resetPttUI(micBtn);
+            if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                showGlobalAiToast("⚠️ Errore microfono: riprova.");
             }
         };
 
-        globalSpeechRecognizer.start();
+        pttRecognizer.onend = () => {
+            resetPttUI(micBtn);
+        };
+
+        pttRecognizer.start();
     } catch (e) {
-        console.warn("Riavvio forzato sessione vocale causa eccezione:", e);
-        if (isGlobalVoiceActive) {
-            setTimeout(() => {
-                startRobustListeningCycle(SpeechRecognitionClass);
-            }, 1000);
-        }
+        console.error("Errore critico avvio PTT:", e);
+        resetPttUI(micBtn);
     }
 }
 
-// 💬 4. Elaborazione e risposta vocale ovunque ti trovi nell'app
+function resetPttUI(btn) {
+    isPttActive = false;
+    if (btn) {
+        btn.style.background = '#ede9fe';
+        btn.style.color = '#6d28d9';
+        btn.style.borderColor = '#c4b5fd';
+        btn.innerText = '🎙️ Parla con IA';
+    }
+}
+
+// Elaborazione del comando vocale e risposta audio
 async function processGlobalVoiceCommand(commandText) {
-    showGlobalAiToast(`🤖 Sto elaborando: "${commandText}"...`);
+    showGlobalAiToast(`🤖 Analisi: "${commandText}"...`);
 
     try {
         const activeApiKey = window._runtimeAiKey;
         if (!activeApiKey) {
-            speakAiResponse("Attenzione, chiave API dell'intelligenza artificiale non configurata.");
+            speakAiResponse("Attenzione, chiave API dell'intelligenza artificiale non configurata nel database.");
             return;
         }
 
@@ -8727,10 +8643,10 @@ async function processGlobalVoiceCommand(commandText) {
             trend_analisi_approfondita: advancedAnalytics
         };
 
-        const systemPrompt = `Sei il voice assistant di VaiMUp. Dati attuali: ${JSON.stringify(contextData)}. Rispondi in modo estremamente sintetico, diretto e vocale (massimo 2 frasi), perché la tua risposta verrà letta ad alta voce al titolare del salone.`;
+        const systemPrompt = `Sei l'assistente vocale di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo estremamente sintetico, diretto e colloquiale (massimo 2 frasi), perché la tua risposta verrà letta ad alta voce al titolare.`;
 
         const requestBody = {
-            contents: [{ parts: [{ text: systemPrompt + "\n\nComando vocale: " + commandText }] }]
+            contents: [{ parts: [{ text: systemPrompt + "\n\nDomanda del titolare: " + commandText }] }]
         };
 
         const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${activeApiKey}`, {
@@ -8746,13 +8662,12 @@ async function processGlobalVoiceCommand(commandText) {
             let aiReply = result.candidates[0].content.parts[0].text;
             
             hideGlobalAiToast();
-            speakAiResponse(aiReply); // Parla a voce alta
+            speakAiResponse(aiReply); // 🔊 Legge la risposta a voce alta
 
-            // Se l'utente ha aperta la schermata della chat IA, aggiunge il log visivo
             const chatContainer = document.getElementById('ai-chat-messages');
             if (chatContainer) {
                 chatContainer.innerHTML += `
-                    <div style="background: #ede9fe; color: #4338ca; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">Comando vocale: ${commandText}</div>
+                    <div style="background: #ede9fe; color: #4338ca; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">Tu: ${commandText}</div>
                     <div style="background: white; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">🤖 ${aiReply}</div>
                 `;
             }
@@ -8760,11 +8675,11 @@ async function processGlobalVoiceCommand(commandText) {
     } catch (e) {
         hideGlobalAiToast();
         console.error("Errore elaborazione comando vocale:", e);
-        speakAiResponse("Mi dispiace, si è verificato un errore nell'elaborazione.");
+        speakAiResponse("Mi dispiace, si è verificato un errore nell'elaborazione della risposta.");
     }
 }
 
-// 🔊 5. Sintesi vocale pulita (Senza markdown ed emoji)
+// Sintesi vocale pulita (Senza markdown ed emoji)
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -8796,7 +8711,7 @@ function speakAiResponse(text) {
     window.speechSynthesis.speak(utterance);
 }
 
-// Toast visivo di cortesia
+// Toast visivo
 function showGlobalAiToast(msg) {
     let toast = document.getElementById('global-ai-toast');
     if (!toast) {
@@ -8812,7 +8727,6 @@ function hideGlobalAiToast() {
     const toast = document.getElementById('global-ai-toast');
     if (toast) setTimeout(() => toast.remove(), 4000);
 }
-
 // --- 📊 2. ESTRATTORE DI TREND AVANZATI (PRODOTTI & SERVIZI) ---
 async function getAdvancedBusinessAnalytics() {
     try {
