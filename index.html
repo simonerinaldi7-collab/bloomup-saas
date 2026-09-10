@@ -8647,9 +8647,44 @@ function stopSingleMicUI() {
     }
 }
 
+// --- 🎙️ 4. WAKE WORD AVANZATA (CON MATCHING FONETICO E SUONO DI RISVEGLIO) ---
+
+// Funzione audio per emettere un delicato "Bip" di risveglio
+function playWakeUpChime() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        // Nota acuta e piacevole di conferma risveglio (es. 880 Hz - La5)
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.15); // Effetto "salita"
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.1, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.3);
+    } catch (e) {
+        console.warn("Impossibile riprodurre il suono di risveglio:", e);
+    }
+}
+
 function toggleContinuousVoiceMode() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+        return alert("Il tuo browser non supporta il riconoscimento vocale.");
+    }
 
     const micBtn = document.getElementById('ai-mic-btn');
 
@@ -8663,62 +8698,97 @@ function toggleContinuousVoiceMode() {
             micBtn.style.color = '#475569';
             micBtn.innerText = '🎙️';
         }
+        console.log("🛑 Ascolto continuo spento.");
         return;
     }
 
     continuousRecognitionInstance = new SpeechRecognition();
     continuousRecognitionInstance.lang = 'it-IT';
     continuousRecognitionInstance.continuous = true;
-    continuousRecognitionInstance.interimResults = true;
+    continuousRecognitionInstance.interimResults = true; // Raccoglie in tempo reale
 
     continuousRecognitionInstance.onstart = () => {
         isContinuousModeActive = true;
         if (micBtn) {
             micBtn.style.background = '#dcfce7';
             micBtn.style.color = '#15803d';
-            micBtn.innerText = '👂 In ascolto ("Hey Vaimup")...';
+            micBtn.innerText = '👂 In ascolto ("Hey Vaimap")...';
         }
+        console.log("🟢 Modalità Wake Word attiva. Pronuncia 'Hey Vaimup' / 'Veimap'.");
     };
 
     continuousRecognitionInstance.onresult = (event) => {
-        let transcript = '';
+        let currentTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
+            currentTranscript += event.results[i][0].transcript;
         }
 
-        const spokenText = transcript.toLowerCase().trim();
+        const spokenText = currentTranscript.toLowerCase().trim();
 
-        if (spokenText.includes('vaimup') || spokenText.includes('assistente') || spokenText.includes('hey')) {
+        // 🎯 1. MATCHING FONETICO FLESSIBILE PER LA WAKE WORD ("vaimup", "veimap", "vaimap", "vai map")
+        const isWakeWordDetected = 
+            spokenText.includes('vaimup') || 
+            spokenText.includes('veimap') || 
+            spokenText.includes('vaimap') || 
+            spokenText.includes('vai map') || 
+            spokenText.includes('vei map') ||
+            spokenText.includes('assistente');
+
+        if (isWakeWordDetected && event.results[event.results.length - 1].isFinal) {
+            console.log("✨ [WAKE WORD] Rilevato risveglio con:", spokenText);
+
+            // 🔔 2. SUONO DI RISVEGLIO ACUSTICO
+            playWakeUpChime();
+
+            // 3. Pulizia della frase rimuovendo le varianti della wake word
             let cleanCommand = spokenText
-                .replace('hey vaimup', '')
-                .replace('vaimup', '')
-                .replace('assistente', '')
-                .replace('hey', '')
+                .replace(/hey vaimup|hey veimap|hey vaimap|hey vai map|hey/g, '')
+                .replace(/vaimup|veimap|vaimap|vai map|vei map|assistente/g, '')
                 .trim();
 
-            if (cleanCommand.length > 2) {
+            if (cleanCommand.length > 1) {
                 const inputField = document.getElementById('ai-user-input');
-                if (inputField) inputField.value = cleanCommand;
+                if (inputField) {
+                    inputField.value = cleanCommand;
+                }
+                
+                // Avvia la query all'IA automaticamente
+                console.log("🤖 Eseguo comando vocale:", cleanCommand);
                 sendAIQuery();
+            } else {
+                console.log("💡 Risveglio avvenuto, ma nessun comando rilevato nella stessa frase. Rimango in ascolto...");
             }
         }
     };
 
     continuousRecognitionInstance.onerror = (event) => {
+        console.warn("⚠️ Errore riconoscimento vocale continuo:", event.error);
         if (event.error === 'no-speech' && isContinuousModeActive) {
             try { continuousRecognitionInstance.start(); } catch(e) {}
         }
     };
 
     continuousRecognitionInstance.onend = () => {
+        // Riavvio automatico trasparente se il browser chiude la sessione per inattività
         if (isContinuousModeActive) {
-            try { continuousRecognitionInstance.start(); } catch(e) { isContinuousModeActive = false; }
+            try { 
+                continuousRecognitionInstance.start(); 
+            } catch(e) {
+                isContinuousModeActive = false;
+                const micBtn = document.getElementById('ai-mic-btn');
+                if (micBtn) {
+                    micBtn.style.background = '#f1f5f9';
+                    micBtn.style.color = '#475569';
+                    micBtn.innerText = '🎙️';
+                }
+            }
         }
     };
 
     try {
         continuousRecognitionInstance.start();
     } catch(e) {
+        console.error("Impossibile avviare il riconoscimento vocale continuo:", e);
         isContinuousModeActive = false;
     }
 }
