@@ -4518,89 +4518,129 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 
-// ==========================================
-// 🧠 MOTORE IBRIDO: APP GUIDE & BUSINESS ANALYST
-// ==========================================
+// =========================================================================
+// 🧠 MOTORE ANALITICO UNIVERSALE DI VAI MUP (BUSINESS ANALYST ENGINE)
+// =========================================================================
 
 async function processVaiMUpAssistantQuery(userQuery) {
     const q = userQuery.toLowerCase().trim();
     
-    // --- 1. MODULO APP GUIDE (Risposte deterministiche su come usare l'app) ---
-    if (q.includes('storno') || q.includes('annullare una vendita') || q.includes('rimborso')) {
-        return `🛒 **Come effettuare uno Storno a norma:**\n1. Vai nel menu **Report Vendite** (o Cassa).\n2. Trova la transazione da annullare nella tabella.\n3. Clicca sul tasto rosso **'Storna'** a destra della riga.\n*Effetto:* Il sistema ripristinerà automaticamente la giacenza di magazzino, i lotti FIFO e ricalcolerà il bilancio mensile.`;
-    }
-    
-    if (q.includes('carico') || q.includes('magazzino') || q.includes('fornitore') || q.includes('ddt') || q.includes('fifo')) {
-        return `📦 **Come caricare merce in magazzino:**\n1. Vai su **Magazzino Prodotti**.\n2. Individua il prodotto e clicca sull'icona del pacco **📦 (Carico)**.\n3. Inserisci la quantità in arrivo e il **Costo Totale** (per i prodotti di proprietà).\n*Nota:* Il sistema calcolerà il costo unitario e creerà un lotto **FIFO** tracciato, generando in automatico la spesa a bilancio.`;
-    }
-
-    if (q.includes('appuntamento') || q.includes('agenda') || q.includes('orario') || q.includes('prenotare')) {
-        return `📅 **Come gestire l'Agenda:**\n1. Clicca su **Agenda Appuntamenti**.\n2. Puoi visualizzare la griglia per Mese, Settimana o Giorno.\n3. Clicca su uno slot vuoto o sul tasto **'+ Nuovo'** per inserire un cliente, i servizi a pillole e l'operatore.\n*Smart:* Il sistema rileva automaticamente i turni di lavoro e previene le sovrapposizioni.`;
-    }
-
-    if (q.includes('chiusura') || q.includes('ferie') || q.includes('giorno di chiusura')) {
-        return `🏖️ **Come segnare una Giornata di Chiusura o Ferie:**\n1. Apri il modale **'+ Nuovo'** in Agenda.\n2. Spunta la casella rossa **'Segna come Giornata di Chiusura / Ferie'**.\n3. Salva: il blocco coprirà l'intera giornata per gli operatori ed eviterà la generazione di pause automatiche.`;
-    }
-
-    // --- 2. MODULO BUSINESS ANALYST (Lettura dati reali in tempo reale) ---
     try {
-        // Estrazione dati freschi tramite universalQuery
+        // 1. ESTRAZIONE DATI UNIVERSALI DAL DB LOCALE (Tramite il bridge ufficiale)
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
         const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-        
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+        const expenses = await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [];
+        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        const monthlyBalance = await window.universalQuery({ action: 'GET_MONTHLY_BALANCE' }) || [];
+        const marginInsights = await window.universalQuery({ action: 'GET_MARGIN_INSIGHTS' }) || [];
+
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // A. Domanda su appuntamenti odierni o imminenti
-        if (q.includes('oggi') || q.includes('appuntamenti') || q.includes('agenda oggi') || q.includes('clienti oggi')) {
-            const todayApps = appointments.filter(a => a.date === todayStr && !a.service?.toLowerCase().includes('pausa'));
-            if (todayApps.length === 0) {
-                return `📅 Per oggi (${todayStr}) non ci sono appuntamenti con clienti registrati in agenda.`;
-            }
-            let reply = `📅 **Hai ${todayApps.length} appuntamenti oggi:**\n`;
-            todayApps.forEach(a => {
-                reply += `- **${a.time ? a.time.substring(0,5) : ''}**: ${a.cust_name} (${a.service || 'Trattamento'}) [Op: ${a.assigned_user || 'Admin'}]\n`;
+        // --- A. APP GUIDE (Procedure e Guide sull'App) ---
+        if (q.includes('storno') || q.includes('annullare') || q.includes('rimborso')) {
+            return `🛒 **Come effettuare uno Storno:**\n1. Vai nella sezione **Report Vendite**.\n2. Cerca la transazione e clicca sul tasto rosso **'Storna'**.\n*Effetto:* Il sistema ripristina in automatico la giacenza di magazzino, i lotti FIFO e aggiorna il bilancio.`;
+        }
+        if (q.includes('carico') || q.includes('magazzino') || q.includes('fornitore') || q.includes('fifo')) {
+            return `📦 **Come caricare merce:**\n1. Vai su **Magazzino Prodotti**.\n2. Clicca sull'icona del pacco **📦** in corrispondenza del prodotto.\n3. Inserisci quantità e costo totale: il sistema calcolerà il costo unitario FIFO e registrerà la spesa a bilancio.`;
+        }
+        if (q.includes('chiusura') || q.includes('ferie')) {
+            return `🏖️ **Come segnare una chiusura:**\n1. Apri il modale **'+ Nuovo'** in Agenda.\n2. Spunta la casella **'Segna come Giornata di Chiusura / Ferie'** e salva.`;
+        }
+
+        // --- B. ANALISI BILANCIO & INCASSI (Fatturato, Spese, Utile Netto) ---
+        if (q.includes('bilancio') || q.includes('incassi') || q.includes('fatturato') || q.includes('guadagno') || q.includes('spese') || q.includes('utile')) {
+            let totalRev = 0, totalExp = 0;
+            monthlyBalance.forEach(m => {
+                totalRev += parseFloat(m.revenue) || 0;
+                totalExp += parseFloat(m.total_expenses) || 0;
+            });
+            const netProfit = totalRev - totalExp;
+
+            let recentExpHtml = expenses.slice(0, 3).map(e => `- ${formatDateIt(e.date)}: ${e.description} (€${parseFloat(e.amount).toFixed(2)})`).join('\n');
+
+            return `📊 **Report Economico e Bilancio (Storico Registrato):**\n` +
+                   `- **Incassi Netti Totali:** € ${totalRev.toFixed(2)}\n` +
+                   `- **Spese Totali Vive:** € ${totalExp.toFixed(2)}\n` +
+                   `- **Utile Netto Complessivo:** € ${netProfit.toFixed(2)}\n\n` +
+                   `📋 **Ultime Spese Registrate:**\n${recentExpHtml || 'Nessuna spesa recente.'}\n\n` +
+                   `💡 *Suggerimento:* Puoi filtrare i mesi specifici nel foglio 'Bilancio' della Dashboard.`;
+        }
+
+        // --- C. ANALISI MARGINI & PRODOTTI TOP ---
+        if (q.includes('margini') || q.includes('margine') || q.includes('redditività') || q.includes('prodotti top')) {
+            const topMargins = [...marginInsights].sort((a, b) => b.total_margin - a.total_margin).slice(0, 5);
+            let reply = `📈 **Top 5 Articoli / Servizi per Margine Reale:**\n`;
+            topMargins.forEach((m, idx) => {
+                reply += `${idx + 1}. **${m.item_name}** — Venduti: ${m.total_sold} | Margine: €${m.total_margin.toFixed(2)}\n`;
             });
             return reply;
         }
 
-        // B. Domanda su magazzino / prodotti sotto scorta / dead stock
-        if (q.includes('scorta') || q.includes('rimanenze') || q.includes('prodotti finiti') || q.includes('magazzino')) {
-            const lowStockProds = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
-            if (lowStockProds.length === 0) {
-                return `📦 Ottime notizie! Nessun prodotto in magazzino è attualmente sotto scorta minima.`;
-            }
-            let reply = `⚠️ **Ci sono ${lowStockProds.length} prodotti sotto scorta minima:**\n`;
-            lowStockProds.slice(f => f.length < 10).forEach(p => {
-                reply += `- **${p.name}**: Giacenza attuale **${p.stock} ${p.unit || 'Pz'}** (Soglia min: ${p.min_stock})\n`;
+        // --- D. ANALISI VENDITE & ULTIME OPERAZIONI ---
+        if (q.includes('vendite') || q.includes('scontrini') || q.includes('cassa') || q.includes('ultime vendite')) {
+            const recentSales = salesReport.slice(0, 5);
+            let reply = `🛒 **Ultime Vendite Registrate in Cassa:**\n`;
+            if (recentSales.length === 0) return "🛒 Non ci sono vendite registrate nel periodo corrente.";
+            recentSales.forEach(s => {
+                reply += `- ${formatDateIt(s.date)} @ ${s.time?.substring(0,5) || ''} | **${s.item_name}** (${s.customer_name}) — Tot: €${parseFloat(s.final_price).toFixed(2)} (Margine: €${parseFloat(s.salon_revenue).toFixed(2)})\n`;
             });
             return reply;
         }
 
-        // C. Domanda su fatturato, incassi o margini
-        if (q.includes('fatturato') || q.includes('incasso') || q.includes('andamento') || q.includes('bilancio') || q.includes('margini')) {
-            const marginReport = await window.universalQuery({ action: 'GET_MARGIN_INSIGHTS' }) || [];
-            let totalRev = 0;
-            let totalMarg = 0;
-            marginReport.forEach(m => {
-                totalRev += m.total_revenue || 0;
-                totalMarg += m.total_margin || 0;
+        // --- E. ANALISI AGENDA & APPUNTAMENTI ---
+        if (q.includes('appuntamenti') || q.includes('agenda') || q.includes('oggi') || q.includes('domani') || q.includes('chi viene')) {
+            const targetDate = q.includes('domani') ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : todayStr;
+            const targetApps = appointments.filter(a => a.date === targetDate && !a.service?.toLowerCase().includes('pausa'));
+            
+            let reply = `📅 **Agenda del ${formatDateIt(targetDate)} (${targetApps.length} appuntamenti):**\n`;
+            if (targetApps.length === 0) {
+                return `📅 Nessun appuntamento con clienti registrato per il ${formatDateIt(targetDate)}.`;
+            }
+            targetApps.sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
+                reply += `- **${a.time?.substring(0,5)}**: ${a.cust_name} — *${a.service || 'Trattamento'}* (Op: ${a.assigned_user || 'Admin'})\n`;
             });
-
-            return `📊 **Panoramica Economica Registrata:**\n- **Fatturato Totale Analizzato:** € ${totalRev.toFixed(2)}\n- **Margine Netto Reale:** € ${totalMarg.toFixed(2)}\n*Suggerimento:* Puoi consultare i grafici dettagliati e l'obiettivo giornaliero direttamente nella tua **Dashboard** principale.`;
+            return reply;
         }
 
-        // D. Domanda sui clienti o database
-        if (q.includes('clienti') || q.includes('anagrafica')) {
-            return `👥 Il tuo database anagrafico contiene attualmente **${customers.length} clienti** registrati con consenso GDPR tracciato. Puoi gestirli dalla sezione **Anagrafica Clienti**.`;
+        // --- F. ANALISI CLIENTI & ANAGRAFICA ---
+        if (q.includes('clienti') || q.includes('cliente') || q.includes('quanti clienti')) {
+            return `👥 **Stato Anagrafica Clienti:**\n- Totale clienti registrati: **${customers.length}**\n- Consenso Privacy GDPR tracciato regolarmente.\n*Suggerimento:* Puoi analizzare i clienti dormienti o segmentarli con l'analisi RFM nella Dashboard.`;
         }
 
-    } catch (dataErr) {
-        console.warn("Errore lettura dati per l'analista IA:", dataErr);
+        // --- G. ANALISI MAGAZZINO & SCORTE ---
+        if (q.includes('magazzino') || q.includes('scorta') || q.includes('rimanenze') || q.includes('prodotti')) {
+            const lowStock = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
+            return `📦 **Situazione Magazzino Prodotti:**\n` +
+                   `- Totale articoli a catalogo: **${inventory.length}**\n` +
+                   `- Prodotti sottosoglia da riordinare: **${lowStock.length}**\n` + 
+                   (lowStock.length > 0 ? `\n⚠️ *Da riordinare:* ` + lowStock.map(p => `${p.name} (${p.stock} pz)`).join(', ') : '✅ Le scorte sono ottimali.');
+        }
+
+        // --- H. RICERCA LIBERA / GENERICA SUL DATABASE ---
+        // Se l'utente chiede informazioni su qualcosa di specifico (es. un cliente, un prodotto o un servizio)
+        const keyword = q.replace(/chi è|che cos'è|dimmi|informazioni su|info|cerca/gi, '').trim();
+        if (keyword.length > 2) {
+            const foundCust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(keyword));
+            const foundProd = inventory.find(p => p.name.toLowerCase().includes(keyword));
+            
+            if (foundCust) {
+                return `👤 **Trovato Cliente in Anagrafica:**\n- Nome: ${foundCust.first_name} ${foundCust.last_name}\n- Telefono: ${foundCust.phone || 'N/D'}\n- Email: ${foundCust.email || 'N/D'}\n- Note: ${foundCust.notes || 'Nessuna nota'}`;
+            }
+            if (foundProd) {
+                return `📦 **Trovato Articolo in Magazzino:**\n- Nome: ${foundProd.name}\n- Tipo: ${foundProd.type}\n- Giacenza: ${foundProd.stock} ${foundProd.unit || 'Pz'}\n- Prezzo listino: €${foundProd.price || 0}`;
+            }
+        }
+
+    } catch (err) {
+        console.error("Errore aggregatore analitico IA:", err);
+        return `⚠️ Si è verificato un errore durante la lettura dei dati dal database locale.`;
     }
 
-    // --- 3. FALLBACK INTELLIGENTE ---
-    return `🤖 Ho analizzato la tua richiesta ("${userQuery}"). Come assistente VaiMUp posso aiutarti a:\n- Spiegarti le procedure dell'app (es. storno, carico magazzino, ferie).\n- Verificare l'agenda di oggi.\n- Controllare i prodotti sotto scorta.\n\nProva a farmi una domanda più specifica!`;
+    // --- 4. DEFAULT GUIDATO ---
+    return `🤖 **Assistente e Business Coach VaiMUp:**\nHo accesso completo ai dati del tuo salone. Puoi chiedermi:\n- *"Qual è il bilancio e l'utile del mese?"*\n- *"Quali sono gli appuntamenti di oggi?"*\n- *"Quali prodotti sono sotto scorta?"*\n- *"Quali sono i servizi con il margine più alto?"*\n- *"Come faccio uno storno in cassa?"*`;
 }
 
 
