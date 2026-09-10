@@ -8673,6 +8673,36 @@ async function processGlobalVoiceCommand(commandText) {
         }
 
         const result = await response.json();
+        console.log("📦 Risposta grezza OpenRouter:", result); // Utile per debug in console F12
+
+        let aiReply = "";
+
+        // 🛡️ PARSING RESILIENTE: Controlla tutti i possibili formati standard restituiti dai router LLM
+        if (result.choices && result.choices[0]) {
+            if (result.choices[0].message && result.choices[0].message.content) {
+                aiReply = result.choices[0].message.content;
+            } else if (result.choices[0].text) {
+                aiReply = result.choices[0].text;
+            }
+        } else if (result.message) {
+            aiReply = result.message;
+        } else if (result.content) {
+            aiReply = result.content;
+        }
+
+        // Se dopo i controlli abbiamo trovato del testo valido
+        if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
+            chatContainer.innerHTML += `
+                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
+                    <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
+                    <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        } else {
+            console.error("Struttura JSON non conforme ricevuta:", result);
+            throw new Error("Formato di risposta non valido o vuoto da OpenRouter.");
+        }
         
         if (result.choices && result.choices[0]?.message?.content) {
             let aiReply = result.choices[0].message.content;
@@ -11157,6 +11187,36 @@ async function sendAIQuery() {
         }
 
         const result = await response.json();
+        console.log("📦 Risposta grezza OpenRouter:", result); // Utile per debug in console F12
+
+        let aiReply = "";
+
+        // 🛡️ PARSING RESILIENTE: Controlla tutti i possibili formati standard restituiti dai router LLM
+        if (result.choices && result.choices[0]) {
+            if (result.choices[0].message && result.choices[0].message.content) {
+                aiReply = result.choices[0].message.content;
+            } else if (result.choices[0].text) {
+                aiReply = result.choices[0].text;
+            }
+        } else if (result.message) {
+            aiReply = result.message;
+        } else if (result.content) {
+            aiReply = result.content;
+        }
+
+        // Se dopo i controlli abbiamo trovato del testo valido
+        if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
+            chatContainer.innerHTML += `
+                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
+                    <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
+                    <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        } else {
+            console.error("Struttura JSON non conforme ricevuta:", result);
+            throw new Error("Formato di risposta non valido o vuoto da OpenRouter.");
+        }
         
         if (result.choices && result.choices[0]?.message?.content) {
             let aiReply = result.choices[0].message.content;
