@@ -8673,24 +8673,42 @@ async function processGlobalVoiceCommand(commandText) {
         }
 
         const result = await response.json();
-        console.log("📦 Risposta grezza OpenRouter:", result); // Utile per debug in console F12
+        console.log("📦 Risposta grezza OpenRouter:", result);
 
         let aiReply = "";
 
-        // 🛡️ PARSING RESILIENTE: Controlla tutti i possibili formati standard restituiti dai router LLM
-        if (result.choices && result.choices[0]) {
-            if (result.choices[0].message && result.choices[0].message.content) {
-                aiReply = result.choices[0].message.content;
-            } else if (result.choices[0].text) {
-                aiReply = result.choices[0].text;
+        // 🛡️ PARSING UNIVERSALE PROFONDO (Cerca content o text ovunque dentro choices[0])
+        try {
+            if (result.choices && result.choices.length > 0) {
+                const choice = result.choices[0];
+                
+                if (choice.message) {
+                    if (typeof choice.message === 'string') {
+                        aiReply = choice.message;
+                    } else if (choice.message.content) {
+                        aiReply = choice.message.content;
+                    } else if (choice.message.text) {
+                        aiReply = choice.message.text;
+                    }
+                }
+                
+                // Fallback se message non ha content ma choice ha text
+                if (!aiReply && choice.text) {
+                    aiReply = choice.text;
+                }
             }
-        } else if (result.message) {
-            aiReply = result.message;
-        } else if (result.content) {
-            aiReply = result.content;
+            
+            // Fallback estremo se la risposta è di tipo stringa diretta o root text
+            if (!aiReply && typeof result.response === 'string') {
+                aiReply = result.response;
+            } else if (!aiReply && typeof result.text === 'string') {
+                aiReply = result.text;
+            }
+        } catch (parseErr) {
+            console.error("Errore durante il parsing profondo del JSON:", parseErr);
         }
 
-        // Se dopo i controlli abbiamo trovato del testo valido
+        // Se abbiamo estratto con successo il testo
         if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
             chatContainer.innerHTML += `
                 <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
@@ -8702,24 +8720,6 @@ async function processGlobalVoiceCommand(commandText) {
         } else {
             console.error("Struttura JSON non conforme ricevuta:", result);
             throw new Error("Formato di risposta non valido o vuoto da OpenRouter.");
-        }
-        
-        if (result.choices && result.choices[0]?.message?.content) {
-            let aiReply = result.choices[0].message.content;
-            
-            hideGlobalAiToast();
-            speakAiResponse(aiReply); // 🔊 Legge la risposta a voce alta
-
-            const chatContainer = document.getElementById('ai-chat-messages');
-            if (chatContainer) {
-                chatContainer.innerHTML += `
-                    <div style="background: #ede9fe; color: #4338ca; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">Tu (Voce): ${commandText}</div>
-                    <div style="background: white; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">🤖 ${aiReply}</div>
-                `;
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        } else {
-            throw new Error("Formato di risposta non valido da OpenRouter.");
         }
 
     } catch (e) {
@@ -11187,24 +11187,42 @@ async function sendAIQuery() {
         }
 
         const result = await response.json();
-        console.log("📦 Risposta grezza OpenRouter:", result); // Utile per debug in console F12
+        console.log("📦 Risposta grezza OpenRouter:", result);
 
         let aiReply = "";
 
-        // 🛡️ PARSING RESILIENTE: Controlla tutti i possibili formati standard restituiti dai router LLM
-        if (result.choices && result.choices[0]) {
-            if (result.choices[0].message && result.choices[0].message.content) {
-                aiReply = result.choices[0].message.content;
-            } else if (result.choices[0].text) {
-                aiReply = result.choices[0].text;
+        // 🛡️ PARSING UNIVERSALE PROFONDO (Cerca content o text ovunque dentro choices[0])
+        try {
+            if (result.choices && result.choices.length > 0) {
+                const choice = result.choices[0];
+                
+                if (choice.message) {
+                    if (typeof choice.message === 'string') {
+                        aiReply = choice.message;
+                    } else if (choice.message.content) {
+                        aiReply = choice.message.content;
+                    } else if (choice.message.text) {
+                        aiReply = choice.message.text;
+                    }
+                }
+                
+                // Fallback se message non ha content ma choice ha text
+                if (!aiReply && choice.text) {
+                    aiReply = choice.text;
+                }
             }
-        } else if (result.message) {
-            aiReply = result.message;
-        } else if (result.content) {
-            aiReply = result.content;
+            
+            // Fallback estremo se la risposta è di tipo stringa diretta o root text
+            if (!aiReply && typeof result.response === 'string') {
+                aiReply = result.response;
+            } else if (!aiReply && typeof result.text === 'string') {
+                aiReply = result.text;
+            }
+        } catch (parseErr) {
+            console.error("Errore durante il parsing profondo del JSON:", parseErr);
         }
 
-        // Se dopo i controlli abbiamo trovato del testo valido
+        // Se abbiamo estratto con successo il testo
         if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
             chatContainer.innerHTML += `
                 <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
@@ -11216,20 +11234,6 @@ async function sendAIQuery() {
         } else {
             console.error("Struttura JSON non conforme ricevuta:", result);
             throw new Error("Formato di risposta non valido o vuoto da OpenRouter.");
-        }
-        
-        if (result.choices && result.choices[0]?.message?.content) {
-            let aiReply = result.choices[0].message.content;
-            
-            chatContainer.innerHTML += `
-                <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
-                    <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
-                    <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
-                </div>
-            `;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        } else {
-            throw new Error("Formato di risposta non valido da OpenRouter.");
         }
 
     } catch (err) {
