@@ -7084,9 +7084,12 @@ async function registerOperatorPushNotifications() {
         
         allAppointments.filter(a => {
             // 🛑 FILTRO ESCLUSIONE PAUSE PRANZO
-            const isPausa = (a.cust_name && a.cust_name.toLowerCase().includes('pausa')) || 
-                            (a.service && a.service.toLowerCase().includes('pausa'));
-            if (isPausa) return false; // Ignora le pause completamente
+            // 🛡️ 1. ESCLUSIONE RIGOROSA DI PAUSE E CHIUSURE / FERIE
+            const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa');
+            const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || 
+                               custNameLower.includes('ferie') || serviceLower.includes('ferie');
+            
+            if (isPausa || isChiusura) return false; 
 
             // Filtri standard (data, operatore, ricerca cliente)
             const matchDate = !fDate || a.date === fDate;
@@ -8520,8 +8523,11 @@ async function updateReminderBadgeCount() {
 
         let pendingCount = 0;
         allAppointments.forEach(a => {
-            const isPausa = (a.cust_name && a.cust_name.toLowerCase().includes('pausa')) || (a.service && a.service.toLowerCase().includes('pausa'));
-            if (isPausa) return;
+            const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa');
+            const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || 
+                               custNameLower.includes('ferie') || serviceLower.includes('ferie');
+            
+            if (isPausa || isChiusura) return;
 
             const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
             const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
