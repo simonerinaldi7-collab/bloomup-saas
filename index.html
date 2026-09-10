@@ -4230,7 +4230,7 @@ function sendQuickAiPrompt(promptText) {
     }
 }
 
-// Gestione query specifica per il Drawer laterale
+// Sostituisci la funzione sendAIDrawerQuery esistente con questa:
 async function sendAIDrawerQuery() {
     const inputField = document.getElementById('ai-drawer-input');
     const chatContainer = document.getElementById('ai-drawer-messages');
@@ -4246,16 +4246,15 @@ async function sendAIDrawerQuery() {
     inputField.value = '';
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    // Riutilizziamo la logica di risposta intelligente (o simulazione istantanea intelligente)
-    // Nel prossimo passo collegheremo il motore di intelligenza offline/ibrido.
-    setTimeout(() => {
-        chatContainer.innerHTML += `
-            <div style="background: white; padding: 10px 14px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 90%; font-size: 13px; line-height: 1.4; color: #1e293b;">
-                🤖 Sto elaborando la risposta per: "<i>${userText}</i>"... (Il motore intelligente e le guide app si attiveranno al prossimo step).
-            </div>
-        `;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }, 400);
+    // Elaborazione istantanea locale
+    const aiReply = await processVaiMUpAssistantQuery(userText);
+
+    chatContainer.innerHTML += `
+        <div style="background: white; padding: 10px 14px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 90%; font-size: 13px; line-height: 1.4; color: #1e293b;">
+            🤖 ${aiReply.replace(/\n/g, '<br>')}
+        </div>
+    `;
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
 
@@ -4517,6 +4516,92 @@ function triggerLocalOperatorAlert(appointment) {
     }
 }
 
+
+
+// ==========================================
+// 🧠 MOTORE IBRIDO: APP GUIDE & BUSINESS ANALYST
+// ==========================================
+
+async function processVaiMUpAssistantQuery(userQuery) {
+    const q = userQuery.toLowerCase().trim();
+    
+    // --- 1. MODULO APP GUIDE (Risposte deterministiche su come usare l'app) ---
+    if (q.includes('storno') || q.includes('annullare una vendita') || q.includes('rimborso')) {
+        return `🛒 **Come effettuare uno Storno a norma:**\n1. Vai nel menu **Report Vendite** (o Cassa).\n2. Trova la transazione da annullare nella tabella.\n3. Clicca sul tasto rosso **'Storna'** a destra della riga.\n*Effetto:* Il sistema ripristinerà automaticamente la giacenza di magazzino, i lotti FIFO e ricalcolerà il bilancio mensile.`;
+    }
+    
+    if (q.includes('carico') || q.includes('magazzino') || q.includes('fornitore') || q.includes('ddt') || q.includes('fifo')) {
+        return `📦 **Come caricare merce in magazzino:**\n1. Vai su **Magazzino Prodotti**.\n2. Individua il prodotto e clicca sull'icona del pacco **📦 (Carico)**.\n3. Inserisci la quantità in arrivo e il **Costo Totale** (per i prodotti di proprietà).\n*Nota:* Il sistema calcolerà il costo unitario e creerà un lotto **FIFO** tracciato, generando in automatico la spesa a bilancio.`;
+    }
+
+    if (q.includes('appuntamento') || q.includes('agenda') || q.includes('orario') || q.includes('prenotare')) {
+        return `📅 **Come gestire l'Agenda:**\n1. Clicca su **Agenda Appuntamenti**.\n2. Puoi visualizzare la griglia per Mese, Settimana o Giorno.\n3. Clicca su uno slot vuoto o sul tasto **'+ Nuovo'** per inserire un cliente, i servizi a pillole e l'operatore.\n*Smart:* Il sistema rileva automaticamente i turni di lavoro e previene le sovrapposizioni.`;
+    }
+
+    if (q.includes('chiusura') || q.includes('ferie') || q.includes('giorno di chiusura')) {
+        return `🏖️ **Come segnare una Giornata di Chiusura o Ferie:**\n1. Apri il modale **'+ Nuovo'** in Agenda.\n2. Spunta la casella rossa **'Segna come Giornata di Chiusura / Ferie'**.\n3. Salva: il blocco coprirà l'intera giornata per gli operatori ed eviterà la generazione di pause automatiche.`;
+    }
+
+    // --- 2. MODULO BUSINESS ANALYST (Lettura dati reali in tempo reale) ---
+    try {
+        // Estrazione dati freschi tramite universalQuery
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // A. Domanda su appuntamenti odierni o imminenti
+        if (q.includes('oggi') || q.includes('appuntamenti') || q.includes('agenda oggi') || q.includes('clienti oggi')) {
+            const todayApps = appointments.filter(a => a.date === todayStr && !a.service?.toLowerCase().includes('pausa'));
+            if (todayApps.length === 0) {
+                return `📅 Per oggi (${todayStr}) non ci sono appuntamenti con clienti registrati in agenda.`;
+            }
+            let reply = `📅 **Hai ${todayApps.length} appuntamenti oggi:**\n`;
+            todayApps.forEach(a => {
+                reply += `- **${a.time ? a.time.substring(0,5) : ''}**: ${a.cust_name} (${a.service || 'Trattamento'}) [Op: ${a.assigned_user || 'Admin'}]\n`;
+            });
+            return reply;
+        }
+
+        // B. Domanda su magazzino / prodotti sotto scorta / dead stock
+        if (q.includes('scorta') || q.includes('rimanenze') || q.includes('prodotti finiti') || q.includes('magazzino')) {
+            const lowStockProds = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
+            if (lowStockProds.length === 0) {
+                return `📦 Ottime notizie! Nessun prodotto in magazzino è attualmente sotto scorta minima.`;
+            }
+            let reply = `⚠️ **Ci sono ${lowStockProds.length} prodotti sotto scorta minima:**\n`;
+            lowStockProds.slice(f => f.length < 10).forEach(p => {
+                reply += `- **${p.name}**: Giacenza attuale **${p.stock} ${p.unit || 'Pz'}** (Soglia min: ${p.min_stock})\n`;
+            });
+            return reply;
+        }
+
+        // C. Domanda su fatturato, incassi o margini
+        if (q.includes('fatturato') || q.includes('incasso') || q.includes('andamento') || q.includes('bilancio') || q.includes('margini')) {
+            const marginReport = await window.universalQuery({ action: 'GET_MARGIN_INSIGHTS' }) || [];
+            let totalRev = 0;
+            let totalMarg = 0;
+            marginReport.forEach(m => {
+                totalRev += m.total_revenue || 0;
+                totalMarg += m.total_margin || 0;
+            });
+
+            return `📊 **Panoramica Economica Registrata:**\n- **Fatturato Totale Analizzato:** € ${totalRev.toFixed(2)}\n- **Margine Netto Reale:** € ${totalMarg.toFixed(2)}\n*Suggerimento:* Puoi consultare i grafici dettagliati e l'obiettivo giornaliero direttamente nella tua **Dashboard** principale.`;
+        }
+
+        // D. Domanda sui clienti o database
+        if (q.includes('clienti') || q.includes('anagrafica')) {
+            return `👥 Il tuo database anagrafico contiene attualmente **${customers.length} clienti** registrati con consenso GDPR tracciato. Puoi gestirli dalla sezione **Anagrafica Clienti**.`;
+        }
+
+    } catch (dataErr) {
+        console.warn("Errore lettura dati per l'analista IA:", dataErr);
+    }
+
+    // --- 3. FALLBACK INTELLIGENTE ---
+    return `🤖 Ho analizzato la tua richiesta ("${userQuery}"). Come assistente VaiMUp posso aiutarti a:\n- Spiegarti le procedure dell'app (es. storno, carico magazzino, ferie).\n- Verificare l'agenda di oggi.\n- Controllare i prodotti sotto scorta.\n\nProva a farmi una domanda più specifica!`;
+}
 
 
 
@@ -11266,133 +11351,34 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
     throw new Error("I server di Google Gemini sono momentaneamente troppo occupati. Riprova tra qualche istante.");
 }
 
-// --- 💬 1. CHIAVE TESTUALE (Sezione IA) ---
+// Sostituisci la funzione sendAIQuery esistente con questa:
 async function sendAIQuery() {
     const inputField = document.getElementById('ai-user-input');
     const chatContainer = document.getElementById('ai-chat-messages');
     const userText = inputField ? inputField.value.trim() : '';
 
-    if (!userText) return;
+    if (!userText || !chatContainer) return;
 
-    const activeApiKey = window._runtimeAiKey;
-    if (!activeApiKey) {
-        alert("⚠️ Chiave API dell'intelligenza artificiale non configurata nel database.");
-        return;
-    }
+    // Messaggio utente
+    chatContainer.innerHTML += `
+        <div style="background: #ede9fe; color: #4338ca; padding: 12px 16px; border-radius: 12px; align-self: flex-end; max-width: 85%; font-size: 13px; line-height: 1.4; font-weight: 500;">
+            ${userText}
+        </div>
+    `;
+    inputField.value = '';
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    if (chatContainer) {
-        chatContainer.innerHTML += `
-            <div style="background: #ede9fe; color: #4338ca; padding: 12px 16px; border-radius: 12px; align-self: flex-end; max-width: 85%; font-size: 13px; line-height: 1.4; font-weight: 500;">
-                ${userText}
-            </div>
-        `;
-        inputField.value = '';
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
+    // Elaborazione istantanea locale
+    const aiReply = await processVaiMUpAssistantQuery(userText);
 
-    const loadingId = 'ai-loading-' + Date.now();
-    if (chatContainer) {
-        chatContainer.innerHTML += `
-            <div id="${loadingId}" style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; color: #64748b;">
-                🤖 Elaborazione risposta in corso...
-            </div>
-        `;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-
-    try {
-        const advancedAnalytics = await getAdvancedBusinessAnalytics();
-        const aiContext = typeof getAiBusinessContext === 'function' ? await getAiBusinessContext() : {};
-        
-        const contextData = {
-            salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
-            dati_generali: aiContext,
-            trend_analisi_approfondita: advancedAnalytics
-        };
-
-        const systemPrompt = `Sei l'assistente virtuale e business analyst di VaiMUp, un gestionale per saloni di bellezza. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo professionale, chiaro e strutturato.`;
-
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${activeApiKey}`,
-                'HTTP-Referer': window.location.origin,    
-                'X-Title': 'VaiMUp SaaS'                   
-            },
-            body: JSON.stringify({
-                model: "openrouter/free", 
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userText }
-                ],
-                temperature: 0.5,
-                max_tokens: 500
-            })
-        });
-
-        const loadingEl = document.getElementById(loadingId);
-        if (loadingEl) loadingEl.remove();
-
-        if (!response.ok) {
-            const errBody = await response.text();
-            console.error("Errore OpenRouter API (Testo):", errBody);
-            throw new Error(`Errore HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("📦 Risposta grezza OpenRouter (Testo):", result);
-
-       let aiReply = "";
-        try {
-            if (result.choices && result.choices.length > 0) {
-                const choice = result.choices[0];
-                if (choice.message?.content) aiReply = choice.message.content;
-                else if (choice.delta?.content) aiReply = choice.delta.content;
-                else if (choice.text) aiReply = choice.text;
-            }
-            if (!aiReply && result.response) aiReply = result.response;
-
-            // 🛡️ FILTRO ANTI-THINKING: Rimuove i blocchi di ragionamento interni se presenti
-            aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-            // Rimuove eventuali intestazioni discorsive involontarie del tipo "Here's a thinking process..."
-            if (aiReply.includes("Here's a thinking process") || aiReply.includes("1. Analyze User Input")) {
-                // Prende solo l'ultima parte o pulisce il testo
-                const parts = aiReply.split('\n\n');
-                aiReply = parts[parts.length - 1] || aiReply;
-            }
-        } catch (parseErr) {
-            console.error("Errore parsing:", parseErr);
-        }
-
-        if (aiReply && typeof aiReply === 'string' && aiReply.trim() !== "") {
-            if (chatContainer) {
-                chatContainer.innerHTML += `
-                    <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
-                        <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
-                        <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
-                    </div>
-                `;
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        } else {
-            throw new Error("Formato di risposta non valido o vuoto da OpenRouter.");
-        }
-
-    } catch (err) {
-        console.error("Errore assistente IA (Testo):", err);
-        const loadingEl = document.getElementById(loadingId);
-        if (loadingEl) loadingEl.remove();
-        
-        if (chatContainer) {
-            chatContainer.innerHTML += `
-                <div style="background: #fef2f2; color: #991b1b; padding: 12px 16px; border-radius: 12px; border: 1px solid #fecaca; align-self: flex-start; font-size: 13px;">
-                    ⚠️ Errore assistente IA: ${err.message}
-                </div>
-            `;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-    }
+    // Risposta assistente
+    chatContainer.innerHTML += `
+        <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; align-self: flex-start; max-width: 85%; font-size: 13px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 8px;">
+            <div>🤖 ${aiReply.replace(/\n/g, '<br>')}</div>
+            <button class="btn" style="align-self: flex-start; padding: 2px 8px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 4px; cursor: pointer;" onclick="speakAiResponse(this.previousElementSibling.innerText)">🔊 Ascolta a voce</button>
+        </div>
+    `;
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
 // Funzione di supporto per tentativi automatici in caso di alto traffico
