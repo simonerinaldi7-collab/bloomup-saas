@@ -944,6 +944,12 @@
                     <div id="reminder-alert" style="color:var(--d); font-size:12px; font-weight:bold; cursor:pointer; background: #fff1f0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--d);" onclick="changePage('logs')" class="hidden"></div>
                     <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="if(typeof window.api.checkReminders === 'function') window.api.checkReminders()">🔄 Verifica Reminders</button>
                 </div>
+                <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
+<div style="display:flex; align-items:center; gap:8px;">
+    <button id="global-voice-toggle-btn" class="btn" style="padding: 6px 12px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="toggleGlobalVoiceAssistant()">
+        🎙️ Attiva Voce
+    </button>
+</div>
             </header>
 
             <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -7674,6 +7680,29 @@ function cancelSmartPreview() {
         if (typeof renderCalendar === 'function') renderCalendar();
     }
 
+function toggleGlobalVoiceAssistant() {
+    const btn = document.getElementById('global-voice-toggle-btn');
+    
+    if (!isContinuousModeActive) {
+        // Avvia la modalità continua
+        toggleContinuousVoiceMode();
+        if (btn) {
+            btn.style.background = '#dcfce7';
+            btn.style.color = '#15803d';
+            btn.style.borderColor = '#86efac';
+            btn.innerText = '🟢 Voce Attiva (Hey Vaimup)';
+        }
+    } else {
+        // Spegne la modalità continua
+        toggleContinuousVoiceMode();
+        if (btn) {
+            btn.style.background = '#ede9fe';
+            btn.style.color = '#6d28d9';
+            btn.style.borderColor = '#c4b5fd';
+            btn.innerText = '🎙️ Attiva Voce';
+        }
+    }
+}
 
     // Inizializzazione del box Smart Rebooking post-salvataggio con ricerca del primo slot reale disponibile
     async function evaluateSmartRebookingInModal(custName, startDate, originalAssignedUser, originalServiceNames, originalNotes) {
@@ -8006,6 +8035,16 @@ function toggleClosureMode(isClosure) {
         await changePage('sales');
     }
 await loadSecureAiKey();
+
+// Inserisci questo all'interno della funzione loginSuccess() nel tuo index.html
+// In questo modo, appena l'utente clicca "Accedi", il browser autorizza i flussi audio/vocali
+setTimeout(() => {
+    if (typeof toggleContinuousVoiceMode === 'function') {
+        // Avvia l'ascolto in background subito dopo il login
+        toggleContinuousVoiceMode();
+       
+    }
+l}, 1000);
     // Caricamento immediato
     await refreshAllData();
     if (typeof renderCalendar === 'function') renderCalendar();
@@ -8685,11 +8724,52 @@ function toggleContinuousVoiceMode() {
 }
 
 function speakAiResponse(text) {
-    if (!('speechSynthesis' in window)) return;
-    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/🤖/g, '');
+    if (!('speechSynthesis' in window)) {
+        console.warn("Sintesi vocale non supportata dal browser.");
+        return;
+    }
+
+    // Interrompiamo eventuali letture vocali precedenti ancora in corso
+    window.speechSynthesis.cancel();
+
+    if (!text) return;
+
+    // 1. 🧹 PULIZIA TOTALE DEI CARATTERI SPECIALI E MARKDOWN
+    let cleanText = text
+        // Rimuove blocchi di codice markdown ``` ... ```
+        .replace(/```[\s\S]*?```/g, '')
+        // Rimuove asterischi doppi o singoli usati per il grassetto/corsivo
+        .replace(/[*_~`#]/g, '')
+        // Rimuove emoji per evitare che il sintetizzatore legga descrizioni bizzarre o faccia pause
+        .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+        // Sostituisce trattini puntati con pause o spazi vuoti
+        .replace(/^\s*[-*+]\s+/gm, '')
+        // Rimuove doppi spazi o a capo eccessivi
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // 2. ✂️ TRONCAMENTO INTELLIGENTE PER RISPOSTE TROPPO LUNGHE
+    // Se la risposta supera i 250 caratteri (circa 2-3 frasi), prendiamo solo l'introduzione 
+    // e la sintesi principale per non stancare chi ascolta.
+    const maxVoiceLength = 250;
+    if (cleanText.length > maxVoiceLength) {
+        // Cerca l'ultimo punto fermo prima del limite per troncare in modo naturale
+        let cutIndex = cleanText.substring(0, maxVoiceLength).lastIndexOf('.');
+        if (cutIndex > 50) {
+            cleanText = cleanText.substring(0, cutIndex + 1) + " Ti ho scritto i dettagli completi sullo schermo.";
+        } else {
+            cleanText = cleanText.substring(0, maxVoiceLength) + "... Ti invito a leggere il resto sul display.";
+        }
+    }
+
+    console.log("🔊 [VOCE PULITA]", cleanText);
+
+    // 3. 🔊 AVVIO DELLA SINTESI VOCALE
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'it-IT';
-    utterance.rate = 1.0;
+    utterance.rate = 1.05; // Leggermente più dinamico e naturale
+    utterance.pitch = 1.0;
+
     window.speechSynthesis.speak(utterance);
 }
 
