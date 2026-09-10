@@ -8624,7 +8624,6 @@ function resetPttUI(btn) {
     }
 }
 
-// Elaborazione del comando vocale e risposta audio
 async function processGlobalVoiceCommand(commandText) {
     showGlobalAiToast(`🤖 Sto elaborando: "${commandText}"...`);
 
@@ -8645,22 +8644,17 @@ async function processGlobalVoiceCommand(commandText) {
 
         const systemPrompt = `Sei l'assistente vocale di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo estremamente sintetico, diretto e colloquiale (massimo 2 frasi), perché la tua risposta verrà letta ad alta voce al titolare.`;
 
-        let aiReply = "";
-
-        // 🧠 RILEVAMENTO AUTOMATICO DEL PROVIDER IN BASE ALLA CHIAVE CONFIGURATA
-        if (activeApiKey.startsWith('sk-')) {
-            
-            // 🚀 Chiamata a OpenRouter: Gratuito, stabile e con accesso ai migliori modelli open-source senza mai errori 404
+        // 🚀 Chiamata a OpenRouter utilizzando il router universale gratuito
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${activeApiKey}`, // La tua chiave sk-or-v1-...
-                'HTTP-Referer': window.location.origin,    // Obbligatorio per OpenRouter (identifica la tua app)
-                'X-Title': 'VaiMUp SaaS'                   // Nome dell'app visibile nella loro dashboard
+                'Authorization': `Bearer ${activeApiKey}`,
+                'HTTP-Referer': window.location.origin,    
+                'X-Title': 'VaiMUp SaaS'                   
             },
             body: JSON.stringify({
-                model: "google/gemma-2-9b-it:free", // 👈 Modello gratuito di Google ospitato stabilmente su OpenRouter
+                model: "openrouter/free", // 👈 Il router seleziona automaticamente un modello gratuito attivo
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: commandText }
@@ -8670,54 +8664,36 @@ async function processGlobalVoiceCommand(commandText) {
             })
         });
 
-            if (!response.ok) {
-                const errBody = await response.text();
-                console.error("Errore Groq API:", errBody);
-                throw new Error(`Errore autorizzazione Groq (401/Altro): ${response.status}`);
-            }
-
-            const result = await response.json();
-            aiReply = result.choices[0].message.content;
-
-        } else {
-            // --- MOTORE GOOGLE GEMINI (Fallback nativo) ---
-            const requestBody = {
-                contents: [{ parts: [{ text: systemPrompt + "\n\nDomanda del titolare: " + commandText }] }]
-            };
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeApiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                const errBody = await response.text();
-                console.error("Errore Gemini API:", errBody);
-                throw new Error(`Errore Gemini: ${response.status}`);
-            }
-
-            const result = await response.json();
-            aiReply = result.candidates[0].content.parts[0].text;
+        if (!response.ok) {
+            const errBody = await response.text();
+            console.error("Errore OpenRouter API:", errBody);
+            throw new Error(`Errore HTTP ${response.status}`);
         }
 
-        // 🔊 Risposta vocale e log
-        hideGlobalAiToast();
-        speakAiResponse(aiReply);
+        const result = await response.json();
+        
+        if (result.choices && result.choices[0]?.message?.content) {
+            let aiReply = result.choices[0].message.content;
+            
+            hideGlobalAiToast();
+            speakAiResponse(aiReply); // 🔊 Legge la risposta a voce alta
 
-        const chatContainer = document.getElementById('ai-chat-messages');
-        if (chatContainer) {
-            chatContainer.innerHTML += `
-                <div style="background: #ede9fe; color: #4338ca; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">Tu (Voce): ${commandText}</div>
-                <div style="background: white; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">🤖 ${aiReply}</div>
-            `;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            const chatContainer = document.getElementById('ai-chat-messages');
+            if (chatContainer) {
+                chatContainer.innerHTML += `
+                    <div style="background: #ede9fe; color: #4338ca; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">Tu (Voce): ${commandText}</div>
+                    <div style="background: white; padding: 10px; border-radius: 8px; font-size:12px; margin-top:5px;">🤖 ${aiReply}</div>
+                `;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        } else {
+            throw new Error("Formato di risposta non valido da OpenRouter.");
         }
 
     } catch (e) {
         hideGlobalAiToast();
         console.error("Errore elaborazione comando vocale:", e);
-        speakAiResponse("Mi dispiace, si è verificato un errore di autenticazione con l'intelligenza artificiale.");
+        speakAiResponse("Mi dispiace, si è verificato un errore nell'elaborazione della risposta vocale.");
     }
 }
 
