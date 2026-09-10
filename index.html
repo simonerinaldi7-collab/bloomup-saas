@@ -8635,15 +8635,17 @@ async function processGlobalVoiceCommand(commandText) {
         }
 
         const advancedAnalytics = await getAdvancedBusinessAnalytics();
-        const contextData = {
-            salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
-            total_customers: (allCustomers || []).length,
-            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name),
-            trend_analisi_approfondita: advancedAnalytics
-        };
+        const aiContext = await getAiBusinessContext();
 
-        const systemPrompt = `Sei l'assistente vocale di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo estremamente sintetico, diretto e colloquiale (massimo 2 frasi), perché la tua risposta verrà letta ad alta voce al titolare.`;
-
+        const systemPrompt = `
+            Sei l'assistente vocale di VaiMUp, un gestionale per saloni di bellezza e negozi retail.
+            Ecco la fotografia esatta e aggiornata del database del negozio:
+            ${JSON.stringify(aiContext, null, 2)}
+            
+            REGOLE TASSATIVE:
+            - Quando ti viene chiesto dell'agenda, degli appuntamenti, di un cliente o di un orario, devi cercare rigorosamente dentro l'array "tutti_gli_appuntamenti_in_agenda" fornito sopra.
+            - Rispondi in modo estremamente sintetico (massimo 2 frasi), diretto, naturale e colloquiale, poiché la tua risposta sarà letta ad alta voce.
+        `;
         // 🚀 Chiamata a OpenRouter utilizzando il router universale gratuito
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -8697,10 +8699,9 @@ async function processGlobalVoiceCommand(commandText) {
     }
 }
 
-// Sintesi vocale pulita (Senza markdown ed emoji)
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Stoppa eventuali audio sovrapposti
 
     if (!text) return;
 
@@ -8712,21 +8713,57 @@ function speakAiResponse(text) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    const maxVoiceLength = 250;
-    if (cleanText.length > maxVoiceLength) {
-        let cutIndex = cleanText.substring(0, maxVoiceLength).lastIndexOf('.');
-        if (cutIndex > 50) {
-            cleanText = cleanText.substring(0, cutIndex + 1) + " Ti ho scritto i dettagli completi sullo schermo.";
-        } else {
-            cleanText = cleanText.substring(0, maxVoiceLength) + "... Ti invito a leggere il resto sul display.";
-        }
+    // Troncatura di sicurezza per evitare monologhi lunghi
+    if (cleanText.length > 250) {
+        let cutIndex = cleanText.substring(0, 250).lastIndexOf('.');
+        cleanText = cutIndex > 50 ? cleanText.substring(0, cutIndex + 1) + " Altri dettagli sullo schermo." : cleanText.substring(0, 250) + "...";
     }
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'it-IT';
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
+    
+    // 🌟 PARAMETRI VOCALI OTTIMIZZATI PER MAGGIORE FLUIDITÀ
+    utterance.rate = 0.95;  // Leggermente più lento per una cadenza umana e rilassata
+    utterance.pitch = 1.0;  // Tono naturale standard
+
+    // Cerchiamo, se disponibile nel browser, una voce italiana di alta qualità (es. Google o Microsoft Natural)
+    const voices = window.speechSynthesis.getVoices();
+    const italianVoice = voices.find(v => v.lang === 'it-IT' && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Cosimo') || v.name.includes('Elsa')));
+    if (italianVoice) {
+        utterance.voice = italianVoice;
+    }
+
     window.speechSynthesis.speak(utterance);
+}
+
+
+async function getAiBusinessContext() {
+    try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // 📅 Estraiamo gli appuntamenti di oggi e dei prossimi 5 giorni in modo esplicito
+        const appointmentsList = (allAppointments || []).map(a => ({
+            data: a.date,
+            ora: a.time,
+            cliente: a.cust_name,
+            servizio: a.service || 'Trattamento',
+            operatore: a.assigned_user || 'Admin',
+            note: a.notes || ''
+        })).sort((a,b) => `${a.data} ${a.ora}`.localeCompare(`${b.data} ${b.ora}`));
+
+        // Magazzino sottosorta
+        const lowStock = (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => `${p.name} (giacenza: ${p.stock})`);
+
+        return {
+            data_oggi: todayStr,
+            tutti_gli_appuntamenti_in_agenda: appointmentsList, // 👈 L'intera agenda viene passata all'IA
+            prodotti_in_esaurimento: lowStock,
+            totale_clienti: (allCustomers || []).length
+        };
+    } catch (e) {
+        console.error("Errore contesto IA:", e);
+        return { data_oggi: new Date().toISOString().split('T')[0], tutti_gli_appuntamenti_in_agenda: [] };
+    }
 }
 
 // Toast visivo
@@ -11079,15 +11116,17 @@ async function sendAIQuery() {
     try {
         // 4. Estrazione dei dati e trend avanzati del salone
         const advancedAnalytics = await getAdvancedBusinessAnalytics();
-        const contextData = {
-            salon_name: currentUser ? currentUser.salon_id : 'Salone VaiMUp',
-            total_customers: (allCustomers || []).length,
-            low_stock_products: (allInventory || []).filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).map(p => p.name),
-            trend_analisi_approfondita: advancedAnalytics
-        };
+        const aiContext = await getAiBusinessContext();
 
-        const systemPrompt = `Sei l'assistente virtuale e business analyst di VaiMUp, un gestionale per saloni. Dati attuali del negozio: ${JSON.stringify(contextData)}. Rispondi in modo professionale, chiaro e strutturato.`;
-
+        const systemPrompt = `
+            Sei l'assistente vocale di VaiMUp, un gestionale per saloni di bellezza e negozi retail.
+            Ecco la fotografia esatta e aggiornata del database del negozio:
+            ${JSON.stringify(aiContext, null, 2)}
+            
+            REGOLE TASSATIVE:
+            - Quando ti viene chiesto dell'agenda, degli appuntamenti, di un cliente o di un orario, devi cercare rigorosamente dentro l'array "tutti_gli_appuntamenti_in_agenda" fornito sopra.
+            - Rispondi in modo estremamente sintetico (massimo 2 frasi), diretto, naturale e colloquiale, poiché la tua risposta sarà letta ad alta voce.
+        `;
         // 🚀 Chiamata unificata a OpenRouter (utilizzando la stessa chiave sk-or-v1-... della voce)
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
