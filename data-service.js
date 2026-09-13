@@ -58,9 +58,11 @@ function startBackgroundMultiOperatorSync() {
                 await backgroundPullFromSupabase(table, salonId);
             }
 
-            // Aggiorniamo la memoria globale degli appuntamenti
+            // Aggiorniamo la memoria globale in tempo reale
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
-
+            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            
             // Se siamo nella vista Agenda, aggiorniamo l'interfaccia se non ci sono modali aperti
             const activeView = document.querySelector('.view.active');
             if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
