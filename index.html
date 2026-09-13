@@ -5734,6 +5734,37 @@ async function quickAlarmAction(actionType) {
         setTimeout(initColorSwatches, 300);
     });
 
+
+
+async function loadSettingsFields() {
+    try {
+        console.log("⚙️ Caricamento impostazioni in corso...");
+        
+        // 1. Proviamo a leggerle dalla tabella settings di Dexie / memoria
+        const settingsTable = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
+        
+        // Mppiamo i valori trovati nell'oggetto globale sysSettings
+        settingsTable.forEach(s => {
+            if (s && s.key) sysSettings[s.key] = s.value;
+        });
+
+        // 2. Popoliamo i campi del form HTML con i dati trovati
+        const remHoursEl = document.getElementById('set-rem-hours');
+        const confirmMsgEl = document.getElementById('set-msg-confirm');
+        const reminderMsgEl = document.getElementById('set-msg-reminder');
+        const imminentLeadEl = document.getElementById('set-imminent-lead');
+
+        if (remHoursEl) remHoursEl.value = sysSettings['reminder_hours'] || '48';
+        if (confirmMsgEl) confirmMsgEl.value = sysSettings['template_confirm'] || '';
+        if (reminderMsgEl) reminderMsgEl.value = sysSettings['template_reminder'] || '';
+        if (imminentLeadEl) imminentLeadEl.value = sysSettings['imminent_lead_minutes'] || '15';
+
+        console.log("✅ Impostazioni caricate correttamente nella UI.");
+    } catch (err) {
+        console.error("Errore durante il caricamento dei campi di configurazione:", err);
+    }
+}
+
 // Funzione blindata per aprire/chiudere la barra dei filtri in agenda
 function toggleCalendarToolbar() {
     const toolbar = document.getElementById('cal-collapsible-toolbar');
