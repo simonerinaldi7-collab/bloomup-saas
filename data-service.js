@@ -6,25 +6,25 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(21).stores({
-        users: 'id, salon_id, username, status',
-        customers: 'id, salon_id, first_name, last_name, phone, gdpr_date',
-        inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment', // 👈 Aggiunto 'size'
-        appointments: 'id, salon_id, date, time',
-        sales: 'id, salon_id, date, appointment_id',
-        sale_items: 'id, salon_id, sale_id, is_paid',
-        message_logs: 'id, salon_id',
-        expenses: 'id, salon_id, date',
-        price_history: 'id, salon_id, product_id',
-        service_consumables: 'id, salon_id, service_id',
-        operator_schedules: 'id, salon_id, username, day_of_week',
-        suppliers: 'id, salon_id, name',
-        product_suppliers: 'id, salon_id, product_id, supplier_id',
-        supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid', // 👈 NUOVA TABELLA
-        stock_lots: 'id, salon_id, product_id, created_at', // 👈 NUOVA TABELLA PER GESTIONE LOTTI FIFO
-        push_subscriptions: 'id, salon_id, username', // 👈 NUOVA TABELLA LOCALE PER LE PUSH NOTIFICATIONS
-        appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date',
-        settings: 'key, salon_id',
+    localDb.version(22).stores({
+        users: 'id, salon_id, username, status, updated_at',
+        customers: 'id, salon_id, first_name, last_name, phone, gdpr_date, updated_at',
+        inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment, updated_at',
+        appointments: 'id, salon_id, date, time, updated_at',
+        sales: 'id, salon_id, date, appointment_id, updated_at',
+        sale_items: 'id, salon_id, sale_id, is_paid, updated_at',
+        message_logs: 'id, salon_id, updated_at',
+        expenses: 'id, salon_id, date, updated_at',
+        price_history: 'id, salon_id, product_id, updated_at',
+        service_consumables: 'id, salon_id, service_id, updated_at',
+        operator_schedules: 'id, salon_id, username, day_of_week, updated_at',
+        suppliers: 'id, salon_id, name, updated_at',
+        product_suppliers: 'id, salon_id, product_id, supplier_id, updated_at',
+        supplier_settlements: 'id, salon_id, sale_item_id, supplier_id, is_paid, updated_at',
+        stock_lots: 'id, salon_id, product_id, created_at, updated_at',
+        push_subscriptions: 'id, salon_id, username, updated_at',              // 👈 Aggiunto
+        appointment_dismissals: 'id, salon_id, appointment_id, dismissed_date, updated_at', // 👈 Aggiunto
+        settings: 'key, salon_id, updated_at',                                // 👈 Aggiunto
         sync_queue: '++local_id, action, table_name, data, target_id'
     });
 
@@ -62,7 +62,7 @@ function startBackgroundMultiOperatorSync() {
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
-            
+
             // Se siamo nella vista Agenda, aggiorniamo l'interfaccia se non ci sono modali aperti
             const activeView = document.querySelector('.view.active');
             if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
