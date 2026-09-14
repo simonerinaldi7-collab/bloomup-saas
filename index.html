@@ -9507,6 +9507,7 @@ if (srvCheck.includes('pausa') || custCheck.includes('pausa')) {
     
     window.api.openExternal(url); 
     await refreshAllData();
+     if (typeof renderCalendar === 'function') renderCalendar();
     if (typeof renderLogs === 'function') renderLogs();
 }
 
