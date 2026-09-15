@@ -34,7 +34,7 @@ if (typeof Dexie !== 'undefined') {
 }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE OTTIMIZZATO (SMART POLLING & PAGE VISIBILITY) ---
+/*// --- 🔄 MODULO DI SINCRONIZZAZIONE OTTIMIZZATO (SMART POLLING & PAGE VISIBILITY) ---
 let backgroundSyncInterval = null;
 
 function startBackgroundMultiOperatorSync() {
@@ -91,6 +91,141 @@ function startBackgroundMultiOperatorSync() {
         }
     });
 }
+*/
+
+// ==========================================
+// 🔄 STEP 3: MOTORE DI DELTA SYNC E GESTIONE SCRITTURE
+// ==========================================
+
+let backgroundSyncInterval = null;
+
+function startBackgroundMultiOperatorSync() {
+    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+
+    const runSyncCycle = async () => {
+        // Se la scheda del browser non è visibile o siamo offline, non eseguiamo chiamate per risparmiare Egress
+        if (document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id) {
+            return;
+        }
+
+        const salonId = currentUser.salon_id;
+        console.log("🔄 [DELTA-SYNC] Controllo incrementale modifiche in background...");
+
+        // Tabelle soggette a modifiche multi-operatore frequenti
+        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'customers'];
+        
+        try {
+            for (let table of tablesToSync) {
+                await backgroundDeltaPullFromSupabase(table, salonId);
+            }
+
+            // Aggiorniamo la memoria globale dell'app in tempo reale
+            allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+            
+            // Aggiornamento dell'interfaccia se siamo in Agenda e non ci sono modali aperti
+            const activeView = document.querySelector('.view.active');
+            if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
+                const isModalOpen = document.querySelector('.modal.active');
+                if (!isModalOpen) {
+                    renderCalendar();
+                }
+            }
+            
+            if (typeof updateStats === 'function') updateStats();
+
+        } catch (err) {
+            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante durante il ciclo di sync:", err);
+        }
+    };
+
+    // Polling leggero ogni 20 secondi
+    backgroundSyncInterval = setInterval(runSyncCycle, 20000);
+
+    // Sincronizzazione immediata non appena l'utente rimette a fuoco la pagina
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log("📱 [DELTA-SYNC] Pagina tornata visibile: eseguo delta sync immediato.");
+            runSyncCycle();
+        }
+    });
+}
+
+
+// ==========================================
+// 3. MOTORE DELTA PULL (SCARICA SOLO I RECORD MODIFICATI O NUOVI)
+// ==========================================
+async function backgroundDeltaPullFromSupabase(table, salonId) {
+    if (!salonId) return;
+
+    const syncKey = `last_sync_${table}`;
+    let lastSyncRecord = await localDb.settings.get(syncKey);
+    
+    // Se è la prima volta, partiamo dalle ultime 24 ore
+    let safetyWindowDate = new Date(Date.now() - (24 * 3600 * 1000)).toISOString();
+    if (lastSyncRecord && lastSyncRecord.value) {
+        // Buffer di -60 secondi (Clock Skew protection)
+        const lastTime = new Date(lastSyncRecord.value).getTime();
+        safetyWindowDate = new Date(lastTime - 60000).toISOString();
+    }
+
+    const currentSyncTimestamp = new Date().toISOString();
+    let limit = 500;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        // 🎯 QUERY DELTA: Chiediamo solo i record modificati/inseriti dopo safetyWindowDate
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&updated_at=gte.${safetyWindowDate}&limit=${limit}&offset=${offset}`;
+        
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`,
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    for (let record of cloudRecords) {
+                        // Inserisce o aggiorna in modo incrementale sul Dexie locale
+                        await localDb.table(table).put(record);
+                    }
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
+        } catch (err) {
+            hasMore = false;
+        }
+
+        if (table === 'users') break;
+    }
+
+    // Aggiorniamo il checkpoint locale
+    await localDb.settings.put({ key: syncKey, value: currentSyncTimestamp, salon_id: salonId });
+}
+
+
 
 window._runtimeAiKey = null;
 
@@ -191,7 +326,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     if (action === 'GET_ALL') {
         try {
             if (isOnline) {
-                await backgroundPullFromSupabase(table, salonId);
+                await backgroundDeltaPullFromSupabase(table, salonId);
             }
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
@@ -203,7 +338,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
-async function backgroundPullFromSupabase(table, salonId) {
+/*async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
     let limit = 1000;
@@ -280,9 +415,9 @@ async function backgroundPullFromSupabase(table, salonId) {
             }
         }
     }
-}
+}*/
 
-async function handleWriteOperation(action, table, data, id, isOnline) {
+/*async function handleWriteOperation(action, table, data, id, isOnline) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     console.log(`🛠️ [WRITE] Azione: ${action} su Tabella: ${table}`, data);
 
@@ -330,6 +465,72 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
         else if (action === 'DELETE') {
             await localDb.table(table).delete(id);
             console.log(`✅ [DELETE LOCALE] Eliminato da ${table} ID: ${id}`);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+            }
+            return { changes: 1 };
+        }
+   } catch (err) {
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err);
+        return { status: 'error', message: err.message };
+    }
+}
+*/
+
+// ==========================================
+// 4. GESTIONE SCRITTURE AGGIORNATA (GENERA UPDATED_AT)
+// ==========================================
+async function handleWriteOperation(action, table, data, id, isOnline) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const timestampNow = new Date().toISOString(); // Timestamp UTC standard
+
+    try {
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId,
+                updated_at: timestampNow // 👈 Assegnato all'inserimento
+            };
+            
+            await localDb.table(table).add(recordToSave);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+            }
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
+        }
+        else if (action === 'UPDATE') {
+            const updatePayload = { 
+                ...data, 
+                salon_id: salonId, 
+                updated_at: timestampNow // 👈 Aggiornato alla modifica
+            };
+            await localDb.table(table).update(id, updatePayload);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('PATCH', table, updatePayload, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+            }
+            return { changes: 1 };
+        }
+        else if (action === 'DELETE') {
+            await localDb.table(table).delete(id);
 
             if (isOnline) {
                 const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
