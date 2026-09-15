@@ -156,18 +156,16 @@ function startBackgroundMultiOperatorSync() {
 
 
 // ==========================================
-// 3. MOTORE DELTA PULL (SCARICA SOLO I RECORD MODIFICATI O NUOVI)
+// 🔄 DELTA PULL UNIVERSALE (INSERIMENTI, MODIFICHE E CANCELLAZIONI DA LOG)
 // ==========================================
 async function backgroundDeltaPullFromSupabase(table, salonId) {
-    if (!salonId) return;
+    if (!salonId) return false;
 
     const syncKey = `last_sync_${table}`;
     let lastSyncRecord = await localDb.settings.get(syncKey);
     
-    // Se è la prima volta, partiamo dalle ultime 24 ore
     let safetyWindowDate = new Date(Date.now() - (24 * 3600 * 1000)).toISOString();
     if (lastSyncRecord && lastSyncRecord.value) {
-        // Buffer di -60 secondi (Clock Skew protection)
         const lastTime = new Date(lastSyncRecord.value).getTime();
         safetyWindowDate = new Date(lastTime - 60000).toISOString();
     }
@@ -176,9 +174,10 @@ async function backgroundDeltaPullFromSupabase(table, salonId) {
     let limit = 500;
     let offset = 0;
     let hasMore = true;
+    let recordsCount = 0;
 
+    // 1. SCARHIAMO I DELTA DI MODIFICA/INSERIMENTO PER QUESTA TABELLA
     while (hasMore) {
-        // 🎯 QUERY DELTA: Chiediamo solo i record modificati/inseriti dopo safetyWindowDate
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&updated_at=gte.${safetyWindowDate}&limit=${limit}&offset=${offset}`;
         
         if (table === 'users') {
@@ -200,8 +199,8 @@ async function backgroundDeltaPullFromSupabase(table, salonId) {
             if (response.ok) {
                 const cloudRecords = await response.json();
                 if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    recordsCount += cloudRecords.length;
                     for (let record of cloudRecords) {
-                        // Inserisce o aggiorna in modo incrementale sul Dexie locale
                         await localDb.table(table).put(record);
                     }
                     if (cloudRecords.length < limit) {
@@ -222,8 +221,30 @@ async function backgroundDeltaPullFromSupabase(table, salonId) {
         if (table === 'users') break;
     }
 
-    // Aggiorniamo il checkpoint locale
+    // Aggiorniamo il checkpoint di questa tabella
     await localDb.settings.put({ key: syncKey, value: currentSyncTimestamp, salon_id: salonId });
+
+    // 2. 🌟 SCARHIAMO E APPLICHIAMO LE CANCELLAZIONI DALLA TABELLA GLOBALE `deletion_logs`
+    try {
+        const delRes = await fetch(`${SUPABASE_URL}/rest/v1/deletion_logs?salon_id=eq.${salonId}&table_name=eq.${table}&deleted_at=gte.${safetyWindowDate}&select=record_id`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+
+        if (delRes.ok) {
+            const deletions = await delRes.json();
+            if (Array.isArray(deletions) && deletions.length > 0) {
+                for (let del of deletions) {
+                    await localDb.table(table).delete(del.record_id);
+                    recordsCount++;
+                    console.log(`🗑️ [TOMBSTONE DELETE] Rimosso localmente ID ${del.record_id} dalla tabella '${table}'`);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn(`Errore recupero log eliminazioni per ${table}:`, e);
+    }
+
+    return recordsCount > 0;
 }
 
 
@@ -662,50 +683,89 @@ window.hydrateLocalDatabase = async function(salonId) {
 
 
 // ==========================================
-// 🚀 IDRATAZIONE INIZIALE BASATA SULLO STATO REALE DI DEXIE (MULTI-OPERATORE SAFE)
+// ✍️ SCRITTURA UNIVERSALE (AGGIORNA UPDATED_AT E REGISTRA CANCELLAZIONI)
 // ==========================================
+async function handleWriteOperation(action, table, data, id, isOnline) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const timestampNow = new Date().toISOString();
 
-window.hydrateLocalDatabase = async function(salonId) {
-    if (!navigator.onLine || !salonId) return;
-    
     try {
-        console.log("🚀 [SMART HYDRATION] Verifica consistenza dati locali per il salon_id:", salonId);
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId,
+                updated_at: timestampNow
+            };
+            
+            await localDb.table(table).add(recordToSave);
 
-        // 1. Verifichiamo se le tabelle chiave del salone hanno effettivamente dei dati in IndexedDB
-        const customersCount = await localDb.customers.where('salon_id').equals(salonId).count();
-        const inventoryCount = await localDb.inventory.where('salon_id').equals(salonId).count();
-        const appointmentsCount = await localDb.appointments.where('salon_id').equals(salonId).count();
-
-        // Se anche una sola di queste tabelle chiave è vuota in locale, significa che il DB non è completo 
-        // (es. primo accesso, cambio operatore su browser pulito, o dati mancanti).
-        if (customersCount > 0 && inventoryCount > 0 && appointmentsCount > 0) {
-            console.log(`⚡ [SMART HYDRATION] Database locale già popolato (Clienti: ${customersCount}, Prodotti: ${inventoryCount}, Appuntamenti: ${appointmentsCount}). Salto il full sync.`);
-            return;
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+            }
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
         }
+        else if (action === 'UPDATE') {
+            const updatePayload = { 
+                ...data, 
+                salon_id: salonId, 
+                updated_at: timestampNow 
+            };
+            await localDb.table(table).update(id, updatePayload);
 
-        console.log("📥 [SMART HYDRATION] Rilevati dati locali mancanti o incompleti per questo salone. Avvio download iniziale completo...");
-
-        // 2. Elenco di tutte le tabelle di business da scaricare
-        const tablesToHydrate = [
-            'users', 'settings', 'customers', 'appointments', 
-            'inventory', 'suppliers', 'product_suppliers', 
-            'service_consumables', 'price_history', 'sales', 
-            'sale_items', 'expenses', 'stock_lots', 'message_logs'
-        ];
-
-        // 3. Scaricamento completo sequenziale controllato
-        for (let table of tablesToHydrate) {
-            console.log(`📥 [FULL PULL INIZIALE] Scaricamento tabella '${table}'...`);
-            await pullTableFull(table, salonId);
-            await new Promise(r => setTimeout(r, 60)); // Pausa di cortesia per evitare blocchi 429
+            if (isOnline) {
+                const success = await sendToCloudDirectly('PATCH', table, updatePayload, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+            }
+            return { changes: 1 };
         }
+        else if (action === 'DELETE') {
+            // 1. Eliminiamo prima in locale
+            await localDb.table(table).delete(id);
 
-        console.log("✅ [SMART HYDRATION] Idratazione iniziale del salone completata con successo.");
+            if (isOnline) {
+                // 2. Cancelliamo fisicamente il record su Supabase nella sua tabella
+                const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
+                
+                // 3. 🌟 REGISTRIAMO LA TOMBSTONE (Log di eliminazione) su Supabase per gli altri dispositivi
+                await fetch(`${SUPABASE_URL}/rest/v1/deletion_logs`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        table_name: table,
+                        record_id: id,
+                        deleted_at: timestampNow
+                    })
+                }).catch(e => console.warn("Invio log cancellazione cloud rimandato:", e));
 
-    } catch (err) {
-        console.warn("⚠️ [SMART HYDRATION] Errore durante l'idratazione intelligente:", err);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+            }
+            return { changes: 1 };
+        }
+   } catch (err) {
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err);
+        return { status: 'error', message: err.message };
     }
-};
+}
 
 // 📥 Funzione di supporto per il download completo iniziale di una tabella (invariata)
 async function pullTableFull(table, salonId) {
