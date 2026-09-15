@@ -112,7 +112,7 @@ function startBackgroundMultiOperatorSync() {
         console.log("🔄 [DELTA-SYNC] Controllo incrementale modifiche in background...");
 
         // Tabelle soggette a modifiche multi-operatore frequenti
-        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'customers'];
+        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'customers', 'message_logs'];
         
         try {
             for (let table of tablesToSync) {
@@ -124,7 +124,8 @@ function startBackgroundMultiOperatorSync() {
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
-            
+            allLogs = await localDb.message_logs.where('salon_id').equals(salonId).toArray() || []; 
+
             // Aggiornamento dell'interfaccia se siamo in Agenda e non ci sono modali aperti
             const activeView = document.querySelector('.view.active');
             if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
@@ -689,7 +690,7 @@ window.hydrateLocalDatabase = async function(salonId) {
             'users', 'settings', 'customers', 'appointments', 
             'inventory', 'suppliers', 'product_suppliers', 
             'service_consumables', 'price_history', 'sales', 
-            'sale_items', 'expenses', 'stock_lots'
+            'sale_items', 'expenses', 'stock_lots', 'message_logs'
         ];
 
         // 3. Scaricamento completo sequenziale controllato
