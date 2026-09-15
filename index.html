@@ -1816,12 +1816,6 @@
 <input type="number" id="set-imminent-lead" min="1" max="120">
 <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
             
-<div style="margin-top: 15px; text-align: center;">
-    <button type="button" onclick="forceFullCloudRefresh()" style="background: transparent; border: none; color: #fff; text-decoration: underline; font-size: 12px; cursor: pointer;">
-        🔄 Ripristina e scarica tutto dal Cloud (Full Refresh)
-    </button>
-</div>
-
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
@@ -5768,12 +5762,6 @@ async function quickAlarmAction(actionType) {
     if(active === 'v-logs') renderLogs();
     if(active === 'v-settings') loadSettingsFields();
     if(active === 'v-users') renderUsers();
-
-    if (active === 'v-sales-report' || active === 'v-sales') {
-    if (typeof window.forceSyncSalesAndAppointments === 'function') {
-        await window.forceSyncSalesAndAppointments();
-    }
-}
 }
 
 
@@ -7199,167 +7187,7 @@ const heightPx = Math.max((durationMin * pxPerMinute) - 2, 18); // Fino a 18px m
         });
     }
 
-window.mobileForceFullSync = async function() {
-    if (!navigator.onLine) {
-        return alert("⚠️ Connessione a internet assente. Connettiti al Wi-Fi per sincronizzare i dati.");
-    }
 
-    if (!confirm("Vuoi forzare il ricaricamento completo di cassa, agenda e clienti da zero su questo telefono?")) {
-        return;
-    }
-
-    try {
-        console.log("🔄 [MOBILE SYNC] Avvio pulizia e sincronizzazione forzata...");
-        
-        // 1. Cancelliamo i timestamp di controllo del delta sync per costringere il telefono a riscaricare tutto
-        if (localDb && localDb.settings) {
-            await localDb.settings.where('key').startsWith('last_sync_').delete();
-        }
-
-        // 2. Svuotiamo le tabelle locali critiche per evitare conflitti (senza perdere gli utenti)
-        if (localDb) {
-            await localDb.sales.clear();
-            await localDb.sale_items.clear();
-            await localDb.appointments.clear();
-            await localDb.customers.clear();
-        }
-
-        alert("✅ Memoria di sincronizzazione pulita. L'app si riavvierà per scaricare i dati aggiornati.");
-        
-        // 3. Ricarichiamo la pagina
-        location.reload();
-
-    } catch (err) {
-        console.error("Errore durante il reset della sync mobile:", err);
-        alert("Si è verificato un errore durante la sincronizzazione.");
-    }
-};
-
-
-window.forceFullCloudRefresh = async function() {
-    if (!navigator.onLine) {
-        return alert("⚠️ Connessione internet assente. Impossibile scaricare i dati dal cloud.");
-    }
-
-    if (!currentUser || !currentUser.salon_id) {
-        return alert("⚠️ Utente non autenticato o salon_id mancante. Effettua nuovamente il login.");
-    }
-
-    const salonId = currentUser.salon_id;
-    console.warn("🚨 [FULL REFRESH] Avvio scaricamento totale e pulizia forzata da Supabase per il salone:", salonId);
-
-    try {
-        // Mostriamo un feedback visivo se c'è l'overlay di caricamento, altrimenti un alert
-        const loadingOverlay = document.getElementById('login-loading-overlay');
-        const loadingText = document.getElementById('login-loading-text');
-        if (loadingOverlay) {
-            if (loadingText) loadingText.innerText = "Svuotamento cache locale e download completo dal Cloud in corso...";
-            loadingOverlay.classList.add('active');
-        } else {
-            console.log("Download completo in corso...");
-        }
-
-        // 1. ELIMINAZIONE TOTALE DEI DATI LOCALI NELLE TABELLE CRITICHE
-        if (localDb) {
-            await localDb.sales.clear();
-            await localDb.sale_items.clear();
-            await localDb.appointments.clear();
-            await localDb.customers.clear();
-            await localDb.inventory.clear();
-            await localDb.settings.where('key').startsWith('last_sync_').delete();
-            console.log("🧹 [FULL REFRESH] Tabelle locali svuotate con successo.");
-        }
-
-        // 2. LISTA DELLE TABELLE DA SCARICARE INTEGRALMENTE DAL CLOUD
-        const tablesToPullFull = [
-            'users', 'settings', 'customers', 'appointments', 
-            'inventory', 'suppliers', 'product_suppliers', 
-            'service_consumables', 'price_history', 'sales', 
-            'sale_items', 'expenses', 'stock_lots', 'message_logs'
-        ];
-
-        // 3. CICLO DI DOWNLOAD COMPLETO CON GESTIONE DELLA PAGINAZIONE DI SUPABASE
-        for (let table of tablesToPullFull) {
-            console.log(`📥 [FULL REFRESH] Scaricamento completo tabella: ${table}...`);
-            await pullTableFullWithoutLimits(table, salonId);
-        }
-
-        console.log("✅ [FULL REFRESH] Tutti i dati sono stati scaricati e sincronizzati al 100%!");
-        
-        if (loadingOverlay) loadingOverlay.classList.remove('active');
-        
-        alert("✅ Sincronizzazione completata con successo! Il telefono è ora perfettamente allineato.");
-        
-        // Ricarichiamo l'app per aggiornare le viste
-        location.reload();
-
-    } catch (err) {
-        console.error("❌ [FULL REFRESH] Errore critico durante il reset completo:", err);
-        alert("Errore durante il reset: " + err.message);
-        const loadingOverlay = document.getElementById('login-loading-overlay');
-        if (loadingOverlay) loadingOverlay.classList.remove('active');
-    }
-};
-
-// Funzione di supporto che scarica TUTTI i record superando il limite dei 1000 di Supabase
-async function pullTableFullWithoutLimits(table, salonId) {
-    let limit = 1000;
-    let offset = 0;
-    let hasMore = true;
-    let latestTimestamp = new Date(0).toISOString();
-
-    while (hasMore) {
-        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
-        
-        if (table === 'users') {
-            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
-            hasMore = false;
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Range': `${offset}-${offset + limit - 1}`,
-                    'Cache-Control': 'no-cache, no-store, must-revalidate'
-                }
-            });
-            
-            if (response.ok) {
-                const cloudRecords = await response.json();
-                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
-                    for (let record of cloudRecords) {
-                        await localDb.table(table).put(record);
-                        if (record.updated_at && record.updated_at > latestTimestamp) {
-                            latestTimestamp = record.updated_at;
-                        }
-                    }
-                    if (cloudRecords.length < limit) {
-                        hasMore = false;
-                    } else {
-                        offset += limit; // Incrementa l'offset per la pagina successiva
-                    }
-                } else {
-                    hasMore = false;
-                }
-            } else {
-                console.warn(`⚠️ [PULL FULL] Errore ${response.status} per la tabella ${table}`);
-                hasMore = false;
-            }
-        } catch (err) {
-            console.warn(`❌ [PULL FULL] Eccezione di rete per ${table}:`, err);
-            hasMore = false;
-        }
-
-        if (table === 'users') break;
-    }
-
-    // Salva il nuovo checkpoint
-    const syncKey = `last_sync_${table}`;
-    await localDb.settings.put({ key: syncKey, value: latestTimestamp, salon_id: salonId });
-}
 
     // Chiusura/Salto del modulo smart
     function closeSmartRebooking() {
