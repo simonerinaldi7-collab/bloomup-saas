@@ -954,15 +954,12 @@ async function handleSpecialAction(action, data, id) {
                         console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username}`);
                     }
 
-                    // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
+                    // ✅ NUOVO CODICE SICURO (Non distrugge mai Dexie al login, preservando l'offline-first)
                     if (localDb) {
-                        try {
-                            await localDb.delete();
+                        if (!localDb.isOpen()) {
                             await localDb.open();
-                        } catch (dbEx) {
-                            console.error("Errore azzeramento IndexedDB:", dbEx);
                         }
-                        
+                        // Aggiorniamo o inseriamo l'utente corrente in locale senza cancellare clienti, magazzino o agenda
                         await localDb.users.put(user);
                     }
 
