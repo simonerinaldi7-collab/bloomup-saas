@@ -421,7 +421,7 @@ async function processBrowserSyncQueue() {
     }
 }
 
-// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
+/*// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine) return;
     console.log("🚀 [FAST SYNC] Avvio idratazione intelligente e scaglionata per il salon_id:", salonId);
@@ -456,7 +456,132 @@ window.hydrateLocalDatabase = async function(salonId) {
         console.warn("⚠️ [FAST SYNC] Errore durante l'idratazione scaglionata:", err);
     }
 }
+*/
 
+
+// ==========================================
+// 🚀 STEP 2: IDRATAZIONE INIZIALE INTELLIGENTE (CON FLAG GLOBALE)
+// ==========================================
+
+window.hydrateLocalDatabase = async function(salonId) {
+    if (!navigator.onLine || !salonId) return;
+    
+    try {
+        // 1. Verifichiamo se questo dispositivo ha già completato l'idratazione iniziale
+        // Controlliamo nella tabella 'settings' locale la presenza del flag di sistema
+        const hydrationFlag = await localDb.settings.get('db_hydrated');
+        
+        // Se il flag esiste ed è attivo, il DB è già pieno: saltiamo il full sync e usciamo
+        if (hydrationFlag && hydrationFlag.value === 'true') {
+            console.log("⚡ [SMART HYDRATION] Database locale già idratato. Nessun download massivo necessario.");
+            return;
+        }
+
+        console.log("🚀 [SMART HYDRATION] Primo accesso o DB locale pulito rilevato. Avvio download iniziale completo...");
+
+        // 2. Elenco di tutte le tabelle di business da scaricare la prima volta
+        const tablesToHydrate = [
+            'users', 'settings', 'customers', 'appointments', 
+            'inventory', 'suppliers', 'product_suppliers', 
+            'service_consumables', 'price_history', 'sales', 
+            'sale_items', 'expenses', 'stock_lots'
+        ];
+
+        // 3. Scaricamento completo sequenziale controllato (evita picchi e blocchi 429)
+        for (let table of tablesToHydrate) {
+            console.log(`📥 [FULL PULL INIZIALE] Scaricamento tabella '${table}'...`);
+            await pullTableFull(table, salonId);
+            // Breve pausa di cortesia tra le tabelle per non sovraccaricare Supabase
+            await new Promise(r => setTimeout(r, 60));
+        }
+
+        // 4. Impostiamo il flag globale a 'true' in locale e lo sincronizziamo sul cloud
+        // Da questo momento in poi, questo dispositivo considererà il DB idratato.
+        await localDb.settings.put({ key: 'db_hydrated', value: 'true', salon_id: salonId });
+        
+        if (navigator.onLine) {
+            await fetch(`${SUPABASE_URL}/rest/v1/settings?on_conflict=key,salon_id`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({ key: 'db_hydrated', value: 'true', salon_id: salonId })
+            }).catch(e => console.warn("Sync cloud flag hydration rimandata:", e));
+        }
+
+        console.log("✅ [SMART HYDRATION] Idratazione iniziale completata con successo. Flag impostato.");
+
+    } catch (err) {
+        console.warn("⚠️ [SMART HYDRATION] Errore durante l'idratazione intelligente:", err);
+    }
+};
+
+// 📥 Funzione di supporto per il download completo iniziale di una tabella
+async function pullTableFull(table, salonId) {
+    let limit = 1000;
+    let offset = 0;
+    let hasMore = true;
+    let latestTimestamp = new Date(0).toISOString(); // Timestamp di partenza base
+
+    while (hasMore) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
+        
+        // Per la tabella users, non serve la paginazione massiva
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`,
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    for (let record of cloudRecords) {
+                        // Salvataggio nel Dexie locale
+                        await localDb.table(table).put(record);
+                        
+                        // Intercettiamo il timestamp più recente per impostare il checkpoint del delta sync
+                        if (record.updated_at && record.updated_at > latestTimestamp) {
+                            latestTimestamp = record.updated_at;
+                        }
+                    }
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                console.warn(`⚠️ Full Pull fallito per ${table} (Status: ${response.status})`);
+                hasMore = false;
+            }
+        } catch (err) {
+            console.warn(`❌ Errore di rete durante il full pull di ${table}:`, err);
+            hasMore = false;
+        }
+
+        if (table === 'users') break;
+    }
+
+    // Salviamo il checkpoint dell'ultima modifica per questa tabella (fondamentale per il successivo Delta Sync)
+    const syncKey = `last_sync_${table}`;
+    await localDb.settings.put({ key: syncKey, value: latestTimestamp, salon_id: salonId });
+}
 
 async function handleSpecialAction(action, data, id) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
