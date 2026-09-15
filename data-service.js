@@ -661,25 +661,30 @@ window.hydrateLocalDatabase = async function(salonId) {
 
 
 // ==========================================
-// 🚀 IDRATAZIONE INIZIALE INTELLIGENTE (BASATA SUL DISPOSITIVO - LOCALSTORAGE)
+// 🚀 IDRATAZIONE INIZIALE BASATA SULLO STATO REALE DI DEXIE (MULTI-OPERATORE SAFE)
 // ==========================================
 
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine || !salonId) return;
     
     try {
-        const deviceHydrationKey = `db_hydrated_${salonId}`;
-        const isDeviceHydrated = localStorage.getItem(deviceHydrationKey);
-        
-        // 1. Se questo specifico browser/dispositivo ha già fatto il download completo, usciamo
-        if (isDeviceHydrated === 'true') {
-            console.log("⚡ [SMART HYDRATION] Dispositivo già idratato (verificato via localStorage). Salto il full sync.");
+        console.log("🚀 [SMART HYDRATION] Verifica consistenza dati locali per il salon_id:", salonId);
+
+        // 1. Verifichiamo se le tabelle chiave del salone hanno effettivamente dei dati in IndexedDB
+        const customersCount = await localDb.customers.where('salon_id').equals(salonId).count();
+        const inventoryCount = await localDb.inventory.where('salon_id').equals(salonId).count();
+        const appointmentsCount = await localDb.appointments.where('salon_id').equals(salonId).count();
+
+        // Se anche una sola di queste tabelle chiave è vuota in locale, significa che il DB non è completo 
+        // (es. primo accesso, cambio operatore su browser pulito, o dati mancanti).
+        if (customersCount > 0 && inventoryCount > 0 && appointmentsCount > 0) {
+            console.log(`⚡ [SMART HYDRATION] Database locale già popolato (Clienti: ${customersCount}, Prodotti: ${inventoryCount}, Appuntamenti: ${appointmentsCount}). Salto il full sync.`);
             return;
         }
 
-        console.log("🚀 [SMART HYDRATION] Nuovo dispositivo o cache pulita rilevata. Avvio download iniziale completo...");
+        console.log("📥 [SMART HYDRATION] Rilevati dati locali mancanti o incompleti per questo salone. Avvio download iniziale completo...");
 
-        // 2. Elenco di tutte le tabelle di business da scaricare la prima volta su questo dispositivo
+        // 2. Elenco di tutte le tabelle di business da scaricare
         const tablesToHydrate = [
             'users', 'settings', 'customers', 'appointments', 
             'inventory', 'suppliers', 'product_suppliers', 
@@ -691,13 +696,10 @@ window.hydrateLocalDatabase = async function(salonId) {
         for (let table of tablesToHydrate) {
             console.log(`📥 [FULL PULL INIZIALE] Scaricamento tabella '${table}'...`);
             await pullTableFull(table, salonId);
-            await new Promise(r => setTimeout(r, 60)); // Pausa di cortesia
+            await new Promise(r => setTimeout(r, 60)); // Pausa di cortesia per evitare blocchi 429
         }
 
-        // 4. Impostiamo il flag di idratazione ESCLUSIVAMENTE nel localStorage di questo dispositivo
-        localStorage.setItem(deviceHydrationKey, 'true');
-
-        console.log("✅ [SMART HYDRATION] Idratazione iniziale del dispositivo completata con successo.");
+        console.log("✅ [SMART HYDRATION] Idratazione iniziale del salone completata con successo.");
 
     } catch (err) {
         console.warn("⚠️ [SMART HYDRATION] Errore durante l'idratazione intelligente:", err);
