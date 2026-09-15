@@ -1816,6 +1816,12 @@
 <input type="number" id="set-imminent-lead" min="1" max="120">
 <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
             
+<div class="card" style="margin-top: 20px; border-left: 5px solid #e17055;">
+    <h4 style="margin-top:0; color:#e17055;">🛠️ Risoluzione Problemi di Sincronizzazione</h4>
+    <p style="font-size: 13px; color: #666;">Se su questo telefono i dati della cassa o dell'agenda non coincidono con gli altri dispositivi, premi il tasto sottostante per forzare l'allineamento completo.</p>
+    <button class="btn btn-d" onclick="mobileForceFullSync()">Forza Sincronizzazione Totale</button>
+</div>
+
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
@@ -7193,7 +7199,41 @@ const heightPx = Math.max((durationMin * pxPerMinute) - 2, 18); // Fino a 18px m
         });
     }
 
+window.mobileForceFullSync = async function() {
+    if (!navigator.onLine) {
+        return alert("⚠️ Connessione a internet assente. Connettiti al Wi-Fi per sincronizzare i dati.");
+    }
 
+    if (!confirm("Vuoi forzare il ricaricamento completo di cassa, agenda e clienti da zero su questo telefono?")) {
+        return;
+    }
+
+    try {
+        console.log("🔄 [MOBILE SYNC] Avvio pulizia e sincronizzazione forzata...");
+        
+        // 1. Cancelliamo i timestamp di controllo del delta sync per costringere il telefono a riscaricare tutto
+        if (localDb && localDb.settings) {
+            await localDb.settings.where('key').startsWith('last_sync_').delete();
+        }
+
+        // 2. Svuotiamo le tabelle locali critiche per evitare conflitti (senza perdere gli utenti)
+        if (localDb) {
+            await localDb.sales.clear();
+            await localDb.sale_items.clear();
+            await localDb.appointments.clear();
+            await localDb.customers.clear();
+        }
+
+        alert("✅ Memoria di sincronizzazione pulita. L'app si riavvierà per scaricare i dati aggiornati.");
+        
+        // 3. Ricarichiamo la pagina
+        location.reload();
+
+    } catch (err) {
+        console.error("Errore durante il reset della sync mobile:", err);
+        alert("Si è verificato un errore durante la sincronizzazione.");
+    }
+};
 
     // Chiusura/Salto del modulo smart
     function closeSmartRebooking() {
