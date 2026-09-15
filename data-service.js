@@ -34,7 +34,7 @@ if (typeof Dexie !== 'undefined') {
 }
 
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE OTTIMIZZATO (SMART POLLING & PAGE VISIBILITY) ---
+/*// --- 🔄 MODULO DI SINCRONIZZAZIONE OTTIMIZZATO (SMART POLLING & PAGE VISIBILITY) ---
 let backgroundSyncInterval = null;
 
 function startBackgroundMultiOperatorSync() {
@@ -91,6 +91,163 @@ function startBackgroundMultiOperatorSync() {
         }
     });
 }
+*/
+
+// ==========================================
+// 🔄 STEP 3: MOTORE DI DELTA SYNC E GESTIONE SCRITTURE
+// ==========================================
+
+let backgroundSyncInterval = null;
+
+function startBackgroundMultiOperatorSync() {
+    if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
+
+    const runSyncCycle = async () => {
+        // Se la scheda del browser non è visibile o siamo offline, non eseguiamo chiamate per risparmiare Egress
+        if (document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id) {
+            return;
+        }
+
+        const salonId = currentUser.salon_id;
+        console.log("🔄 [DELTA-SYNC] Controllo incrementale modifiche in background...");
+
+        // Tabelle soggette a modifiche multi-operatore frequenti
+        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'customers', 'message_logs'];
+        
+        try {
+            for (let table of tablesToSync) {
+                await backgroundDeltaPullFromSupabase(table, salonId);
+            }
+
+            // Aggiorniamo la memoria globale dell'app in tempo reale
+            allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+            allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+            allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
+            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+            allLogs = await localDb.message_logs.where('salon_id').equals(salonId).toArray() || []; 
+
+            // Aggiornamento dell'interfaccia se siamo in Agenda e non ci sono modali aperti
+            const activeView = document.querySelector('.view.active');
+            if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
+                const isModalOpen = document.querySelector('.modal.active');
+                if (!isModalOpen) {
+                    renderCalendar();
+                }
+            }
+            
+            if (typeof updateStats === 'function') updateStats();
+
+        } catch (err) {
+            console.warn("⚠️ [DELTA-SYNC] Errore non bloccante durante il ciclo di sync:", err);
+        }
+    };
+
+    // Polling leggero ogni 20 secondi
+    backgroundSyncInterval = setInterval(runSyncCycle, 20000);
+
+    // Sincronizzazione immediata non appena l'utente rimette a fuoco la pagina
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log("📱 [DELTA-SYNC] Pagina tornata visibile: eseguo delta sync immediato.");
+            runSyncCycle();
+        }
+    });
+}
+
+
+// ==========================================
+// 🔄 DELTA PULL UNIVERSALE (INSERIMENTI, MODIFICHE E CANCELLAZIONI DA LOG)
+// ==========================================
+async function backgroundDeltaPullFromSupabase(table, salonId) {
+    if (!salonId) return false;
+
+    const syncKey = `last_sync_${table}`;
+    let lastSyncRecord = await localDb.settings.get(syncKey);
+    
+    let safetyWindowDate = new Date(Date.now() - (24 * 3600 * 1000)).toISOString();
+    if (lastSyncRecord && lastSyncRecord.value) {
+        const lastTime = new Date(lastSyncRecord.value).getTime();
+        safetyWindowDate = new Date(lastTime - 60000).toISOString();
+    }
+
+    const currentSyncTimestamp = new Date().toISOString();
+    let limit = 500;
+    let offset = 0;
+    let hasMore = true;
+    let recordsCount = 0;
+
+    // 1. SCARHIAMO I DELTA DI MODIFICA/INSERIMENTO PER QUESTA TABELLA
+    while (hasMore) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&updated_at=gte.${safetyWindowDate}&limit=${limit}&offset=${offset}`;
+        
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`,
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    recordsCount += cloudRecords.length;
+                    for (let record of cloudRecords) {
+                        await localDb.table(table).put(record);
+                    }
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
+        } catch (err) {
+            hasMore = false;
+        }
+
+        if (table === 'users') break;
+    }
+
+    // Aggiorniamo il checkpoint di questa tabella
+    await localDb.settings.put({ key: syncKey, value: currentSyncTimestamp, salon_id: salonId });
+
+    // 2. 🌟 SCARHIAMO E APPLICHIAMO LE CANCELLAZIONI DALLA TABELLA GLOBALE `deletion_logs`
+    try {
+        const delRes = await fetch(`${SUPABASE_URL}/rest/v1/deletion_logs?salon_id=eq.${salonId}&table_name=eq.${table}&deleted_at=gte.${safetyWindowDate}&select=record_id`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+
+        if (delRes.ok) {
+            const deletions = await delRes.json();
+            if (Array.isArray(deletions) && deletions.length > 0) {
+                for (let del of deletions) {
+                    await localDb.table(table).delete(del.record_id);
+                    recordsCount++;
+                    console.log(`🗑️ [TOMBSTONE DELETE] Rimosso localmente ID ${del.record_id} dalla tabella '${table}'`);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn(`Errore recupero log eliminazioni per ${table}:`, e);
+    }
+
+    return recordsCount > 0;
+}
+
+
 
 window._runtimeAiKey = null;
 
@@ -191,7 +348,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     if (action === 'GET_ALL') {
         try {
             if (isOnline) {
-                await backgroundPullFromSupabase(table, salonId);
+                await backgroundDeltaPullFromSupabase(table, salonId);
             }
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
@@ -203,7 +360,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 }
 
-async function backgroundPullFromSupabase(table, salonId) {
+/*async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
     let limit = 1000;
@@ -280,9 +437,9 @@ async function backgroundPullFromSupabase(table, salonId) {
             }
         }
     }
-}
+}*/
 
-async function handleWriteOperation(action, table, data, id, isOnline) {
+/*async function handleWriteOperation(action, table, data, id, isOnline) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     console.log(`🛠️ [WRITE] Azione: ${action} su Tabella: ${table}`, data);
 
@@ -330,6 +487,72 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
         else if (action === 'DELETE') {
             await localDb.table(table).delete(id);
             console.log(`✅ [DELETE LOCALE] Eliminato da ${table} ID: ${id}`);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+            }
+            return { changes: 1 };
+        }
+   } catch (err) {
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err);
+        return { status: 'error', message: err.message };
+    }
+}
+*/
+
+// ==========================================
+// 4. GESTIONE SCRITTURE AGGIORNATA (GENERA UPDATED_AT)
+// ==========================================
+async function handleWriteOperation(action, table, data, id, isOnline) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const timestampNow = new Date().toISOString(); // Timestamp UTC standard
+
+    try {
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId,
+                updated_at: timestampNow // 👈 Assegnato all'inserimento
+            };
+            
+            await localDb.table(table).add(recordToSave);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+            }
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
+        }
+        else if (action === 'UPDATE') {
+            const updatePayload = { 
+                ...data, 
+                salon_id: salonId, 
+                updated_at: timestampNow // 👈 Aggiornato alla modifica
+            };
+            await localDb.table(table).update(id, updatePayload);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('PATCH', table, updatePayload, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+            }
+            return { changes: 1 };
+        }
+        else if (action === 'DELETE') {
+            await localDb.table(table).delete(id);
 
             if (isOnline) {
                 const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
@@ -421,7 +644,44 @@ async function processBrowserSyncQueue() {
     }
 }
 
-// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
+
+// ==========================================
+// 🚀 IDRATAZIONE INTELLIGENTE PER TABELLA (SENZA CANCELLARE DEXIE AL LOGOUT)
+// ==========================================
+
+window.hydrateLocalDatabase = async function(salonId) {
+    if (!navigator.onLine || !salonId) return;
+    
+    try {
+        console.log("🚀 [SMART HYDRATION] Controllo integrità tabelle locali per il salon_id:", salonId);
+
+        // Elenco delle tabelle critiche che compongono il gestionale
+        const tablesToVerify = [
+            'users', 'settings', 'customers', 'appointments', 
+            'inventory', 'suppliers', 'product_suppliers', 
+            'service_consumables', 'price_history', 'sales', 
+            'sale_items', 'expenses', 'stock_lots', 'message_logs'
+        ];
+
+        for (let table of tablesToVerify) {
+            // Controlliamo quanti record ha questa specifica tabella in locale per questo salone
+            const count = await localDb.table(table).where('salon_id').equals(salonId).count();
+
+            // 🔍 SE UNA TABELLA È VUOTA (es. aggiunta nuova, o primo accesso dell'operatore), 
+            // scarichiamo SOLO QUELLA TABELLA, lasciando intatte le altre piene!
+            if (count === 0) {
+                console.log(`📥 [SMART HYDRATION] Tabella '${table}' vuota in locale. Scarico i dati dal cloud...`);
+                await pullTableFull(table, salonId);
+            }
+        }
+
+        console.log("✅ [SMART HYDRATION] Integrità del database locale verificata.");
+
+    } catch (err) {
+        console.warn("⚠️ [SMART HYDRATION] Errore durante il controllo di idratazione:", err);
+    }
+};
+/*// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
 window.hydrateLocalDatabase = async function(salonId) {
     if (!navigator.onLine) return;
     console.log("🚀 [FAST SYNC] Avvio idratazione intelligente e scaglionata per il salon_id:", salonId);
@@ -456,7 +716,152 @@ window.hydrateLocalDatabase = async function(salonId) {
         console.warn("⚠️ [FAST SYNC] Errore durante l'idratazione scaglionata:", err);
     }
 }
+*/
 
+
+// ==========================================
+// ✍️ SCRITTURA UNIVERSALE (AGGIORNA UPDATED_AT E REGISTRA CANCELLAZIONI)
+// ==========================================
+async function handleWriteOperation(action, table, data, id, isOnline) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const timestampNow = new Date().toISOString();
+
+    try {
+        if (action === 'INSERT') {
+            const recordToSave = { 
+                ...data, 
+                id: data.id || crypto.randomUUID(), 
+                salon_id: salonId,
+                updated_at: timestampNow
+            };
+            
+            await localDb.table(table).add(recordToSave);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('POST', table, recordToSave);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'INSERT', table_name: table, data: recordToSave, target_id: recordToSave.id });
+            }
+            return { lastInsertRowid: recordToSave.id, id: recordToSave.id };
+        }
+        else if (action === 'UPDATE') {
+            const updatePayload = { 
+                ...data, 
+                salon_id: salonId, 
+                updated_at: timestampNow 
+            };
+            await localDb.table(table).update(id, updatePayload);
+
+            if (isOnline) {
+                const success = await sendToCloudDirectly('PATCH', table, updatePayload, id);
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'UPDATE', table_name: table, data: updatePayload, target_id: id });
+            }
+            return { changes: 1 };
+        }
+        else if (action === 'DELETE') {
+            // 1. Eliminiamo prima in locale
+            await localDb.table(table).delete(id);
+
+            if (isOnline) {
+                // 2. Cancelliamo fisicamente il record su Supabase nella sua tabella
+                const success = await sendToCloudDirectly('DELETE', table, { salon_id: salonId }, id);
+                
+                // 3. 🌟 REGISTRIAMO LA TOMBSTONE (Log di eliminazione) su Supabase per gli altri dispositivi
+                await fetch(`${SUPABASE_URL}/rest/v1/deletion_logs`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        table_name: table,
+                        record_id: id,
+                        deleted_at: timestampNow
+                    })
+                }).catch(e => console.warn("Invio log cancellazione cloud rimandato:", e));
+
+                if (!success) {
+                    await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+                }
+            } else {
+                await localDb.sync_queue.add({ action: 'DELETE', table_name: table, data: { salon_id: salonId }, target_id: id });
+            }
+            return { changes: 1 };
+        }
+   } catch (err) {
+        console.error(`💥 [ERRORE SCRITTURA CRITICO] Azione: ${action} su Tabella: ${table}`, err);
+        return { status: 'error', message: err.message };
+    }
+}
+
+// 📥 Funzione di supporto per il download completo iniziale di una tabella (invariata)
+async function pullTableFull(table, salonId) {
+    let limit = 1000;
+    let offset = 0;
+    let hasMore = true;
+    let latestTimestamp = new Date(0).toISOString();
+
+    while (hasMore) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
+        
+        if (table === 'users') {
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            hasMore = false;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Range': `${offset}-${offset + limit - 1}`,
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (response.ok) {
+                const cloudRecords = await response.json();
+                if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+                    for (let record of cloudRecords) {
+                        await localDb.table(table).put(record);
+                        
+                        if (record.updated_at && record.updated_at > latestTimestamp) {
+                            latestTimestamp = record.updated_at;
+                        }
+                    }
+                    if (cloudRecords.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
+        } catch (err) {
+            hasMore = false;
+        }
+
+        if (table === 'users') break;
+    }
+
+    // Salvataggio del checkpoint per il delta sync di questa tabella
+    const syncKey = `last_sync_${table}`;
+    await localDb.settings.put({ key: syncKey, value: latestTimestamp, salon_id: salonId });
+}
 
 async function handleSpecialAction(action, data, id) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
@@ -586,15 +991,12 @@ async function handleSpecialAction(action, data, id) {
                         console.log(`🔓 Sblocco di emergenza via Master Key attivato per l'utente: ${user.username}`);
                     }
 
-                    // --- PULIZIA RADICALE E DEFINITIVA DEL DB LOCALE ---
+                    // ✅ NUOVO CODICE SICURO (Non distrugge mai Dexie al login, preservando l'offline-first)
                     if (localDb) {
-                        try {
-                            await localDb.delete();
+                        if (!localDb.isOpen()) {
                             await localDb.open();
-                        } catch (dbEx) {
-                            console.error("Errore azzeramento IndexedDB:", dbEx);
                         }
-                        
+                        // Aggiorniamo o inseriamo l'utente corrente in locale senza cancellare clienti, magazzino o agenda
                         await localDb.users.put(user);
                     }
 
