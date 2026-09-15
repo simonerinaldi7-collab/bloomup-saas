@@ -154,6 +154,27 @@ function startBackgroundMultiOperatorSync() {
     });
 }
 
+window.forceSyncSalesAndAppointments = async function() {
+    if (!navigator.onLine || !currentUser || !currentUser.salon_id) return;
+    const salonId = currentUser.salon_id;
+    console.log("⚡ [FORCE SYNC] Sincronizzazione forzata cassa e agenda in corso...");
+    
+    await backgroundDeltaPullFromSupabase('sales', salonId);
+    await backgroundDeltaPullFromSupabase('sale_items', salonId);
+    await backgroundDeltaPullFromSupabase('appointments', salonId);
+
+    // Aggiorniamo le variabili globali in memoria usate dall'app
+    allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
+    allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+    
+    // Aggiorniamo le viste attive se ci troviamo nelle schermate interessate
+    const activeView = document.querySelector('.view.active');
+    if (activeView) {
+        if (activeView.id === 'v-calendar' && typeof renderCalendar === 'function') renderCalendar();
+        if (activeView.id === 'v-sales-report' && typeof renderSalesReport === 'function') renderSalesReport();
+    }
+    console.log("✅ [FORCE SYNC] Dati di cassa e agenda allineati con successo.");
+};
 
 // ==========================================
 // 🔄 DELTA PULL UNIVERSALE (INSERIMENTI, MODIFICHE E CANCELLAZIONI DA LOG)

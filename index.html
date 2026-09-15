@@ -5762,6 +5762,12 @@ async function quickAlarmAction(actionType) {
     if(active === 'v-logs') renderLogs();
     if(active === 'v-settings') loadSettingsFields();
     if(active === 'v-users') renderUsers();
+
+    if (active === 'v-sales-report' || active === 'v-sales') {
+    if (typeof window.forceSyncSalesAndAppointments === 'function') {
+        await window.forceSyncSalesAndAppointments();
+    }
+}
 }
 
 
