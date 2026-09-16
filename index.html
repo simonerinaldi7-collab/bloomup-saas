@@ -4518,173 +4518,145 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 
-// ==========================================
-// 🧠 ASSISTENTE IA DETERMINISTICO & BUSINESS COACH
-// ==========================================
-
 async function processVaiMUpAssistantQuery(userQuery) {
     const q = userQuery.toLowerCase().trim();
-    const todayStr = new Date().toISOString().split('T')[0];
-    const currentYearMonth = todayStr.substring(0, 7);
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
-    // --- 1. GESTIONE GUIDE E PROCEDURE (App Guide) ---
+    // --- 1. GESTIONE GUIDE OPERATIVE (App Guide) ---
     if (q.includes('come') || q.includes('guida') || q.includes('dove trovo')) {
         if (q.includes('storno') || q.includes('annullare')) {
-            return `🛒 **Procedura Storno di Cassa:**\n1. Entra nella sezione **Report Vendite** dal menu laterale.\n2. Individua la transazione e clicca sul tasto rosso **'Storna'**.\n3. Il sistema ripristinerà automaticamente la giacenza di magazzino, i lotti FIFO e ricalcolerà il bilancio.`;
+            return `🛒 **Procedura Storno di Cassa:**\n1. Entra nella sezione **Report Vendite**.\n2. Clicca sul tasto rosso **'Storna'** a destra della transazione per ripristinare automaticamente magazzino e bilancio.`;
         }
-        if (q.includes('carico') || q.includes('magazzino') || q.includes('merce')) {
-            return `📦 **Procedura Carico Merce:**\n1. Vai su **Magazzino Prodotti**.\n2. Clicca sull'icona del pacco **📦** in corrispondenza del prodotto.\n3. Inserisci la quantità in arrivo e il costo totale: il sistema calcolerà il costo unitario e registrerà la spesa a bilancio.`;
-        }
-        if (q.includes('chiusura') || q.includes('ferie')) {
-            return `🏖️ **Come impostare una chiusura:**\n1. Apri l'**Agenda** e clicca su **'+ Nuovo'**.\n2. Spunta la casella **'Segna come Giornata di Chiusura / Ferie'** per bloccare l'intera giornata per tutto lo staff.`;
+        if (q.includes('carico') || q.includes('magazzino')) {
+            return `📦 **Procedura Carico Merce:**\n1. Vai su **Magazzino Prodotti** e clicca sull'icona pacco **📦** del prodotto.\n2. Inserisci quantità e costo totale per generare in automatico il lotto FIFO e la spesa a bilancio.`;
         }
     }
 
-    // --- 2. ESTRAZIONE DATI MIRATA DAL DB LOCALE (DEXIE) ---
-    let queryPayload = { intent: "GENERAL_SUMMARY", data: {} };
+    // --- 2. MOTORE DI PARSING TEMPORALE DINAMICO IN LINGUAGGIO NATURALE ---
+    // Determiniamo dinamicamente il range di date (startDate e endDate) in base a ciò che scrive l'utente
+    let startDate = null;
+    let endDate = todayStr;
 
+    if (q.includes('ieri')) {
+        const y = new Date(today);
+        y.setDate(today.getDate() - 1);
+        startDate = y.toLocaleDateString('en-CA');
+        endDate = startDate;
+    } 
+    else if (q.includes('oggi')) {
+        startDate = todayStr;
+        endDate = todayStr;
+    } 
+    else if (q.includes('questa settimana') || q.includes('ultimi 7 giorni')) {
+        const w = new Date(today);
+        w.setDate(today.getDate() - 7);
+        startDate = w.toLocaleDateString('en-CA');
+    } 
+    else if (q.includes('questo mese')) {
+        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    } 
+    else if (q.includes('mese scorso')) {
+        const lastMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+        const lastMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        startDate = lastMonthFirstDay.toLocaleDateString('en-CA');
+        endDate = lastMonthLastDay.toLocaleDateString('en-CA');
+    } 
+    else if (q.match(/\b20\d{2}\b/)) {
+        // Se l'utente nomina un anno specifico (es. 2025 o 2026)
+        const yearMatch = q.match(/\b(20\d{2})\b/);
+        if (yearMatch) {
+            const yr = yearMatch[1];
+            startDate = `${yr}-01-01`;
+            endDate = `${yr}-12-31`;
+        }
+    }
+
+    // Se l'utente ha chiesto un'informazione finanziaria o di guadagno e ha specificato un periodo (o di default il mese corrente)
+    if (q.includes('guadagnato') || q.includes('incassato') || q.includes('fatturato') || q.includes('venduto') || q.includes('incassi')) {
+        if (!startDate) {
+            // Default di sicurezza se non specifica il periodo: mese corrente
+            startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+        }
+
+        try {
+            // Eseguiamo la query dinamica sul report vendite passando i parametri calcolati
+            const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+            
+            // Filtro dinamico per intervallo di date
+            const filteredItems = salesReport.filter(r => r.date >= startDate && r.date <= endDate);
+
+            let totalGross = 0;
+            let totalFinal = 0;
+            let totalMargin = 0;
+            const uniqueTransactions = new Set();
+            const productSalesCount = {};
+
+            filteredItems.forEach(item => {
+                totalGross += parseFloat(item.sold_price) || 0;
+                totalFinal += parseFloat(item.final_price) || 0;
+                totalMargin += parseFloat(item.salon_revenue) || 0;
+                if (item.sale_id) uniqueTransactions.add(item.sale_id);
+
+                const pName = item.item_name || 'Articolo';
+                productSalesCount[pName] = (productSalesCount[pName] || 0) + 1;
+            });
+
+            // Troviamo il prodotto/servizio più venduto nel periodo
+            let topItem = "Nessuno";
+            let topCount = 0;
+            for (let [name, count] of Object.entries(productSalesCount)) {
+                if (count > topCount) {
+                    topCount = count;
+                    topItem = name;
+                }
+            }
+
+            const periodLabel = (startDate === endDate) ? `del giorno ${startDate}` : `dal ${startDate} al ${endDate}`;
+
+            return `📊 **Report Analitico (${periodLabel}):**\n` +
+                   `- **Incasso Netto (Cassa):** € ${totalFinal.toFixed(2)}\n` +
+                   `- **Margine Netto Reale (Guadagno Salone):** € ${totalMargin.toFixed(2)}\n` +
+                   `- **Volume:** ${uniqueTransactions.size} scontrini emessi (${filteredItems.length} articoli/servizi).\n` +
+                   `- **Articolo più venduto nel periodo:** ${topItem} (${topCount} volte).`;
+
+        } catch (err) {
+            console.error("Errore query finanziaria dinamica:", err);
+            return "⚠️ Si è verificato un errore durante l'interrogazione del report vendite.";
+        }
+    }
+
+    // --- 3. ESTRAZIONE DATI ANAGRAFICI O CLIENTE SPECIFICO ---
     try {
-        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-        // A. Rilevamento Nome Cliente per interrogazioni anagrafiche o appuntamenti
-        let matchedCustomer = null;
+        // Rilevamento dinamico nome cliente nella frase
+        let matchedCustomerName = null;
         for (let c of customers) {
             const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
             if (fullName && q.includes(fullName)) {
-                matchedCustomer = c;
+                matchedCustomerName = fullName;
                 break;
             }
         }
-        // Fallback ricerca per singole parole chiave del nome se il nome completo non è esatto
-        if (!matchedCustomer) {
-            const words = q.split(' ').filter(w => w.length > 2 && !['quanti', 'quante', 'appuntamenti', 'ha', 'preso', 'del', 'della', 'per', 'il', 'la'].includes(w));
-            for (let w of words) {
-                const found = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(w));
-                if (found) {
-                    matchedCustomer = found;
-                    break;
-                }
-            }
-        }
 
-        if (matchedCustomer) {
-            const fullName = `${matchedCustomer.first_name || ''} ${matchedCustomer.last_name || ''}`.trim();
-            const custApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(fullName.toLowerCase()));
-            
-            queryPayload.intent = "CUSTOMER_APPOINTMENTS";
-            queryPayload.data = {
-                cliente: fullName,
-                telefono: matchedCustomer.phone || 'Non registrato',
-                totale_appuntamenti: custApps.length,
-                dettaglio: custApps.map(a => ({
-                    data: a.date,
-                    ora: a.time ? a.time.substring(0, 5) : '',
-                    servizio: a.service || 'Trattamento',
-                    operatore: a.assigned_user || 'Admin',
-                    stato: a.date >= todayStr ? 'Futuro' : 'Passato'
-                })).sort((a,b) => b.data.localeCompare(a.data))
-            };
-        } 
-        // B. Rilevamento richieste di incasso / fatturato / performance
-        else if (q.includes('incass') || q.includes('fatturat') || q.includes('guadagn') || q.includes('mese') || q.includes('andamento')) {
-            const monthItems = salesReport.filter(r => r.date && r.date.startsWith(currentYearMonth));
-            let totalRev = 0;
-            let totalMargin = 0;
-            monthItems.forEach(i => {
-                totalRev += parseFloat(i.final_price) || 0;
-                totalMargin += parseFloat(i.salon_revenue) || 0;
+        if (matchedCustomerName || q.includes('appuntamenti') || q.includes('quanti')) {
+            const targetApps = appointments.filter(a => {
+                const cName = (a.cust_name || '').toLowerCase();
+                return matchedCustomerName ? cName.includes(matchedCustomerName) : true;
             });
 
-            queryPayload.intent = "FINANCIAL_SUMMARY";
-            queryPayload.data = {
-                periodo: currentYearMonth,
-                incasso_totale: totalRev.toFixed(2),
-                margine_netto_totale: totalMargin.toFixed(2),
-                transazioni_registrate: monthItems.length
-            };
-        } 
-        // C. Rilevamento magazzino / scorte
-        else if (q.includes('scorta') || q.includes('magazzino') || q.includes('prodotti') || q.includes('rimasti')) {
-            const lowStock = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
-            queryPayload.intent = "INVENTORY_STATUS";
-            queryPayload.data = {
-                prodotti_totali: inventory.filter(p => p.type === 'prodotto').length,
-                sotto_scorta_count: lowStock.length,
-                prodotti_critici: lowStock.map(p => ({ nome: p.name, giacenza: p.stock, soglia: p.min_stock }))
-            };
-        } 
-        // D. Panoramica generale odierna
-        else {
-            const todayApps = appointments.filter(a => a.date === todayStr);
-            queryPayload.intent = "TODAY_OVERVIEW";
-            queryPayload.data = {
-                data_oggi: todayStr,
-                appuntamenti_oggi: todayApps.length,
-                clienti_totali: customers.length,
-                lista_oggi: todayApps.map(a => `${a.time?.substring(0,5)} - ${a.cust_name} (${a.service})`)
-            };
+            if (matchedCustomerName) {
+                return `📅 Il cliente **${matchedCustomerName}** ha **${targetApps.length} appuntamenti** registrati nello storico:\n` +
+                       targetApps.slice(0, 5).map(a => `- ${a.date} ore ${a.time?.substring(0,5)}: ${a.service} (${a.assigned_user || 'Admin'})`).join('\n');
+            }
         }
-
-    } catch (dbErr) {
-        console.error("Errore estrazione dati locali per IA:", dbErr);
-        return "⚠️ Si è verificato un errore durante la lettura dei dati locali del salone.";
+    } catch (e) {
+        console.error("Errore ricerca anagrafica dinamica:", e);
     }
 
-    // --- 3. SINTESI PROFESSIONALE TRAMITE LLM ---
-    const activeApiKey = window._runtimeAiKey || (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey);
-
-    // Fallback pulito deterministico se la chiave API non è attiva o configurata
-    if (!activeApiKey || activeApiKey.includes("INSERISCI")) {
-        return formatDeterministicResponse(queryPayload);
-    }
-
-    try {
-        const systemPrompt = `Sei il Business Coach e Assistente virtuale senior di VaiMUp, un gestionale professionale per saloni di bellezza e acconciatura.
-        L'utente ha fatto questa domanda: "${userQuery}".
-        Abbiamo estratto in modo deterministico questi dati reali dal database del salone: ${JSON.stringify(queryPayload)}.
-        
-        REGOLE TASSATIVE PER LA RISPOSTA:
-        1. Fornisci una risposta estremamente professionale, chiara, educata e diretta in lingua italiana.
-        2. Non menzionare mai termini tecnici come "payload", "intent", "JSON" o "database".
-        3. Se ti è stato chiesto un conteggio (es. quanti appuntamenti ha un cliente), usa esattamente il numero calcolato nei dati forniti.
-        4. Evita frasi di riempimento o preamboli robotici. Vai dritto al punto con un tono da consulente d'azienda esperto.`;
-
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${activeApiKey}`,
-                'HTTP-Referer': window.location.origin,    
-                'X-Title': 'VaiMUp SaaS'                   
-            },
-            body: JSON.stringify({
-                model: "openrouter/free", 
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userQuery }
-                ],
-                temperature: 0.2,
-                max_tokens: 300
-            })
-        });
-
-        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-
-        const result = await response.json();
-        let aiReply = result.choices?.[0]?.message?.content || "";
-        
-        // Pulizia di sicurezza rigorosa da tag <think> o formattazioni spurie
-        aiReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```json/g, '').replace(/```/g, '').trim();
-
-        return aiReply || formatDeterministicResponse(queryPayload);
-
-    } catch (aiErr) {
-        console.warn("⚠️ Servizio LLM occupato o non raggiungibile, utilizzo la formattazione di riserva:", aiErr);
-        return formatDeterministicResponse(queryPayload);
-    }
+    return `🤖 Ho analizzato la tua richiesta ("${userQuery}"). Prova a chiedermi: *"Quanto ho incassato ieri?"*, *"Quanto ho guadagnato la settimana scorsa?"* oppure *"Quanti appuntamenti ha Simone?"*.`;
 }
 
 // 🛡️ Formattatore deterministico di riserva (Garantisce risposta al 100% anche offline o senza credenziali IA)
