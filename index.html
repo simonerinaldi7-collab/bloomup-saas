@@ -4637,33 +4637,74 @@ async function processVaiMUpAssistantQuery(userQuery) {
         }
     }
 
-    // --- 4. ESTRAZIONE DATI CLIENTE O APPUNTAMENTI ---
+    // --- 4. ESTRAZIONE INTELLIGENTE APPUNTAMENTI PER CLIENTE (Tutti, Prossimi o Passati) ---
     try {
         const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
         const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-        let matchedCustomer = null;
+        let matchedCustomerName = null;
         for (let c of customers) {
             const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
             if (fullName && q.includes(fullName)) {
-                matchedCustomer = fullName;
+                matchedCustomerName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
                 break;
             }
         }
 
-        if (matchedCustomer || q.includes('appuntament')) {
-            const targetApps = appointments.filter(a => {
+        // Se l'utente menziona un appuntamento o un cliente
+        if (matchedCustomerName || q.includes('appuntament') || q.includes('visite')) {
+            const todayDateStr = new Date().toISOString().split('T')[0]; // '2026-09-16'
+
+            let targetApps = appointments.filter(a => {
                 const cName = (a.cust_name || '').toLowerCase();
-                return matchedCustomer ? cName.includes(matchedCustomer) : true;
+                return matchedCustomerName ? cName.includes(matchedCustomerName.toLowerCase()) : true;
             });
 
-            if (matchedCustomer) {
-                return `📅 Il cliente **${matchedCustomer}** ha **${targetApps.length} appuntamenti** registrati:\n` +
-                       targetApps.slice(0, 5).map(a => `- ${formatDateIt ? formatDateIt(a.date) : a.date} ore ${a.time?.substring(0,5)}: ${a.service} (${a.assigned_user || 'Admin'})`).join('\n');
+            if (targetApps.length === 0) {
+                return matchedCustomerName 
+                    ? `📅 Non risultano appuntamenti nel sistema per **${matchedCustomerName}**.`
+                    : `📅 Non ho trovato appuntamenti corrispondenti alla ricerca.`;
             }
+
+            // 🧠 INTERPRETAZIONE DELL'INTENTO TEMPORALE DALLA DOMANDA
+            let filterType = 'all'; // Default: mostra tutti se non specificato diversamente
+            let timeDescription = 'registrati nello storico';
+
+            if (q.includes('prossim') || q.includes('futur') || q.includes('da fare')) {
+                filterType = 'future';
+                timeDescription = 'in programma (futuri)';
+                targetApps = targetApps.filter(a => a.date >= todayDateStr);
+                // Ordinamento cronologico crescente (dal più vicino al più lontano)
+                targetApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+            } 
+            else if (q.includes('passat') || q.includes('scors') || q.includes('fatti')) {
+                filterType = 'past';
+                timeDescription = 'passati';
+                targetApps = targetApps.filter(a => a.date < todayDateStr);
+                // Ordinamento cronologico decrescente (dal più recente al più vecchio)
+                targetApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+            } 
+            else {
+                // Se dice "tutti" o fa una domanda generica sugli appuntamenti
+                // Ordinamento cronologico decrescente generale
+                targetApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+            }
+
+            if (targetApps.length === 0) {
+                return `📅 Per il cliente **${matchedCustomerName}** non ci sono appuntamenti ${timeDescription}.`;
+            }
+
+            const headerName = matchedCustomerName ? `per **${matchedCustomerName}**` : '';
+            return `📅 Trovati **${targetApps.length} appuntamenti** ${timeDescription} ${headerName}:\n` +
+                   targetApps.slice(0, 6).map(a => {
+                       const isFuture = a.date >= todayDateStr;
+                       const statusLabel = isFuture ? '🟢 In programma' : '⚪ Effettuato';
+                       return `- **${formatDateIt ? formatDateIt(a.date) : a.date}** ore **${a.time?.substring(0,5)}**: ${a.service} [${statusLabel}] (Op: ${a.assigned_user || 'Admin'})`;
+                   }).join('\n') + 
+                   (targetApps.length > 6 ? `\n\n*(Mostrati i primi 6 su un totale di ${targetApps.length})*` : '');
         }
     } catch (e) {
-        console.error("Errore ricerca clienti:", e);
+        console.error("Errore elaborazione intelligente appuntamenti:", e);
     }
 
     return `🤖 Ho analizzato la tua richiesta ma non ho trovato un riscontro preciso. Prova a chiedermi: *"Quanto ho guadagnato il 01/09/2026?"*, *"Quanto ho incassato ieri?"* oppure *"Quanti appuntamenti ha Simone?"*.`;
