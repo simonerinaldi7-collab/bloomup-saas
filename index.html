@@ -4623,6 +4623,85 @@ async function processVaiMUpAssistantQuery(userQuery) {
         return actionResponse;
     }
 
+    // --- 2B. FUNCTION CALLING: SPOSTAMENTO / MODIFICA APPUNTAMENTO ---
+    if (q.includes('sposta') || q.includes('cambia data') || q.includes('rimanda')) {
+        try {
+            // 1. Individuiamo il cliente (dalla frase o dal contesto globale)
+            let targetCustomer = window._aiContext?.lastCustomer || null;
+            const customersList = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+            
+            for (let c of customersList) {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                if (fullName && q.toLowerCase().includes(fullName.toLowerCase())) {
+                    targetCustomer = fullName;
+                    break;
+                }
+            }
+
+            if (!targetCustomer) {
+                return `⚠️ Per favore, specifica il nome del cliente di cui vuoi spostare l'appuntamento (es. "Sposta l'appuntamento di Simone Rinaldi...").`;
+            }
+
+            // 2. Cerchiamo gli appuntamenti futuri di questo cliente
+            const todayDateStr = new Date().toISOString().split('T')[0];
+            const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            
+            let custApps = appointments.filter(a => {
+                const cName = (a.cust_name || '').toLowerCase();
+                return cName.includes(targetCustomer.toLowerCase()) && a.date >= todayDateStr;
+            });
+
+            if (custApps.length === 0) {
+                return `⚠️ Non ho trovato appuntamenti futuri in programma per **${targetCustomer}** da poter spostare.`;
+            }
+
+            // Ordiniamo per data/ora imminente
+            custApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+            
+            // Selezioniamo il primo appuntamento utile (o quello di "domani" se specificato)
+            let appToMove = custApps[0];
+            if (q.includes('domani')) {
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomStr = tomorrow.toLocaleDateString('en-CA');
+                const foundTom = custApps.find(a => a.date === tomStr);
+                if (foundTom) appToMove = foundTom;
+            }
+
+            // 3. Estrazione della nuova data (es. "al 19/09/2026", "al 20 settembre", ecc.)
+            let newDate = null;
+            const dateMatch1 = q.match(/\b(0[1-9]|[12]\d|3[01])[\/\-\.](0[1-9]|1[0-2])[\/\-\.]?(20\d{2})\b/);
+            const dateMatch2 = q.match(/\b(20\d{2})[\/\-\.](0[1-9]|1[0-2])[\/\-\.](0[1-9]|[12]\d|3[01])\b/);
+
+            if (dateMatch1) {
+                newDate = `${dateMatch1[3]}-${dateMatch1[2]}-${dateMatch1[1]}`;
+            } else if (dateMatch2) {
+                newDate = dateMatch2[0];
+            }
+
+            if (!newDate) {
+                return `⚠️ Non sono riuscito a capire a quale data vuoi spostare l'appuntamento. Specifica una data valida (es. "al 19/09/2026").`;
+            }
+
+            // 4. Eseguiamo l'aggiornamento sul database (mantenendo lo stesso orario originale)
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'appointments',
+                data: { date: newDate },
+                id: appToMove.id
+            });
+
+            if (typeof refreshAllData === 'function') await refreshAllData();
+            if (typeof renderCalendar === 'function') renderCalendar();
+
+            return `✅ L'appuntamento di **${targetCustomer}** previsto per il *${formatDateIt ? formatDateIt(appToMove.date) : appToMove.date}* (${appToMove.service}) è stato spostato con successo al **${formatDateIt ? formatDateIt(newDate) : newDate}** alle ore ${appToMove.time?.substring(0,5)}.`;
+
+        } catch (err) {
+            console.error("Errore spostamento appuntamento IA:", err);
+            return `❌ Si è verificato un errore durante lo spostamento: ${err.message}`;
+        }
+    }
+
     // --- 3. GESTIONE SPESE A VOCE ---
     if (q.includes('registra spesa') || q.includes('aggiungi spesa')) {
         const words = userQuery.split(' ');
