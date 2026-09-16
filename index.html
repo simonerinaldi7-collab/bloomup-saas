@@ -4518,6 +4518,17 @@ function triggerLocalOperatorAlert(appointment) {
 
 
 
+// Memoria di sessione globale dell'assistente IA
+if (!window._aiContext) {
+    window._aiContext = {
+        lastCustomer: null,
+        lastProduct: null,
+        lastStartDate: null,
+        lastEndDate: null,
+        lastIntent: null
+    };
+}
+
 async function processVaiMUpAssistantQuery(userQuery) {
     const q = userQuery.toLowerCase().trim();
     const today = new Date();
@@ -4526,37 +4537,78 @@ async function processVaiMUpAssistantQuery(userQuery) {
     // --- 1. GESTIONE GUIDE OPERATIVE (App Guide) ---
     if (q.includes('come') || q.includes('guida') || q.includes('dove trovo')) {
         if (q.includes('storno') || q.includes('annullare')) {
-            return `🛒 **Procedura Storno di Cassa:** Entra in **Report Vendite** e clicca sul tasto rosso **'Storna'** accanto alla transazione. Il sistema ripristinerà in automatico magazzino e bilancio.`;
+            return `🛒 **Procedura Storno di Cassa:** Entra in **Report Vendite** e clicca sul tasto rosso **'Storna'** accanto alla transazione. Il sistema ripristinerà automaticamente magazzino e bilancio.`;
         }
         if (q.includes('carico') || q.includes('magazzino')) {
             return `📦 **Procedura Carico Merce:** Vai su **Magazzino Prodotti**, clicca sull'icona pacco **📦** del prodotto e inserisci quantità e costo totale.`;
         }
     }
 
-    // --- 2. ESTRAZIONE PARAMETRI TEMPORALI VIA IA / REGEX UNIFICATA ---
+    // --- 2. RILEVAMENTO ENTITÀ NEL TESTO (Clienti, Prodotti, Date) ---
+    let customers = [];
+    let inventory = [];
+    let appointments = [];
+    let salesReport = [];
+
+    try {
+        customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+        inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+    } catch (e) {
+        console.error("Errore recupero dati per IA:", e);
+    }
+
+    // A. Rilevamento Cliente (dalla frase o dalla memoria globale)
+    let activeCustomer = null;
+    for (let c of customers) {
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+        if (fullName && q.includes(fullName)) {
+            activeCustomer = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+            break;
+        }
+    }
+    if (!activeCustomer && window._aiContext.lastCustomer) {
+        // Parole chiave che attivano il follow-up sul cliente
+        const customerTriggers = ['lui', 'lei', 'questo cliente', 'questo', 'speso', 'comprato', 'visite', 'appuntamenti', 'storico', 'contatto'];
+        if (customerTriggers.some(t => q.includes(t)) || q.length < 30) {
+            activeCustomer = window._aiContext.lastCustomer;
+        }
+    }
+    if (activeCustomer) window._aiContext.lastCustomer = activeCustomer;
+
+    // B. Rilevamento Prodotto o Servizio
+    let activeProduct = null;
+    for (let p of inventory) {
+        if (p.name && q.includes(p.name.toLowerCase())) {
+            activeProduct = p.name;
+            break;
+        }
+    }
+    if (!activeProduct && window._aiContext.lastProduct) {
+        if (q.includes('questo') || q.includes('ne abbiamo') || q.includes('quanto costa') || q.includes('venduti')) {
+            activeProduct = window._aiContext.lastProduct;
+        }
+    }
+    if (activeProduct) window._aiContext.lastProduct = activeProduct;
+
+    // C. Rilevamento Date / Periodo (Supporta date fisse es. 01/09/2026 o termini relativi es. ieri, oggi, mese scorso)
     let startDate = null;
     let endDate = null;
 
-    // A. Tentativo di estrazione data specifica con Regex (es. 01/09/2026, 1-9-2026, 2026-09-01)
-    const datePattern1 = /\b(0[1-9]|[12]\d|3[01])[\/\-\.](0[1-9]|1[0-2])[\/\-\.]?(20\d{2})\b/; // DD/MM/YYYY
-    const datePattern2 = /\b(20\d{2})[\/\-\.](0[1-9]|1[0-2])[\/\-\.](0[1-9]|[12]\d|3[01])\b/; // YYYY-MM-DD
+    const datePattern1 = /\b(0[1-9]|[12]\d|3[01])[\/\-\.](0[1-9]|1[0-2])[\/\-\.]?(20\d{2})\b/;
+    const datePattern2 = /\b(20\d{2})[\/\-\.](0[1-9]|1[0-2])[\/\-\.](0[1-9]|[12]\d|3[01])\b/;
     
     const match1 = q.match(datePattern1);
     const match2 = q.match(datePattern2);
 
     if (match1) {
-        // Trovato formato DD/MM/YYYY
-        const day = match1[1];
-        const month = match1[2];
-        const year = match1[3];
-        startDate = `${year}-${month}-${day}`;
+        startDate = `${match1[3]}-${match1[2]}-${match1[1]}`;
         endDate = startDate;
     } else if (match2) {
-        // Trovato formato YYYY-MM-DD
         startDate = match2[0];
         endDate = startDate;
     } else {
-        // B. Riconoscimento termini relativi in linguaggio naturale
         if (q.includes('ieri')) {
             const y = new Date(today);
             y.setDate(today.getDate() - 1);
@@ -4578,136 +4630,104 @@ async function processVaiMUpAssistantQuery(userQuery) {
             const lastMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             startDate = lastMonthFirstDay.toLocaleDateString('en-CA');
             endDate = lastMonthLastDay.toLocaleDateString('en-CA');
+        } else if (window._aiContext.lastStartDate && (q.includes('e invece') || q.includes('e per') || q.includes('e nel'))) {
+            // Ereditiamo il periodo precedente se l'utente fa un confronto
+            startDate = window._aiContext.lastStartDate;
+            endDate = window._aiContext.lastEndDate;
         }
     }
 
-    // --- 3. ESECUZIONE QUERY FINANZIARIA DINAMICA ---
+    if (startDate) {
+        window._aiContext.lastStartDate = startDate;
+        window._aiContext.lastEndDate = endDate;
+    }
+
+
+    // --- 3. SMISTAMENTO INTENTI (Basato su contesto e richieste) ---
+
+    // CASO A: Richiesta su un CLIENTE specifico (es. Simone Rinaldi -> e i passati? -> quanto ha speso?)
+    if (activeCustomer) {
+        const custApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(activeCustomer.toLowerCase()));
+        const custSales = salesReport.filter(r => (r.customer_name || '').toLowerCase().includes(activeCustomer.toLowerCase()));
+
+        // Se chiede quanto ha speso
+        if (q.includes('speso') || q.includes('comprato') || q.includes('totale')) {
+            let totalSpent = custSales.reduce((sum, s) => sum + (parseFloat(s.final_price) || 0), 0);
+            return `💰 Il cliente **${activeCustomer}** ha speso complessivamente **€ ${totalSpent.toFixed(2)}** nello storico registrato (${custSales.length} acquisti/servizi).`;
+        }
+
+        // Se chiede appuntamenti (futuri, passati o tutti)
+        let timeDesc = 'registrati nello storico';
+        let filteredApps = [...custApps];
+
+        if (q.includes('prossim') || q.includes('futur') || q.includes('da fare')) {
+            timeDesc = 'in programma (futuri)';
+            filteredApps = custApps.filter(a => a.date >= todayStr);
+            filteredApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+        } else if (q.includes('passat') || q.includes('scors') || q.includes('fatti')) {
+            timeDesc = 'passati';
+            filteredApps = custApps.filter(a => a.date < todayStr);
+            filteredApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+        } else {
+            filteredApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+        }
+
+        if (filteredApps.length === 0) {
+            return `📅 Per il cliente **${activeCustomer}** non ci sono appuntamenti ${timeDesc}.`;
+        }
+
+        return `📅 Ecco gli appuntamenti ${timeDesc} per **${activeCustomer}** (${filteredApps.length} totali):\n` +
+               filteredApps.slice(0, 6).map(a => {
+                   const isFuture = a.date >= todayStr;
+                   return `- **${formatDateIt ? formatDateIt(a.date) : a.date}** ore **${a.time?.substring(0,5)}**: ${a.service} [${isFuture ? '🟢 In programma' : '⚪ Effettuato'}]`;
+               }).join('\n') + (filteredApps.length > 6 ? `\n\n*(Mostrati i primi 6)*` : '');
+    }
+
+    // CASO B: Richiesta FINANZIARIA (Incassi, Guadagni, Margini con supporto date dinamiche)
     if (q.includes('guadagn') || q.includes('incass') || q.includes('fatturat') || q.includes('venduto') || q.includes('quanto')) {
-        // Se l'utente chiede un guadagno ma non specifica alcuna data, usiamo di default il mese corrente
         if (!startDate) {
             startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
             endDate = todayStr;
         }
 
-        try {
-            const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-            const filteredItems = salesReport.filter(r => r.date >= startDate && r.date <= endDate);
+        const filteredItems = salesReport.filter(r => r.date >= startDate && r.date <= endDate);
+        let totalFinal = 0;
+        let totalMargin = 0;
+        const uniqueTx = new Set();
 
-            let totalFinal = 0;   // Incasso netto
-            let totalMargin = 0;  // Margine reale
-            const uniqueTransactions = new Set();
-            const productCounts = {};
+        filteredItems.forEach(item => {
+            totalFinal += parseFloat(item.final_price) || 0;
+            totalMargin += parseFloat(item.salon_revenue) || 0;
+            if (item.sale_id) uniqueTx.add(item.sale_id);
+        });
 
-            filteredItems.forEach(item => {
-                totalFinal += parseFloat(item.final_price) || 0;
-                totalMargin += parseFloat(item.salon_revenue) || 0;
-                if (item.sale_id) uniqueTransactions.add(item.sale_id);
-                
-                const name = item.item_name || 'Articolo';
-                productCounts[name] = (productCounts[name] || 0) + 1;
-            });
+        const periodDesc = (startDate === endDate) 
+            ? `del giorno ${formatDateIt ? formatDateIt(startDate) : startDate}` 
+            : `dal ${formatDateIt ? formatDateIt(startDate) : startDate} al ${formatDateIt ? formatDateIt(endDate) : endDate}`;
 
-            // Articolo principale
-            let topProduct = "Nessuno";
-            let topCount = 0;
-            for (let [prod, count] of Object.entries(productCounts)) {
-                if (count > topCount) {
-                    topCount = count;
-                    topProduct = prod;
-                }
-            }
-
-            const periodDesc = (startDate === endDate) 
-                ? `del giorno ${formatDateIt ? formatDateIt(startDate) : startDate}` 
-                : `dal ${formatDateIt ? formatDateIt(startDate) : startDate} al ${formatDateIt ? formatDateIt(endDate) : endDate}`;
-
-            if (filteredItems.length === 0) {
-                return `📊 Non risultano incassi o vendite registrate nel periodo ${periodDesc}.`;
-            }
-
-            return `📊 **Report Economico (${periodDesc}):**\n` +
-                   `- **Incasso Netto (Cassa):** € ${totalFinal.toFixed(2)}\n` +
-                   `- **Margine Netto Reale (Guadagno Salone):** € ${totalMargin.toFixed(2)}\n` +
-                   `- **Scontrini emessi:** ${uniqueTransactions.size} (${filteredItems.length} articoli totali)\n` +
-                   `- **Servizio/Prodotto più richiesto:** ${topProduct} (${topCount} volte)`;
-
-        } catch (err) {
-            console.error("Errore esecuzione query finanziaria IA:", err);
-            return "⚠️ Si è verificato un errore durante l'interrogazione del database locale.";
-        }
+        return `📊 **Report Economico (${periodDesc}):**\n` +
+               `- **Incasso Netto (Cassa):** € ${totalFinal.toFixed(2)}\n` +
+               `- **Margine Netto Reale (Guadagno Salone):** € ${totalMargin.toFixed(2)}\n` +
+               `- **Scontrini emessi:** ${uniqueTx.size}`;
     }
 
-    // --- 4. ESTRAZIONE INTELLIGENTE APPUNTAMENTI PER CLIENTE (Tutti, Prossimi o Passati) ---
-    try {
-        const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+    // CASO C: Richiesta MAGAZZINO / PRODOTTI
+    if (q.includes('scorta') || q.includes('magazzino') || q.includes('prodotto') || activeProduct) {
+        const targetProdName = activeProduct || q;
+        const matchedProds = inventory.filter(p => (p.name || '').toLowerCase().includes(targetProdName.toLowerCase()));
 
-        let matchedCustomerName = null;
-        for (let c of customers) {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-            if (fullName && q.includes(fullName)) {
-                matchedCustomerName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
-                break;
-            }
+        if (matchedProds.length > 0) {
+            return `📦 Situazione magazzino per **${matchedProds[0].name}**:\n` +
+                   `- Giacenza attuale: **${matchedProds[0].stock} ${matchedProds[0].unit || 'Pz'}**\n` +
+                   `- Prezzo listino: € ${parseFloat(matchedProds[0].price || 0).toFixed(2)}\n` +
+                   `- Soglia scorta minima: ${matchedProds[0].min_stock || 0}`;
         }
-
-        // Se l'utente menziona un appuntamento o un cliente
-        if (matchedCustomerName || q.includes('appuntament') || q.includes('visite')) {
-            const todayDateStr = new Date().toISOString().split('T')[0]; // '2026-09-16'
-
-            let targetApps = appointments.filter(a => {
-                const cName = (a.cust_name || '').toLowerCase();
-                return matchedCustomerName ? cName.includes(matchedCustomerName.toLowerCase()) : true;
-            });
-
-            if (targetApps.length === 0) {
-                return matchedCustomerName 
-                    ? `📅 Non risultano appuntamenti nel sistema per **${matchedCustomerName}**.`
-                    : `📅 Non ho trovato appuntamenti corrispondenti alla ricerca.`;
-            }
-
-            // 🧠 INTERPRETAZIONE DELL'INTENTO TEMPORALE DALLA DOMANDA
-            let filterType = 'all'; // Default: mostra tutti se non specificato diversamente
-            let timeDescription = 'registrati nello storico';
-
-            if (q.includes('prossim') || q.includes('futur') || q.includes('da fare')) {
-                filterType = 'future';
-                timeDescription = 'in programma (futuri)';
-                targetApps = targetApps.filter(a => a.date >= todayDateStr);
-                // Ordinamento cronologico crescente (dal più vicino al più lontano)
-                targetApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-            } 
-            else if (q.includes('passat') || q.includes('scors') || q.includes('fatti')) {
-                filterType = 'past';
-                timeDescription = 'passati';
-                targetApps = targetApps.filter(a => a.date < todayDateStr);
-                // Ordinamento cronologico decrescente (dal più recente al più vecchio)
-                targetApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-            } 
-            else {
-                // Se dice "tutti" o fa una domanda generica sugli appuntamenti
-                // Ordinamento cronologico decrescente generale
-                targetApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-            }
-
-            if (targetApps.length === 0) {
-                return `📅 Per il cliente **${matchedCustomerName}** non ci sono appuntamenti ${timeDescription}.`;
-            }
-
-            const headerName = matchedCustomerName ? `per **${matchedCustomerName}**` : '';
-            return `📅 Trovati **${targetApps.length} appuntamenti** ${timeDescription} ${headerName}:\n` +
-                   targetApps.slice(0, 6).map(a => {
-                       const isFuture = a.date >= todayDateStr;
-                       const statusLabel = isFuture ? '🟢 In programma' : '⚪ Effettuato';
-                       return `- **${formatDateIt ? formatDateIt(a.date) : a.date}** ore **${a.time?.substring(0,5)}**: ${a.service} [${statusLabel}] (Op: ${a.assigned_user || 'Admin'})`;
-                   }).join('\n') + 
-                   (targetApps.length > 6 ? `\n\n*(Mostrati i primi 6 su un totale di ${targetApps.length})*` : '');
-        }
-    } catch (e) {
-        console.error("Errore elaborazione intelligente appuntamenti:", e);
+        
+        const lowStock = inventory.filter(p => p.type === 'prodotto' && p.stock <= (p.min_stock || 0));
+        return `📦 In magazzino ci sono **${inventory.length} prodotti** totali. Attualmente ci sono **${lowStock.length} prodotti sotto scorta** critica.`;
     }
 
-    return `🤖 Ho analizzato la tua richiesta ma non ho trovato un riscontro preciso. Prova a chiedermi: *"Quanto ho guadagnato il 01/09/2026?"*, *"Quanto ho incassato ieri?"* oppure *"Quanti appuntamenti ha Simone?"*.`;
+    return `🤖 Ho memorizzato il contesto della conversazione. Puoi chiedermi dettagli sugli appuntamenti di un cliente, sugli incassi di un periodo o sullo stato del magazzino.`;
 }
 
 // 🛡️ Formattatore deterministico di riserva (Garantisce risposta al 100% anche offline o senza credenziali IA)
