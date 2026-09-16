@@ -4526,137 +4526,147 @@ async function processVaiMUpAssistantQuery(userQuery) {
     // --- 1. GESTIONE GUIDE OPERATIVE (App Guide) ---
     if (q.includes('come') || q.includes('guida') || q.includes('dove trovo')) {
         if (q.includes('storno') || q.includes('annullare')) {
-            return `🛒 **Procedura Storno di Cassa:**\n1. Entra nella sezione **Report Vendite**.\n2. Clicca sul tasto rosso **'Storna'** a destra della transazione per ripristinare automaticamente magazzino e bilancio.`;
+            return `🛒 **Procedura Storno di Cassa:** Entra in **Report Vendite** e clicca sul tasto rosso **'Storna'** accanto alla transazione. Il sistema ripristinerà in automatico magazzino e bilancio.`;
         }
         if (q.includes('carico') || q.includes('magazzino')) {
-            return `📦 **Procedura Carico Merce:**\n1. Vai su **Magazzino Prodotti** e clicca sull'icona pacco **📦** del prodotto.\n2. Inserisci quantità e costo totale per generare in automatico il lotto FIFO e la spesa a bilancio.`;
+            return `📦 **Procedura Carico Merce:** Vai su **Magazzino Prodotti**, clicca sull'icona pacco **📦** del prodotto e inserisci quantità e costo totale.`;
         }
     }
 
-    // --- 2. MOTORE DI PARSING TEMPORALE DINAMICO IN LINGUAGGIO NATURALE ---
-    // Determiniamo dinamicamente il range di date (startDate e endDate) in base a ciò che scrive l'utente
+    // --- 2. ESTRAZIONE PARAMETRI TEMPORALI VIA IA / REGEX UNIFICATA ---
     let startDate = null;
-    let endDate = todayStr;
+    let endDate = null;
 
-    if (q.includes('ieri')) {
-        const y = new Date(today);
-        y.setDate(today.getDate() - 1);
-        startDate = y.toLocaleDateString('en-CA');
+    // A. Tentativo di estrazione data specifica con Regex (es. 01/09/2026, 1-9-2026, 2026-09-01)
+    const datePattern1 = /\b(0[1-9]|[12]\d|3[01])[\/\-\.](0[1-9]|1[0-2])[\/\-\.]?(20\d{2})\b/; // DD/MM/YYYY
+    const datePattern2 = /\b(20\d{2})[\/\-\.](0[1-9]|1[0-2])[\/\-\.](0[1-9]|[12]\d|3[01])\b/; // YYYY-MM-DD
+    
+    const match1 = q.match(datePattern1);
+    const match2 = q.match(datePattern2);
+
+    if (match1) {
+        // Trovato formato DD/MM/YYYY
+        const day = match1[1];
+        const month = match1[2];
+        const year = match1[3];
+        startDate = `${year}-${month}-${day}`;
         endDate = startDate;
-    } 
-    else if (q.includes('oggi')) {
-        startDate = todayStr;
-        endDate = todayStr;
-    } 
-    else if (q.includes('questa settimana') || q.includes('ultimi 7 giorni')) {
-        const w = new Date(today);
-        w.setDate(today.getDate() - 7);
-        startDate = w.toLocaleDateString('en-CA');
-    } 
-    else if (q.includes('questo mese')) {
-        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-    } 
-    else if (q.includes('mese scorso')) {
-        const lastMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0);
-        const lastMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        startDate = lastMonthFirstDay.toLocaleDateString('en-CA');
-        endDate = lastMonthLastDay.toLocaleDateString('en-CA');
-    } 
-    else if (q.match(/\b20\d{2}\b/)) {
-        // Se l'utente nomina un anno specifico (es. 2025 o 2026)
-        const yearMatch = q.match(/\b(20\d{2})\b/);
-        if (yearMatch) {
-            const yr = yearMatch[1];
-            startDate = `${yr}-01-01`;
-            endDate = `${yr}-12-31`;
+    } else if (match2) {
+        // Trovato formato YYYY-MM-DD
+        startDate = match2[0];
+        endDate = startDate;
+    } else {
+        // B. Riconoscimento termini relativi in linguaggio naturale
+        if (q.includes('ieri')) {
+            const y = new Date(today);
+            y.setDate(today.getDate() - 1);
+            startDate = y.toLocaleDateString('en-CA');
+            endDate = startDate;
+        } else if (q.includes('oggi')) {
+            startDate = todayStr;
+            endDate = todayStr;
+        } else if (q.includes('settimana scorsa') || q.includes('ultimi 7 giorni')) {
+            const w = new Date(today);
+            w.setDate(today.getDate() - 7);
+            startDate = w.toLocaleDateString('en-CA');
+            endDate = todayStr;
+        } else if (q.includes('questo mese') || q.includes('mese corrente')) {
+            startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            endDate = todayStr;
+        } else if (q.includes('mese scorso')) {
+            const lastMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+            const lastMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            startDate = lastMonthFirstDay.toLocaleDateString('en-CA');
+            endDate = lastMonthLastDay.toLocaleDateString('en-CA');
         }
     }
 
-    // Se l'utente ha chiesto un'informazione finanziaria o di guadagno e ha specificato un periodo (o di default il mese corrente)
-    if (q.includes('guadagnato') || q.includes('incassato') || q.includes('fatturato') || q.includes('venduto') || q.includes('incassi')) {
+    // --- 3. ESECUZIONE QUERY FINANZIARIA DINAMICA ---
+    if (q.includes('guadagn') || q.includes('incass') || q.includes('fatturat') || q.includes('venduto') || q.includes('quanto')) {
+        // Se l'utente chiede un guadagno ma non specifica alcuna data, usiamo di default il mese corrente
         if (!startDate) {
-            // Default di sicurezza se non specifica il periodo: mese corrente
             startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            endDate = todayStr;
         }
 
         try {
-            // Eseguiamo la query dinamica sul report vendite passando i parametri calcolati
             const salesReport = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-            
-            // Filtro dinamico per intervallo di date
             const filteredItems = salesReport.filter(r => r.date >= startDate && r.date <= endDate);
 
-            let totalGross = 0;
-            let totalFinal = 0;
-            let totalMargin = 0;
+            let totalFinal = 0;   // Incasso netto
+            let totalMargin = 0;  // Margine reale
             const uniqueTransactions = new Set();
-            const productSalesCount = {};
+            const productCounts = {};
 
             filteredItems.forEach(item => {
-                totalGross += parseFloat(item.sold_price) || 0;
                 totalFinal += parseFloat(item.final_price) || 0;
                 totalMargin += parseFloat(item.salon_revenue) || 0;
                 if (item.sale_id) uniqueTransactions.add(item.sale_id);
-
-                const pName = item.item_name || 'Articolo';
-                productSalesCount[pName] = (productSalesCount[pName] || 0) + 1;
+                
+                const name = item.item_name || 'Articolo';
+                productCounts[name] = (productCounts[name] || 0) + 1;
             });
 
-            // Troviamo il prodotto/servizio più venduto nel periodo
-            let topItem = "Nessuno";
+            // Articolo principale
+            let topProduct = "Nessuno";
             let topCount = 0;
-            for (let [name, count] of Object.entries(productSalesCount)) {
+            for (let [prod, count] of Object.entries(productCounts)) {
                 if (count > topCount) {
                     topCount = count;
-                    topItem = name;
+                    topProduct = prod;
                 }
             }
 
-            const periodLabel = (startDate === endDate) ? `del giorno ${startDate}` : `dal ${startDate} al ${endDate}`;
+            const periodDesc = (startDate === endDate) 
+                ? `del giorno ${formatDateIt ? formatDateIt(startDate) : startDate}` 
+                : `dal ${formatDateIt ? formatDateIt(startDate) : startDate} al ${formatDateIt ? formatDateIt(endDate) : endDate}`;
 
-            return `📊 **Report Analitico (${periodLabel}):**\n` +
+            if (filteredItems.length === 0) {
+                return `📊 Non risultano incassi o vendite registrate nel periodo ${periodDesc}.`;
+            }
+
+            return `📊 **Report Economico (${periodDesc}):**\n` +
                    `- **Incasso Netto (Cassa):** € ${totalFinal.toFixed(2)}\n` +
                    `- **Margine Netto Reale (Guadagno Salone):** € ${totalMargin.toFixed(2)}\n` +
-                   `- **Volume:** ${uniqueTransactions.size} scontrini emessi (${filteredItems.length} articoli/servizi).\n` +
-                   `- **Articolo più venduto nel periodo:** ${topItem} (${topCount} volte).`;
+                   `- **Scontrini emessi:** ${uniqueTransactions.size} (${filteredItems.length} articoli totali)\n` +
+                   `- **Servizio/Prodotto più richiesto:** ${topProduct} (${topCount} volte)`;
 
         } catch (err) {
-            console.error("Errore query finanziaria dinamica:", err);
-            return "⚠️ Si è verificato un errore durante l'interrogazione del report vendite.";
+            console.error("Errore esecuzione query finanziaria IA:", err);
+            return "⚠️ Si è verificato un errore durante l'interrogazione del database locale.";
         }
     }
 
-    // --- 3. ESTRAZIONE DATI ANAGRAFICI O CLIENTE SPECIFICO ---
+    // --- 4. ESTRAZIONE DATI CLIENTE O APPUNTAMENTI ---
     try {
         const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
         const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-        // Rilevamento dinamico nome cliente nella frase
-        let matchedCustomerName = null;
+        let matchedCustomer = null;
         for (let c of customers) {
             const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
             if (fullName && q.includes(fullName)) {
-                matchedCustomerName = fullName;
+                matchedCustomer = fullName;
                 break;
             }
         }
 
-        if (matchedCustomerName || q.includes('appuntamenti') || q.includes('quanti')) {
+        if (matchedCustomer || q.includes('appuntament')) {
             const targetApps = appointments.filter(a => {
                 const cName = (a.cust_name || '').toLowerCase();
-                return matchedCustomerName ? cName.includes(matchedCustomerName) : true;
+                return matchedCustomer ? cName.includes(matchedCustomer) : true;
             });
 
-            if (matchedCustomerName) {
-                return `📅 Il cliente **${matchedCustomerName}** ha **${targetApps.length} appuntamenti** registrati nello storico:\n` +
-                       targetApps.slice(0, 5).map(a => `- ${a.date} ore ${a.time?.substring(0,5)}: ${a.service} (${a.assigned_user || 'Admin'})`).join('\n');
+            if (matchedCustomer) {
+                return `📅 Il cliente **${matchedCustomer}** ha **${targetApps.length} appuntamenti** registrati:\n` +
+                       targetApps.slice(0, 5).map(a => `- ${formatDateIt ? formatDateIt(a.date) : a.date} ore ${a.time?.substring(0,5)}: ${a.service} (${a.assigned_user || 'Admin'})`).join('\n');
             }
         }
     } catch (e) {
-        console.error("Errore ricerca anagrafica dinamica:", e);
+        console.error("Errore ricerca clienti:", e);
     }
 
-    return `🤖 Ho analizzato la tua richiesta ("${userQuery}"). Prova a chiedermi: *"Quanto ho incassato ieri?"*, *"Quanto ho guadagnato la settimana scorsa?"* oppure *"Quanti appuntamenti ha Simone?"*.`;
+    return `🤖 Ho analizzato la tua richiesta ma non ho trovato un riscontro preciso. Prova a chiedermi: *"Quanto ho guadagnato il 01/09/2026?"*, *"Quanto ho incassato ieri?"* oppure *"Quanti appuntamenti ha Simone?"*.`;
 }
 
 // 🛡️ Formattatore deterministico di riserva (Garantisce risposta al 100% anche offline o senza credenziali IA)
