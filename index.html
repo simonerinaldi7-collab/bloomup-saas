@@ -4727,6 +4727,57 @@ async function processVaiMUpAssistantQuery(userQuery) {
         return `📦 In magazzino ci sono **${inventory.length} prodotti** totali. Attualmente ci sono **${lowStock.length} prodotti sotto scorta** critica.`;
     }
 
+    // --- CASO D: CLASSIFICHE E VOLUMI (Quale servizio/prodotto ho venduto di più?) ---
+    if (q.includes('servizio') || q.includes('prodotto') || q.includes('articolo') || q.includes('venduto di più') || q.includes('più richiesto')) {
+        if (!startDate) {
+            startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            endDate = todayStr;
+        }
+
+        try {
+            // Usiamo l'azione del data-service che calcola già i volumi aggregati
+            const volumeInsights = await window.universalQuery({ 
+                action: 'GET_VOLUME_INSIGHTS', 
+                data: { startDate: startDate, endDate: endDate } 
+            }) || [];
+
+            if (volumeInsights.length === 0) {
+                return `📈 Non risultano vendite registrate nel periodo analizzato per poter calcolare una classifica.`;
+            }
+
+            // Separiamo o filtriamo se chiede specificamente "servizio" o "prodotto"
+            let filteredResults = [...volumeInsights];
+            if (q.includes('servizio')) {
+                const serviceNames = new Set(inventory.filter(i => i.type === 'servizio').map(i => i.name.toLowerCase()));
+                filteredResults = filteredResults.filter(v => serviceNames.has(v.item_name.toLowerCase()));
+            } else if (q.includes('prodotto')) {
+                const productNames = new Set(inventory.filter(i => i.type === 'prodotto').map(i => i.name.toLowerCase()));
+                filteredResults = filteredResults.filter(v => productNames.has(v.item_name.toLowerCase()));
+            }
+
+            if (filteredResults.length === 0) {
+                return `📈 Non ci sono dati di vendita specifici per questa categoria nel periodo selezionato.`;
+            }
+
+            // Ordinati dal più venduto
+            filteredResults.sort((a, b) => b.total_sold - a.total_sold);
+            const top = filteredResults[0];
+
+            const periodDesc = `dal ${formatDateIt ? formatDateIt(startDate) : startDate} al ${formatDateIt ? formatDateIt(endDate) : endDate}`;
+
+            let text = `🏆 Il servizio/articolo più venduto (${periodDesc}) è **${top.item_name}** con ben **${top.total_sold} unità** erogate.\n\n**Top 5 della classifica:**\n`;
+            filteredResults.slice(0, 5).forEach((item, index) => {
+                text += `${index + 1}. **${item.item_name}**: ${item.total_sold} pz\n`;
+            });
+
+            return text;
+
+        } catch (err) {
+            console.error("Errore calcolo volumi IA:", err);
+            return "⚠️ Si è verificato un errore durante l'estrazione delle statistiche di vendita.";
+        }
+    }
+
     return `🤖 Ho memorizzato il contesto della conversazione. Puoi chiedermi dettagli sugli appuntamenti di un cliente, sugli incassi di un periodo o sullo stato del magazzino.`;
 }
 
