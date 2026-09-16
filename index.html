@@ -4617,7 +4617,7 @@ async function processVaiMUpAssistantQuery(userQuery) {
         }
         if (!targetService || targetService.length < 2) targetService = "Piedi";
 
-        const actionResponse = await executeAgentAction('CREATE_APPINTMENT', {
+        const actionResponse = await executeAgentAction('CREATE_APPOINTMENT', {
             customerName: targetCustomer,
             date: targetDate,
             time: targetTime,
