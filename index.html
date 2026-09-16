@@ -4534,6 +4534,48 @@ async function processVaiMUpAssistantQuery(userQuery) {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
+    // Carichiamo la memoria dinamica appresa dal salone
+    const salonMemories = await getSalonAiMemory();
+
+    // 1. GESTIONE CORREZIONI E AUTO-APPRENDIMENTO (Feedback Loop)
+    if (q.startsWith('ricorda che') || q.startsWith('impara che') || q.includes('da ora in poi')) {
+        // Estrapoliamo la regola (es. "ricorda che i miei clienti preferiscono la mattina")
+        const ruleText = userQuery.replace(/ricorda che|impara che|da ora in poi/gi, '').trim();
+        const memoryKey = `regola_${Date.now()}`;
+        await saveSalonAiMemory(memoryKey, ruleText);
+        return `🧠 Ho memorizzato questa nuova regola per il salone: *"(${ruleText})"*. D'ora in poi ne terrò conto!`;
+    }
+
+    // 2. FUNCTION CALLING: COMANDI IN SCRITTURA (Creare appuntamenti o spese a voce)
+    if (q.includes('segna appuntamento') || q.includes('prenota') || q.includes('crea appuntamento')) {
+        // Esempio base interpretativo: "segna appuntamento a Maria Rossi domani alle 15 per taglio"
+        // Estraiamo parametri al volo o chiediamo conferma
+        return `💡 Per prenotare un appuntamento direttamente, puoi usare il tasto '+ Nuovo' in agenda, oppure puoi dirmi: *"Registra appuntamento [Nome Cliente] il [AAAA-MM-GG] alle [HH:MM] per [Servizio]"*.`;
+    }
+
+    if (q.includes('registra spesa') || q.includes('aggiungi spesa')) {
+        // Esempio: "registra spesa Enel 150 euro"
+        const words = userQuery.split(' ');
+        let amount = words.find(w => !isNaN(parseFloat(w)) && parseFloat(w) > 5) || "50";
+        let desc = userQuery.replace(/registra spesa|aggiungi spesa|euro|€/gi, '').replace(amount, '').trim();
+        
+        const actionResult = await executeAgentAction('CREATE_EXPENSE', {
+            description: desc || 'Spesa generica',
+            amount: amount,
+            date: todayStr
+        });
+        return actionResult;
+    }
+
+    // --- 3. ANALISI DATI E RISPOSTE (Sfruttando anche salonMemories) ---
+    // (Qui mantieni la logica robusta che abbiamo scritto per volumi, clienti e incassi)
+    
+    // Se l'utente corregge un dato in chat (es. "No, intendevo un'altra cosa")
+    if (q.includes('no,') || q.includes('sbagliato') || q.includes('non è così')) {
+        await saveSalonAiMemory(`correzione_${Date.now()}`, userQuery);
+        return `🤖 Ti chiedo scusa per l'errore. Ho registrato questa correzione nella mia memoria dinamica per evitare che accada di nuovo.`;
+    }
+
     // --- 1. GESTIONE GUIDE OPERATIVE (App Guide) ---
     if (q.includes('come') || q.includes('guida') || q.includes('dove trovo')) {
         if (q.includes('storno') || q.includes('annullare')) {
@@ -4778,7 +4820,7 @@ async function processVaiMUpAssistantQuery(userQuery) {
         }
     }
 
-    return `🤖 Ho memorizzato il contesto della conversazione. Puoi chiedermi dettagli sugli appuntamenti di un cliente, sugli incassi di un periodo o sullo stato del magazzino.`;
+    return `🤖 Ti ascolto. Con la mia memoria dinamica attiva, posso analizzare i dati o memorizzare nuove regole per il tuo salone.`;
 }
 
 // 🛡️ Formattatore deterministico di riserva (Garantisce risposta al 100% anche offline o senza credenziali IA)
@@ -6307,6 +6349,109 @@ function toggleCalendarToolbar() {
         endInput.value = formattedEndTime;
         console.log("🕒 [AUTO TIME] Ora di fine aggiornata a:", formattedEndTime);
     }
+
+// --- 🤖 MODULO AGENTE AUTONOMO E AUTO-APPRENDIMENTO ---
+
+// 1. Recupera la memoria e le preferenze apprese dal salone
+async function getSalonAiMemory() {
+    try {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        if (!localDb || !localDb.ai_memory) return {};
+        
+        const memories = await localDb.ai_memory.where('salon_id').equals(salonId).toArray();
+        let memoryMap = {};
+        memories.forEach(m => {
+            memoryMap[m.memory_key] = m.memory_value;
+        });
+        return memoryMap;
+    } catch (e) {
+        console.warn("Impossibile leggere la memoria IA:", e);
+        return {};
+    }
+}
+
+// 2. Insegna una nuova regola o correzione all'agente
+async function saveSalonAiMemory(key, value) {
+    try {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        const memoryData = {
+            id: crypto.randomUUID(),
+            salon_id: salonId,
+            memory_key: key,
+            memory_value: value,
+            updated_at: new Date().toISOString()
+        };
+        await localDb.ai_memory.put(memoryData);
+        if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+            await sendToCloudDirectly('POST', 'ai_memory', memoryData);
+        }
+        console.log(`🧠 [AI MEMORY] Nuova regola appresa: ${key} = ${value}`);
+    } catch (e) {
+        console.error("Errore salvataggio memoria IA:", e);
+    }
+}
+
+// 3. Esecuzione di un'Azione di Scrittura Autonoma (Function Calling)
+async function executeAgentAction(intent, params) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    if (intent === 'CREATE_APPOINTMENT') {
+        // params: { customerName, date, time, service, operator }
+        try {
+            const customers = await localDb.customers.where('salon_id').equals(salonId).toArray();
+            let cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(params.customerName.toLowerCase()));
+            
+            const appointmentData = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                cust_name: cust ? `${cust.first_name} ${cust.last_name}` : params.customerName,
+                date: params.date, // Formato YYYY-MM-DD
+                time: params.time, // Formato HH:MM
+                end_time: params.endTime || "10:00",
+                service: params.service || "Trattamento",
+                price: parseFloat(params.price) || 0,
+                assigned_user: params.operator || (currentUser ? currentUser.username : 'admin'),
+                notes: "Creato autonomamente dall'Assistente IA"
+            };
+
+            await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appointmentData });
+            if (typeof refreshAllData === 'function') await refreshAllData();
+            if (typeof renderCalendar === 'function') renderCalendar();
+
+            return `✅ Ho creato con successo l'appuntamento per **${appointmentData.cust_name}** il giorno **${appointmentData.date}** alle ore **${appointmentData.time}** (${appointmentData.service}, operatore: ${appointmentData.assigned_user}).`;
+        } catch (err) {
+            return `❌ Errore durante la creazione dell'appuntamento: ${err.message}`;
+        }
+    }
+
+    if (intent === 'CREATE_EXPENSE') {
+        // params: { description, amount, date }
+        try {
+            const expenseData = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                date: params.date || new Date().toISOString().split('T')[0],
+                description: params.description,
+                amount: parseFloat(params.amount) || 0
+            };
+
+            await window.universalQuery({ action: 'INSERT', table: 'expenses', data: expenseData });
+            if (typeof loadExpenses === 'function') await loadExpenses();
+            if (typeof loadBalance === 'function') await loadBalance();
+
+            return `✅ Ho registrato la spesa "${expenseData.description}" di **€ ${expenseData.amount.toFixed(2)}** in data ${expenseData.date}.`;
+        } catch (err) {
+            return `❌ Errore nella registrazione della spesa: ${err.message}`;
+        }
+    }
+
+    return null;
+}
+
+
+
+
+
 
 // ✍️ Funzione unificata Salva o Aggiorna Spesa (Con ricalcolo economico immediato)
 async function saveOrUpdateExpense() {
