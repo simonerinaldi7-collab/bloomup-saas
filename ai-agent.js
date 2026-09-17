@@ -89,19 +89,22 @@ async function processAiAgentQuery(userQuery) {
 
     const systemPrompt = `Sei il motore agente di VaiMUp, un gestionale SaaS per saloni beauty/retail.
 Oggi è ${todayStr}.
-Contesto precedente salvato: Ultimo Cliente="${window._aiAgentContext.lastCustomer || 'Nessuno'}", Ultimo Servizio="${window._aiAgentContext.lastProduct || 'Nessuno'}".
+Contesto precedente salvato: Ultimo Cliente="${window._aiAgentContext.lastCustomer || 'Nessuno'}".
+
+REGOLE IMPORTANTI PER IL CONTESTO:
+- Se l'utente usa pronomi come "suoi", "di lui", "di lei", "suocfr", o ripete solo il nome senza cognome (es. "di Simone"), devi fare riferimento all'ultimo cliente salvato in memoria ("${window._aiAgentContext.lastCustomer}") o cercare il cliente corrispondente.
 
 Compito: Analizza la query dell'utente e restituisci SOLO un oggetto JSON valido (senza markdown o testo extra attorno):
 {
-  "action": "CREATE_APPOINTMENT" | "MOVE_APPOINTMENT" | "DELETE_APPOINTMENT" | "CREATE_EXPENSE" | "ANALYTICS_QUERY" | "UNKNOWN",
-  "customerName": "Nome Cognome se menzionato o deducibile dal contesto, altrimenti null",
+  "action": "CREATE_APPOINTMENT" | "MOVE_APPOINTMENT" | "DELETE_APPOINTMENT" | "GET_APPOINTMENTS" | "CREATE_EXPENSE" | "ANALYTICS_QUERY" | "UNKNOWN",
+  "customerName": "Nome Cognome del cliente (se l'utente dice 'i suoi', usa l'ultimo cliente in memoria)",
   "serviceName": "Nome del servizio se menzionato, altrimenti null",
-  "date": "YYYY-MM-DD se specificata (es. 'domani' calcolalo), altrimenti null",
+  "date": "YYYY-MM-DD se specificata, altrimenti null",
   "time": "HH:MM se specificata, altrimenti null",
   "durationMinutes": 60,
-  "expenseDescription": "Descrizione spesa se richiesta, altrimenti null",
+  "expenseDescription": null,
   "expenseAmount": 0.0,
-  "analyticsType": "TOP_SERVICES" | "CUSTOMER_SPEND" | "MARGIN_TREND" | "LOW_STOCK" | null
+  "analyticsType": null
 }
 Clienti noti: ${JSON.stringify(customerNames.slice(0, 30))}.
 Servizi noti: ${JSON.stringify(serviceNames)}.`;
@@ -303,3 +306,36 @@ async function executeHeuristicFallback(q, todayStr) {
     }
     return "🤖 Non ho compreso pienamente la richiesta. Prova a chiedere gli appuntamenti di un cliente o lo stato delle scorte.";
 }
+
+
+// --- 5. READ: GET APPOINTMENTS FOR CUSTOMER ---
+    if (action === 'GET_APPOINTMENTS') {
+        const custName = parsed.customerName || window._aiAgentContext.lastCustomer;
+        if (!custName) return "⚠️ Di quale cliente desideri verificare gli appuntamenti?";
+
+        // Aggiorna il contesto globale
+        window._aiAgentContext.lastCustomer = custName;
+
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        
+        // Filtra gli appuntamenti del cliente da oggi in poi (o anche passati se richiesto)
+        const custApps = appointments.filter(a => {
+            const matchName = (a.cust_name || '').toLowerCase().includes(custName.toLowerCase());
+            return matchName && a.date >= todayStr;
+        });
+
+        // Ordina dal più vicino al più lontano nel futuro
+        custApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+
+        if (custApps.length === 0) {
+            return `📅 Al momento non ci sono appuntamenti futuri programmati per **${custName}**.`;
+        }
+
+        let reply = `📅 Ecco i prossimi appuntamenti trovati per **${custName}**:\n`;
+        custApps.forEach(a => {
+            const timeStr = a.time ? a.time.substring(0, 5) : '';
+            reply += `- **${a.date}** alle ore **${timeStr}**: ${a.service || 'Trattamento'} (Op: ${a.assigned_user || 'Admin'})\n`;
+        });
+
+        return reply;
+    }
