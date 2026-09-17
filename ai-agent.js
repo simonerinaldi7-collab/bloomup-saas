@@ -219,6 +219,37 @@ async function dispatchAgentAction(parsed, rawQuery, todayStr) {
         return `✅ L'appuntamento di **${custName}** è stato spostato al **${newDate}** alle ore **${newTime}**.`;
     }
 
+// --- 5. READ: GET APPOINTMENTS FOR CUSTOMER ---
+    if (action === 'GET_APPOINTMENTS') {
+        const custName = parsed.customerName || window._aiAgentContext.lastCustomer;
+        if (!custName) return "⚠️ Di quale cliente desideri verificare gli appuntamenti?";
+
+        // Aggiorna il contesto globale
+        window._aiAgentContext.lastCustomer = custName;
+
+        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+        
+        // Filtra gli appuntamenti del cliente da oggi in poi (o anche passati se richiesto)
+        const custApps = appointments.filter(a => {
+            const matchName = (a.cust_name || '').toLowerCase().includes(custName.toLowerCase());
+            return matchName && a.date >= todayStr;
+        });
+
+        // Ordina dal più vicino al più lontano nel futuro
+        custApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+
+        if (custApps.length === 0) {
+            return `📅 Al momento non ci sono appuntamenti futuri programmati per **${custName}**.`;
+        }
+
+        let reply = `📅 Ecco i prossimi appuntamenti trovati per **${custName}**:\n`;
+        custApps.forEach(a => {
+            const timeStr = a.time ? a.time.substring(0, 5) : '';
+            reply += `- **${a.date}** alle ore **${timeStr}**: ${a.service || 'Trattamento'} (Op: ${a.assigned_user || 'Admin'})\n`;
+        });
+
+        return reply;
+    }
     // --- 3. WRITE: CONFIRMATION-GATED DELETE ---
     if (action === 'DELETE_APPOINTMENT') {
         const custName = parsed.customerName || window._aiAgentContext.lastCustomer;
@@ -307,35 +338,3 @@ async function executeHeuristicFallback(q, todayStr) {
     return "🤖 Non ho compreso pienamente la richiesta. Prova a chiedere gli appuntamenti di un cliente o lo stato delle scorte.";
 }
 
-
-// --- 5. READ: GET APPOINTMENTS FOR CUSTOMER ---
-    if (action === 'GET_APPOINTMENTS') {
-        const custName = parsed.customerName || window._aiAgentContext.lastCustomer;
-        if (!custName) return "⚠️ Di quale cliente desideri verificare gli appuntamenti?";
-
-        // Aggiorna il contesto globale
-        window._aiAgentContext.lastCustomer = custName;
-
-        const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-        
-        // Filtra gli appuntamenti del cliente da oggi in poi (o anche passati se richiesto)
-        const custApps = appointments.filter(a => {
-            const matchName = (a.cust_name || '').toLowerCase().includes(custName.toLowerCase());
-            return matchName && a.date >= todayStr;
-        });
-
-        // Ordina dal più vicino al più lontano nel futuro
-        custApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-
-        if (custApps.length === 0) {
-            return `📅 Al momento non ci sono appuntamenti futuri programmati per **${custName}**.`;
-        }
-
-        let reply = `📅 Ecco i prossimi appuntamenti trovati per **${custName}**:\n`;
-        custApps.forEach(a => {
-            const timeStr = a.time ? a.time.substring(0, 5) : '';
-            reply += `- **${a.date}** alle ore **${timeStr}**: ${a.service || 'Trattamento'} (Op: ${a.assigned_user || 'Admin'})\n`;
-        });
-
-        return reply;
-    }
