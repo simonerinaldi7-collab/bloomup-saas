@@ -4648,14 +4648,19 @@ async function processVaiMUpAssistantQuery(userQuery) {
         const endM = endTotalMin % 60;
         const targetEndTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
-        // Pulizia del servizio
         let targetService = "Trattamento";
-        if (q.includes('servizio')) {
-            const parts = userQuery.split(/servizio/i);
+        if (q.includes('servizio') || q.includes('servizo')) {
+            const parts = userQuery.split(/servizi?o?/i);
             if (parts[1]) {
                 targetService = parts[1]
                     .replace(/alle\s*\d+(?::\d+)?|ore\s*\d+|per\s*il|domani|\d+[\/\-]\d+|\b(0[1-9]|[12]\d|3[01])[\/\-\.](0[1-9]|1[0-2])[\/\-\.]?(20\d{2})\b|un'ora e mezza|un'ora e trenta|90 minuti|60 minuti|30 minuti/gi, '')
                     .trim();
+            }
+        } else {
+            // Se non ha scritto la parola "servizio", controlliamo se alla fine c'è un trattamento noto o prendiamo l'ultima parte della frase
+            const cleanQuery = q.replace(/per\s+simone\s+rinaldi|per\s+il\s+\d+[\/\-]\d+[\/\-]\d+|alle\s+\d+|un'ora\s+e\s+30|oggi|domani/gi, '').trim();
+            if (cleanQuery.length > 2) {
+                targetService = cleanQuery.charAt(0).toUpperCase() + cleanQuery.slice(1);
             }
         }
         if (!targetService || targetService.length < 2) targetService = "Piedi";
@@ -4763,6 +4768,79 @@ async function processVaiMUpAssistantQuery(userQuery) {
             return `❌ Si è verificato un errore durante lo spostamento: ${err.message}`;
         }
     }
+
+// --- 2C. FUNCTION CALLING: MODIFICA SERVIZIO O NOTE APPUNTAMENTO ---
+    if (q.includes('modifica') || q.includes('cambia servizio') || q.includes('inserendo come servizio') || q.includes('metti come servizio')) {
+        try {
+            let targetCustomer = window._aiContext?.lastCustomer || null;
+            const customersList = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+            
+            for (let c of customersList) {
+                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                if (fullName && q.toLowerCase().includes(fullName.toLowerCase())) {
+                    targetCustomer = fullName;
+                    break;
+                }
+            }
+
+            if (!targetCustomer) {
+                targetCustomer = window._aiContext?.lastCustomer;
+            }
+
+            const todayDateStr = new Date().toISOString().split('T')[0];
+            const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            
+            let custApps = appointments.filter(a => {
+                const cName = (a.cust_name || '').toLowerCase();
+                return targetCustomer ? cName.includes(targetCustomer.toLowerCase()) : true;
+            });
+
+            if (custApps.length === 0) {
+                return `⚠️ Non ho trovato appuntamenti associati a questo cliente da modificare.`;
+            }
+
+            // Ordiniamo per prendere l'appuntamento più recente o imminente (es. quello di oggi 17/09)
+            custApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+            let appToUpdate = custApps[0];
+
+            // Se l'utente ha specificato una data nel comando (es. "del 17/09" o "di oggi")
+            if (q.includes('oggi')) {
+                const foundToday = custApps.find(a => a.date === todayDateStr);
+                if (foundToday) appToUpdate = foundToday;
+            }
+
+            // Estrazione del nuovo servizio (cerca parole dopo "servizio", "come", "in")
+            let newService = "Trattamento";
+            if (q.includes('servizio')) {
+                const parts = userQuery.split(/servizio/i);
+                if (parts[1]) newService = parts[1].replace(/alle|ore|per|il|del|come|inserendo|metti/gi, '').trim();
+            } else if (q.includes('come')) {
+                const parts = userQuery.split(/come/i);
+                if (parts[1]) newService = parts[1].replace(/servizio|il|del/gi, '').trim();
+            }
+
+            if (!newService || newService.length < 2) newService = "Piedi";
+
+            // Eseguiamo l'aggiornamento del servizio sul database
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'appointments',
+                data: { service: newService },
+                id: appToUpdate.id
+            });
+
+            if (typeof refreshAllData === 'function') await refreshAllData();
+            if (typeof renderCalendar === 'function') renderCalendar();
+
+            return `✅ L'appuntamento di **${appToUpdate.cust_name || targetCustomer}** del *${formatDateIt ? formatDateIt(appToUpdate.date) : appToUpdate.date}* (${appToUpdate.time?.substring(0,5)}) è stato aggiornato: nuovo servizio impostato a **${newService}**.`;
+
+        } catch (err) {
+            console.error("Errore modifica servizio IA:", err);
+            return `❌ Si è verificato un errore durante la modifica: ${err.message}`;
+        }
+    }
+
+
 
     // --- 3. GESTIONE SPESE A VOCE ---
     if (q.includes('registra spesa') || q.includes('aggiungi spesa')) {
