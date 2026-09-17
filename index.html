@@ -8856,8 +8856,10 @@ function startProfessionalOperatorAlertSystem() {
     });
 }
 
+// --- CENTRO ALLARMI IMMINENTI OTTIMIZZATO (UNA SOLA NOTIFICA PER APPUNTAMENTO) ---
+
 async function checkImminentAppointmentsNow() {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.username) return;
 
     try {
         const apps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
@@ -8865,180 +8867,153 @@ async function checkImminentAppointmentsNow() {
 
         const now = new Date();
         const currentUsername = currentUser.username.trim().toLowerCase();
-        const leadTimeMinutes = getOperatorImminentLeadTime();
+        const leadTimeMinutes = getOperatorImminentLeadTime(); // Di solito 15 min
 
-        const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
-        
-        // 🌟 Registro persistente delle notifiche già mostrate in questa sessione / giornata
-        const notifiedAppointments = JSON.parse(sessionStorage.getItem('VaiMUp_notified_history') || '{}');
+        // Recuperiamo lo storico persistente delle notifiche già inviate oggi
         const todayKeyDate = now.toISOString().split('T')[0];
+        let notifiedHistory = {};
+        try {
+            notifiedHistory = JSON.parse(localStorage.getItem('VaiMUp_permanent_notified') || '{}');
+        } catch (e) {
+            notifiedHistory = {};
+        }
 
-        let stateChanged = false;
+        let hasNewNotifications = false;
 
         apps.forEach(app => {
+            // 1. Verifica operatore assegnato
             const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
             if (assigned !== currentUsername) return;
 
+            // 2. Esclusione pause, chiusure e ferie
             const srv = (app.service || '').toLowerCase();
-            if (srv.includes('pausa') || srv.includes('pranzo') || srv.includes('chiusura') | srv.includes('ferie')) return;
+            const cust = (app.cust_name || '').toLowerCase();
+            if (srv.includes('pausa') || srv.includes('pranzo') || srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura')) return;
             if (!app.date || !app.time) return;
 
-            // 1. Se l'utente ha fatto "Ho capito", saltiamo
-            const uniqueAlertKey = `${app.id}_${app.date}`;
-            if (dismissedAlerts[uniqueAlertKey] === todayKeyDate) return;
-
-            // 2. 🛑 SE QUESTO APPUNTAMENTO HA GIÀ NOTIFICATO IN QUESTA SESSIONE, LO SALTATIAMO RIGOROSAMENTE!
-            // A meno che non sia scaduto il tempo di Snooze.
-            if (notifiedAppointments[app.id] === 'notified') {
-                // Verifichiamo se c'è uno Snooze attivo
-                if (window.activeSnoozes && window.activeSnoozes[app.id]) {
-                    const snoozeUntil = new Date(window.activeSnoozes[app.id]);
-                    if (now < snoozeUntil) {
-                        return; // È ancora in fase di "Posticipa", quindi non suona
-                    } else {
-                        // Lo Snooze è scaduto: rimuoviamo lo snooze e permettiamo di suonare di nuovo una volta
-                        delete window.activeSnoozes[app.id];
-                        localStorage.setItem('VaiMUp_active_snoozes', JSON.stringify(window.activeSnoozes));
-                        delete notifiedAppointments[app.id]; // Sblocca la notifica per il post-snooze
-                        stateChanged = true;
-                    }
-                } else {
-                    return; // Già notificato e nessun snooze attivo: non disturbare più!
-                }
+            // 3. 🛑 REGOLA D'ORO: Unicità assoluta per appuntamento e per giorno
+            const uniqueKey = `${app.id}_${app.date}`;
+            if (notifiedHistory[uniqueKey] === true) {
+                return; // Già notificato in precedenza, scartato categoricamente!
             }
 
+            // Calcolo minuti mancanti
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
-
             const diffMs = appDateTime - now;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-            // Finestra temporale di attivazione (es. da -2 minuti a +15 minuti dall'inizio)
+            // 4. Finestra temporale rigorosa (es. scatta esattamente quando mancano tra -2 e N minuti)
             if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
-                // Segnamo subito l'appuntamento come notificato per bloccare cicli futuri
-                notifiedAppointments[app.id] = 'notified';
-                sessionStorage.setItem('VaiMUp_notified_history', JSON.stringify(notifiedAppointments));
+                // Segnamo subito come notificato per bloccare qualsiasi loop futuro
+                notifiedHistory[uniqueKey] = true;
+                hasNewNotifications = true;
 
-                // Attiviamo il modale e il suono professionale una sola volta
+                // Mostriamo l'allarme visivo e sonoro una sola volta
                 triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
             }
         });
 
+        // Salvataggio persistente dello stato notifiche inviate
+        if (hasNewNotifications) {
+            localStorage.setItem('VaiMUp_permanent_notified', JSON.stringify(notifiedHistory));
+        }
+
     } catch (e) {
-        console.error("Errore nel controllo imminente:", e);
+        console.error("Errore nel controllo imminente delle notifiche:", e);
     }
 }
 
 async function triggerProfessionalAlarmModal(app, minutesLeft) {
-    // 1. 📲 NOTIFICA NATIVA DI SISTEMA
+    // 1. 📲 NOTIFICA NATIVA PUSH (Semplificata, senza pulsanti complessi che creano bug su mobile)
     if ('Notification' in window && Notification.permission === 'granted') {
         try {
             const registration = await navigator.serviceWorker.ready;
-            const notifTitle = `⏰ Appuntamento tra ${minutesLeft} min`;
-            const notifBody = `Cliente: ${app.cust_name}\nServizio: ${app.service || 'Trattamento'}\nOrario: ${app.time.substring(0, 5)}\n\n👉 Tocca per aprire l'app.`;
+            const notifTitle = `⏰ Appuntamento imminente (${minutesLeft} min)`;
+            const notifBody = `Cliente: ${app.cust_name}\nTrattamento: ${app.service || 'Trattamento'}\nOrario: ${app.time.substring(0, 5)}`;
             
             await registration.showNotification(notifTitle, {
                 body: notifBody,
                 icon: './icon-192.png',
                 badge: './icon-192.png',
-                vibrate: [300, 100, 300],
+                vibrate: [200, 100, 200],
                 tag: `appointment-alert-${app.id}`,
-                requireInteraction: true,
-                data: { appId: app.id, url: './index.html' }
+                data: { url: './index.html?open_tab=calendar' }
             });
         } catch (pushErr) {
-            console.warn("Notifica nativa non riuscita:", pushErr);
+            console.warn("Notifica push nativa non inviata:", pushErr);
         }
     }
 
+    // Evitiamo di aprire più modali a schermo contemporaneamente se ce ne sono già attivi
     if (document.getElementById('pro-alarm-overlay')) return;
 
-    // 2. 🎶 SUONO MORBIDO E PROFESSIONALE (Soft Chime Armonico a due toni)
+    // 2. 🎶 SUONO MORBIDO E UNICO (Campanello di avviso)
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
             const audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
             
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, now); // Nota Re5
+            
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
 
-            // Funzione per generare una nota armonica e rotonda (onda sinusoidale con fade-out graduale)
-            function playSoftChime(freq1, freq2, delayMs) {
-                setTimeout(() => {
-                    if (audioCtx.state === 'closed') return;
-                    const now = audioCtx.currentTime;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-                    // Oscillatore 1 (Nota principale)
-                    const osc1 = audioCtx.createOscillator();
-                    const gain1 = audioCtx.createGain();
-                    osc1.type = 'sine'; // Onda sinusoidale (suono calmo e rotondo, non metallico)
-                    osc1.frequency.setValueAtTime(freq1, now);
-
-                    // Oscillatore 1 (Armonica di accompagnamento per dare corpo)
-                    const osc2 = audioCtx.createOscillator();
-                    const gain2 = audioCtx.createGain();
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(freq2, now);
-
-                    // Inviluppo del volume (Fade-in rapido e rilascio molto lungo e dolce)
-                    gain1.gain.setValueAtTime(0.001, now);
-                    gain1.gain.linearRampToValueAtTime(0.15, now + 0.08);
-                    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
-
-                    gain2.gain.setValueAtTime(0.001, now);
-                    gain2.gain.linearRampToValueAtTime(0.08, now + 0.08);
-                    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 1.0);
-
-                    osc1.connect(gain1);
-                    gain1.connect(audioCtx.destination);
-
-                    osc2.connect(gain2);
-                    gain2.connect(audioCtx.destination);
-
-                    osc1.start(now);
-                    osc2.start(now);
-
-                    osc1.stop(now + 1.2);
-                    osc2.stop(now + 1.0);
-                }, delayMs);
-            }
-
-            // Eseguiamo un motivetto a due note ascendenti molto rilassante (stile campanello di promemoria)
-            playSoftChime(523.25, 659.25, 0);     // Do5 + Mi5
-            playSoftChime(659.25, 783.99, 250);   // Mi5 + Sol5
+            osc.start(now);
+            osc.stop(now + 0.8);
         }
     } catch (e) {
-        console.warn("Riproduzione audio browser non consentita senza interazione utente:", e);
+        console.warn("Audio bloccato dal browser:", e);
     }
 
-    // 3. 🖼️ MODALE A SCHERMO
+    // 3. 🖼️ MODALE A SCHERMO PULITO (Con un unico tasto di chiusura/apertura)
     const overlay = document.createElement('div');
     overlay.id = 'pro-alarm-overlay';
     overlay.style.cssText = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeInScale 0.3s ease-out;";
 
     overlay.innerHTML = `
-        <div style="background: #ffffff; color: #1e293b; padding: 40px 30px; border-radius: 28px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.5); border-top: 8px solid #6366f1;">
-            <div style="width: 70px; height: 70px; background: #ede9fe; color: #6d28d9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px auto; animation: pulseAlarm 1.5s infinite;">
+        <div style="background: #ffffff; color: #1e293b; padding: 35px 25px; border-radius: 24px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.4); border-top: 6px solid #6366f1;">
+            <div style="width: 60px; height: 60px; background: #ede9fe; color: #6d28d9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 15px auto;">
                 ⏰
             </div>
-            <span style="background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Appuntamento Imminente</span>
-            <h2 style="margin: 12px 0 6px 0; font-size: 24px; font-weight: 800; color: #1e1b4b;">Tra ${minutesLeft} minuti</h2>
+            <h3 style="margin: 0 0 5px 0; font-size: 20px; font-weight: 800; color: #1e1b4b;">Appuntamento tra ${minutesLeft} min</h3>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Un tuo cliente sta per arrivare in salone.</p>
             
-            <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 18px; margin: 20px 0; text-align: left;">
-                <div style="font-size: 13px; font-weight: 700; color: #4f46e5; margin-bottom: 4px;">👤 ${app.cust_name}</div>
-                <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">✂️ ${app.service || 'Trattamento'}</div>
-                <div style="font-size: 12px; color: #64748b;">🕒 Orario previsto: <b>${app.date} alle ${app.time.substring(0, 5)}</b></div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 20px; text-align: left;">
+                <div style="font-size: 14px; font-weight: 700; color: #4f46e5; margin-bottom: 4px;">👤 ${app.cust_name}</div>
+                <div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 6px;">✂️ ${app.service || 'Trattamento'}</div>
+                <div style="font-size: 12px; color: #64748b;">🕒 Orario: <b>${app.date} alle ${app.time.substring(0, 5)}</b></div>
             </div>
             
-            <div style="display: flex; gap: 12px;">
-                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #334155; border-radius: 14px; font-weight: 700; cursor: pointer;" onclick="requestSnoozeBroadcast('${app.id}', 5)">⏳ Posticipa 5 min</button>
-                <button class="btn" style="flex:1; padding: 14px; font-size: 13px; justify-content: center; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border: none; color: white; border-radius: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.3);" onclick="requestDismissBroadcast('${app.id}')">✓ Ho capito / Procedi</button>
-            </div>
+            <button class="btn btn-p" style="width: 100%; padding: 14px; justify-content: center; border-radius: 12px; font-weight: 700;" onclick="closeAlarmAndOpenCalendar()">
+                Vai all'Agenda ➔
+            </button>
         </div>
     `;
 
     document.body.appendChild(overlay);
+}
+
+function closeAlarmAndOpenCalendar() {
+    const overlay = document.getElementById('pro-alarm-overlay');
+    if (overlay) overlay.remove();
+    
+    // Reindirizza l'operatore direttamente all'agenda
+    if (typeof changePage === 'function') {
+        changePage('calendar');
+    } else {
+        window.location.href = './index.html?open_tab=calendar';
+    }
 }
 
 
