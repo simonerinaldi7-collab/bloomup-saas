@@ -1505,15 +1505,19 @@
 </section>
 
     <section id="v-sales-report" class="view">
-        <div class="card">
-            <h3>Report Vendite & Analisi Economica</h3>
-            <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-                <input type="text" id="src-report-cust" placeholder="Cliente..." onkeyup="renderSalesReport()" style="max-width:200px;">
-                <input type="text" id="src-report-prod" placeholder="Prodotto..." onkeyup="renderSalesReport()" style="max-width:200px;">
-                <input type="date" id="d-start-report" onchange="renderSalesReport()">
-                <input type="date" id="d-end-report" onchange="renderSalesReport()">
-                <button class="btn btn-d" onclick="clearFilters()">Pulisci</button>
-            </div>
+    <div class="card">
+        <h3>Report Vendite & Analisi Economica</h3>
+        <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+            <input type="text" id="src-report-cust" placeholder="Cliente..." onkeyup="renderSalesReport()" style="max-width:180px; margin:0;">
+            <input type="text" id="src-report-prod" placeholder="Prodotto..." onkeyup="renderSalesReport()" style="max-width:180px; margin:0;">
+            <!-- 🌟 NUOVO FILTRO VENDITORE / OPERATORE -->
+            <select id="src-report-seller" onchange="renderSalesReport()" style="max-width:180px; margin:0; background:white;">
+                <option value="all">Tutti i Venditori</option>
+            </select>
+            <input type="date" id="d-start-report" onchange="renderSalesReport()" style="max-width:150px; margin:0;">
+            <input type="date" id="d-end-report" onchange="renderSalesReport()" style="max-width:150px; margin:0;">
+            <button class="btn btn-d" onclick="clearFilters()" style="margin:0;">Pulisci</button>
+        </div>
 
             <!-- 📊 KPI SUMMARY CARDS (Totali in alto dinamici) -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 25px;">
@@ -3732,88 +3736,106 @@ async function voidSaleTransaction(saleId) {
     }
 
    async function renderSalesReport() {
-        const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
-        const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
-        const fStart = document.getElementById('d-start-report')?.value || '';
-        const fEnd = document.getElementById('d-end-report')?.value || '';
+    const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
+    const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
+    const fSeller = document.getElementById('src-report-seller')?.value || 'all'; // 👈 Lettura filtro venditore
+    const fStart = document.getElementById('d-start-report')?.value || '';
+    const fEnd = document.getElementById('d-end-report')?.value || '';
+    
+    // 1. Chiamata al backend unificato che restituisce gli item già calcolati al centesimo
+    const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+    
+    // 🌟 1.5 Popolamento dinamico della tendina dei venditori (se non ancora popolata)
+    const sellerSelect = document.getElementById('src-report-seller');
+    if (sellerSelect && salesData.length > 0) {
+        const currentSelectedSeller = sellerSelect.value;
+        // Estraiamo tutti i venditori unici presenti nel report
+        const uniqueSellers = [...new Set(salesData.map(r => r.seller || 'Admin'))].sort();
         
-        // 1. Chiamata al backend unificato che restituisce gli item già calcolati al centesimo
-        const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-        
-        // 2. Filtriamo in base ai parametri di ricerca della UI
-        const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
-            const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
-            const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
-            const saleDate = r.date;
-            const matchStart = !fStart || saleDate >= fStart;
-            const matchEnd = !fEnd || saleDate <= fEnd;
-            return matchCust && matchProd && matchStart && matchEnd;
+        let sellerOptions = '<option value="all">Tutti i Venditori</option>';
+        uniqueSellers.forEach(s => {
+            sellerOptions += `<option value="${s}" ${s === currentSelectedSeller ? 'selected' : ''}>${s}</option>`;
         });
-        
-        const tbody = document.getElementById('list-report');
-        if (!tbody) return;
-
-        // 🧮 Variabili per i totali aggregati in alto
-        let sumGross = 0;
-        let sumDiscount = 0;
-        let sumFinal = 0;
-        let sumMargin = 0;
-
-        tbody.innerHTML = filtered.map(r => {
-            const soldPrice = parseFloat(r.sold_price) || 0; 
-            const discount = parseFloat(r.discount) || 0;
-            const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
-            const unitCost = parseFloat(r.unit_cost) || 0;
-            const supplierPayout = parseFloat(r.supplier_payout) || 0;
-            const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
-
-            // Accumuliamo nei totali generali
-            sumGross += soldPrice;
-            sumDiscount += discount;
-            sumFinal += finalPrice;
-            sumMargin += netMarginOrRevenue;
-
-            const isPositive = netMarginOrRevenue >= 0;
-
-            // 🌟 UTILIZZIAMO IL DETTAGLIO FORNITORI GIA' CALCOLATO E FORMATTATO DAL BACKEND
-            let supplierDetailsText = r.supplier_details || '-';
-            if (supplierDetailsText === '-' && supplierPayout > 0) {
-                supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
-            }
-
-            return `
-                <tr>
-                    <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
-                    <td><b>${r.item_name}</b></td>
-                    <td>${r.customer_name || 'Occasionale'}</td>
-                    <td>€${soldPrice.toFixed(2)}</td>
-                    <td>€${discount.toFixed(2)}</td>
-                    <td><b>€${finalPrice.toFixed(2)}</b></td>
-                    <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
-                    <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
-                    <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
-                    <td>${r.seller || '-'}</td>
-                    <td style="text-align: right;">
-                        <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
-        const elGross = document.getElementById('rep-tot-gross');
-        const elDisc = document.getElementById('rep-tot-disc');
-        const elFinal = document.getElementById('rep-tot-final');
-        const elMargin = document.getElementById('rep-tot-margin');
-
-        if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
-        if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
-        if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
-        if (elMargin) {
-            elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
-            elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
+        if (sellerSelect.innerHTML !== sellerOptions) {
+            sellerSelect.innerHTML = sellerOptions;
         }
     }
+
+    // 2. Filtriamo in base ai parametri di ricerca della UI (incluso il venditore)
+    const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
+        const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
+        const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
+        const itemSeller = r.seller || 'Admin';
+        const matchSeller = (fSeller === 'all' || itemSeller.toLowerCase() === fSeller.toLowerCase());
+        const saleDate = r.date;
+        const matchStart = !fStart || saleDate >= fStart;
+        const matchEnd = !fEnd || saleDate <= fEnd;
+        return matchCust && matchProd && matchSeller && matchStart && matchEnd;
+    });
+    
+    const tbody = document.getElementById('list-report');
+    if (!tbody) return;
+
+    // 🧮 Variabili per i totali aggregati in alto
+    let sumGross = 0;
+    let sumDiscount = 0;
+    let sumFinal = 0;
+    let sumMargin = 0;
+
+    tbody.innerHTML = filtered.map(r => {
+        const soldPrice = parseFloat(r.sold_price) || 0; 
+        const discount = parseFloat(r.discount) || 0;
+        const finalPrice = parseFloat(r.final_price) || (soldPrice - discount);
+        const unitCost = parseFloat(r.unit_cost) || 0;
+        const supplierPayout = parseFloat(r.supplier_payout) || 0;
+        const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
+
+        // Accumuliamo nei totali generali
+        sumGross += soldPrice;
+        sumDiscount += discount;
+        sumFinal += finalPrice;
+        sumMargin += netMarginOrRevenue;
+
+        const isPositive = netMarginOrRevenue >= 0;
+
+        let supplierDetailsText = r.supplier_details || '-';
+        if (supplierDetailsText === '-' && supplierPayout > 0) {
+            supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
+        }
+
+        return `
+            <tr>
+                <td>${formatDateIt(r.date)} ${r.time ? '@ ' + r.time.substring(0,5) : ''}</td>
+                <td><b>${r.item_name}</b></td>
+                <td>${r.customer_name || 'Occasionale'}</td>
+                <td>€${soldPrice.toFixed(2)}</td>
+                <td>€${discount.toFixed(2)}</td>
+                <td><b>€${finalPrice.toFixed(2)}</b></td>
+                <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
+                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
+                <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
+                <td><b>${r.seller || 'Admin'}</b></td>
+                <td style="text-align: right;">
+                    <button class="btn btn-d" style="padding:4px 10px; font-size:11px;" onclick="voidSaleTransaction('${r.sale_id}')" title="Annulla / Storna questa vendita">Storna</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
+    const elGross = document.getElementById('rep-tot-gross');
+    const elDisc = document.getElementById('rep-tot-disc');
+    const elFinal = document.getElementById('rep-tot-final');
+    const elMargin = document.getElementById('rep-tot-margin');
+
+    if (elGross) elGross.innerText = `€ ${sumGross.toFixed(2)}`;
+    if (elDisc) elDisc.innerText = `€ ${sumDiscount.toFixed(2)}`;
+    if (elFinal) elFinal.innerText = `€ ${sumFinal.toFixed(2)}`;
+    if (elMargin) {
+        elMargin.innerText = `€ ${sumMargin.toFixed(2)}`;
+        elMargin.style.color = sumMargin >= 0 ? '#00b894' : '#e17055';
+    }
+}
 
 
 
@@ -10477,15 +10499,22 @@ function formatPhoneNumberForWhatsApp(phone) {
 
 
     function clearFilters() {
-        // 1. Resetta i campi di input
-        document.getElementById('src-report-cust').value = "";
-        document.getElementById('src-report-prod').value = "";
-        document.getElementById('d-start-report').value = "";
-        document.getElementById('d-end-report').value = "";
-        
-        // 2. Ricarica la tabella pulita
-        renderSalesReport();
-    }
+    // 1. Resetta tutti i campi di input e select dei filtri report
+    const cInput = document.getElementById('src-report-cust');
+    const pInput = document.getElementById('src-report-prod');
+    const sSelect = document.getElementById('src-report-seller');
+    const startInput = document.getElementById('d-start-report');
+    const endInput = document.getElementById('d-end-report');
+
+    if (cInput) cInput.value = "";
+    if (pInput) pInput.value = "";
+    if (sSelect) sSelect.value = "all";
+    if (startInput) startInput.value = "";
+    if (endInput) endInput.value = "";
+    
+    // 2. Ricarica la tabella pulita
+    renderSalesReport();
+}
     // Correzione di saveInv per includere il campo size
 // Cerca la funzione saveInv() e assicurati che gestisca i campi del servizio in conto vendita:
 async function saveInv() {
