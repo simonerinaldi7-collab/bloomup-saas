@@ -442,7 +442,7 @@ window.hydrateLocalDatabase = async function(salonId) {
         // FASE 2: Dati di magazzino e fornitori (Caricati subito dopo in background leggero)
         setTimeout(async () => {
             if (!navigator.onLine) return;
-            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history'];
+            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history','packages_config','package_items'];
             for (let table of inventoryTables) {
                 await backgroundPullFromSupabase(table, salonId);
                 await new Promise(r => setTimeout(r, 120));
