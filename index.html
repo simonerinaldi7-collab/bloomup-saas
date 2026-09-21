@@ -1561,22 +1561,31 @@
                 <button type="button" class="btn btn-s" style="padding: 6px 12px; font-size: 12px;" onclick="addPackageServiceRow()">+ Aggiungi Servizio al Pacchetto</button>
             </div>
 
-     <!-- Sezione Condivisione Multi-Salon con inserimento testuale mirato e avviso -->
+     <!-- Sezione Condivisione Multi-Salon & Split Incassi Dinamico -->
 <label style="margin-top: 15px; color: var(--p); font-weight: bold;">Condivisione Multi-Salon & Split Incassi</label>
 <div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
     
-    <!-- 💡 Avviso / Esortazione amministrativa -->
+    <!-- Avviso amministrativo -->
     <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4; margin-bottom: 10px;">
-        <b>💡 Nota bene:</b> Inserisci l'identificativo esatto del salon partner. <i>Se non conosci l'ID corretto del salone con cui condividere il pacchetto, contatta l'amministratore di sistema prima di procedere.</i>
+        <b>💡 Nota bene:</b> Inserisci l'identificativo esatto del salon partner. <i>Se non conosci l'ID corretto, contatta l'amministratore di sistema.</i>
     </div>
 
-    <small style="color: #666; display: block; margin-bottom: 6px;">ID dei saloni abilitati (separa più saloni con la virgola):</small>
-    <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_001, salon_002" style="margin: 0 0 10px 0; background: white; font-size: 13px;">
+    <label style="margin-top:0;">ID dei saloni abilitati (separa con virgola)</label>
+    <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_001, salon_002" oninput="generateSalonSplitFields()" style="margin: 0 0 12px 0; background: white; font-size: 13px;">
 
-    <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 10px; border-radius: 8px;">
-        <label style="margin-top:0; font-size: 11px; color: #4338ca;">Suddivisione Incassi (%) tra i Saloni</label>
-        <input type="text" id="f-pkg-revenue-splits" placeholder='Es. {"salon_001": 50, "salon_002": 50}' style="margin: 4px 0 0 0; background: white; font-size: 12px; font-family: monospace;">
-        <small style="color: #64748b; font-size: 10px; display: block; margin-top: 4px;">Inserisci un oggetto JSON con le percentuali esatte per ciascun salon_id.</small>
+    <!-- 📊 Contenitore generato dinamicamente per le quote dei saloni -->
+    <div style="background: #ffffff; border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label style="margin:0; font-size: 11px; color: #4338ca;">Ripartizione quote per Salone</label>
+            <select id="f-pkg-split-type" onchange="generateSalonSplitFields()" style="margin:0; width: 130px; padding: 4px; font-size: 11px;">
+                <option value="percent">Percentuale (%)</option>
+                <option value="fixed">Valore (€)</option>
+            </select>
+        </div>
+        
+        <div id="salon-split-inputs-wrapper" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <span style="color: #888; font-size: 12px; font-style: italic;">Digita i saloni sopra per impostare la suddivisione.</span>
+        </div>
     </div>
 </div>
         </div>
@@ -8230,16 +8239,57 @@ async function renderPackages() {
     }).join('') || `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Nessun pacchetto configurato. Clicca su '+ Nuovo Pacchetto'.</td></tr>`;
 }
 
+// 🌟 Genera dinamicamente i campi di input in base ai saloni digitati
+function generateSalonSplitFields(existingSplits = null) {
+    const wrapper = document.getElementById('salon-split-inputs-wrapper');
+    const inputVal = document.getElementById('f-pkg-shared-salons').value.trim();
+    const splitType = document.getElementById('f-pkg-split-type').value;
+    const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    // Ricaviamo l'array pulito dei saloni (forzando sempre il salone corrente)
+    let salons = inputVal ? inputVal.split(',').map(s => s.trim()).filter(s => s.length > 0) : [currentSalon];
+    if (!salons.includes(currentSalon)) salons.unshift(currentSalon);
+
+    if (salons.length === 0) {
+        wrapper.innerHTML = `<span style="color: #888; font-size: 12px; font-style: italic;">Digita i saloni sopra per impostare la suddivisione.</span>`;
+        return;
+    }
+
+    // Valore di default equo se non ci sono dati esistenti
+    const defaultVal = (splitType === 'percent') ? (100 / salons.length).toFixed(1) : (100 / salons.length).toFixed(2);
+
+    let html = '';
+    salons.forEach((salonId, idx) => {
+        let val = defaultVal;
+        if (existingSplits && existingSplits[salonId] !== undefined) {
+            val = existingSplits[salonId];
+        }
+
+        html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+                <span style="font-weight: 600; font-size: 13px; color: var(--txt);">${salonId} ${salonId === currentSalon ? '(Tu)' : ''}</span>
+                <div style="display: flex; align-items: center; gap: 4px; width: 140px;">
+                    <input type="number" step="0.01" min="0" class="salon-split-val" data-salon="${salonId}" value="${val}" style="margin: 0; padding: 6px; text-align: right; font-weight: bold; background: white;">
+                    <span style="font-size: 12px; font-weight: bold; color: #666;">${splitType === 'percent' ? '%' : '€'}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    wrapper.innerHTML = html;
+}
+
+// Aggiornamento di openPackageModal per leggere i dati salvati
 async function openPackageModal(packageId = null) {
     document.getElementById('edit-package-id').value = packageId || "-1";
     document.getElementById('f-pkg-name').value = "";
     document.getElementById('f-pkg-price').value = "";
-    document.getElementById('f-pkg-shared-salons').value = currentUser ? currentUser.salon_id : '';
-    document.getElementById('f-pkg-revenue-splits').value = currentUser ? `{"${currentUser.salon_id}": 100}` : '{}';
+    document.getElementById('f-pkg-shared-salons').value = currentUser ? currentUser.salon_id : 'SALON_001';
+    document.getElementById('f-pkg-split-type').value = 'percent';
     
     document.getElementById('package-services-rows').innerHTML = "";
-
     await addPackageServiceRow();
+    generateSalonSplitFields();
 
     if (packageId) {
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
@@ -8248,13 +8298,14 @@ async function openPackageModal(packageId = null) {
             document.getElementById('f-pkg-name').value = pkg.name || "";
             document.getElementById('f-pkg-price').value = pkg.price || "";
             
-            // Convertiamo l'array condiviso in stringa separata da virgola
             const sharedArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [currentUser?.salon_id || 'SALON_001'];
             document.getElementById('f-pkg-shared-salons').value = sharedArr.join(', ');
 
-            // Convertiamo l'oggetto revenue_splits in stringa JSON leggibile
-            document.getElementById('f-pkg-revenue-splits').value = JSON.stringify(pkg.revenue_splits || { [currentUser?.salon_id || 'SALON_001']: 100 });
-            
+            // Rigenera i campi inserendo i valori salvati in revenue_splits
+            if (pkg.revenue_splits) {
+                generateSalonSplitFields(pkg.revenue_splits);
+            }
+
             const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const pkgItems = items.filter(it => it.package_id === packageId);
             
@@ -8306,6 +8357,7 @@ async function renderSalonSplitInputs(pkgConfig = null) {
     `;
 }
 
+// Aggiornamento di savePackageConfig per raccogliere i dati dai campi normali
 async function savePackageConfig() {
     const pkgId = document.getElementById('edit-package-id').value;
     const isNew = (!pkgId || pkgId === "-1");
@@ -8315,34 +8367,30 @@ async function savePackageConfig() {
     const name = document.getElementById('f-pkg-name').value.trim();
     const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
     const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
-    const revenueSplitsRaw = document.getElementById('f-pkg-revenue-splits').value.trim();
+    const splitType = document.getElementById('f-pkg-split-type').value;
 
     if (!name || price <= 0) {
         return alert("Inserisci un nome valido e un prezzo di listino per il pacchetto.");
     }
 
-    // 1. Elaboriamo i saloni condivisi convertendo la stringa in un array pulito di ID
+    // 1. Array saloni condivisi
     let sharedSalonsArray = sharedSalonsRaw
         ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0)
         : [currentSalonId];
 
-    // Assicuriamoci che il salone corrente sia sempre incluso tra quelli condivisi
     if (!sharedSalonsArray.includes(currentSalonId)) {
         sharedSalonsArray.push(currentSalonId);
     }
 
-    // 2. Validiamo o interpretiamo il JSON delle quote di ripartizione incassi
-    let revenueSplitsObj = {};
-    try {
-        revenueSplitsObj = JSON.parse(revenueSplitsRaw);
-    } catch (e) {
-        // Fallback di sicurezza: suddivisione equa o 100% al salone corrente se il JSON non è valido
-        const sharePct = Math.round(100 / sharedSalonsArray.length);
-        sharedSalonsArray.forEach((s, idx) => {
-            // Assegna il resto dell'arrotondamento all'ultimo elemento
-            revenueSplitsObj[s] = (idx === sharedSalonsArray.length - 1) ? (100 - (sharePct * (sharedSalonsArray.length - 1))) : sharePct;
-        });
-    }
+    // 2. Raccolta dinamica dei valori dai campi normali generati
+    let revenueSplitsObj = { type: splitType, allocations: {} };
+    const splitInputs = document.querySelectorAll('.salon-split-val');
+    
+    splitInputs.forEach(input => {
+        const sId = input.getAttribute('data-salon');
+        const val = parseFloat(input.value) || 0;
+        revenueSplitsObj.allocations[sId] = val;
+    });
 
     // 3. Raccogliamo i servizi dalle righe dinamiche
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
@@ -8371,7 +8419,7 @@ async function savePackageConfig() {
         name: name,
         price: price,
         shared_salons: sharedSalonsArray,
-        revenue_splits: revenueSplitsObj
+        revenue_splits: revenueSplitsObj // Salvato in modo pulito e strutturato
     };
 
     if (isNew) {
