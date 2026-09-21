@@ -6002,23 +6002,27 @@ async function renderPackages() {
                 return `• ${srv ? srv.name : 'Servizio'} (<b>${it.total_sessions}</b> sedute)`;
             }).join('<br>') || '<span style="color:#e17055;">Nessun servizio associato</span>';
 
-            // 2. Formattazione avanzata dello Split Saloni e quote
-            let splitDetailsHtml = 'Esclusivo';
-            const sharedSalonsArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [];
+            // 2. Formattazione dettagliata dello Split Incassi (Percentuale o Valore Fisso)
+            let splitDetailsHtml = '<span style="color: #64748b;">Esclusivo (100% al salone emittente)</span>';
             
-            if (sharedSalonsArr.length > 0 && pkg.revenue_splits && pkg.revenue_splits.allocations) {
+            if (pkg.revenue_splits && pkg.revenue_splits.allocations) {
                 const splitType = pkg.revenue_splits.type || 'percent';
                 const allocations = pkg.revenue_splits.allocations;
                 
-                let splitLines = sharedSalonsArr.map(sId => {
-                    const val = allocations[sId] !== undefined ? allocations[sId] : 0;
+                let splitLines = [];
+                for (const [sId, val] of Object.entries(allocations)) {
                     const formattedVal = splitType === 'percent' ? `${val}%` : `€ ${parseFloat(val).toFixed(2)}`;
-                    return `• <b>${sId}</b>: <span style="color:var(--p);">${formattedVal}</span>`;
-                });
+                    splitLines.push(`• <b>${sId}</b>: <span style="color:var(--p); font-weight: bold;">${formattedVal}</span>`);
+                }
 
-                splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.4;"><b>Condiviso:</b><br>${splitLines.join('<br>')}</div>`;
-            } else if (sharedSalonsArr.length > 1) {
-                splitDetailsHtml = `<span style="color:#0984e3; font-weight:600;">Condiviso (${sharedSalonsArr.join(', ')})</span>`;
+                if (splitLines.length > 0) {
+                    splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Ripartizione (${splitType === 'percent' ? 'Percentuale' : 'Valore'}):</b><br>${splitLines.join('<br>')}</div>`;
+                }
+            } else if (Array.isArray(pkg.shared_salons) && pkg.shared_salons.length > 1) {
+                // Fallback se revenue_splits non è popolato ma ci sono più saloni
+                const equalShare = (100 / pkg.shared_salons.length).toFixed(1);
+                let splitLines = pkg.shared_salons.map(sId => `• <b>${sId}</b>: <span style="color:var(--p);">${equalShare}%</span>`);
+                splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Ripartizione Equa:</b><br>${splitLines.join('<br>')}</div>`;
             }
 
             return `
