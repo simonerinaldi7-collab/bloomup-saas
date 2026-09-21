@@ -5916,7 +5916,7 @@ async function quickAlarmAction(actionType) {
         'v-customers':'Clienti', 'v-services':'Listino servizi', 'v-products':'Magazzino Prodotti',
         'v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni', 'v-users': 'Gestione Utenti',
         'v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff',
-        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita'
+        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti'
     };
     
     document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
@@ -5952,6 +5952,15 @@ async function quickAlarmAction(actionType) {
         updateCalendarUI();
         renderCalendar();
     }
+if (active === 'v-packages') {
+    
+    if (navigator.onLine) {
+        await backgroundPullFromSupabase('packages_config', salonId);
+        await backgroundPullFromSupabase('package_items', salonId);
+    }
+    renderPackages();
+}
+
     if(active === 'v-sales-report') renderSalesReport();
     if(active === 'v-sales') renderSalesList();
     if(active === 'v-supplier-payouts') renderSupplierPayouts();
@@ -5960,7 +5969,68 @@ async function quickAlarmAction(actionType) {
     if(active === 'v-users') renderUsers();
 }
 
+// =========================================================================
+// 🎁 RENDERIZZAZIONE LISTA PACCHETTI (GESTIONE VIEW PACCHETTI)
+// =========================================================================
 
+async function renderPackages() {
+    const searchInput = document.getElementById('src-packages');
+    const f = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const tbody = document.getElementById('list-packages');
+    
+    if (!tbody) return;
+
+    try {
+        // Recuperiamo i dati da Dexie / memoria locale
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+        const inventory = allInventory || [];
+
+        // Filtriamo per il salon corrente e per eventuale ricerca testuale
+        const salonConfigs = configs.filter(pkg => pkg.salon_id === salonId || (Array.isArray(pkg.shared_salons) && pkg.shared_salons.includes(salonId)));
+        const filtered = salonConfigs.filter(pkg => (pkg.name || '').toLowerCase().includes(f));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:25px;">Nessun pacchetto trovato. Clicca su '+ Nuovo Pacchetto' per crearne uno.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(pkg => {
+            // Troviamo i servizi associati a questo pacchetto
+            const pkgItems = items.filter(it => it.package_id === pkg.id);
+            const servicesDesc = pkgItems.map(it => {
+                const srv = inventory.find(i => i.id === it.service_id);
+                return `• ${srv ? srv.name : 'Servizio'} (<b>${it.total_sessions}</b> sedute)`;
+            }).join('<br>') || '<span style="color:#e17055;">Nessun servizio associato</span>';
+
+            // Formattazione saloni condivisi
+            const sharedSalonsArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [];
+            const sharedText = sharedSalonsArr.length > 1 
+                ? `<span style="color:#0984e3; font-weight:600;">Condiviso (${sharedSalonsArr.join(', ')})</span>` 
+                : 'Esclusivo';
+
+            return `
+                <tr>
+                    <td><b>${pkg.name}</b></td>
+                    <td><b>€ ${parseFloat(pkg.price || 0).toFixed(2)}</b></td>
+                    <td style="font-size: 13px; line-height: 1.5; padding: 12px 15px;">${servicesDesc}</td>
+                    <td style="font-size: 12px;">${sharedText}</td>
+                    <td style="text-align:right">
+                        <div style="display: inline-flex; gap: 6px;">
+                            <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')" title="Modifica Pacchetto">Edit</button>
+                            <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')" title="Elimina Pacchetto">✕</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error("Errore nel rendering della tabella pacchetti:", err);
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">Errore nel caricamento dei pacchetti.</td></tr>`;
+    }
+}
         
           function setCalView(v) { 
     calView = v; 
