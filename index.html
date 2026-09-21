@@ -5983,6 +5983,10 @@ async function renderPackages() {
     try {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+
+        // 🔍 DEBUG ISPEZIONE: Stampiamo in console i pacchetti letti dal DB
+        console.log("🎁 [DEBUG PACCHETTI LETTI DAL DB]:", configs);
+
         const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
         const inventory = allInventory || [];
 
