@@ -5940,6 +5940,11 @@ async function quickAlarmAction(actionType) {
             await window.universalQuery({ action: 'GET_ALL', table: 'inventory' });
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             renderServices();
+        } else if (active === 'v-packages') {
+            console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti dal cloud...");
+            await backgroundPullFromSupabase('packages_config', salonId);
+            await backgroundPullFromSupabase('package_items', salonId);
+            renderPackages(); // 👈 CHIAMATA DI RENDER FORZATA QUI!
         }
     }
 
@@ -5952,14 +5957,7 @@ async function quickAlarmAction(actionType) {
         updateCalendarUI();
         renderCalendar();
     }
-if (active === 'v-packages') {
-    
-    if (navigator.onLine) {
-        await backgroundPullFromSupabase('packages_config', salonId);
-        await backgroundPullFromSupabase('package_items', salonId);
-    }
-    renderPackages();
-}
+
 
     if(active === 'v-sales-report') renderSalesReport();
     if(active === 'v-sales') renderSalesList();
