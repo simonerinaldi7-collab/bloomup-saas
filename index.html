@@ -1561,14 +1561,24 @@
                 <button type="button" class="btn btn-s" style="padding: 6px 12px; font-size: 12px;" onclick="addPackageServiceRow()">+ Aggiungi Servizio al Pacchetto</button>
             </div>
 
-            <!-- Sezione Condivisione Multi-Salon -->
-            <label style="margin-top: 15px; color: var(--p); font-weight: bold;">Condivisione Multi-Salon & Split Incassi</label>
-            <div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
-                <small style="color: #666; display: block; margin-bottom: 8px;">Seleziona i saloni che possono erogare questo pacchetto e definisci la quota percentuale di competenza:</small>
-                <div id="package-salons-split-container" style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Popolato dinamicamente con i salon partner -->
-                </div>
-            </div>
+     <!-- Sezione Condivisione Multi-Salon con inserimento testuale mirato e avviso -->
+<label style="margin-top: 15px; color: var(--p); font-weight: bold;">Condivisione Multi-Salon & Split Incassi</label>
+<div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
+    
+    <!-- 💡 Avviso / Esortazione amministrativa -->
+    <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4; margin-bottom: 10px;">
+        <b>💡 Nota bene:</b> Inserisci l'identificativo esatto del salon partner. <i>Se non conosci l'ID corretto del salone con cui condividere il pacchetto, contatta l'amministratore di sistema prima di procedere.</i>
+    </div>
+
+    <small style="color: #666; display: block; margin-bottom: 6px;">ID dei saloni abilitati (separa più saloni con la virgola):</small>
+    <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_001, salon_002" style="margin: 0 0 10px 0; background: white; font-size: 13px;">
+
+    <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 10px; border-radius: 8px;">
+        <label style="margin-top:0; font-size: 11px; color: #4338ca;">Suddivisione Incassi (%) tra i Saloni</label>
+        <input type="text" id="f-pkg-revenue-splits" placeholder='Es. {"salon_001": 50, "salon_002": 50}' style="margin: 4px 0 0 0; background: white; font-size: 12px; font-family: monospace;">
+        <small style="color: #64748b; font-size: 10px; display: block; margin-top: 4px;">Inserisci un oggetto JSON con le percentuali esatte per ciascun salon_id.</small>
+    </div>
+</div>
         </div>
 
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
@@ -8224,13 +8234,12 @@ async function openPackageModal(packageId = null) {
     document.getElementById('edit-package-id').value = packageId || "-1";
     document.getElementById('f-pkg-name').value = "";
     document.getElementById('f-pkg-price').value = "";
+    document.getElementById('f-pkg-shared-salons').value = currentUser ? currentUser.salon_id : '';
+    document.getElementById('f-pkg-revenue-splits').value = currentUser ? `{"${currentUser.salon_id}": 100}` : '{}';
     
     document.getElementById('package-services-rows').innerHTML = "";
-    document.getElementById('package-salons-split-container').innerHTML = "";
 
-    // Aggiungiamo di default una riga vuota di servizio
     await addPackageServiceRow();
-    await renderSalonSplitInputs(packageId ? await getPackageConfig(packageId) : null);
 
     if (packageId) {
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
@@ -8238,6 +8247,13 @@ async function openPackageModal(packageId = null) {
         if (pkg) {
             document.getElementById('f-pkg-name').value = pkg.name || "";
             document.getElementById('f-pkg-price').value = pkg.price || "";
+            
+            // Convertiamo l'array condiviso in stringa separata da virgola
+            const sharedArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [currentUser?.salon_id || 'SALON_001'];
+            document.getElementById('f-pkg-shared-salons').value = sharedArr.join(', ');
+
+            // Convertiamo l'oggetto revenue_splits in stringa JSON leggibile
+            document.getElementById('f-pkg-revenue-splits').value = JSON.stringify(pkg.revenue_splits || { [currentUser?.salon_id || 'SALON_001']: 100 });
             
             const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const pkgItems = items.filter(it => it.package_id === packageId);
@@ -8294,16 +8310,41 @@ async function savePackageConfig() {
     const pkgId = document.getElementById('edit-package-id').value;
     const isNew = (!pkgId || pkgId === "-1");
     const targetId = isNew ? crypto.randomUUID() : pkgId;
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
     const name = document.getElementById('f-pkg-name').value.trim();
     const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
+    const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
+    const revenueSplitsRaw = document.getElementById('f-pkg-revenue-splits').value.trim();
 
     if (!name || price <= 0) {
         return alert("Inserisci un nome valido e un prezzo di listino per il pacchetto.");
     }
 
-    // Raccogliamo i servizi dalle righe dinamiche
+    // 1. Elaboriamo i saloni condivisi convertendo la stringa in un array pulito di ID
+    let sharedSalonsArray = sharedSalonsRaw
+        ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0)
+        : [currentSalonId];
+
+    // Assicuriamoci che il salone corrente sia sempre incluso tra quelli condivisi
+    if (!sharedSalonsArray.includes(currentSalonId)) {
+        sharedSalonsArray.push(currentSalonId);
+    }
+
+    // 2. Validiamo o interpretiamo il JSON delle quote di ripartizione incassi
+    let revenueSplitsObj = {};
+    try {
+        revenueSplitsObj = JSON.parse(revenueSplitsRaw);
+    } catch (e) {
+        // Fallback di sicurezza: suddivisione equa o 100% al salone corrente se il JSON non è valido
+        const sharePct = Math.round(100 / sharedSalonsArray.length);
+        sharedSalonsArray.forEach((s, idx) => {
+            // Assegna il resto dell'arrotondamento all'ultimo elemento
+            revenueSplitsObj[s] = (idx === sharedSalonsArray.length - 1) ? (100 - (sharePct * (sharedSalonsArray.length - 1))) : sharePct;
+        });
+    }
+
+    // 3. Raccogliamo i servizi dalle righe dinamiche
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
     let pkgItemsPayload = [];
 
@@ -8326,18 +8367,17 @@ async function savePackageConfig() {
 
     const configData = {
         id: targetId,
-        salon_id: salonId,
+        salon_id: currentSalonId,
         name: name,
         price: price,
-        shared_salons: [salonId],
-        revenue_splits: { [salonId]: 100 }
+        shared_salons: sharedSalonsArray,
+        revenue_splits: revenueSplitsObj
     };
 
     if (isNew) {
         await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
     } else {
         await window.universalQuery({ action: 'UPDATE', table: 'packages_config', data: configData, id: targetId });
-        // Puliamo i vecchi items relazionali per ricrearli aggiornati
         const existingItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
         for (let oldIt of existingItems.filter(i => i.package_id === targetId)) {
             await window.universalQuery({ action: 'DELETE', table: 'package_items', id: oldIt.id });
