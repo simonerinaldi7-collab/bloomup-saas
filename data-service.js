@@ -54,7 +54,7 @@ function startBackgroundMultiOperatorSync() {
 
         // 🛑 Ottimizzazione 2: Nel polling frequente (20s) teniamo SOLO la tabella "calda" dell'agenda. 
         // Le altre tabelle (inventario, clienti) si sincronizzano all'apertura delle rispettive viste o via WebSocket.
-        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory'];
+        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'package_config','package_items'];
         
         try {
             for (let table of tablesToSync) {

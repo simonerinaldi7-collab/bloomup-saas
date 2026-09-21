@@ -8381,7 +8381,7 @@ async function savePackageConfig() {
         sharedSalonsArray.push(currentSalonId);
     }
 
-    // 2. Raccolta e VALIDAZIONE dei valori dai campi di split
+    // 2. Raccolta e VALIDAZIONE RIGOROSA dei valori dai campi di split
     let revenueSplitsObj = { type: splitType, allocations: {} };
     const splitInputs = document.querySelectorAll('.salon-split-val');
     
@@ -8393,20 +8393,20 @@ async function savePackageConfig() {
         totalSum += val;
     });
 
-    // 🛑 CONTROLLI DI VALIDAZIONE CONTABILE BLOCCANTI
+    // 🛑 BLCCO RIGOROSO SE LE PERCENTUALI SUPERANO O NON FANNO 100%
     if (splitType === 'percent') {
-        // La somma deve fare 100% (accettiamo decimali tra 99.99 e 100.01 per arrotondamenti)
         if (Math.abs(totalSum - 100) > 0.05) {
-            return alert(`⚠️ Errore di ripartizione:\nLa somma delle percentuali deve essere esattamente 100%. Al momento la somma è ${totalSum.toFixed(2)}%.`);
+            alert(`⚠️ Errore di ripartizione:\nLa somma delle percentuali deve essere esattamente 100%. Al momento la somma è ${totalSum.toFixed(2)}%.`);
+            return; // 👈 Interrompe l'esecuzione e blocca il salvataggio!
         }
     } else if (splitType === 'fixed') {
-        // La somma deve essere identica al prezzo di listino totale
         if (Math.abs(totalSum - price) > 0.01) {
-            return alert(`⚠️ Errore di ripartizione:\nLa somma degli importi in euro (€ ${totalSum.toFixed(2)}) deve essere identica al prezzo di listino totale del pacchetto (€ ${price.toFixed(2)}).`);
+            alert(`⚠️ Errore di ripartizione:\nLa somma degli importi in euro (€ ${totalSum.toFixed(2)}) deve essere identica al prezzo di listino totale del pacchetto (€ ${price.toFixed(2)}).`);
+            return; // 👈 Interrompe l'esecuzione e blocca il salvataggio!
         }
     }
 
-    // 3. Raccogliamo i servizi dalle righe dinamiche
+    // 3. Raccogliamo i servizi dalle righe dinamiche (INCLUDENDO salon_id per evitare errori 400)
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
     let pkgItemsPayload = [];
 
@@ -8416,6 +8416,7 @@ async function savePackageConfig() {
         if (srvId) {
             pkgItemsPayload.push({
                 id: crypto.randomUUID(),
+                salon_id: currentSalonId, // 👈 Fondamentale per rispettare la struttura Supabase
                 package_id: targetId,
                 service_id: srvId,
                 total_sessions: sCount
@@ -8436,23 +8437,28 @@ async function savePackageConfig() {
         revenue_splits: revenueSplitsObj
     };
 
-    if (isNew) {
-        await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
-    } else {
-        await window.universalQuery({ action: 'UPDATE', table: 'packages_config', data: configData, id: targetId });
-        const existingItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-        for (let oldIt of existingItems.filter(i => i.package_id === targetId)) {
-            await window.universalQuery({ action: 'DELETE', table: 'package_items', id: oldIt.id });
+    try {
+        if (isNew) {
+            await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
+        } else {
+            await window.universalQuery({ action: 'UPDATE', table: 'packages_config', data: configData, id: targetId });
+            const existingItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+            for (let oldIt of existingItems.filter(i => i.package_id === targetId)) {
+                await window.universalQuery({ action: 'DELETE', table: 'package_items', id: oldIt.id });
+            }
         }
-    }
 
-    for (let it of pkgItemsPayload) {
-        await window.universalQuery({ action: 'INSERT', table: 'package_items', data: it });
-    }
+        for (let it of pkgItemsPayload) {
+            await window.universalQuery({ action: 'INSERT', table: 'package_items', data: it });
+        }
 
-    alert("✅ Pacchetto salvato con successo!");
-    closeMod();
-    renderPackages();
+        alert("✅ Pacchetto salvato con successo!");
+        closeMod();
+        renderPackages();
+    } catch (err) {
+        console.error("Errore critico salvataggio pacchetto:", err);
+        alert("Impossibile salvare il pacchetto sul database.");
+    }
 }
 
 async function deletePackage(id) {
