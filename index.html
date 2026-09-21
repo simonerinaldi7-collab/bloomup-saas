@@ -7787,47 +7787,39 @@ async function registerOperatorPushNotifications() {
     }
 
            function getEventStyles(a) {
-        if (!a) return '';
-        if (!allLogs || allLogs.length === 0) {
-           
-            return '';
-        }
+    if (!a || !allLogs || allLogs.length === 0) return '';
+    
+    const targetAppId = String(a.id || '').trim();
+    const targetAppDate = (a.date || '').trim();
+    const targetAppTime = (a.time || '').substring(0, 5).trim();
+    const targetCustName = (a.cust_name || '').trim().toLowerCase();
+
+    // Cerchiamo un log corrispondente con criteri multipli di sicurezza
+    const matchedLog = allLogs.find(l => {
+        if (!l.appointment_info && !l.cust_name) return false;
         
-        const targetAppDate = (a.date || '').trim();
-        const targetAppTime = (a.time || '').substring(0, 5).trim();
-        const custNameRaw = (a.cust_name || '').trim().toLowerCase();
+        const logInfo = (l.appointment_info || '').toLowerCase();
+        const logCust = (l.cust_name || '').trim().toLowerCase();
 
+        // 1. Controllo per coerenza del nome cliente
+        const isSameCustomer = targetCustName && (logCust === targetCustName || logInfo.includes(targetCustName));
         
+        // 2. Controllo per data e ora
+        const isSameDate = targetAppDate && logInfo.includes(targetAppDate);
+        const isSameTime = targetAppTime && logInfo.includes(targetAppTime);
 
-        // Cerchiamo un log corrispondente stampando le verifiche
-        const matchedLog = allLogs.find(l => {
-            if (!l.appointment_info) return false;
-            const logInfo = (l.appointment_info || '').toLowerCase();
-            const logCust = (l.cust_name || '').trim().toLowerCase();
+        return isSameCustomer && isSameDate && isSameTime;
+    });
 
-            const matchDate = logInfo.includes(targetAppDate);
-            const matchTime = logInfo.includes(targetAppTime);
-            const matchName = custNameRaw && (
-                logCust === custNameRaw || 
-                logInfo.includes(custNameRaw) || 
-                custNameRaw.includes(logCust)
-            );
-
-           
-            return matchDate && matchTime && matchName;
-        });
-
-        if (matchedLog) {
-            const type = (matchedLog.msg_type || '').toUpperCase();
-            
-            if (type.includes('REMINDER')) return 'st-remind';
-            if (type.includes('CONFIRM')) return 'st-confirm';
-        } else {
-            //console.log(`❌ [DEBUG STILI] Nessun log valido trovato per l'appuntamento di ${custNameRaw}`);
-        }
+    if (matchedLog) {
+        const type = (matchedLog.msg_type || '').toUpperCase();
         
-        return ''; 
+        if (type.includes('REMINDER')) return 'st-remind';
+        if (type.includes('CONFIRM')) return 'st-confirm';
     }
+    
+    return ''; 
+}
             // --- COMUNICAZIONI ---
             function getFriendlyType(t) {
                 if(t.includes('WA_CONFIRM')) return "WhatsApp: Conferma";
