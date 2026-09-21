@@ -8357,7 +8357,6 @@ async function renderSalonSplitInputs(pkgConfig = null) {
     `;
 }
 
-// Aggiornamento di savePackageConfig per raccogliere i dati dai campi normali
 async function savePackageConfig() {
     const pkgId = document.getElementById('edit-package-id').value;
     const isNew = (!pkgId || pkgId === "-1");
@@ -8382,15 +8381,30 @@ async function savePackageConfig() {
         sharedSalonsArray.push(currentSalonId);
     }
 
-    // 2. Raccolta dinamica dei valori dai campi normali generati
+    // 2. Raccolta e VALIDAZIONE dei valori dai campi di split
     let revenueSplitsObj = { type: splitType, allocations: {} };
     const splitInputs = document.querySelectorAll('.salon-split-val');
     
+    let totalSum = 0;
     splitInputs.forEach(input => {
         const sId = input.getAttribute('data-salon');
         const val = parseFloat(input.value) || 0;
         revenueSplitsObj.allocations[sId] = val;
+        totalSum += val;
     });
+
+    // 🛑 CONTROLLI DI VALIDAZIONE CONTABILE BLOCCANTI
+    if (splitType === 'percent') {
+        // La somma deve fare 100% (accettiamo decimali tra 99.99 e 100.01 per arrotondamenti)
+        if (Math.abs(totalSum - 100) > 0.05) {
+            return alert(`⚠️ Errore di ripartizione:\nLa somma delle percentuali deve essere esattamente 100%. Al momento la somma è ${totalSum.toFixed(2)}%.`);
+        }
+    } else if (splitType === 'fixed') {
+        // La somma deve essere identica al prezzo di listino totale
+        if (Math.abs(totalSum - price) > 0.01) {
+            return alert(`⚠️ Errore di ripartizione:\nLa somma degli importi in euro (€ ${totalSum.toFixed(2)}) deve essere identica al prezzo di listino totale del pacchetto (€ ${price.toFixed(2)}).`);
+        }
+    }
 
     // 3. Raccogliamo i servizi dalle righe dinamiche
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
@@ -8419,7 +8433,7 @@ async function savePackageConfig() {
         name: name,
         price: price,
         shared_salons: sharedSalonsArray,
-        revenue_splits: revenueSplitsObj // Salvato in modo pulito e strutturato
+        revenue_splits: revenueSplitsObj
     };
 
     if (isNew) {
