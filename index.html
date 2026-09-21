@@ -964,6 +964,7 @@
         <a href="#" class="nav-item" id="n-supp" onclick="changePageMobileWrapper('suppliers')">🚚 Gestione Fornitori</a>
         <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
         <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
+        <a href="#" class="nav-item" id="n-packages" onclick="changePageMobileWrapper('packages')">🎁 Gestione Pacchetti</a>
         <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
         <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
         <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
@@ -1503,6 +1504,79 @@
         </table>
     </div>
 </section>
+
+
+
+<!-- VISTA GESTIONE PACCHETTI -->
+<section id="v-packages" class="view">
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items:center; flex-wrap:wrap; gap:10px;">
+        <input type="text" id="src-packages" onkeyup="renderPackages()" placeholder="Cerca pacchetto..." style="max-width:300px; margin:0;">
+        <button class="btn btn-p" onclick="openPackageModal()">+ Nuovo Pacchetto</button>
+    </div>
+    <div class="card" style="padding:0; overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome Pacchetto</th>
+                    <th>Prezzo Listino</th>
+                    <th>Servizi Inclusi & Sedute</th>
+                    <th>Saloni Condivisi</th>
+                    <th style="text-align:right">Azioni</th>
+                </tr>
+            </thead>
+            <tbody id="list-packages">
+                <!-- Popolato dinamicamente -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- MODALE CREAZIONE / MODIFICA PACCHETTO -->
+<div id="mod-package" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; color: var(--p);">🎁 Configurazione Pacchetto</h3>
+            <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <input type="hidden" id="edit-package-id" value="-1">
+
+            <label>Nome Pacchetto *</label>
+            <input type="text" id="f-pkg-name" placeholder="Es. Pacchetto Benessere 10 Sedute">
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Prezzo di Listino Totale (€) *</label>
+                    <input type="number" id="f-pkg-price" step="0.01" placeholder="Es. 250.00">
+                </div>
+            </div>
+
+            <!-- Sezione Composizione Servizi e Sedute -->
+            <label style="margin-top: 15px; color: var(--p); font-weight: bold;">Servizi Inclusi nel Pacchetto</label>
+            <div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
+                <div id="package-services-rows" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                    <!-- Righe dinamiche servizi -->
+                </div>
+                <button type="button" class="btn btn-s" style="padding: 6px 12px; font-size: 12px;" onclick="addPackageServiceRow()">+ Aggiungi Servizio al Pacchetto</button>
+            </div>
+
+            <!-- Sezione Condivisione Multi-Salon -->
+            <label style="margin-top: 15px; color: var(--p); font-weight: bold;">Condivisione Multi-Salon & Split Incassi</label>
+            <div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
+                <small style="color: #666; display: block; margin-bottom: 8px;">Seleziona i saloni che possono erogare questo pacchetto e definisci la quota percentuale di competenza:</small>
+                <div id="package-salons-split-container" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Popolato dinamicamente con i salon partner -->
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
+            <button class="btn btn-p" style="flex: 1; justify-content: center; padding: 14px;" onclick="savePackageConfig()">Salva Pacchetto</button>
+            <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Annulla</button>
+        </div>
+    </div>
+</div>
 
     <section id="v-sales-report" class="view">
     <div class="card">
@@ -8106,7 +8180,184 @@ async function registerOperatorPushNotifications() {
     
 
 
+// --- LOGICA GESTIONE PACCHETTI (STEP 1) ---
 
+async function renderPackages() {
+    const f = (document.getElementById('src-packages')?.value || '').toLowerCase();
+    const tbody = document.getElementById('list-packages');
+    if (!tbody) return;
+
+    const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+    const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+    const inventory = allInventory || [];
+
+    const filtered = configs.filter(pkg => (pkg.name || '').toLowerCase().includes(f));
+
+    tbody.innerHTML = filtered.map(pkg => {
+        const pkgItems = items.filter(it => it.package_id === pkg.id);
+        const servicesDesc = pkgItems.map(it => {
+            const srv = inventory.find(i => i.id === it.service_id);
+            return `${srv ? srv.name : 'Servizio'} (${it.total_sessions} sedute)`;
+        }).join('<br>') || 'Nessun servizio';
+
+        const sharedSalonsArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [];
+        const sharedText = sharedSalonsArr.length > 0 ? sharedSalonsArr.join(', ') : 'Solo salone emittente';
+
+        return `
+            <tr>
+                <td><b>${pkg.name}</b></td>
+                <td>€ ${parseFloat(pkg.price || 0).toFixed(2)}</td>
+                <td style="font-size: 12px; line-height: 1.4;">${servicesDesc}</td>
+                <td style="font-size: 12px; color: #4f46e5;">${sharedText}</td>
+                <td style="text-align:right">
+                    <div style="display: inline-flex; gap: 5px;">
+                        <button class="btn btn-s" style="padding:4px 10px;" onclick="editPackage('${pkg.id}')">Edit</button>
+                        <button class="btn btn-d" style="padding:4px 10px;" onclick="deletePackage('${pkg.id}')">✕</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('') || `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Nessun pacchetto configurato. Clicca su '+ Nuovo Pacchetto'.</td></tr>`;
+}
+
+async function openPackageModal(packageId = null) {
+    document.getElementById('edit-package-id').value = packageId || "-1";
+    document.getElementById('f-pkg-name').value = "";
+    document.getElementById('f-pkg-price').value = "";
+    
+    document.getElementById('package-services-rows').innerHTML = "";
+    document.getElementById('package-salons-split-container').innerHTML = "";
+
+    // Aggiungiamo di default una riga vuota di servizio
+    await addPackageServiceRow();
+    await renderSalonSplitInputs(packageId ? await getPackageConfig(packageId) : null);
+
+    if (packageId) {
+        const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const pkg = configs.find(p => p.id === packageId);
+        if (pkg) {
+            document.getElementById('f-pkg-name').value = pkg.name || "";
+            document.getElementById('f-pkg-price').value = pkg.price || "";
+            
+            const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+            const pkgItems = items.filter(it => it.package_id === packageId);
+            
+            const container = document.getElementById('package-services-rows');
+            container.innerHTML = "";
+            for (let it of pkgItems) {
+                await addPackageServiceRow(it.service_id, it.total_sessions);
+            }
+        }
+    }
+
+    document.getElementById('mod-package').classList.add('active');
+}
+
+async function addPackageServiceRow(selectedServiceId = '', sessions = 1) {
+    const container = document.getElementById('package-services-rows');
+    if (!container) return;
+
+    const services = (allInventory || []).filter(i => i.type === 'servizio');
+    const rowId = 'pkg_srv_' + Math.random().toString(36).substring(2, 9);
+
+    const rowDiv = document.createElement('div');
+    rowDiv.id = rowId;
+    rowDiv.style.cssText = "display: flex; gap: 8px; align-items: center;";
+
+    rowDiv.innerHTML = `
+        <select class="pkg-srv-select" style="margin:0; flex-grow:2; background: white;">
+            <option value="">-- Seleziona Servizio --</option>
+            ${services.map(s => `<option value="${s.id}" ${s.id === selectedServiceId ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </select>
+        <input type="number" class="pkg-srv-sessions" placeholder="Sedute" value="${sessions}" min="1" style="margin:0; width: 90px; text-align: center; background: white;">
+        <button type="button" class="btn btn-d" style="padding: 10px 12px; margin:0;" onclick="document.getElementById('${rowId}').remove()">✕</button>
+    `;
+    container.appendChild(rowDiv);
+}
+
+async function renderSalonSplitInputs(pkgConfig = null) {
+    const container = document.getElementById('package-salons-split-container');
+    if (!container) return;
+
+    // Per semplicità nel contesto multi-salon, elenchiamo il salon corrente e diamo la possibilità di aggiungere salon partner
+    const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+    
+    container.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd;">
+            <span>Salone Primario (${currentSalon})</span>
+            <span style="font-weight: bold; color: var(--p);">100% Incasso</span>
+        </div>
+    `;
+}
+
+async function savePackageConfig() {
+    const pkgId = document.getElementById('edit-package-id').value;
+    const isNew = (!pkgId || pkgId === "-1");
+    const targetId = isNew ? crypto.randomUUID() : pkgId;
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    const name = document.getElementById('f-pkg-name').value.trim();
+    const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
+
+    if (!name || price <= 0) {
+        return alert("Inserisci un nome valido e un prezzo di listino per il pacchetto.");
+    }
+
+    // Raccogliamo i servizi dalle righe dinamiche
+    const rowDivs = document.querySelectorAll('#package-services-rows > div');
+    let pkgItemsPayload = [];
+
+    rowDivs.forEach(div => {
+        const srvId = div.querySelector('.pkg-srv-select').value;
+        const sCount = parseInt(div.querySelector('.pkg-srv-sessions').value) || 1;
+        if (srvId) {
+            pkgItemsPayload.push({
+                id: crypto.randomUUID(),
+                package_id: targetId,
+                service_id: srvId,
+                total_sessions: sCount
+            });
+        }
+    });
+
+    if (pkgItemsPayload.length === 0) {
+        return alert("Associa almeno un servizio al pacchetto.");
+    }
+
+    const configData = {
+        id: targetId,
+        salon_id: salonId,
+        name: name,
+        price: price,
+        shared_salons: [salonId],
+        revenue_splits: { [salonId]: 100 }
+    };
+
+    if (isNew) {
+        await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
+    } else {
+        await window.universalQuery({ action: 'UPDATE', table: 'packages_config', data: configData, id: targetId });
+        // Puliamo i vecchi items relazionali per ricrearli aggiornati
+        const existingItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+        for (let oldIt of existingItems.filter(i => i.package_id === targetId)) {
+            await window.universalQuery({ action: 'DELETE', table: 'package_items', id: oldIt.id });
+        }
+    }
+
+    for (let it of pkgItemsPayload) {
+        await window.universalQuery({ action: 'INSERT', table: 'package_items', data: it });
+    }
+
+    alert("✅ Pacchetto salvato con successo!");
+    closeMod();
+    renderPackages();
+}
+
+async function deletePackage(id) {
+    if (!confirm("Eliminare definitivamente questo pacchetto?")) return;
+    await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
+    renderPackages();
+}
 
     async function checkDuplicateAppointments() {
         const searchInputEl = document.getElementById('f-a-search');
@@ -8239,6 +8490,7 @@ async function registerOperatorPushNotifications() {
             'products': 'n-prod', 
             'suppliers': 'n-supp',
             'services': 'n-serv',  // 👈 Aggiunto
+            'packages': 'n-packages',
             'logs': 'n-logs',
             'settings': 'n-sett',
             'sales-report': 'n-repo',
