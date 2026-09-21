@@ -7786,25 +7786,32 @@ async function registerOperatorPushNotifications() {
         return { top, height };
     }
 
-           function getEventStyles(a) {
+          function getEventStyles(a) {
     if (!a || !allLogs || allLogs.length === 0) return '';
     
-    const targetAppId = String(a.id || '').trim();
     const targetAppDate = (a.date || '').trim();
     const targetAppTime = (a.time || '').substring(0, 5).trim();
     const targetCustName = (a.cust_name || '').trim().toLowerCase();
 
-    // Cerchiamo un log corrispondente con criteri multipli di sicurezza
-    const matchedLog = allLogs.find(l => {
+    // 🔄 1. ORDINIAMO I LOG DAL PIÙ RECENTE AL PIÙ VECCHIO (sent_at decrescente)
+    // In questo modo, se c'è sia una conferma che un reminder, prenderemo sempre l'ultimo inviato!
+    const sortedLogs = [...allLogs].sort((x, y) => {
+        const dateX = x.sent_at || x.created_at || '';
+        const dateY = y.sent_at || y.created_at || '';
+        return dateY.localeCompare(dateX);
+    });
+
+    // 2. Cerchiamo il primo log corrispondente (che ora è garantito essere il più recente)
+    const matchedLog = sortedLogs.find(l => {
         if (!l.appointment_info && !l.cust_name) return false;
         
         const logInfo = (l.appointment_info || '').toLowerCase();
         const logCust = (l.cust_name || '').trim().toLowerCase();
 
-        // 1. Controllo per coerenza del nome cliente
+        // Controllo coerenza cliente
         const isSameCustomer = targetCustName && (logCust === targetCustName || logInfo.includes(targetCustName));
         
-        // 2. Controllo per data e ora
+        // Controllo data e ora
         const isSameDate = targetAppDate && logInfo.includes(targetAppDate);
         const isSameTime = targetAppTime && logInfo.includes(targetAppTime);
 
@@ -7814,8 +7821,9 @@ async function registerOperatorPushNotifications() {
     if (matchedLog) {
         const type = (matchedLog.msg_type || '').toUpperCase();
         
-        if (type.includes('REMINDER')) return 'st-remind';
-        if (type.includes('CONFIRM')) return 'st-confirm';
+        // 🎨 Assegnazione stili in base al tipo di messaggio più recente
+        if (type.includes('REMINDER')) return 'st-remind'; // Bordo Arancione / Ambra
+        if (type.includes('CONFIRM')) return 'st-confirm';   // Bordo Smeraldo / Verde
     }
     
     return ''; 
