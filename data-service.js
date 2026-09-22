@@ -1152,7 +1152,6 @@ async function handleSpecialAction(action, data, id) {
                     if (cp.revenue_allocations) {
                         const myQuota = parseFloat(cp.revenue_allocations[salonId]) || 0;
                         if (myQuota > 0) {
-                            // Cerchiamo la vendita associata a questo pacchetto cliente (basandoci su cliente e prezzo)
                             const matchingSale = allSalesCloud.find(s => s.cust_id === cp.customer_id && Math.abs(parseFloat(s.total) - parseFloat(cp.total_paid)) < 0.05);
                             if (matchingSale) relevantSaleIdsForPartner.add(matchingSale.id);
                         }
@@ -1217,30 +1216,22 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO (Lettura puramente storica dal sale_item o customer_packages)
+                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO (Legge in modo storico/statico)
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
+                    const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
-                    if (isPackageItem) {
-                        // Usiamo direttamente il salon_revenue e lo supplier_payout (o le allocazioni) salvate nello scontrino storico
-                        salonRevenue = parseFloat(item.salon_revenue) || 0;
-                        unitCost = 0;
-                        supplierPayout = 0;
-
-                        // Troviamo il customer_package originario solo per mostrare il dettaglio testuale dello split storico dello scontrino
-                        const matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id && Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.05);
-                        
-                        if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                            let splitDetailsArr = [];
-                            const allocs = matchingPkgCredit.revenue_allocations;
-                            for (const [sId, amountVal] of Object.entries(allocs)) {
-                                splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
-                            }
-                            supplierDetailsText = `🧩 <b>Split Storico:</b><br>${splitDetailsArr.join('<br>')}`;
-                        } else {
-                            supplierDetailsText = `🧩 <b>Vendita Pacchetto</b>`;
+                    if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                        let splitDetailsArr = [];
+                        const allocs = matchingPkgCredit.revenue_allocations;
+                        for (const [sId, amountVal] of Object.entries(allocs)) {
+                            splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
                         }
+                        supplierDetailsText = `🧩 <b>Split Storico:</b><br>${splitDetailsArr.join('<br>')}`;
+                        
+                        // Legge direttamente il valore congelato salvato nello scontrino
+                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : (allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : finalPrice);
+                        unitCost = 0;
                     } else if (inv) {
-                        // ... (qui prosegue la normale logica standard per servizi e conto vendita)
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
@@ -1346,7 +1337,7 @@ async function handleSpecialAction(action, data, id) {
                     // Se siamo un salone partner e c'è uno split, mostriamo la riga solo se la nostra quota è > 0
                     if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         const myAlloc = parseFloat(matchingPkgCredit.revenue_allocations[salonId]) || 0;
-                        if (myAlloc <= 0) continue; // Salta la riga se questo salone non ha quota in questo pacchetto
+                        if (myAlloc <= 0) continue; 
                     }
 
                     report.push({
