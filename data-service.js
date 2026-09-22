@@ -328,7 +328,6 @@ async function pullPackagesFromSupabase(salonId) {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
         
-        let validPackageIds = new Set();
         if (resCustPkgs.ok) {
             const cloudCustPkgs = await resCustPkgs.json();
             for (let cp of cloudCustPkgs) {
@@ -339,14 +338,11 @@ async function pullPackagesFromSupabase(salonId) {
 
                 if (isOwner || hasQuota) {
                     await localDb.customer_packages.put(cp);
-                    if (cp.package_id) validPackageIds.add(cp.package_id);
                 }
             }
         }
 
-        // 4. 🌟 SYNC SALES & SALE_ITEMS CORRELATI AI PACCHETTI CONDIVISI
-        // Se un cliente ha un customer_package condiviso con questo salone, peschiamo dal cloud la vendita associata 
-        // e la salviamo in locale, così il Report Vendite la troverà senza alterare le query standard.
+        // 4. SYNC SALES & SALE_ITEMS CORRELATI AI PACCHETTI CONDIVISI
         const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
@@ -355,8 +351,7 @@ async function pullPackagesFromSupabase(salonId) {
         if (resSales.ok) {
             const cloudSales = await resSales.json();
             for (let sale of cloudSales) {
-                // Verifichiamo se questa vendita appartiene a un cliente che possiede un pacchetto condiviso con noi
-                const hasSharedPkg = customerPackagesListLocalCheck(sale.cust_id, salonId); // O controllo diretto su customer_packages scaricati
+                // Verifichiamo se esiste un customer_package associato a questo cliente e a questo salone
                 const matchesAnyCustomerPkg = await localDb.customer_packages.where('customer_id').equals(String(sale.cust_id)).first();
                 
                 if (matchesAnyCustomerPkg) {
@@ -366,7 +361,6 @@ async function pullPackagesFromSupabase(salonId) {
                     if (allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0) {
                         await localDb.sales.put(sale);
                         
-                        // Scarichiamo anche il rispettivo sale_item di questa vendita
                         const resItemsSale = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?sale_id=eq.${sale.id}`, {
                             method: 'GET',
                             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
