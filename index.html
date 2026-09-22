@@ -12051,7 +12051,9 @@ function urlBase64ToUint8Array(base64String) {
         }
 
         const linkedAppointmentId = currentCheckoutAppointmentId || null;
+        const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
+        // Creazione testata vendita principale per il salone corrente
         const res = await window.api.query({ 
             action:'INSERT', table:'sales', 
             data: { 
@@ -12114,13 +12116,13 @@ function urlBase64ToUint8Array(base64String) {
                         }
                     }
                 } else {
-                    calculatedAllocations[currentUser?.salon_id || 'SALON_001'] = finalItemPrice;
+                    calculatedAllocations[currentSalonId] = finalItemPrice;
                 }
 
                 // 4. Salvataggio del credito sedute nel database
                 const customerPackagePayload = {
                     id: crypto.randomUUID(),
-                    salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                    salon_id: currentSalonId,
                     customer_id: finalCustId,
                     package_id: packageConfigId,
                     sessions_state: sessionsStateArray,
@@ -12134,8 +12136,43 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
+                // 5. 🌟 CREAZIONE DELLE VENDITE GEMELLE PER CIASCUN SALONE COINVOLTO NELLO SPLIT
+                // Questo permette a ciascun salone partner di avere fisicamente la vendita nel proprio database e report
+                for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
+                    if (quotaVal <= 0) continue;
+                    // Evitiamo di duplicare la testata per il salone corrente (che ha già creato la vendita principale `saleId`)
+                    if (targetSalonId === currentSalonId) continue;
+
+                    const subSaleId = crypto.randomUUID();
+                    const subSalePayload = {
+                        id: subSaleId,
+                        salon_id: targetSalonId, // Assegnato al salone partner
+                        cust_id: finalCustId,
+                        appointment_id: linkedAppointmentId,
+                        total: quotaVal,
+                        date: nowObj.split(' ')[0],
+                        time: nowObj.split(' ')[1],
+                        payment_method: 'Contanti (Pacchetto Condiviso)',
+                        created_by: currentUser ? currentUser.username : 'Admin'
+                    };
+                    await window.universalQuery({ action: 'INSERT', table: 'sales', data: subSalePayload });
+
+                    const subSaleItemPayload = {
+                        id: crypto.randomUUID(),
+                        salon_id: targetSalonId, // Assegnato al salone partner
+                        sale_id: subSaleId,
+                        item_name: item.name || 'Pacchetto',
+                        qty: 1,
+                        price: quotaVal,
+                        discount: 0,
+                        unit_cost: 0,
+                        supplier_payout: 0,
+                        salon_revenue: quotaVal
+                    };
+                    await window.universalQuery({ action: 'INSERT', table: 'sale_items', data: subSaleItemPayload });
+                }
+
                 // Quota di ricavo immediata per il bilancio del salone corrente
-                const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
                 salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
                 unitCostUsed = 0;
                 supplierPayout = 0;
@@ -12275,7 +12312,7 @@ function urlBase64ToUint8Array(base64String) {
 
             const saleItemPayload = {
                 id: crypto.randomUUID(),
-                salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+                salon_id: currentSalonId,
                 sale_id: saleId, 
                 item_name: item.name || 'Voce Manuale', 
                 qty: item.qty || 1, 
