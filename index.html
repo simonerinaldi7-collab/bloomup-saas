@@ -8531,9 +8531,7 @@ async function openPackageModal(packageId = null) {
     document.getElementById('f-pkg-split-type').value = 'percent';
     
     document.getElementById('package-services-rows').innerHTML = "";
-    await addPackageServiceRow();
-    generateSalonSplitFields();
-
+    
     // Riferimenti ai campi e ai pulsanti del modale
     const nameInput = document.getElementById('f-pkg-name');
     const priceInput = document.getElementById('f-pkg-price');
@@ -8548,21 +8546,25 @@ async function openPackageModal(packageId = null) {
         if (priceInput) priceInput.disabled = true;
         if (salonsInput) salonsInput.disabled = true;
         if (splitTypeSelect) splitTypeSelect.disabled = true;
-        if (saveBtn) saveBtn.style.display = 'none'; // Nasconde il tasto salva
+        if (saveBtn) saveBtn.style.display = 'none'; 
         if (addServiceBtn) addServiceBtn.style.display = 'none';
 
+        // 🌟 Recupero sicuro tramite universalQuery
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-        const pkg = configs.find(p => p.id === packageId);
+        const pkg = configs.find(p => String(p.id) === String(packageId));
+        
         if (pkg) {
-            nameInput.value = pkg.name || "";
-            priceInput.value = pkg.price || "";
+            if (nameInput) nameInput.value = pkg.name || "";
+            if (priceInput) priceInput.value = pkg.price || "";
             
             const sharedArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [currentUser?.salon_id || 'SALON_001'];
-            salonsInput.value = sharedArr.join(', ');
+            if (salonsInput) salonsInput.value = sharedArr.join(', ');
 
             if (pkg.revenue_splits) {
-                splitTypeSelect.value = pkg.revenue_splits.type || 'percent';
+                if (splitTypeSelect) splitTypeSelect.value = pkg.revenue_splits.type || 'percent';
                 generateSalonSplitFields(pkg.revenue_splits.allocations);
+            } else {
+                generateSalonSplitFields();
             }
 
             // Disabilita anche gli input delle quote generate
@@ -8571,25 +8573,36 @@ async function openPackageModal(packageId = null) {
             }, 100);
 
             const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-            const pkgItems = items.filter(it => it.package_id === packageId);
+            const pkgItems = items.filter(it => String(it.package_id) === String(packageId));
             
             const container = document.getElementById('package-services-rows');
             container.innerHTML = "";
-            for (let it of pkgItems) {
-                await addPackageServiceRow(it.service_id, it.total_sessions);
+            
+            if (pkgItems.length > 0) {
+                for (let it of pkgItems) {
+                    await addPackageServiceRow(it.service_id, it.total_sessions);
+                }
+            } else {
+                await addPackageServiceRow();
             }
-            // Disabilita i select dei servizi in lettura
+
+            // Disabilita i select e input dei servizi in lettura
             container.querySelectorAll('select, input').forEach(el => el.disabled = true);
             container.querySelectorAll('button').forEach(btn => btn.style.display = 'none');
+        } else {
+            console.warn("Pacchetto non trovato con ID:", packageId);
         }
     } else {
         // Modalità Creazione (Campi abilitati)
         if (nameInput) nameInput.disabled = false;
-        if (priceInput) priceInput.disabled = false;
-        if (salonsInput) salonsInput.disabled = false;
+        if (priceInput) nameInput.disabled = false;
+        if (salonsInput) nameInput.disabled = false;
         if (splitTypeSelect) splitTypeSelect.disabled = false;
         if (saveBtn) saveBtn.style.display = 'inline-flex';
         if (addServiceBtn) addServiceBtn.style.display = 'inline-flex';
+        
+        await addPackageServiceRow();
+        generateSalonSplitFields();
     }
 
     document.getElementById('mod-package').classList.add('active');
