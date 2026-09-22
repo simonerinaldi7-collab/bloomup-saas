@@ -5967,11 +5967,12 @@ async function quickAlarmAction(actionType) {
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             renderServices();
         } else if (active === 'v-packages') {
-            console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti dal cloud...");
-            await backgroundPullFromSupabase('packages_config', salonId);
-            await backgroundPullFromSupabase('package_items', salonId);
-            renderPackages(); // 👈 CHIAMATA DI RENDER FORZATA QUI!
-        }
+    console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti condivisi dal cloud...");
+    if (typeof pullPackagesFromSupabase === 'function') {
+        await pullPackagesFromSupabase(salonId);
+    }
+    renderPackages();
+}
     }
 
     // Esecuzione dei render standard per le altre viste
