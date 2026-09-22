@@ -1217,24 +1217,28 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA RIGOROSA PACCHETTO MULTI-SALON
-                    // Un articolo è un pacchetto SOLO SE il suo nome corrisponde esattamente a un pacchetto configurato in packages_config
-                    const allConfigs = await localDb.packages_config.toArray() || [];
-                    const matchedPackageConfig = allConfigs.find(pkg => (item.item_name || '').toLowerCase().includes(pkg.name.toLowerCase()) || (item.item_name || '').toLowerCase().includes('pacchetto'));
-                    
-                    const matchingPkgCredit = matchedPackageConfig ? customerPackagesList.find(cp => cp.package_id === matchedPackageConfig.id && cp.customer_id === sale.cust_id) : null;
+                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO (Lettura puramente storica dal sale_item o customer_packages)
+                    const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
 
-                    if (matchedPackageConfig && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                        let splitDetailsArr = [];
-                        const allocs = matchingPkgCredit.revenue_allocations;
-                        for (const [sId, amountVal] of Object.entries(allocs)) {
-                            splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
-                        }
-                        supplierDetailsText = `🧩 <b>Split Pacchetto:</b><br>${splitDetailsArr.join('<br>')}`;
-                        
-                        // Il ricavo di competenza è la quota assegnata a questo specifico salone nello split
-                        salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
+                    if (isPackageItem) {
+                        // Usiamo direttamente il salon_revenue e lo supplier_payout (o le allocazioni) salvate nello scontrino storico
+                        salonRevenue = parseFloat(item.salon_revenue) || 0;
                         unitCost = 0;
+                        supplierPayout = 0;
+
+                        // Troviamo il customer_package originario solo per mostrare il dettaglio testuale dello split storico dello scontrino
+                        const matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id && Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.05);
+                        
+                        if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                            let splitDetailsArr = [];
+                            const allocs = matchingPkgCredit.revenue_allocations;
+                            for (const [sId, amountVal] of Object.entries(allocs)) {
+                                splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
+                            }
+                            supplierDetailsText = `🧩 <b>Split Storico:</b><br>${splitDetailsArr.join('<br>')}`;
+                        } else {
+                            supplierDetailsText = `🧩 <b>Vendita Pacchetto</b>`;
+                        }
                     } else if (inv) {
                         // ... (qui prosegue la normale logica standard per servizi e conto vendita)
                         if (inv.type === 'servizio' && !inv.is_consignment) {
