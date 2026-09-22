@@ -12053,31 +12053,25 @@ function urlBase64ToUint8Array(base64String) {
         const linkedAppointmentId = currentCheckoutAppointmentId || null;
         const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-        // 🌟 VERIFICHIAMO SE IL CARRELLO CONTIENE UN PACCHETTO
-        const hasPackageInCart = cartWithDiscounts.some(item => item.isPackage && item.id);
+        // 1. 🌟 CREAZIONE SEMPRE DELLA TESTATA SALES PRINCIPALE (Per il salone corrente)
+        const res = await window.api.query({ 
+            action:'INSERT', table:'sales', 
+            data: { 
+                cust_id: finalCustId || null, 
+                appointment_id: linkedAppointmentId, 
+                total: total, 
+                date: nowObj.split(' ')[0], 
+                time: nowObj.split(' ')[1], 
+                payment_method: 'Contanti', 
+                created_by: currentUser ? currentUser.username : 'Admin' 
+            } 
+        }); 
 
-        let saleId = null;
-
-        // Se NON ci sono pacchetti, creiamo la testata sales standard una sola volta
-        if (!hasPackageInCart) {
-            const res = await window.api.query({ 
-                action:'INSERT', table:'sales', 
-                data: { 
-                    cust_id: finalCustId || null, 
-                    appointment_id: linkedAppointmentId, 
-                    total: total, 
-                    date: nowObj.split(' ')[0], 
-                    time: nowObj.split(' ')[1], 
-                    payment_method: 'Contanti', 
-                    created_by: currentUser ? currentUser.username : 'Admin' 
-                } 
-            }); 
-
-            if (!res || !res.lastInsertRowid) {
-                return alert("Errore critico: Impossibile creare la vendita nel DB.");
-            }
-            saleId = res.lastInsertRowid;
+        if (!res || !res.lastInsertRowid) {
+            return alert("Errore critico: Impossibile creare la vendita nel DB.");
         }
+
+        const saleId = res.lastInsertRowid; 
 
         for(let item of cartWithDiscounts) { 
             let unitCostUsed = 0;
@@ -12094,21 +12088,20 @@ function urlBase64ToUint8Array(base64String) {
                     throw new Error("Cliente mancante per attivazione pacchetto");
                 }
 
-                // 1. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
+                // A. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
                 const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
                 const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
                 
                 const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
                 const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
                 
-                // 2. Stato iniziale delle sedute per il cliente
                 let sessionsStateArray = associatedServices.map(it => ({
                     service_id: it.service_id,
                     total: it.total_sessions,
                     remaining: it.total_sessions
                 }));
 
-                // 3. Calcolo dello Split Contabile Multi-Salon
+                // B. Calcolo dello Split Contabile Multi-Salon
                 let calculatedAllocations = {};
                 if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
                     const splitType = pkgConfig.revenue_splits.type || 'percent';
@@ -12125,7 +12118,7 @@ function urlBase64ToUint8Array(base64String) {
                     calculatedAllocations[currentSalonId] = finalItemPrice;
                 }
 
-                // 4. Salvataggio del credito sedute globale nel database
+                // C. Salvataggio del credito sedute globale nel database
                 const customerPackagePayload = {
                     id: crypto.randomUUID(),
                     salon_id: currentSalonId,
@@ -12140,25 +12133,24 @@ function urlBase64ToUint8Array(base64String) {
                 };
 
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
-                console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
-                // 5. 🌟 ASSEGNIAMO LA QUOTA CORRETTA AL SALONE CORRENTE (PROVIDER)
+                // D. Assegniamo al sale_item corrente la quota esatta del salone corrente
                 salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
                 unitCostUsed = 0;
                 supplierPayout = 0;
 
-                // 6. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE SOLO PER I SALONI PARTNER (Escluso il currentSalonId)
+                // E. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
-                    if (targetSalonId === currentSalonId) continue; // Il provider usa la vendita standard che stiamo per creare sotto
+                    if (targetSalonId === currentSalonId) continue; // Il currentSalonId usa la testata `saleId` appena creata sopra
 
                     const partnerSaleId = crypto.randomUUID();
                     const partnerSalePayload = {
                         id: partnerSaleId,
-                        salon_id: targetSalonId, // Assegnato al salone partner
+                        salon_id: targetSalonId,
                         cust_id: finalCustId,
                         appointment_id: linkedAppointmentId,
-                        total: quotaVal, // La quota di competenza per il partner
+                        total: quotaVal,
                         date: nowObj.split(' ')[0],
                         time: nowObj.split(' ')[1],
                         payment_method: 'Contanti (Pacchetto Condiviso)',
@@ -12168,7 +12160,7 @@ function urlBase64ToUint8Array(base64String) {
 
                     const partnerSaleItemPayload = {
                         id: crypto.randomUUID(),
-                        salon_id: targetSalonId, // Assegnato al salone partner
+                        salon_id: targetSalonId,
                         sale_id: partnerSaleId,
                         item_name: item.name || 'Pacchetto',
                         qty: item.qty || 1,
@@ -12183,13 +12175,13 @@ function urlBase64ToUint8Array(base64String) {
                     if (localDb && localDb.sync_queue) {
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
-                        console.log(`🔄 [SYNC-QUEUE] Accodata vendita condivisa per il salone partner: ${targetSalonId}`);
                     }
                 }
-
-                // ⚠️ NOTA BENE: NON METTIAMO ALCUN "continue;" QUI. 
-                // In questo modo, l'esecuzione prosegue naturalmente e crea la riga standard `sale_items` per il salone corrente (`currentSalonId`)!
             } else {
+                // ... (gestione standard prodotti e servizi normali)
+            
+
+            
                 // Gestione standard Prodotti e Servizi esistenti
                 // ...
                 // ... (gestione standard prodotti e servizi)
@@ -12336,7 +12328,7 @@ function urlBase64ToUint8Array(base64String) {
                 discount: item.discountAmount || 0,
                 unit_cost: unitCostUsed,
                 supplier_payout: supplierPayout,
-                salon_revenue: salonRevenue
+                salon_revenue: packageConfigId ? salonRevenue : salonRevenue
             };
 
             await window.universalQuery({ 
