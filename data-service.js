@@ -1165,18 +1165,22 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
+                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
+                    const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.where('salon_id').equals(salonId).toArray() || []) : [];
+                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.01 && cp.customer_id === sale.cust_id);
 
-const customerPackagesList = await localDb.customer_packages.where('salon_id').equals(salonId).toArray() || [];
-        const matchingPkgCredit = customerPackagesList.find(cp => cp.total_paid === finalPrice && cp.customer_id === sale.cust_id);
-
-        if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-            let splitDetailsArr = [];
-            const allocs = matchingPkgCredit.revenue_allocations;
-            for (const [sId, amountVal] of Object.entries(allocs)) {
-                splitDetailsArr.push(`Salone <b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
-            }
-            supplierDetailsText = `<b>Split Multi-Salon:</b><br>${splitDetailsArr.join('<br>')}`;
-        } else if (inv) {
+                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                        let splitDetailsArr = [];
+                        const allocs = matchingPkgCredit.revenue_allocations;
+                        for (const [sId, amountVal] of Object.entries(allocs)) {
+                            splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
+                        }
+                        supplierDetailsText = `🧩 <b>Split Pacchetto:</b><br>${splitDetailsArr.join('<br>')}`;
+                        
+                        // Il ricavo reale di competenza di questo salone è la sua quota nello split
+                        salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
+                        unitCost = 0;
+                    } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
@@ -1229,7 +1233,7 @@ const customerPackagesList = await localDb.customer_packages.where('salon_id').e
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else if (inv.is_consignment) {
-                            // 📦 3. PRODOTTO FISICO IN CONTO VENDITA (LOGICA ORIGINALE RIPRISTINATA AL 100%)
+                            // 📦 3. PRODOTTO FISICO IN CONTO VENDITA
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
@@ -1291,7 +1295,7 @@ const customerPackagesList = await localDb.customer_packages.where('salon_id').e
                         unit_cost: unitCost,
                         supplier_payout: supplierPayout,
                         salon_revenue: salonRevenue,
-                        supplier_details: supplierDetailsText, // 👈 Passiamo il dettaglio formattato multi-fornitore
+                        supplier_details: supplierDetailsText,
                         seller: sale.created_by || 'Admin'
                     });
                 }
