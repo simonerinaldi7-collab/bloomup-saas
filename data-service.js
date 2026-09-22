@@ -217,7 +217,9 @@ async function backgroundPullFromSupabase(table, salonId) {
     while (hasMore) {
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
         
-
+ if (table === 'packages_config' || table === 'package_items') {
+            url = `${SUPABASE_URL}/rest/v1/${table}?limit=${limit}&offset=${offset}`;
+        }
         
         // Per la tabella users, non serve la paginazione massiva
         if (table === 'users') {
@@ -240,8 +242,18 @@ async function backgroundPullFromSupabase(table, salonId) {
                 const cloudRecords = await response.json();
                 if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                     for (let record of cloudRecords) {
-                        await localDb.table(table).put(record);
-                        allCloudRecords.push(record);
+                        // 🌟 Se è packages_config, salviamo solo quelli di pertinenza del salone (propri o condivisi)
+                        if (table === 'packages_config') {
+                            const isOwner = record.salon_id === salonId;
+                            const isShared = Array.isArray(record.shared_salons) && record.shared_salons.includes(salonId);
+                            if (isOwner || isShared) {
+                                await localDb.table(table).put(record);
+                                allCloudRecords.push(record);
+                            }
+                        } else {
+                            await localDb.table(table).put(record);
+                            allCloudRecords.push(record);
+                        }
                     }
                     if (cloudRecords.length < limit) {
                         hasMore = false;
@@ -260,7 +272,7 @@ async function backgroundPullFromSupabase(table, salonId) {
             hasMore = false;
         }
 
-        if (table === 'users') break;
+        if (table === 'users' || table === 'packages_config' || table === 'package_items') break;
     }
 
     // 🧹 GESTIONE CANCELLAZIONE SICURA E MIRATA
@@ -276,7 +288,17 @@ async function backgroundPullFromSupabase(table, salonId) {
                     await localDb.table(table).delete(localRec.id);
                     console.log(`🗑️ [SYNC-DELETE] Appuntamento rimosso localmente ID: ${localRec.id} (${localRec.cust_name})`);
                 }
-            } else if (['customers', 'inventory', 'sales'].includes(table)) {
+            } 
+            else if (table === 'packages_config') {
+                // Manteniamo i pacchetti locali se sono del salone o ancora condivisi
+                const isOwner = localRec.salon_id === salonId;
+                const isShared = Array.isArray(localRec.shared_salons) && localRec.shared_salons.includes(salonId);
+                if (!cloudIdsSet.has(localRec.id) || (!isOwner && !isShared)) {
+                    await localDb.table(table).delete(localRec.id);
+                }
+            } 
+            
+            else if (['customers', 'inventory', 'sales'].includes(table)) {
                 // Per anagrafiche e vendite, se il record locale non è più presente nel set completo del cloud
                 if (!cloudIdsSet.has(localRec.id)) {
                     await localDb.table(table).delete(localRec.id);
