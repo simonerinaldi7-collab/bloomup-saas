@@ -290,7 +290,7 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti, crediti e vendite condivise...");
+        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti e crediti condivisi...");
         
         // 1. SYNC PACKAGES_CONFIG
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
@@ -322,7 +322,7 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 3. SYNC CUSTOMER_PACKAGES (Crediti sedute)
+        // 3. SYNC CUSTOMER_PACKAGES (Il portafoglio sedute e le quote di split)
         const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
@@ -342,41 +342,7 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 4. SYNC SALES & SALE_ITEMS CORRELATI AI PACCHETTI CONDIVISI
-        const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?limit=1000`, {
-            method: 'GET',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-        });
-        
-        if (resSales.ok) {
-            const cloudSales = await resSales.json();
-            for (let sale of cloudSales) {
-                // Verifichiamo se esiste un customer_package associato a questo cliente e a questo salone
-                const matchesAnyCustomerPkg = await localDb.customer_packages.where('customer_id').equals(String(sale.cust_id)).first();
-                
-                if (matchesAnyCustomerPkg) {
-                    let allocs = matchesAnyCustomerPkg.revenue_allocations;
-                    if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
-                    
-                    if (allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0) {
-                        await localDb.sales.put(sale);
-                        
-                        const resItemsSale = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?sale_id=eq.${sale.id}`, {
-                            method: 'GET',
-                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-                        });
-                        if (resItemsSale.ok) {
-                            const cloudSaleItems = await resItemsSale.json();
-                            for (let si of cloudSaleItems) {
-                                await localDb.sale_items.put(si);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e vendite collegate completata.");
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e crediti completata.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
@@ -1227,16 +1193,14 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
-                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO (BLINDATO)
-                    // Cerchiamo se esiste un customer_package attivo per questo cliente
-                    const matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id);
-                    
-                    // Verifichiamo se il nome dell'articolo nel sale_item fa esplicito riferimento a un pacchetto (es. contiene 'Pacchetto' o corrisponde a un pacchetto configurato)
+                    // 🎁 VERIFICA RIGOROSA PACCHETTO MULTI-SALON
+                    // Un articolo è un pacchetto SOLO SE il suo nome corrisponde esattamente a un pacchetto configurato in packages_config
                     const allConfigs = await localDb.packages_config.toArray() || [];
-                    const isConfiguredPackageItem = allConfigs.some(pkg => (item.item_name || '').toLowerCase().includes(pkg.name.toLowerCase()) || (item.item_name || '').toLowerCase().includes('pacchetto'));
+                    const matchedPackageConfig = allConfigs.find(pkg => (item.item_name || '').toLowerCase().includes(pkg.name.toLowerCase()) || (item.item_name || '').toLowerCase().includes('pacchetto'));
+                    
+                    const matchingPkgCredit = matchedPackageConfig ? customerPackagesList.find(cp => cp.package_id === matchedPackageConfig.id && cp.customer_id === sale.cust_id) : null;
 
-                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations && (isConfiguredPackageItem || item.isPackage)) {
+                    if (matchedPackageConfig && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
                         for (const [sId, amountVal] of Object.entries(allocs)) {
@@ -1248,6 +1212,7 @@ async function handleSpecialAction(action, data, id) {
                         salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
                         unitCost = 0;
                     } else if (inv) {
+                        // ... (qui prosegue la normale logica standard per servizi e conto vendita)
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
