@@ -1222,20 +1222,19 @@ async function handleSpecialAction(action, data, id) {
                     const allConfigs = await localDb.packages_config.toArray() || [];
                     const matchedPackageConfig = allConfigs.find(pkg => (item.item_name || '').toLowerCase().includes(pkg.name.toLowerCase()) || (item.item_name || '').toLowerCase().includes('pacchetto'));
                     
-                    const matchingPkgCredit = customerPackagesList.find(cp => cp.package_id === matchedPkgCfgDirect?.id && cp.customer_id === sale.cust_id);
+                    const matchingPkgCredit = matchedPackageConfig ? customerPackagesList.find(cp => cp.package_id === matchedPackageConfig.id && cp.customer_id === sale.cust_id) : null;
 
-                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                    if (matchedPackageConfig && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
-                        const allocs = matchingPkgCredit.revenue_allocations; // 👈 Questo è lo snapshot al momento dell'acquisto!
+                        const allocs = matchingPkgCredit.revenue_allocations;
                         for (const [sId, amountVal] of Object.entries(allocs)) {
                             splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
                         }
-                        supplierDetailsText = `🧩 <b>Split Pacchetto (Storico):</b><br>${splitDetailsArr.join('<br>')}`;
+                        supplierDetailsText = `🧩 <b>Split Pacchetto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // Il ricavo di competenza resta rigorosamente quello salvato all'acquisto
+                        // Il ricavo di competenza è la quota assegnata a questo specifico salone nello split
                         salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
                         unitCost = 0;
-                    
                     } else if (inv) {
                         // ... (qui prosegue la normale logica standard per servizi e conto vendita)
                         if (inv.type === 'servizio' && !inv.is_consignment) {
