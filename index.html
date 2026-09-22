@@ -12137,39 +12137,50 @@ function urlBase64ToUint8Array(base64String) {
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
                 // 5. 🌟 CREAZIONE DELLE VENDITE GEMELLE PER CIASCUN SALONE COINVOLTO NELLO SPLIT
-                // Questo permette a ciascun salone partner di avere fisicamente la vendita nel proprio database e report
+                // Creiamo una vendita identica per ciascun salone partner con lo stesso importo totale, 
+                // ma con la specifica quota di competenza (salon_revenue) assegnata.
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
-                    // Evitiamo di duplicare la testata per il salone corrente (che ha già creato la vendita principale `saleId`)
-                    if (targetSalonId === currentSalonId) continue;
 
-                    const subSaleId = crypto.randomUUID();
-                    const subSalePayload = {
-                        id: subSaleId,
-                        salon_id: targetSalonId, // Assegnato al salone partner
-                        cust_id: finalCustId,
-                        appointment_id: linkedAppointmentId,
-                        total: quotaVal,
-                        date: nowObj.split(' ')[0],
-                        time: nowObj.split(' ')[1],
-                        payment_method: 'Contanti (Pacchetto Condiviso)',
-                        created_by: currentUser ? currentUser.username : 'Admin'
-                    };
-                    await window.universalQuery({ action: 'INSERT', table: 'sales', data: subSalePayload });
+                    const subSaleId = (targetSalonId === currentSalonId) ? saleId : crypto.randomUUID();
 
+                    // Se non è il salon corrente, creiamo la testata sales per il partner
+                    if (targetSalonId !== currentSalonId) {
+                        const subSalePayload = {
+                            id: subSaleId,
+                            salon_id: targetSalonId, // Assegnato al salone partner
+                            cust_id: finalCustId,
+                            appointment_id: linkedAppointmentId,
+                            total: finalItemPrice, // Stesso prezzo pieno pagato dal cliente
+                            date: nowObj.split(' ')[0],
+                            time: nowObj.split(' ')[1],
+                            payment_method: 'Contanti (Pacchetto Condiviso)',
+                            created_by: currentUser ? currentUser.username : 'Admin'
+                        };
+                        await window.universalQuery({ action: 'INSERT', table: 'sales', data: subSalePayload });
+                    }
+
+                    // Creazione o completamento del sale_item per il rispettivo salone
                     const subSaleItemPayload = {
-                        id: crypto.randomUUID(),
-                        salon_id: targetSalonId, // Assegnato al salone partner
+                        id: (targetSalonId === currentSalonId) ? crypto.randomUUID() : crypto.randomUUID(), // O riusiamo l'item corrente se è il primary
+                        salon_id: targetSalonId,
                         sale_id: subSaleId,
                         item_name: item.name || 'Pacchetto',
-                        qty: 1,
-                        price: quotaVal,
-                        discount: 0,
+                        qty: item.qty || 1,
+                        price: item.price || 0,
+                        discount: item.discountAmount || 0,
                         unit_cost: 0,
                         supplier_payout: 0,
-                        salon_revenue: quotaVal
+                        salon_revenue: quotaVal // 👈 Il ricavo di competenza riflette esattamente la quota dello split!
                     };
-                    await window.universalQuery({ action: 'INSERT', table: 'sale_items', data: subSaleItemPayload });
+
+                    if (targetSalonId === currentSalonId) {
+                        // Per il salone corrente aggiorneremo il sale_item principale nel flusso comune sottostante
+                        // Salviamo temporaneamente la quota per assegnarla all'item principale
+                        item._overrideSalonRevenue = quotaVal;
+                    } else {
+                        await window.universalQuery({ action: 'INSERT', table: 'sale_items', data: subSaleItemPayload });
+                    }
                 }
 
                 // Quota di ricavo immediata per il bilancio del salone corrente
