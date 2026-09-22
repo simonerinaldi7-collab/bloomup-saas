@@ -6112,16 +6112,12 @@ async function renderPackages() {
                 splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Split (${splitType}):</b><br>${splitLines.join('<br>')}</div>`;
             }
 
-            // 🛡️ TASTI AZIONE CONDIZIONALI (Modifica/Eliminazione consentita solo al creatore)
-            let actionsHtml = `<span style="color:#64748b; font-size:11px; font-style:italic;">Solo Vendita (Partner)</span>`;
-            if (isOwner) {
-                actionsHtml = `
-                    <div style="display: inline-flex; gap: 6px;">
-                        <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')">Edit</button>
-                        <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')">✕</button>
-                    </div>
-                `;
-            }
+            // 🛡️ TASTO AZIONE PULITO: Solo Eliminazione (I pacchetti non si modificano)
+            let actionsHtml = `
+                <div style="display: inline-flex; gap: 6px; justify-content: flex-end;">
+                    <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')" title="Elimina Pacchetto">Elimina</button>
+                </div>
+            `;
 
             return `
                 <tr>
