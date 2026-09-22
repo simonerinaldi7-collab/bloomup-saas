@@ -8521,8 +8521,9 @@ function generateSalonSplitFields(existingSplits = null) {
     wrapper.innerHTML = html;
 }
 
-// Aggiornamento di openPackageModal per leggere i dati salvati
 async function openPackageModal(packageId = null) {
+    const isEdit = packageId !== null && packageId !== undefined && packageId !== "-1";
+    
     document.getElementById('edit-package-id').value = packageId || "-1";
     document.getElementById('f-pkg-name').value = "";
     document.getElementById('f-pkg-price').value = "";
@@ -8533,20 +8534,41 @@ async function openPackageModal(packageId = null) {
     await addPackageServiceRow();
     generateSalonSplitFields();
 
-    if (packageId) {
+    // Riferimenti ai campi e ai pulsanti del modale
+    const nameInput = document.getElementById('f-pkg-name');
+    const priceInput = document.getElementById('f-pkg-price');
+    const salonsInput = document.getElementById('f-pkg-shared-salons');
+    const splitTypeSelect = document.getElementById('f-pkg-split-type');
+    const saveBtn = document.querySelector('#mod-package .btn-p');
+    const addServiceBtn = document.querySelector('#mod-package .btn-s');
+
+    if (isEdit) {
+        // Modalità Sola Lettura per pacchetti esistenti
+        if (nameInput) nameInput.disabled = true;
+        if (priceInput) priceInput.disabled = true;
+        if (salonsInput) salonsInput.disabled = true;
+        if (splitTypeSelect) splitTypeSelect.disabled = true;
+        if (saveBtn) saveBtn.style.display = 'none'; // Nasconde il tasto salva
+        if (addServiceBtn) addServiceBtn.style.display = 'none';
+
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
         const pkg = configs.find(p => p.id === packageId);
         if (pkg) {
-            document.getElementById('f-pkg-name').value = pkg.name || "";
-            document.getElementById('f-pkg-price').value = pkg.price || "";
+            nameInput.value = pkg.name || "";
+            priceInput.value = pkg.price || "";
             
             const sharedArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [currentUser?.salon_id || 'SALON_001'];
-            document.getElementById('f-pkg-shared-salons').value = sharedArr.join(', ');
+            salonsInput.value = sharedArr.join(', ');
 
-            // Rigenera i campi inserendo i valori salvati in revenue_splits
             if (pkg.revenue_splits) {
-                generateSalonSplitFields(pkg.revenue_splits);
+                splitTypeSelect.value = pkg.revenue_splits.type || 'percent';
+                generateSalonSplitFields(pkg.revenue_splits.allocations);
             }
+
+            // Disabilita anche gli input delle quote generate
+            setTimeout(() => {
+                document.querySelectorAll('.salon-split-val').forEach(inp => inp.disabled = true);
+            }, 100);
 
             const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const pkgItems = items.filter(it => it.package_id === packageId);
@@ -8556,7 +8578,18 @@ async function openPackageModal(packageId = null) {
             for (let it of pkgItems) {
                 await addPackageServiceRow(it.service_id, it.total_sessions);
             }
+            // Disabilita i select dei servizi in lettura
+            container.querySelectorAll('select, input').forEach(el => el.disabled = true);
+            container.querySelectorAll('button').forEach(btn => btn.style.display = 'none');
         }
+    } else {
+        // Modalità Creazione (Campi abilitati)
+        if (nameInput) nameInput.disabled = false;
+        if (priceInput) priceInput.disabled = false;
+        if (salonsInput) salonsInput.disabled = false;
+        if (splitTypeSelect) splitTypeSelect.disabled = false;
+        if (saveBtn) saveBtn.style.display = 'inline-flex';
+        if (addServiceBtn) addServiceBtn.style.display = 'inline-flex';
     }
 
     document.getElementById('mod-package').classList.add('active');
@@ -8602,9 +8635,14 @@ async function renderSalonSplitInputs(pkgConfig = null) {
 async function savePackageConfig() {
     const pkgId = document.getElementById('edit-package-id').value;
     const isNew = (!pkgId || pkgId === "-1");
-    const targetId = isNew ? crypto.randomUUID() : pkgId;
-    const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    
+    // 🛡️ REGOLA STRATEGICA: I pacchetti esistenti non si modificano per preservare lo storico contabile!
+    if (!isNew) {
+        alert("⚠️ Per motivi di sicurezza contabile e di coerenza con lo storico, i pacchetti esistenti non possono essere modificati.\n\nSe desideri cambiare le condizioni, elimina questo pacchetto (le vendite passate rimarranno comunque al sicuro) e creane uno nuovo.");
+        return;
+    }
 
+    const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
     const name = document.getElementById('f-pkg-name').value.trim();
     const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
     const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
@@ -8614,20 +8652,13 @@ async function savePackageConfig() {
         return alert("Inserisci un nome valido e un prezzo di listino per il pacchetto.");
     }
 
-    // 1. Array saloni condivisi
-    let sharedSalonsArray = sharedSalonsRaw
-        ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0)
-        : [currentSalonId];
+    let sharedSalonsArray = sharedSalonsRaw ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : [currentSalonId];
+    if (!sharedSalonsArray.includes(currentSalonId)) sharedSalonsArray.push(currentSalonId);
 
-    if (!sharedSalonsArray.includes(currentSalonId)) {
-        sharedSalonsArray.push(currentSalonId);
-    }
-
-    // 2. Raccolta e VALIDAZIONE RIGOROSA dei valori dai campi di split
     let revenueSplitsObj = { type: splitType, allocations: {} };
     const splitInputs = document.querySelectorAll('.salon-split-val');
-    
     let totalSum = 0;
+    
     splitInputs.forEach(input => {
         const sId = input.getAttribute('data-salon');
         const val = parseFloat(input.value) || 0;
@@ -8635,20 +8666,12 @@ async function savePackageConfig() {
         totalSum += val;
     });
 
-    // 🛑 BLCCO RIGOROSO SE LE PERCENTUALI SUPERANO O NON FANNO 100%
-    if (splitType === 'percent') {
-        if (Math.abs(totalSum - 100) > 0.05) {
-            alert(`⚠️ Errore di ripartizione:\nLa somma delle percentuali deve essere esattamente 100%. Al momento la somma è ${totalSum.toFixed(2)}%.`);
-            return; // 👈 Interrompe l'esecuzione e blocca il salvataggio!
-        }
-    } else if (splitType === 'fixed') {
-        if (Math.abs(totalSum - price) > 0.01) {
-            alert(`⚠️ Errore di ripartizione:\nLa somma degli importi in euro (€ ${totalSum.toFixed(2)}) deve essere identica al prezzo di listino totale del pacchetto (€ ${price.toFixed(2)}).`);
-            return; // 👈 Interrompe l'esecuzione e blocca il salvataggio!
-        }
+    if (splitType === 'percent' && Math.abs(totalSum - 100) > 0.05) {
+        return alert(`⚠️ La somma delle percentuali deve essere esattamente 100% (attuale: ${totalSum.toFixed(2)}%).`);
+    } else if (splitType === 'fixed' && Math.abs(totalSum - price) > 0.01) {
+        return alert(`⚠️ La somma degli importi (€ ${totalSum.toFixed(2)}) deve corrispondere al prezzo del pacchetto (€ ${price.toFixed(2)}).`);
     }
 
-    // 3. Raccogliamo i servizi dalle righe dinamiche (INCLUDENDO salon_id per evitare errori 400)
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
     let pkgItemsPayload = [];
 
@@ -8658,7 +8681,7 @@ async function savePackageConfig() {
         if (srvId) {
             pkgItemsPayload.push({
                 id: crypto.randomUUID(),
-                salon_id: currentSalonId, // 👈 Fondamentale per rispettare la struttura Supabase
+                salon_id: currentSalonId,
                 package_id: targetId,
                 service_id: srvId,
                 total_sessions: sCount
@@ -8666,9 +8689,7 @@ async function savePackageConfig() {
         }
     });
 
-    if (pkgItemsPayload.length === 0) {
-        return alert("Associa almeno un servizio al pacchetto.");
-    }
+    if (pkgItemsPayload.length === 0) return alert("Associa almeno un servizio al pacchetto.");
 
     const configData = {
         id: targetId,
@@ -8680,32 +8701,35 @@ async function savePackageConfig() {
     };
 
     try {
-        if (isNew) {
-            await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
-        } else {
-            await window.universalQuery({ action: 'UPDATE', table: 'packages_config', data: configData, id: targetId });
-            const existingItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-            for (let oldIt of existingItems.filter(i => i.package_id === targetId)) {
-                await window.universalQuery({ action: 'DELETE', table: 'package_items', id: oldIt.id });
-            }
-        }
+        // Essendo bloccato per i vecchi, qui passerà sempre e solo la creazione di un nuovo pacchetto
+        await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
 
         for (let it of pkgItemsPayload) {
             await window.universalQuery({ action: 'INSERT', table: 'package_items', data: it });
         }
 
-        alert("✅ Pacchetto salvato con successo!");
+        alert("✅ Pacchetto creato con successo!");
         closeMod();
         renderPackages();
     } catch (err) {
-        console.error("Errore critico salvataggio pacchetto:", err);
-        alert("Impossibile salvare il pacchetto sul database.");
+        console.error("Errore salvataggio pacchetto:", err);
+        alert("Impossibile salvare il pacchetto.");
     }
 }
 
 async function deletePackage(id) {
-    if (!confirm("Eliminare definitivamente questo pacchetto?")) return;
+    if (!confirm("Sei sicuro di voler eliminare questo pacchetto dal listino?\n\nNota: I clienti che lo hanno già acquistato manterranno regolarmente il loro credito sedute e lo storico delle vendite rimarrà intatto e blindato.")) return;
+    
+    // Eliminiamo solo la configurazione di listino
     await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
+    
+    // Gli item di configurazione collegati possono essere puliti o lasciati orfani senza impattare lo storico
+    const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+    for (let it of items.filter(i => i.package_id === id)) {
+        await window.universalQuery({ action: 'DELETE', table: 'package_items', id: it.id });
+    }
+
+    alert("✅ Pacchetto rimosso dal listino. Lo storico delle vendite e i crediti dei clienti sono rimasti al sicuro.");
     renderPackages();
 }
 
