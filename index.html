@@ -12142,15 +12142,15 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
-                // 5. 🌟 ASSEGNAZIONE DELLA QUOTA AL SALONE CORRENTE (PROVIDER)
+                // 5. 🌟 ASSEGNIAMO LA QUOTA CORRETTA AL SALONE CORRENTE (PROVIDER)
                 salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
                 unitCostUsed = 0;
                 supplierPayout = 0;
 
-                // 6. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE PER I SALONI PARTNER (Escluso il currentSalonId che usa il flusso standard)
+                // 6. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE SOLO PER I SALONI PARTNER (Escluso il currentSalonId)
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
-                    if (targetSalonId === currentSalonId) continue; // Il provider usa la vendita standard creata in cima a completeSale
+                    if (targetSalonId === currentSalonId) continue; // Il provider usa la vendita standard che stiamo per creare sotto
 
                     const partnerSaleId = crypto.randomUUID();
                     const partnerSalePayload = {
@@ -12186,7 +12186,12 @@ function urlBase64ToUint8Array(base64String) {
                         console.log(`🔄 [SYNC-QUEUE] Accodata vendita condivisa per il salone partner: ${targetSalonId}`);
                     }
                 }
+
+                // ⚠️ NOTA BENE: NON METTIAMO ALCUN "continue;" QUI. 
+                // In questo modo, l'esecuzione prosegue naturalmente e crea la riga standard `sale_items` per il salone corrente (`currentSalonId`)!
             } else {
+                // Gestione standard Prodotti e Servizi esistenti
+                // ...
                 // ... (gestione standard prodotti e servizi)
                 // ... (resto della gestione standard per prodotti e servizi normali)
                 // Gestione standard Prodotti e Servizi esistenti
