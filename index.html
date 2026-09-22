@@ -8647,11 +8647,14 @@ async function savePackageConfig() {
     
     // 🛡️ REGOLA STRATEGICA: I pacchetti esistenti non si modificano per preservare lo storico contabile!
     if (!isNew) {
-        alert("⚠️ Per motivi di sicurezza contabile e di coerenza con lo storico, i pacchetti esistenti non possono essere modificati.\n\nSe desideri cambiare le condizioni, elimina questo pacchetto (le vendite passate rimarranno comunque al sicuro) e creane uno nuovo.");
+        alert("⚠️ Per motivi di sicurezza contabile e di coerenza con lo storico, i pacchetti esistenti non possono essere modificati.\n\nSe desideri cambiare le condizioni, elimina questo pacchetto e creane uno nuovo.");
         return;
     }
 
+    // 🌟 Definizione esatta e sicura dell'ID univoco del nuovo pacchetto
+    const targetId = crypto.randomUUID();
     const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
     const name = document.getElementById('f-pkg-name').value.trim();
     const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
     const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
@@ -8691,7 +8694,7 @@ async function savePackageConfig() {
             pkgItemsPayload.push({
                 id: crypto.randomUUID(),
                 salon_id: currentSalonId,
-                package_id: targetId,
+                package_id: targetId, // 👈 Usa correttamente il targetId definito in cima
                 service_id: srvId,
                 total_sessions: sCount
             });
@@ -8701,7 +8704,7 @@ async function savePackageConfig() {
     if (pkgItemsPayload.length === 0) return alert("Associa almeno un servizio al pacchetto.");
 
     const configData = {
-        id: targetId,
+        id: targetId, // 👈 Usa correttamente il targetId definito in cima
         salon_id: currentSalonId,
         name: name,
         price: price,
@@ -8710,7 +8713,6 @@ async function savePackageConfig() {
     };
 
     try {
-        // Essendo bloccato per i vecchi, qui passerà sempre e solo la creazione di un nuovo pacchetto
         await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
 
         for (let it of pkgItemsPayload) {
