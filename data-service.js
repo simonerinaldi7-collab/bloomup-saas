@@ -1141,20 +1141,52 @@ async function handleSpecialAction(action, data, id) {
         }
 
         // --- 8. GET_SALES_REPORT (Completo con supporto Servizi in Conto Vendita, Sconti Ripartiti e Pacchetti Multi-Salon) ---
-        // --- 8. GET_SALES_REPORT (Aggiornato per includere le quote di pacchetti condivisi multi-salon) ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
                 
-                // 1. Recuperiamo TUTTI i dati necessari (sia locali che dal cloud/dexie se disponibili)
-                const sales = (await localDb.sales.toArray()) || [];
-                const saleItems = (await localDb.sale_items.toArray()) || [];
+                // 1. Vendite e righe standard locali
+                const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
+                const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
+                
+                // 2. 🌟 GESTIONE PARTNER MULTI-SALON: Recuperiamo anche le vendite estere/condivise dei pacchetti se il partner ha una quota
+                const allSalesCloud = (await localDb.sales.toArray()) || [];
+                const allSaleItemsCloud = (await localDb.sale_items.toArray()) || [];
+                const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.toArray() || []) : [];
+
+                // Identifichiamo gli ID delle vendite di pacchetti in cui questo salone ha una quota di competenza nello split
+                const relevantSaleIdsForPartner = new Set();
+                customerPackagesList.forEach(cp => {
+                    if (cp.revenue_allocations) {
+                        const myQuota = parseFloat(cp.revenue_allocations[salonId]) || 0;
+                        if (myQuota > 0) {
+                            // Cerchiamo la vendita associata a questo pacchetto cliente (basandoci su cliente e prezzo)
+                            const matchingSale = allSalesCloud.find(s => s.cust_id === cp.customer_id && Math.abs(parseFloat(s.total) - parseFloat(cp.total_paid)) < 0.05);
+                            if (matchingSale) relevantSaleIdsForPartner.add(matchingSale.id);
+                        }
+                    }
+                });
+
+                // Uniamo le vendite locali con quelle dei partner in cui abbiamo una quota di competenza (evitando duplicati)
+                const salesMap = new Map();
+                sales.forEach(s => salesMap.set(s.id, s));
+                allSalesCloud.forEach(s => {
+                    if (relevantSaleIdsForPartner.has(s.id)) salesMap.set(s.id, s);
+                });
+                const effectiveSales = Array.from(salesMap.values());
+
+                const saleItemsMap = new Map();
+                saleItems.forEach(si => saleItemsMap.set(si.id, si));
+                allSaleItemsCloud.forEach(si => {
+                    if (relevantSaleIdsForPartner.has(si.sale_id)) saleItemsMap.set(si.id, si);
+                });
+                const effectiveSaleItems = Array.from(saleItemsMap.values());
+
                 const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
                 const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
                 const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
                 const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
-                const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.toArray() || []) : [];
                 
                 let productSuppliers = [];
                 let suppliersData = [];
@@ -1169,22 +1201,9 @@ async function handleSpecialAction(action, data, id) {
 
                 const report = [];
                 
-                for (let item of saleItems) {
-                    const sale = sales.find(s => s.id === item.sale_id);
+                for (let item of effectiveSaleItems) {
+                    const sale = effectiveSales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
-
-                    // 🎁 VERIFICA MULTI-SALON PACCHETTI: 
-                    // Se la vendita appartiene a un altro salone, verifichiamo se questo salone ha una quota in customer_packages
-                    const isMyDirectSale = sale.salon_id === salonId;
-                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - (parseFloat(item.price) - parseFloat(item.discount || 0))) < 0.05 && cp.customer_id === sale.cust_id);
-                    
-                    let myPackageQuota = 0;
-                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                        myPackageQuota = parseFloat(matchingPkgCredit.revenue_allocations[salonId]) || 0;
-                    }
-
-                    // Se la vendita non è nostra E non abbiamo alcuna quota di pacchetto in questa transazione, la scartiamo
-                    if (!isMyDirectSale && myPackageQuota <= 0) continue;
                     
                     let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
@@ -1206,6 +1225,9 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
+                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
+                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.05 && cp.customer_id === sale.cust_id);
+
                     if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
@@ -1215,10 +1237,11 @@ async function handleSpecialAction(action, data, id) {
                         supplierDetailsText = `🧩 <b>Split Pacchetto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
                         // Il ricavo di competenza è la quota assegnata a questo specifico salone nello split
-                        salonRevenue = myPackageQuota;
+                        salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
                         unitCost = 0;
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
+                            // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
 
@@ -1243,6 +1266,7 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
                         } else if (inv.is_consignment && inv.type === 'servizio') {
+                            // ✂️💶 2. SERVIZIO IN CONTO VENDITA (Fornitore Singolo + Regola Sconto)
                             if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
                                 supplierPayout = parseFloat(item.supplier_payout) || 0;
                             } else {
@@ -1268,6 +1292,7 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else if (inv.is_consignment) {
+                            // 📦 3. PRODOTTO FISICO IN CONTO VENDITA
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
 
@@ -1297,6 +1322,7 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else {
+                            // 📦 4. PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                             if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
                                 unitCost = parseFloat(item.unit_cost) || 0;
                             } else {
@@ -1306,6 +1332,7 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
                         }
                     } else {
+                        // ✍️ 5. ARTICOLO MANUALE / FUORI CATALOGO
                         if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
                             unitCost = parseFloat(item.unit_cost) || 0;
                         }
@@ -1313,6 +1340,12 @@ async function handleSpecialAction(action, data, id) {
                         salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
                             ? parseFloat(item.salon_revenue) 
                             : (finalPrice - unitCost - supplierPayout);
+                    }
+
+                    // Se siamo un salone partner e c'è uno split, mostriamo la riga solo se la nostra quota è > 0
+                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                        const myAlloc = parseFloat(matchingPkgCredit.revenue_allocations[salonId]) || 0;
+                        if (myAlloc <= 0) continue; // Salta la riga se questo salone non ha quota in questo pacchetto
                     }
 
                     report.push({
