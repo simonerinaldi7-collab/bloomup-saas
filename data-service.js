@@ -1165,7 +1165,18 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    if (inv) {
+
+const customerPackagesList = await localDb.customer_packages.where('salon_id').equals(salonId).toArray() || [];
+        const matchingPkgCredit = customerPackagesList.find(cp => cp.total_paid === finalPrice && cp.customer_id === sale.cust_id);
+
+        if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+            let splitDetailsArr = [];
+            const allocs = matchingPkgCredit.revenue_allocations;
+            for (const [sId, amountVal] of Object.entries(allocs)) {
+                splitDetailsArr.push(`Salone <b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
+            }
+            supplierDetailsText = `<b>Split Multi-Salon:</b><br>${splitDetailsArr.join('<br>')}`;
+        } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
