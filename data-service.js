@@ -290,8 +290,9 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        console.log("🌐 [SYNC PACCHETTI] Inizio fetch da Supabase...");
+        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti e crediti da Supabase...");
         
+        // 1. SYNC PACKAGES_CONFIG (Configurazioni pacchetti propri o condivisi)
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
             method: 'GET',
             headers: {
@@ -303,34 +304,23 @@ async function pullPackagesFromSupabase(salonId) {
 
         if (response.ok) {
             const cloudRecords = await response.json();
-            console.log("☁️ [SYNC PACCHETTI] Record grezzi ricevuti dal cloud:", cloudRecords);
-
             if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                 for (let record of cloudRecords) {
                     const isOwner = record.salon_id === salonId;
-                    // Controlliamo in modo sicuro la condivisione (sia se è array sia se il DB lo restituisce come stringa JSON)
                     let sharedArr = record.shared_salons;
                     if (typeof sharedArr === 'string') {
                         try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; }
                     }
                     const isShared = Array.isArray(sharedArr) && sharedArr.includes(salonId);
-                    
-                    console.log(`🔍 Valutazione pacchetto "${record.name}": owner(${record.salon_id}==${salonId} -> ${isOwner}), shared(${JSON.stringify(sharedArr)} -> ${isShared})`);
 
                     if (isOwner || isShared) {
                         await localDb.packages_config.put(record);
-                        console.log(`✅ [SYNC PACCHETTI] Salvato in locale:`, record.name);
                     }
                 }
-            } else {
-                console.warn("⚠️ [SYNC PACCHETTI] La tabella packages_config sul cloud è vuota o non ci sono record.");
             }
-        } else {
-            const errText = await response.text();
-            console.error("❌ [SYNC PACCHETTI] Errore HTTP Supabase:", response.status, errText);
         }
 
-        // Sync degli item del pacchetto
+        // 2. SYNC PACKAGE_ITEMS (Servizi inclusi nei pacchetti)
         const resItems = await fetch(`${SUPABASE_URL}/rest/v1/package_items?limit=1000`, {
             method: 'GET',
             headers: {
@@ -344,16 +334,51 @@ async function pullPackagesFromSupabase(salonId) {
             const cloudItems = await resItems.json();
             if (Array.isArray(cloudItems)) {
                 for (let item of cloudItems) {
-                    await localDb.package_items.put(item);
+                    // Salviamo gli item se appartengono a un pacchetto già presente in locale
+                    const parentPkg = await localDb.packages_config.get(item.package_id);
+                    if (parentPkg) {
+                        await localDb.package_items.put(item);
+                    }
                 }
             }
         }
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti completata.");
+
+        // 3. 🌟 SYNC CUSTOMER_PACKAGES (Pacchetti acquistati / Crediti sedute / Split ricavi)
+        // Scarichiamo i pacchetti clienti in cui il salone è proprietario oppure ha una quota attiva nello split delle allocazioni
+        const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        if (resCustPkgs.ok) {
+            const cloudCustPkgs = await resCustPkgs.json();
+            if (Array.isArray(cloudCustPkgs)) {
+                for (let cp of cloudCustPkgs) {
+                    const isOwner = cp.salon_id === salonId;
+                    
+                    // Verifichiamo se il salone ha una quota nello split (revenue_allocations)
+                    let allocs = cp.revenue_allocations;
+                    if (typeof allocs === 'string') {
+                        try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; }
+                    }
+                    const hasQuota = allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0;
+
+                    if (isOwner || hasQuota) {
+                        await localDb.customer_packages.put(cp);
+                    }
+                }
+            }
+        }
+
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e crediti completata con successo.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
 }
-
 async function handleWriteOperation(action, table, data, id, isOnline) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     console.log(`🛠️ [WRITE] Azione: ${action} su Tabella: ${table}`, data);
@@ -1115,13 +1140,48 @@ async function handleSpecialAction(action, data, id) {
             });
         }
 
-        // --- 8. GET_SALES_REPORT (Completo con supporto Servizi in Conto Vendita e Sconti Ripartiti) ---
+        // --- 8. GET_SALES_REPORT (Completo con supporto Servizi in Conto Vendita, Sconti Ripartiti e Pacchetti Multi-Salon) ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
                 
+                // 1. Vendite e righe standard locali
                 const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
                 const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
+                
+                // 2. 🌟 GESTIONE PARTNER MULTI-SALON: Recuperiamo anche le vendite estere/condivise dei pacchetti se il partner ha una quota
+                const allSalesCloud = (await localDb.sales.toArray()) || [];
+                const allSaleItemsCloud = (await localDb.sale_items.toArray()) || [];
+                const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.toArray() || []) : [];
+
+                // Identifichiamo gli ID delle vendite di pacchetti in cui questo salone ha una quota di competenza nello split
+                const relevantSaleIdsForPartner = new Set();
+                customerPackagesList.forEach(cp => {
+                    if (cp.revenue_allocations) {
+                        const myQuota = parseFloat(cp.revenue_allocations[salonId]) || 0;
+                        if (myQuota > 0) {
+                            // Cerchiamo la vendita associata a questo pacchetto cliente (basandoci su cliente e prezzo)
+                            const matchingSale = allSalesCloud.find(s => s.cust_id === cp.customer_id && Math.abs(parseFloat(s.total) - parseFloat(cp.total_paid)) < 0.05);
+                            if (matchingSale) relevantSaleIdsForPartner.add(matchingSale.id);
+                        }
+                    }
+                });
+
+                // Uniamo le vendite locali con quelle dei partner in cui abbiamo una quota di competenza (evitando duplicati)
+                const salesMap = new Map();
+                sales.forEach(s => salesMap.set(s.id, s));
+                allSalesCloud.forEach(s => {
+                    if (relevantSaleIdsForPartner.has(s.id)) salesMap.set(s.id, s);
+                });
+                const effectiveSales = Array.from(salesMap.values());
+
+                const saleItemsMap = new Map();
+                saleItems.forEach(si => saleItemsMap.set(si.id, si));
+                allSaleItemsCloud.forEach(si => {
+                    if (relevantSaleIdsForPartner.has(si.sale_id)) saleItemsMap.set(si.id, si);
+                });
+                const effectiveSaleItems = Array.from(saleItemsMap.values());
+
                 const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
                 const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
@@ -1141,8 +1201,8 @@ async function handleSpecialAction(action, data, id) {
 
                 const report = [];
                 
-                for (let item of saleItems) {
-                    const sale = sales.find(s => s.id === item.sale_id);
+                for (let item of effectiveSaleItems) {
+                    const sale = effectiveSales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
                     
                     let cust = customers.find(c => c.id === sale.cust_id);
@@ -1166,8 +1226,7 @@ async function handleSpecialAction(action, data, id) {
                     let supplierDetailsText = '-';
 
                     // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
-                    const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.where('salon_id').equals(salonId).toArray() || []) : [];
-                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.01 && cp.customer_id === sale.cust_id);
+                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.05 && cp.customer_id === sale.cust_id);
 
                     if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
@@ -1177,7 +1236,7 @@ async function handleSpecialAction(action, data, id) {
                         }
                         supplierDetailsText = `🧩 <b>Split Pacchetto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // Il ricavo reale di competenza di questo salone è la sua quota nello split
+                        // Il ricavo di competenza è la quota assegnata a questo specifico salone nello split
                         salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : 0;
                         unitCost = 0;
                     } else if (inv) {
@@ -1281,6 +1340,12 @@ async function handleSpecialAction(action, data, id) {
                         salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
                             ? parseFloat(item.salon_revenue) 
                             : (finalPrice - unitCost - supplierPayout);
+                    }
+
+                    // Se siamo un salone partner e c'è uno split, mostriamo la riga solo se la nostra quota è > 0
+                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                        const myAlloc = parseFloat(matchingPkgCredit.revenue_allocations[salonId]) || 0;
+                        if (myAlloc <= 0) continue; // Salta la riga se questo salone non ha quota in questo pacchetto
                     }
 
                     report.push({
