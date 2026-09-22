@@ -290,91 +290,99 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti e crediti da Supabase...");
+        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti, crediti e vendite condivise...");
         
-        // 1. SYNC PACKAGES_CONFIG (Configurazioni pacchetti propri o condivisi)
+        // 1. SYNC PACKAGES_CONFIG
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
             method: 'GET',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
-
         if (response.ok) {
             const cloudRecords = await response.json();
-            if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
-                for (let record of cloudRecords) {
-                    const isOwner = record.salon_id === salonId;
-                    let sharedArr = record.shared_salons;
-                    if (typeof sharedArr === 'string') {
-                        try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; }
-                    }
-                    const isShared = Array.isArray(sharedArr) && sharedArr.includes(salonId);
-
-                    if (isOwner || isShared) {
-                        await localDb.packages_config.put(record);
-                    }
+            for (let record of cloudRecords) {
+                const isOwner = record.salon_id === salonId;
+                let sharedArr = record.shared_salons;
+                if (typeof sharedArr === 'string') { try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; } }
+                if (isOwner || (Array.isArray(sharedArr) && sharedArr.includes(salonId))) {
+                    await localDb.packages_config.put(record);
                 }
             }
         }
 
-        // 2. SYNC PACKAGE_ITEMS (Servizi inclusi nei pacchetti)
+        // 2. SYNC PACKAGE_ITEMS
         const resItems = await fetch(`${SUPABASE_URL}/rest/v1/package_items?limit=1000`, {
             method: 'GET',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
-
         if (resItems.ok) {
             const cloudItems = await resItems.json();
-            if (Array.isArray(cloudItems)) {
-                for (let item of cloudItems) {
-                    // Salviamo gli item se appartengono a un pacchetto già presente in locale
-                    const parentPkg = await localDb.packages_config.get(item.package_id);
-                    if (parentPkg) {
-                        await localDb.package_items.put(item);
-                    }
-                }
+            for (let item of cloudItems) {
+                const parentPkg = await localDb.packages_config.get(item.package_id);
+                if (parentPkg) await localDb.package_items.put(item);
             }
         }
 
-        // 3. 🌟 SYNC CUSTOMER_PACKAGES (Pacchetti acquistati / Crediti sedute / Split ricavi)
-        // Scarichiamo i pacchetti clienti in cui il salone è proprietario oppure ha una quota attiva nello split delle allocazioni
+        // 3. SYNC CUSTOMER_PACKAGES (Crediti sedute)
         const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
             method: 'GET',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
-
+        
+        let validPackageIds = new Set();
         if (resCustPkgs.ok) {
             const cloudCustPkgs = await resCustPkgs.json();
-            if (Array.isArray(cloudCustPkgs)) {
-                for (let cp of cloudCustPkgs) {
-                    const isOwner = cp.salon_id === salonId;
-                    
-                    // Verifichiamo se il salone ha una quota nello split (revenue_allocations)
-                    let allocs = cp.revenue_allocations;
-                    if (typeof allocs === 'string') {
-                        try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; }
-                    }
-                    const hasQuota = allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0;
+            for (let cp of cloudCustPkgs) {
+                const isOwner = cp.salon_id === salonId;
+                let allocs = cp.revenue_allocations;
+                if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+                const hasQuota = allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0;
 
-                    if (isOwner || hasQuota) {
-                        await localDb.customer_packages.put(cp);
+                if (isOwner || hasQuota) {
+                    await localDb.customer_packages.put(cp);
+                    if (cp.package_id) validPackageIds.add(cp.package_id);
+                }
+            }
+        }
+
+        // 4. 🌟 SYNC SALES & SALE_ITEMS CORRELATI AI PACCHETTI CONDIVISI
+        // Se un cliente ha un customer_package condiviso con questo salone, peschiamo dal cloud la vendita associata 
+        // e la salviamo in locale, così il Report Vendite la troverà senza alterare le query standard.
+        const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?limit=1000`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        
+        if (resSales.ok) {
+            const cloudSales = await resSales.json();
+            for (let sale of cloudSales) {
+                // Verifichiamo se questa vendita appartiene a un cliente che possiede un pacchetto condiviso con noi
+                const hasSharedPkg = customerPackagesListLocalCheck(sale.cust_id, salonId); // O controllo diretto su customer_packages scaricati
+                const matchesAnyCustomerPkg = await localDb.customer_packages.where('customer_id').equals(String(sale.cust_id)).first();
+                
+                if (matchesAnyCustomerPkg) {
+                    let allocs = matchesAnyCustomerPkg.revenue_allocations;
+                    if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+                    
+                    if (allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0) {
+                        await localDb.sales.put(sale);
+                        
+                        // Scarichiamo anche il rispettivo sale_item di questa vendita
+                        const resItemsSale = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?sale_id=eq.${sale.id}`, {
+                            method: 'GET',
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+                        });
+                        if (resItemsSale.ok) {
+                            const cloudSaleItems = await resItemsSale.json();
+                            for (let si of cloudSaleItems) {
+                                await localDb.sale_items.put(si);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e crediti completata con successo.");
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e vendite collegate completata.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
