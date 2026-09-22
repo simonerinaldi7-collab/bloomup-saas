@@ -342,6 +342,30 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
+        // 4. 🌟 PULL DELLE VENDITE E ITEM DI COMPETENZA NEL SYNC DEDICATO DEI PACCHETTI
+        const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?salon_id=eq.${salonId}&limit=1000`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        if (resSales.ok) {
+            const cloudSales = await resSales.json();
+            for (let s of cloudSales) {
+                await localDb.sales.put(s);
+            }
+        }
+
+        // Variabili rinominate in modo sicuro (resSaleItems / cloudSaleItems)
+        const resSaleItems = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?salon_id=eq.${salonId}&limit=1000`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        if (resSaleItems.ok) {
+            const cloudSaleItems = await resSaleItems.json();
+            for (let si of cloudSaleItems) {
+                await localDb.sale_items.put(si);
+            }
+        }
+
         console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e crediti completata.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);

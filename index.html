@@ -12085,7 +12085,7 @@ function urlBase64ToUint8Array(base64String) {
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO
+            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO CON SYNC-QUEUE MULTI-SALON
             const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
             if (packageConfigId) {
@@ -12142,42 +12142,56 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
-                // 5. 🌟 CREAZIONE DI UNA VENDITA INDIPENDENTE PER CIASCUN SALONE DELLO SPLIT
+                // 5. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE PER I SALONI PARTNER
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
+                    if (targetSalonId === currentSalonId) continue; // Il currentSalonId viene gestito dal flusso standard sottostante
 
-                    const specificSaleId = crypto.randomUUID();
-                    
-                    const salonSalePayload = {
-                        id: specificSaleId,
-                        salon_id: targetSalonId, // Assegnato al salone di competenza (es. SALON_001 o SALON_002)
+                    const partnerSaleId = crypto.randomUUID();
+                    const partnerSalePayload = {
+                        id: partnerSaleId,
+                        salon_id: targetSalonId, // 👈 Assegnato al salone partner
                         cust_id: finalCustId,
                         appointment_id: linkedAppointmentId,
-                        total: finalItemPrice,
+                        total: quotaVal, // La quota di competenza per il partner
                         date: nowObj.split(' ')[0],
                         time: nowObj.split(' ')[1],
                         payment_method: 'Contanti (Pacchetto Condiviso)',
-                        created_by: currentUser ? currentUser.username : 'Admin'
+                        created_by: currentUser ? currentUser.username : 'Admin',
+                        updated_at: getNowLocal()
                     };
-                    await window.universalQuery({ action: 'INSERT', table: 'sales', data: salonSalePayload });
 
-                    const salonSaleItemPayload = {
+                    const partnerSaleItemPayload = {
                         id: crypto.randomUUID(),
-                        salon_id: targetSalonId,
-                        sale_id: specificSaleId,
+                        salon_id: targetSalonId, // 👈 Assegnato al salone partner
+                        sale_id: partnerSaleId,
                         item_name: item.name || 'Pacchetto',
                         qty: item.qty || 1,
-                        price: item.price || 0,
-                        discount: item.discountAmount || 0,
+                        price: quotaVal,
+                        discount: 0,
                         unit_cost: 0,
                         supplier_payout: 0,
-                        salon_revenue: quotaVal // Quota di competenza esatta per quel salone
+                        salon_revenue: quotaVal,
+                        updated_at: getNowLocal()
                     };
-                    await window.universalQuery({ action: 'INSERT', table: 'sale_items', data: salonSaleItemPayload });
+
+                    // Scriviamo in locale nel DB del browser del mittente (o forziamo l'accodamento in sync_queue)
+                    // Nota: Per fare in modo che il partner se li ritrovi, li inseriamo nella sync_queue con il salon_id del partner 
+                    // affinché appena il partner fa il sync, se li scarichi.
+                    if (localDb && localDb.sync_queue) {
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
+                        console.log(`🔄 [SYNC-QUEUE] Accodata vendita condivisa per il salone partner: ${targetSalonId}`);
+                    }
                 }
 
-                continue; // Salta il blocco standard sottostante per questo item
+                // Assegniamo al salone corrente la sua quota esatta di ricavo
+                salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
+                unitCostUsed = 0;
+                supplierPayout = 0;
+
             } else {
+                // ... (resto della gestione standard per prodotti e servizi normali)
                 // Gestione standard Prodotti e Servizi esistenti
                 const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
 
