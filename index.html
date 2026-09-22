@@ -2015,6 +2015,32 @@
 
         </div>
     </div>
+
+<!-- MODALE RILEVAMENTO CLIENTE DUPLICATO -->
+<div id="mod-duplicate-customer" class="modal" style="z-index: 35000;">
+    <div class="modal-box" style="width: 500px; text-align: left;">
+        <h3 style="margin-top:0; color: var(--d); display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span> Cliente Già Esistente
+        </h3>
+        <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 15px;">
+            Il sistema ha rilevato un'anagrafica simile nel database con lo stesso <b id="dup-reason-text">nome o cellulare</b>:
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border); padding: 15px; border-radius: 12px; margin-bottom: 20px;" id="dup-client-details-box">
+            <!-- Popolato dinamicamente -->
+        </div>
+
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 20px;">
+            Vuoi procedere ugualmente creando un nuovo cliente o desideri annullare l'operazione?
+        </p>
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-d" style="flex:1; justify-content:center;" onclick="executeForceSaveCustomer()">Procedi Comunque (Crea Nuovo)</button>
+            <button class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none;" onclick="closeDuplicateModal()">Annulla Operazione</button>
+        </div>
+    </div>
+</div>
+
     <div id="mod-cale" class="modal" onclick="if(event.target==this) closeMod()">
     <div class="modal-box" style="width: 550px;">
         <button onclick="closeMod()" style="float:right; border:none; background:none; cursor:pointer; font-size: 16px; font-weight: bold;">✕</button>
@@ -8135,6 +8161,108 @@ async function registerOperatorPushNotifications() {
         return validSlots;
     }
 
+
+// Funzione per normalizzare il numero di telefono (rimuove prefissi internazionali, spazi, trattini)
+function cleanPhoneNumber(phone) {
+    if (!phone) return '';
+    let digits = String(phone).replace(/\D/g, ''); // Solo numeri
+    // Se inizia per 39 e ha una lunghezza tipica italiana (11 o 12 cifre), rimuoviamo il 39 iniziale per il confronto pulito
+    if (digits.startsWith('39') && digits.length >= 11) {
+        digits = digits.substring(2);
+    }
+    // Rimuoviamo eventuale zero iniziale (es. 0333...)
+    if (digits.startsWith('0') && digits.length >= 10) {
+        digits = digits.substring(1);
+    }
+    return digits;
+}
+
+// Funzione globale temporanea per memorizzare il payload in attesa di conferma forzata
+let pendingCustomerPayload = null;
+
+// Controllo duplicati prima del salvataggio effettivo
+async function checkAndHandleCustomerDuplicate(data) {
+    const cleanNewFirst = (data.first_name || '').trim().toLowerCase();
+    const cleanNewLast = (data.last_name || '').trim().toLowerCase();
+    const cleanNewPhone = cleanPhoneNumber(data.phone);
+
+    const existingCustomers = allCustomers || [];
+
+    let matchedCustomer = null;
+    let matchType = "";
+
+    for (let c of existingCustomers) {
+        // Ignoriamo eventuali record fittizi
+        if (c.id === 'CLIENTE_STORICO') continue;
+
+        const cFirst = (c.first_name || '').trim().toLowerCase();
+        const cLast = (c.last_name || '').trim().toLowerCase();
+        const cPhoneClean = cleanPhoneNumber(c.phone);
+
+        // Controllo 1: Nome e Cognome identici
+        if (cleanNewFirst && cleanNewLast && cFirst === cleanNewFirst && cLast === cleanNewLast) {
+            matchedCustomer = c;
+            matchType = "Nome e Cognome identici";
+            break;
+        }
+
+        // Controllo 2: Numero di cellulare identico (se inserito e valido)
+        if (cleanNewPhone && cleanNewPhone.length >= 6 && cPhoneClean === cleanNewPhone) {
+            matchedCustomer = c;
+            matchType = "Numero di cellulare già associato a un altro cliente";
+            break;
+        }
+    }
+
+    if (matchedCustomer) {
+        // Trovato un duplicato! Salviamo il payload e apriamo il modale di avviso
+        pendingCustomerPayload = data;
+        
+        document.getElementById('dup-reason-text').innerText = matchType;
+        document.getElementById('dup-client-details-box').innerHTML = `
+            <div style="font-size: 14px; font-weight: bold; color: var(--txt); margin-bottom: 4px;">
+                ${matchedCustomer.first_name || ''} ${matchedCustomer.last_name || ''}
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 2px;">
+                📞 Tel: <b>${matchedCustomer.phone || 'Non specificato'}</b>
+            </div>
+            <div style="font-size: 12px; color: #64748b;">
+                ✉️ Email: <b>${matchedCustomer.email || 'Non specificata'}</b>
+            </div>
+        `;
+
+        document.getElementById('mod-duplicate-customer').classList.add('active');
+        return true; // Duplicato trovato, blocchiamo il salvataggio immediato
+    }
+
+    return false; // Nessun duplicato, procediamo
+}
+
+async function executeForceSaveCustomer() {
+    if (!pendingCustomerPayload) return;
+    const data = pendingCustomerPayload;
+    pendingCustomerPayload = null;
+    
+    document.getElementById('mod-duplicate-customer').classList.remove('active');
+
+    const id = document.getElementById('edit-c-id').value;
+    if (id === "-1") {
+        await window.api.query({ action: 'INSERT', table: 'customers', data });
+    } else {
+        await window.api.query({ action: 'UPDATE', table: 'customers', data, id: id });
+    }
+    
+    await refreshAllData(); 
+    closeMod();
+}
+
+function closeDuplicateModal() {
+    pendingCustomerPayload = null;
+    document.getElementById('mod-duplicate-customer').classList.remove('active');
+}
+
+
+
             // --- SISTEMA ---
            async function saveSystemSettings() {
                 const fields = [
@@ -10335,6 +10463,15 @@ async function decrementInventoryFIFO(productId) {
 
         data = addAuditData(data);
         
+  // 🛑 SE SI TRATTA DI UN NUOVO CLIENTE (id === "-1"), ESEGUIAMO IL CONTROLLO DUPLICATI
+    if (id === "-1") {
+        const isDuplicate = await checkAndHandleCustomerDuplicate(data);
+        if (isDuplicate) {
+            return; // Interrompe il salvataggio immediato e mostra il modale di avviso
+        }
+    }
+
+
         if (id === "-1") {
             await window.api.query({ action: 'INSERT', table: 'customers', data });
         } else {
