@@ -12053,25 +12053,31 @@ function urlBase64ToUint8Array(base64String) {
         const linkedAppointmentId = currentCheckoutAppointmentId || null;
         const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-        // Creazione testata vendita principale per il salone corrente
-        const res = await window.api.query({ 
-            action:'INSERT', table:'sales', 
-            data: { 
-                cust_id: finalCustId || null, 
-                appointment_id: linkedAppointmentId, 
-                total: total, 
-                date: nowObj.split(' ')[0], 
-                time: nowObj.split(' ')[1], 
-                payment_method: 'Contanti', 
-                created_by: currentUser ? currentUser.username : 'Admin' 
-            } 
-        }); 
+        // 🌟 VERIFICHIAMO SE IL CARRELLO CONTIENE UN PACCHETTO
+        const hasPackageInCart = cartWithDiscounts.some(item => item.isPackage && item.id);
 
-        if (!res || !res.lastInsertRowid) {
-            return alert("Errore critico: Impossibile creare la vendita nel DB.");
+        let saleId = null;
+
+        // Se NON ci sono pacchetti, creiamo la testata sales standard una sola volta
+        if (!hasPackageInCart) {
+            const res = await window.api.query({ 
+                action:'INSERT', table:'sales', 
+                data: { 
+                    cust_id: finalCustId || null, 
+                    appointment_id: linkedAppointmentId, 
+                    total: total, 
+                    date: nowObj.split(' ')[0], 
+                    time: nowObj.split(' ')[1], 
+                    payment_method: 'Contanti', 
+                    created_by: currentUser ? currentUser.username : 'Admin' 
+                } 
+            }); 
+
+            if (!res || !res.lastInsertRowid) {
+                return alert("Errore critico: Impossibile creare la vendita nel DB.");
+            }
+            saleId = res.lastInsertRowid;
         }
-
-        const saleId = res.lastInsertRowid; 
 
         for(let item of cartWithDiscounts) { 
             let unitCostUsed = 0;
@@ -12137,19 +12143,17 @@ function urlBase64ToUint8Array(base64String) {
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
                 // 5. 🌟 CREAZIONE DI UNA VENDITA INDIPENDENTE PER CIASCUN SALONE DELLO SPLIT
-                // Invece di usare un unico saleId globale, creiamo un record sales e sale_items per ogni salon_id coinvolto.
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
 
                     const specificSaleId = crypto.randomUUID();
                     
-                    // A. Testata vendita (sales) con il corretto salon_id del rispettivo salone
                     const salonSalePayload = {
                         id: specificSaleId,
-                        salon_id: targetSalonId, // 👈 Assegnato al salone di competenza (es. SALON_001 o SALON_002)
+                        salon_id: targetSalonId, // Assegnato al salone di competenza (es. SALON_001 o SALON_002)
                         cust_id: finalCustId,
                         appointment_id: linkedAppointmentId,
-                        total: finalItemPrice, // Prezzo pieno pagato dal cliente
+                        total: finalItemPrice,
                         date: nowObj.split(' ')[0],
                         time: nowObj.split(' ')[1],
                         payment_method: 'Contanti (Pacchetto Condiviso)',
@@ -12157,10 +12161,9 @@ function urlBase64ToUint8Array(base64String) {
                     };
                     await window.universalQuery({ action: 'INSERT', table: 'sales', data: salonSalePayload });
 
-                    // B. Riga dettaglio vendita (sale_items) con la quota di ricavo assegnata
                     const salonSaleItemPayload = {
                         id: crypto.randomUUID(),
-                        salon_id: targetSalonId, // 👈 Assegnato al salone di competenza
+                        salon_id: targetSalonId,
                         sale_id: specificSaleId,
                         item_name: item.name || 'Pacchetto',
                         qty: item.qty || 1,
@@ -12168,18 +12171,12 @@ function urlBase64ToUint8Array(base64String) {
                         discount: item.discountAmount || 0,
                         unit_cost: 0,
                         supplier_payout: 0,
-                        salon_revenue: quotaVal // 👈 Il ricavo netto di competenza per quel salone nello split
+                        salon_revenue: quotaVal // Quota di competenza esatta per quel salone
                     };
                     await window.universalQuery({ action: 'INSERT', table: 'sale_items', data: salonSaleItemPayload });
                 }
 
-                // Poiché abbiamo già inserito le vendite mirate per ciascun salone nel ciclo sopra,
-                // evitiamo che il codice sottostante crei un ulteriore sale_item duplicato per il salone corrente.
-                // Facciamo in modo che il flusso salti l'inserimento standard per questo specifico item del carrello impostando un flag.
-                item._skippedStandardInsert = true;
-
-           
-
+                continue; // Salta il blocco standard sottostante per questo item
             } else {
                 // Gestione standard Prodotti e Servizi esistenti
                 const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
