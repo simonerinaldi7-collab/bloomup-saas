@@ -217,8 +217,16 @@ async function backgroundPullFromSupabase(table, salonId) {
     while (hasMore) {
         let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
         
-        // Per la tabella users, non serve la paginazione massiva
-        if (table === 'users') {
+
+
+        // 🌟 GESTIONE CONDIVISIONE MULTI-SALON PER I PACCHETTI
+        if (table === 'packages_config') {
+            // Chiediamo a Supabase i pacchetti creati dal salone OPPURE quelli in cui il salonId è dentro shared_salons
+            url = `${SUPABASE_URL}/rest/v1/${table}?or=(salon_id.eq.${salonId},shared_salons.cs.{"${salonId}"})&limit=${limit}&offset=${offset}`;
+        } else if (table === 'package_items') {
+            // Per gli item dei pacchetti, vogliamo prenderli se appartengono a pacchetti visibili (o facciamo un sync generale dei pacchetti condivisi)
+            url = `${SUPABASE_URL}/rest/v1/${table}?limit=${limit}&offset=${offset}`; // Pull esteso o filtrato per pacchetti attivi
+        } else if (table === 'users') {
             url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
             hasMore = false;
         }
@@ -258,7 +266,7 @@ async function backgroundPullFromSupabase(table, salonId) {
             hasMore = false;
         }
 
-        if (table === 'users') break;
+        if (table === 'users' || table === 'packages_config') break; // Ottimizzazione loop
     }
 
     // 🧹 GESTIONE CANCELLAZIONE SICURA E MIRATA
