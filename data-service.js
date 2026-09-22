@@ -6,7 +6,7 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(24).stores({
+    localDb.version(25).stores({
         users: 'id, salon_id, username, status, updated_at',
         customers: 'id, salon_id, first_name, last_name, phone, gdpr_date, updated_at',
         inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment, updated_at',
@@ -290,7 +290,8 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        // Scarichiamo l'intera tabella packages_config dal cloud (o una query senza filtro salon_id)
+        console.log("🌐 [SYNC PACCHETTI] Inizio fetch da Supabase...");
+        
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
             method: 'GET',
             headers: {
@@ -302,19 +303,34 @@ async function pullPackagesFromSupabase(salonId) {
 
         if (response.ok) {
             const cloudRecords = await response.json();
-            if (Array.isArray(cloudRecords)) {
+            console.log("☁️ [SYNC PACCHETTI] Record grezzi ricevuti dal cloud:", cloudRecords);
+
+            if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
                 for (let record of cloudRecords) {
                     const isOwner = record.salon_id === salonId;
-                    const isShared = Array.isArray(record.shared_salons) && record.shared_salons.includes(salonId);
+                    // Controlliamo in modo sicuro la condivisione (sia se è array sia se il DB lo restituisce come stringa JSON)
+                    let sharedArr = record.shared_salons;
+                    if (typeof sharedArr === 'string') {
+                        try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; }
+                    }
+                    const isShared = Array.isArray(sharedArr) && sharedArr.includes(salonId);
                     
+                    console.log(`🔍 Valutazione pacchetto "${record.name}": owner(${record.salon_id}==${salonId} -> ${isOwner}), shared(${JSON.stringify(sharedArr)} -> ${isShared})`);
+
                     if (isOwner || isShared) {
                         await localDb.packages_config.put(record);
+                        console.log(`✅ [SYNC PACCHETTI] Salvato in locale:`, record.name);
                     }
                 }
+            } else {
+                console.warn("⚠️ [SYNC PACCHETTI] La tabella packages_config sul cloud è vuota o non ci sono record.");
             }
+        } else {
+            const errText = await response.text();
+            console.error("❌ [SYNC PACCHETTI] Errore HTTP Supabase:", response.status, errText);
         }
 
-        // Facciamo lo stesso per gli item dei pacchetti
+        // Sync degli item del pacchetto
         const resItems = await fetch(`${SUPABASE_URL}/rest/v1/package_items?limit=1000`, {
             method: 'GET',
             headers: {
@@ -332,9 +348,9 @@ async function pullPackagesFromSupabase(salonId) {
                 }
             }
         }
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti condivisi completata.");
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti completata.");
     } catch (err) {
-        console.warn("⚠️ Errore sync pacchetti:", err);
+        console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
 }
 
