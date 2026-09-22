@@ -6037,7 +6037,9 @@ async function renderPackages() {
         }
 
         tbody.innerHTML = filtered.map(pkg => {
+            const isOwner = pkg.salon_id === salonId;
             const pkgItems = items.filter(it => it.package_id === pkg.id);
+            
             const servicesDesc = pkgItems.map(it => {
                 const srv = inventory.find(i => i.id === it.service_id);
                 return `• ${srv ? srv.name : 'Servizio'} (<b>${it.total_sessions}</b> sedute)`;
@@ -6055,18 +6057,27 @@ async function renderPackages() {
                 splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Split (${splitType}):</b><br>${splitLines.join('<br>')}</div>`;
             }
 
+            // 🛡️ TASTI AZIONE CONDIZIONALI (Modifica/Eliminazione consentita solo al creatore)
+            let actionsHtml = `<span style="color:#64748b; font-size:11px; font-style:italic;">Solo Vendita (Partner)</span>`;
+            if (isOwner) {
+                actionsHtml = `
+                    <div style="display: inline-flex; gap: 6px;">
+                        <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')">Edit</button>
+                        <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')">✕</button>
+                    </div>
+                `;
+            }
+
             return `
                 <tr>
-                    <td><b>${pkg.name}</b> ${pkg.salon_id !== salonId ? `<small style="color:#6C5CE7;">(Condiviso da ${pkg.salon_id})</small>` : ''}</td>
+                    <td>
+                        <b>${pkg.name}</b><br>
+                        ${!isOwner ? `<small style="color:#6C5CE7; font-weight:bold;">Creato da: ${pkg.salon_id}</small>` : '<small style="color:#00b894; font-weight:bold;">Creato da te</small>'}
+                    </td>
                     <td><b>€ ${parseFloat(pkg.price || 0).toFixed(2)}</b></td>
                     <td style="font-size: 13px; line-height: 1.5; padding: 12px 15px;">${servicesDesc}</td>
                     <td style="padding: 10px 15px;">${splitDetailsHtml}</td>
-                    <td style="text-align:right">
-                        <div style="display: inline-flex; gap: 6px;">
-                            <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')">Edit</button>
-                            <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')">✕</button>
-                        </div>
-                    </td>
+                    <td style="text-align:right">${actionsHtml}</td>
                 </tr>
             `;
         }).join('');
