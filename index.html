@@ -12085,7 +12085,7 @@ function urlBase64ToUint8Array(base64String) {
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO CON SYNC-QUEUE MULTI-SALON
+            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO
             const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
             if (packageConfigId) {
@@ -12142,15 +12142,20 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
                 console.log("🎁 [CUSTOMER PACKAGE ATTIVATO] Credito sedute registrato:", customerPackagePayload);
 
-                // 5. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE PER I SALONI PARTNER
+                // 5. 🌟 ASSEGNAZIONE DELLA QUOTA AL SALONE CORRENTE (PROVIDER)
+                salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
+                unitCostUsed = 0;
+                supplierPayout = 0;
+
+                // 6. 🌟 CREAZIONE DELLE VENDITE GEMELLE TRAMITE SYNC_QUEUE PER I SALONI PARTNER (Escluso il currentSalonId che usa il flusso standard)
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                     if (quotaVal <= 0) continue;
-                    if (targetSalonId === currentSalonId) continue; // Il currentSalonId viene gestito dal flusso standard sottostante
+                    if (targetSalonId === currentSalonId) continue; // Il provider usa la vendita standard creata in cima a completeSale
 
                     const partnerSaleId = crypto.randomUUID();
                     const partnerSalePayload = {
                         id: partnerSaleId,
-                        salon_id: targetSalonId, // 👈 Assegnato al salone partner
+                        salon_id: targetSalonId, // Assegnato al salone partner
                         cust_id: finalCustId,
                         appointment_id: linkedAppointmentId,
                         total: quotaVal, // La quota di competenza per il partner
@@ -12163,7 +12168,7 @@ function urlBase64ToUint8Array(base64String) {
 
                     const partnerSaleItemPayload = {
                         id: crypto.randomUUID(),
-                        salon_id: targetSalonId, // 👈 Assegnato al salone partner
+                        salon_id: targetSalonId, // Assegnato al salone partner
                         sale_id: partnerSaleId,
                         item_name: item.name || 'Pacchetto',
                         qty: item.qty || 1,
@@ -12175,22 +12180,14 @@ function urlBase64ToUint8Array(base64String) {
                         updated_at: getNowLocal()
                     };
 
-                    // Scriviamo in locale nel DB del browser del mittente (o forziamo l'accodamento in sync_queue)
-                    // Nota: Per fare in modo che il partner se li ritrovi, li inseriamo nella sync_queue con il salon_id del partner 
-                    // affinché appena il partner fa il sync, se li scarichi.
                     if (localDb && localDb.sync_queue) {
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
                         console.log(`🔄 [SYNC-QUEUE] Accodata vendita condivisa per il salone partner: ${targetSalonId}`);
                     }
                 }
-
-                // Assegniamo al salone corrente la sua quota esatta di ricavo
-                salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
-                unitCostUsed = 0;
-                supplierPayout = 0;
-
             } else {
+                // ... (gestione standard prodotti e servizi)
                 // ... (resto della gestione standard per prodotti e servizi normali)
                 // Gestione standard Prodotti e Servizi esistenti
                 const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
