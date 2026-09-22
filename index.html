@@ -6002,77 +6002,76 @@ async function renderPackages() {
     const searchInput = document.getElementById('src-packages');
     const f = searchInput ? searchInput.value.toLowerCase().trim() : '';
     const tbody = document.getElementById('list-packages');
-    
     if (!tbody) return;
 
     try {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-
-        // 🔍 DEBUG ISPEZIONE: Stampiamo in console i pacchetti letti dal DB
-        console.log("🎁 [DEBUG PACCHETTI LETTI DAL DB]:", configs);
-
-        const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+        
+        // Leggiamo direttamente da Dexie
+        const configs = await localDb.packages_config.toArray() || [];
+        const items = await localDb.package_items.toArray() || [];
         const inventory = allInventory || [];
 
-        const salonConfigs = configs.filter(pkg => pkg.salon_id === salonId || (Array.isArray(pkg.shared_salons) && pkg.shared_salons.includes(salonId)));
+        
+        console.log("🎁 [DEBUG] Tutti i pacchetti in locale prima del filtro:", configs, "Salone corrente:", salonId);
+
+        // Filtro di visibilità: Proprio O Condiviso
+        const salonConfigs = configs.filter(pkg => {
+            const isOwner = pkg.salon_id === salonId;
+            
+            // Gestione sicura di shared_salons (può essere array o stringa JSON a seconda di come viene serializzato)
+            let shared = pkg.shared_salons;
+            if (typeof shared === 'string') {
+                try { shared = JSON.parse(shared); } catch(e) { shared = []; }
+            }
+            const isShared = Array.isArray(shared) && shared.includes(salonId);
+
+            return isOwner || isShared;
+        });
+
         const filtered = salonConfigs.filter(pkg => (pkg.name || '').toLowerCase().includes(f));
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:25px;">Nessun pacchetto trovato. Clicca su '+ Nuovo Pacchetto' per crearne uno.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:25px;">Nessun pacchetto disponibile per questo salone.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = filtered.map(pkg => {
-            // 1. Servizi inclusi
             const pkgItems = items.filter(it => it.package_id === pkg.id);
             const servicesDesc = pkgItems.map(it => {
                 const srv = inventory.find(i => i.id === it.service_id);
                 return `• ${srv ? srv.name : 'Servizio'} (<b>${it.total_sessions}</b> sedute)`;
             }).join('<br>') || '<span style="color:#e17055;">Nessun servizio associato</span>';
 
-            // 2. Formattazione dettagliata dello Split Incassi (Percentuale o Valore Fisso)
-            let splitDetailsHtml = '<span style="color: #64748b;">Esclusivo (100% al salone emittente)</span>';
-            
+            let splitDetailsHtml = '<span style="color: #64748b;">Esclusivo (100% al salone)</span>';
             if (pkg.revenue_splits && pkg.revenue_splits.allocations) {
                 const splitType = pkg.revenue_splits.type || 'percent';
                 const allocations = pkg.revenue_splits.allocations;
-                
                 let splitLines = [];
                 for (const [sId, val] of Object.entries(allocations)) {
                     const formattedVal = splitType === 'percent' ? `${val}%` : `€ ${parseFloat(val).toFixed(2)}`;
                     splitLines.push(`• <b>${sId}</b>: <span style="color:var(--p); font-weight: bold;">${formattedVal}</span>`);
                 }
-
-                if (splitLines.length > 0) {
-                    splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Ripartizione (${splitType === 'percent' ? 'Percentuale' : 'Valore'}):</b><br>${splitLines.join('<br>')}</div>`;
-                }
-            } else if (Array.isArray(pkg.shared_salons) && pkg.shared_salons.length > 1) {
-                // Fallback se revenue_splits non è popolato ma ci sono più saloni
-                const equalShare = (100 / pkg.shared_salons.length).toFixed(1);
-                let splitLines = pkg.shared_salons.map(sId => `• <b>${sId}</b>: <span style="color:var(--p);">${equalShare}%</span>`);
-                splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Ripartizione Equa:</b><br>${splitLines.join('<br>')}</div>`;
+                splitDetailsHtml = `<div style="font-size: 11px; line-height: 1.5;"><b>Split (${splitType}):</b><br>${splitLines.join('<br>')}</div>`;
             }
 
             return `
                 <tr>
-                    <td><b>${pkg.name}</b></td>
+                    <td><b>${pkg.name}</b> ${pkg.salon_id !== salonId ? `<small style="color:#6C5CE7;">(Condiviso da ${pkg.salon_id})</small>` : ''}</td>
                     <td><b>€ ${parseFloat(pkg.price || 0).toFixed(2)}</b></td>
                     <td style="font-size: 13px; line-height: 1.5; padding: 12px 15px;">${servicesDesc}</td>
                     <td style="padding: 10px 15px;">${splitDetailsHtml}</td>
                     <td style="text-align:right">
                         <div style="display: inline-flex; gap: 6px;">
-                            <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')" title="Modifica Pacchetto">Edit</button>
-                            <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')" title="Elimina Pacchetto">✕</button>
+                            <button class="btn btn-s" style="padding:6px 12px; font-size:12px;" onclick="openPackageModal('${pkg.id}')">Edit</button>
+                            <button class="btn btn-d" style="padding:6px 12px; font-size:12px;" onclick="deletePackage('${pkg.id}')">✕</button>
                         </div>
                     </td>
                 </tr>
             `;
         }).join('');
-
     } catch (err) {
-        console.error("Errore nel rendering della tabella pacchetti:", err);
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red; padding:20px;">Errore nel caricamento dei pacchetti.</td></tr>`;
+        console.error("Errore rendering pacchetti:", err);
     }
 }
         
