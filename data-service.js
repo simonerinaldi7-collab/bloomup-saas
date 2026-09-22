@@ -1228,9 +1228,15 @@ async function handleSpecialAction(action, data, id) {
                     let supplierDetailsText = '-';
 
                     // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
-                    const matchingPkgCredit = customerPackagesList.find(cp => Math.abs(parseFloat(cp.total_paid) - finalPrice) < 0.05 && cp.customer_id === sale.cust_id);
+                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO (BLINDATO)
+                    // Cerchiamo se esiste un customer_package attivo per questo cliente
+                    const matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id);
+                    
+                    // Verifichiamo se il nome dell'articolo nel sale_item fa esplicito riferimento a un pacchetto (es. contiene 'Pacchetto' o corrisponde a un pacchetto configurato)
+                    const allConfigs = await localDb.packages_config.toArray() || [];
+                    const isConfiguredPackageItem = allConfigs.some(pkg => (item.item_name || '').toLowerCase().includes(pkg.name.toLowerCase()) || (item.item_name || '').toLowerCase().includes('pacchetto'));
 
-                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations && (isConfiguredPackageItem || item.isPackage)) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
                         for (const [sId, amountVal] of Object.entries(allocs)) {

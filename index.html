@@ -6019,12 +6019,14 @@ function addPackageToCart(name, price, packageId) {
             await window.universalQuery({ action: 'GET_ALL', table: 'inventory' });
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             renderServices();
-        } else if (active === 'v-packages') {
-    console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti condivisi dal cloud...");
-    if (typeof pullPackagesFromSupabase === 'function') {
-        await pullPackagesFromSupabase(salonId);
-    }
-    renderPackages();
+        } else if (active === 'v-packages' || active === 'v-sales-report') {
+        console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti e vendite condivise dal cloud...");
+        if (typeof pullPackagesFromSupabase === 'function') {
+            await pullPackagesFromSupabase(salonId);
+        }
+        if (active === 'v-packages') renderPackages();
+        if (active === 'v-sales-report') renderSalesReport();
+    
 }
     }
 
