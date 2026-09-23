@@ -11294,18 +11294,23 @@ async function saveInv() {
 
         // Inseriamo i nuovi collegamenti configurati nelle righe dinamiche
         for (let row of rows) {
-            const suppId = row.querySelector('.row-supp-select').value;
-            const splitPct = parseFloat(row.row-supp-pct || row.querySelector('.row-supp-pct').value) || 0;
+            const suppSelect = row.querySelector('.row-supp-select');
+            const pctInput = row.querySelector('.row-supp-pct');
             
-            if (suppId && splitPct > 0) {
-                const linkData = {
-                    id: crypto.randomUUID(),
-                    salon_id: salonId,
-                    product_id: targetId,
-                    supplier_id: suppId,
-                    split_pct: splitPct
-                };
-                await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
+            if (suppSelect && pctInput) {
+                const suppId = suppSelect.value;
+                const splitPct = parseFloat(pctInput.value) || 0;
+                
+                if (suppId && splitPct > 0) {
+                    const linkData = {
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        product_id: targetId,
+                        supplier_id: suppId,
+                        split_pct: splitPct
+                    };
+                    await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
+                }
             }
         }
     }
