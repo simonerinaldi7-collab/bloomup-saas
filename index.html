@@ -12143,10 +12143,10 @@ function urlBase64ToUint8Array(base64String) {
         }
     }
 
-  async function completeSale() { 
+ async function completeSale() { 
     if(!cart.length) return alert("Carrello vuoto!"); 
     
-    // 🌟 1. Calcolo esatto dei prezzi effettivi (per i pacchetti usa paidNow / customPaidAmount)
+    // 1. Calcolo esatto dei prezzi effettivi (per i pacchetti usa customPaidAmount / rata)
     const cartWithDiscounts = cart.map(item => {
         const val = item.discountVal || 0;
         const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
@@ -12185,7 +12185,7 @@ function urlBase64ToUint8Array(base64String) {
         data: { 
             cust_id: finalCustId || null, 
             appointment_id: linkedAppointmentId, 
-            total: total, // 👈 Importo reale incassato (es. la rata di 50€, non 200€)
+            total: total, 
             date: nowObj.split(' ')[0], 
             time: nowObj.split(' ')[1], 
             payment_method: 'Contanti', 
@@ -12202,7 +12202,8 @@ function urlBase64ToUint8Array(base64String) {
     for(let item of cartWithDiscounts) { 
         let unitCostUsed = 0;
         let supplierPayout = 0;
-        let finalItemPrice = item.transPrice; // 👈 Importo transazione per questa riga
+        let finalItemPrice = item.transPrice; 
+        let paidNow = item.transPrice; // 👈 Dichiarata a livello di ciclo: visibile ovunque!
         let salonRevenue = finalItemPrice;
 
         const packageConfigId = (item.isPackage && item.id) ? item.id : null;
@@ -12214,7 +12215,6 @@ function urlBase64ToUint8Array(base64String) {
             }
 
             const packageFullPrice = item.price - (item.discountAmount || 0);
-            const paidNow = finalItemPrice; // La quota pagata ora (es. 50€)
             const manualExpiryDate = item.customExpiryDate || null;
 
             // 1. Configurazioni pacchetto e split
@@ -12485,7 +12485,7 @@ function urlBase64ToUint8Array(base64String) {
             sale_id: saleId, 
             item_name: item.name || 'Voce Manuale', 
             qty: item.qty || 1, 
-            price: packageConfigId ? paidNow : (item.price || 0), // 👈 Salva la rata effettiva incassata!
+            price: packageConfigId ? paidNow : (item.price || 0), 
             discount: packageConfigId ? 0 : (item.discountAmount || 0),
             unit_cost: unitCostUsed,
             supplier_payout: supplierPayout,
@@ -12522,7 +12522,6 @@ function urlBase64ToUint8Array(base64String) {
         changePage('calendar');
     }
 }
-
             
             // Sostituisci la tua chiave o usa una variabile di configurazione
 const GEMINI_API_KEY = (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey) || "INSERISCI_CHIAVE_QUI";
