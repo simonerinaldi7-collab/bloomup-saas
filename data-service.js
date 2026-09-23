@@ -1206,8 +1206,8 @@ async function handleSpecialAction(action, data, id) {
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
                     const discount = item.discount || 0;
-                    const soldPrice = item.price || 0;
-                    const finalPrice = soldPrice - discount;
+                     let soldPrice = item.price || 0; // 👈 Assicurati che sia 'let'
+                    let finalPrice = soldPrice - discount; // 👈 Assicurati che sia 'let'
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
@@ -1220,28 +1220,27 @@ async function handleSpecialAction(action, data, id) {
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
                     const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
-                    if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                   if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
-                        const allocs = matchingPkgCredit.snapshot_allocations || matchingPkgCredit.revenue_allocations;
+                        const allocs = matchingPkgCredit.revenue_allocations;
                         const totalPkgPriceVal = parseFloat(matchingPkgCredit.total_price || finalPrice) || finalPrice;
 
                         for (const [sId, amountVal] of Object.entries(allocs)) {
                             const amtNum = parseFloat(amountVal) || 0;
-                            // Calcoliamo la percentuale inversa per mostrarla nel testo (es. 60%)
                             const pctVal = totalPkgPriceVal > 0 ? ((amtNum / totalPkgPriceVal) * 100).toFixed(0) : 0;
                             splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${amtNum.toFixed(2)}`);
                         }
                         
                         supplierDetailsText = `🧩 <b>Split Ricavi Multi-Salon:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // 🌟 COERENZA COMMERCIALE: Il prezzo esposto nella riga è il totale pieno del pacchetto per entrambi i saloni
+                        // Ora le variabili 'let' possono essere assegnate correttamente
                         soldPrice = totalPkgPriceVal;
                         finalPrice = totalPkgPriceVal;
 
-                        // Il ricavo di competenza (salon_revenue) è rigorosamente la quota del rispettivo salone nello split
                         salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : finalPrice;
                         unitCost = 0;
                         supplierPayout = 0;
+                    
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
