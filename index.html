@@ -1562,32 +1562,37 @@
             </div>
 
      <!-- Sezione Condivisione Multi-Salon & Split Incassi Dinamico -->
-<label style="margin-top: 15px; color: var(--p); font-weight: bold;">Condivisione Multi-Salon & Split Incassi</label>
-<div style="background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 15px;">
-    
-    <!-- Avviso amministrativo -->
-    <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4; margin-bottom: 10px;">
-        <b>💡 Nota bene:</b> Inserisci l'identificativo esatto del salon partner. <i>Se non conosci l'ID corretto, contatta l'amministratore di sistema.</i>
-    </div>
+            <div style="background: #f8f9fa; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; margin-top: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="f-pkg-is-shared" onchange="togglePackageSharingSection(this.checked)" style="width: 18px; height: 18px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                    <label for="f-pkg-is-shared" style="margin: 0; font-weight: bold; color: var(--p); font-size: 13px; text-transform: none; cursor: pointer;">
+                        🤝 Condividi questo pacchetto con altri saloni partner (Multi-Salon)
+                    </label>
+                </div>
 
-    <label style="margin-top:0;">ID dei saloni abilitati (separa con virgola)</label>
-    <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_001, salon_002" oninput="generateSalonSplitFields()" style="margin: 0 0 12px 0; background: white; font-size: 13px;">
+                <!-- Sezione visibile SOLO se la spunta è attiva -->
+                <div id="package-sharing-details" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4; margin-bottom: 10px;">
+                        <b>💡 Nota bene:</b> Inserisci gli ID esatti dei saloni partner abilitati (separati da virgola). Se il pacchetto è venduto solo nel tuo salone, lascia la spunta sopra disattivata.
+                    </div>
 
-    <!-- 📊 Contenitore generato dinamicamente per le quote dei saloni -->
-    <div style="background: #ffffff; border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label style="margin:0; font-size: 11px; color: #4338ca;">Ripartizione quote per Salone</label>
-            <select id="f-pkg-split-type" onchange="generateSalonSplitFields()" style="margin:0; width: 130px; padding: 4px; font-size: 11px;">
-                <option value="percent">Percentuale (%)</option>
-                <option value="fixed">Valore (€)</option>
-            </select>
-        </div>
-        
-        <div id="salon-split-inputs-wrapper" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-            <span style="color: #888; font-size: 12px; font-style: italic;">Digita i saloni sopra per impostare la suddivisione.</span>
-        </div>
-    </div>
-</div>
+                    <label style="margin-top:0;">ID dei saloni partner abilitati (separa con virgola)</label>
+                    <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_partner_roma, salon_partner_milano" oninput="generateSalonSplitFields()" style="margin: 0 0 12px 0; background: white; font-size: 13px;">
+
+                    <!-- Contenitore quote adattive -->
+                    <div style="background: #ffffff; border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="margin:0; font-size: 11px; color: #4338ca;">Ripartizione quote per Salone</label>
+                            <select id="f-pkg-split-type" onchange="generateSalonSplitFields()" style="margin:0; width: 130px; padding: 4px; font-size: 11px;">
+                                <option value="percent">Percentuale (%)</option>
+                                <option value="fixed">Valore (€)</option>
+                            </select>
+                        </div>
+                        
+                        <div id="salon-split-inputs-wrapper" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
@@ -8476,37 +8481,48 @@ function closeDuplicateModal() {
 
 
 
-// 🌟 Genera dinamicamente i campi di input in base ai saloni digitati
+function togglePackageSharingSection(isShared) {
+    const details = document.getElementById('package-sharing-details');
+    if (details) details.style.display = isShared ? 'block' : 'none';
+    if (isShared) {
+        generateSalonSplitFields();
+    }
+}
+
 function generateSalonSplitFields(existingSplits = null) {
     const wrapper = document.getElementById('salon-split-inputs-wrapper');
-    const inputVal = document.getElementById('f-pkg-shared-salons').value.trim();
-    const splitType = document.getElementById('f-pkg-split-type').value;
+    if (!wrapper) return;
+
+    const inputVal = document.getElementById('f-pkg-shared-salons')?.value.trim() || '';
+    const splitType = document.getElementById('f-pkg-split-type')?.value || 'percent';
     const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    // Ricaviamo l'array pulito dei saloni (forzando sempre il salone corrente)
-    let salons = inputVal ? inputVal.split(',').map(s => s.trim()).filter(s => s.length > 0) : [currentSalon];
-    if (!salons.includes(currentSalon)) salons.unshift(currentSalon);
+    // Saloni partner inseriti (escludendo il salone corrente per evitare doppioni)
+    const partnerSalons = inputVal
+        ? inputVal.split(',').map(s => s.trim()).filter(s => s.length > 0 && s !== currentSalon)
+        : [];
 
-    if (salons.length === 0) {
-        wrapper.innerHTML = `<span style="color: #888; font-size: 12px; font-style: italic;">Digita i saloni sopra per impostare la suddivisione.</span>`;
+    const allSalons = [currentSalon, ...partnerSalons];
+
+    if (allSalons.length === 1) {
+        wrapper.innerHTML = `<span style="color: #64748b; font-size: 12px; font-style: italic;">Digita almeno un ID salone partner sopra per impostare la suddivisione.</span>`;
         return;
     }
 
-    // Valore di default equo se non ci sono dati esistenti
-    const defaultVal = (splitType === 'percent') ? (100 / salons.length).toFixed(1) : (100 / salons.length).toFixed(2);
+    const defaultVal = (splitType === 'percent') ? (100 / allSalons.length).toFixed(1) : (100 / allSalons.length).toFixed(2);
 
     let html = '';
-    salons.forEach((salonId, idx) => {
+    allSalons.forEach(sId => {
         let val = defaultVal;
-        if (existingSplits && existingSplits[salonId] !== undefined) {
-            val = existingSplits[salonId];
+        if (existingSplits && existingSplits[sId] !== undefined) {
+            val = existingSplits[sId];
         }
 
         html += `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
-                <span style="font-weight: 600; font-size: 13px; color: var(--txt);">${salonId} ${salonId === currentSalon ? '(Tu)' : ''}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+                <span style="font-weight: 600; font-size: 13px; color: var(--txt);">${sId} ${sId === currentSalon ? '(Tu / Salone Proprietario)' : '(Partner)'}</span>
                 <div style="display: flex; align-items: center; gap: 4px; width: 140px;">
-                    <input type="number" step="0.01" min="0" class="salon-split-val" data-salon="${salonId}" value="${val}" style="margin: 0; padding: 6px; text-align: right; font-weight: bold; background: white;">
+                    <input type="number" step="0.01" min="0" class="salon-split-val" data-salon="${sId}" value="${val}" style="margin: 0; padding: 6px; text-align: right; font-weight: bold; background: white; border: 1px solid #cbd5e1; border-radius: 6px;">
                     <span style="font-size: 12px; font-weight: bold; color: #666;">${splitType === 'percent' ? '%' : '€'}</span>
                 </div>
             </div>
@@ -8522,29 +8538,24 @@ async function openPackageModal(packageId = null) {
     document.getElementById('edit-package-id').value = packageId || "-1";
     document.getElementById('f-pkg-name').value = "";
     document.getElementById('f-pkg-price').value = "";
-    document.getElementById('f-pkg-shared-salons').value = currentUser ? currentUser.salon_id : 'SALON_001';
+    document.getElementById('f-pkg-shared-salons').value = "";
     document.getElementById('f-pkg-split-type').value = 'percent';
-    
     document.getElementById('package-services-rows').innerHTML = "";
     
-    // Riferimenti ai campi e ai pulsanti del modale
+    const isSharedCb = document.getElementById('f-pkg-is-shared');
+    const sharedSection = document.getElementById('package-sharing-details');
     const nameInput = document.getElementById('f-pkg-name');
     const priceInput = document.getElementById('f-pkg-price');
-    const salonsInput = document.getElementById('f-pkg-shared-salons');
-    const splitTypeSelect = document.getElementById('f-pkg-split-type');
     const saveBtn = document.querySelector('#mod-package .btn-p');
     const addServiceBtn = document.querySelector('#mod-package .btn-s');
 
     if (isEdit) {
-        // Modalità Sola Lettura per pacchetti esistenti
         if (nameInput) nameInput.disabled = true;
         if (priceInput) priceInput.disabled = true;
-        if (salonsInput) salonsInput.disabled = true;
-        if (splitTypeSelect) splitTypeSelect.disabled = true;
+        if (isSharedCb) isSharedCb.disabled = true;
         if (saveBtn) saveBtn.style.display = 'none'; 
         if (addServiceBtn) addServiceBtn.style.display = 'none';
 
-        // 🌟 Recupero sicuro tramite universalQuery
         const configs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
         const pkg = configs.find(p => String(p.id) === String(packageId));
         
@@ -8552,56 +8563,43 @@ async function openPackageModal(packageId = null) {
             if (nameInput) nameInput.value = pkg.name || "";
             if (priceInput) priceInput.value = pkg.price || "";
             
-            const sharedArr = Array.isArray(pkg.shared_salons) ? pkg.shared_salons : [currentUser?.salon_id || 'SALON_001'];
-            if (salonsInput) salonsInput.value = sharedArr.join(', ');
+            const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+            const partners = (Array.isArray(pkg.shared_salons) ? pkg.shared_salons : []).filter(s => s !== pkg.salon_id && s !== currentSalon);
+            const isShared = partners.length > 0;
 
-            if (pkg.revenue_splits) {
-                if (splitTypeSelect) splitTypeSelect.value = pkg.revenue_splits.type || 'percent';
+            if (isSharedCb) isSharedCb.checked = isShared;
+            if (sharedSection) sharedSection.style.display = isShared ? 'block' : 'none';
+            document.getElementById('f-pkg-shared-salons').value = partners.join(', ');
+
+            if (pkg.revenue_splits && pkg.revenue_splits.allocations) {
+                document.getElementById('f-pkg-split-type').value = pkg.revenue_splits.type || 'percent';
                 generateSalonSplitFields(pkg.revenue_splits.allocations);
-            } else {
-                generateSalonSplitFields();
             }
-
-            // Disabilita anche gli input delle quote generate
-            setTimeout(() => {
-                document.querySelectorAll('.salon-split-val').forEach(inp => inp.disabled = true);
-            }, 100);
 
             const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const pkgItems = items.filter(it => String(it.package_id) === String(packageId));
-            
-            const container = document.getElementById('package-services-rows');
-            container.innerHTML = "";
-            
-            if (pkgItems.length > 0) {
-                for (let it of pkgItems) {
-                    await addPackageServiceRow(it.service_id, it.total_sessions);
-                }
-            } else {
-                await addPackageServiceRow();
+            for (let it of pkgItems) {
+                await addPackageServiceRow(it.service_id, it.total_sessions);
             }
-
-            // Disabilita i select e input dei servizi in lettura
-            container.querySelectorAll('select, input').forEach(el => el.disabled = true);
-            container.querySelectorAll('button').forEach(btn => btn.style.display = 'none');
-        } else {
-            console.warn("Pacchetto non trovato con ID:", packageId);
         }
     } else {
-        // Modalità Creazione (Campi abilitati)
         if (nameInput) nameInput.disabled = false;
-        if (priceInput) nameInput.disabled = false;
-        if (salonsInput) nameInput.disabled = false;
-        if (splitTypeSelect) splitTypeSelect.disabled = false;
+        if (priceInput) priceInput.disabled = false;
+        if (isSharedCb) {
+            isSharedCb.checked = false;
+            isSharedCb.disabled = false;
+        }
+        if (sharedSection) sharedSection.style.display = 'none';
         if (saveBtn) saveBtn.style.display = 'inline-flex';
         if (addServiceBtn) addServiceBtn.style.display = 'inline-flex';
         
         await addPackageServiceRow();
-        generateSalonSplitFields();
     }
 
     document.getElementById('mod-package').classList.add('active');
 }
+
+
 
 async function addPackageServiceRow(selectedServiceId = '', sessions = 1) {
     const container = document.getElementById('package-services-rows');
@@ -8644,48 +8642,58 @@ async function savePackageConfig() {
     const pkgId = document.getElementById('edit-package-id').value;
     const isNew = (!pkgId || pkgId === "-1");
     
-    // 🛡️ REGOLA STRATEGICA: I pacchetti esistenti non si modificano per preservare lo storico contabile!
     if (!isNew) {
-        alert("⚠️ Per motivi di sicurezza contabile e di coerenza con lo storico, i pacchetti esistenti non possono essere modificati.\n\nSe desideri cambiare le condizioni, elimina questo pacchetto e creane uno nuovo.");
-        return;
+        return alert("⚠️ I pacchetti esistenti non possono essere modificati per preservare l'integrità dei report finanziari.");
     }
 
-    // 🌟 Definizione esatta e sicura dell'ID univoco del nuovo pacchetto
     const targetId = crypto.randomUUID();
     const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
     const name = document.getElementById('f-pkg-name').value.trim();
     const price = parseFloat(document.getElementById('f-pkg-price').value) || 0;
-    const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
-    const splitType = document.getElementById('f-pkg-split-type').value;
+    const isSharedChecked = document.getElementById('f-pkg-is-shared')?.checked || false;
 
     if (!name || price <= 0) {
         return alert("Inserisci un nome valido e un prezzo di listino per il pacchetto.");
     }
 
-    let sharedSalonsArray = sharedSalonsRaw ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : [currentSalonId];
-    if (!sharedSalonsArray.includes(currentSalonId)) sharedSalonsArray.push(currentSalonId);
+    // 🌟 GESTIONE SPLIT: Se non condiviso, allocazione 100% solo al salone corrente
+    let sharedSalonsArray = [currentSalonId];
+    let revenueSplitsObj = { type: 'percent', allocations: { [currentSalonId]: 100 } };
 
-    let revenueSplitsObj = { type: splitType, allocations: {} };
-    const splitInputs = document.querySelectorAll('.salon-split-val');
-    let totalSum = 0;
-    
-    splitInputs.forEach(input => {
-        const sId = input.getAttribute('data-salon');
-        const val = parseFloat(input.value) || 0;
-        revenueSplitsObj.allocations[sId] = val;
-        totalSum += val;
-    });
+    if (isSharedChecked) {
+        const sharedSalonsRaw = document.getElementById('f-pkg-shared-salons').value.trim();
+        const splitType = document.getElementById('f-pkg-split-type').value;
 
-    if (splitType === 'percent' && Math.abs(totalSum - 100) > 0.05) {
-        return alert(`⚠️ La somma delle percentuali deve essere esattamente 100% (attuale: ${totalSum.toFixed(2)}%).`);
-    } else if (splitType === 'fixed' && Math.abs(totalSum - price) > 0.01) {
-        return alert(`⚠️ La somma degli importi (€ ${totalSum.toFixed(2)}) deve corrispondere al prezzo del pacchetto (€ ${price.toFixed(2)}).`);
+        const partners = sharedSalonsRaw 
+            ? sharedSalonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0 && s !== currentSalonId)
+            : [];
+        
+        if (partners.length === 0) {
+            return alert("Hai attivato la condivisione: inserisci almeno un ID di un salone partner (separato da virgola).");
+        }
+
+        sharedSalonsArray = [currentSalonId, ...partners];
+        revenueSplitsObj = { type: splitType, allocations: {} };
+
+        const splitInputs = document.querySelectorAll('.salon-split-val');
+        let totalSum = 0;
+        splitInputs.forEach(input => {
+            const sId = input.getAttribute('data-salon');
+            const val = parseFloat(input.value) || 0;
+            revenueSplitsObj.allocations[sId] = val;
+            totalSum += val;
+        });
+
+        if (splitType === 'percent' && Math.abs(totalSum - 100) > 0.05) {
+            return alert(`⚠️ La somma delle percentuali deve essere esattamente 100% (attuale: ${totalSum.toFixed(2)}%).`);
+        } else if (splitType === 'fixed' && Math.abs(totalSum - price) > 0.01) {
+            return alert(`⚠️ La somma degli importi (€ ${totalSum.toFixed(2)}) deve corrispondere al prezzo del pacchetto (€ ${price.toFixed(2)}).`);
+        }
     }
 
     const rowDivs = document.querySelectorAll('#package-services-rows > div');
     let pkgItemsPayload = [];
-
     rowDivs.forEach(div => {
         const srvId = div.querySelector('.pkg-srv-select').value;
         const sCount = parseInt(div.querySelector('.pkg-srv-sessions').value) || 1;
@@ -8693,7 +8701,7 @@ async function savePackageConfig() {
             pkgItemsPayload.push({
                 id: crypto.randomUUID(),
                 salon_id: currentSalonId,
-                package_id: targetId, // 👈 Usa correttamente il targetId definito in cima
+                package_id: targetId,
                 service_id: srvId,
                 total_sessions: sCount
             });
@@ -8703,7 +8711,7 @@ async function savePackageConfig() {
     if (pkgItemsPayload.length === 0) return alert("Associa almeno un servizio al pacchetto.");
 
     const configData = {
-        id: targetId, // 👈 Usa correttamente il targetId definito in cima
+        id: targetId,
         salon_id: currentSalonId,
         name: name,
         price: price,
@@ -8713,12 +8721,11 @@ async function savePackageConfig() {
 
     try {
         await window.universalQuery({ action: 'INSERT', table: 'packages_config', data: configData });
-
         for (let it of pkgItemsPayload) {
             await window.universalQuery({ action: 'INSERT', table: 'package_items', data: it });
         }
 
-        alert("✅ Pacchetto creato con successo!");
+        alert("✅ Pacchetto salvato con successo!");
         closeMod();
         renderPackages();
     } catch (err) {
@@ -12230,16 +12237,21 @@ function urlBase64ToUint8Array(base64String) {
             const packageFullPrice = item.price - (item.discountAmount || 0);
             const manualExpiryDate = item.customExpiryDate || null;
 
-            // 1. Configurazioni pacchetto e split
             const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
             const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
             
             const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
             
-            // 2. Calcolo dello split proporzionale sulla RATA PAGATA ORA (paidNow)
+            // 🌟 Verifichiamo se il pacchetto è REALMENTE condiviso con partner
+            const partnerSalons = (pkgConfig && Array.isArray(pkgConfig.shared_salons)) 
+                ? pkgConfig.shared_salons.filter(s => s !== pkgConfig.salon_id) 
+                : [];
+            const isSharedPackage = partnerSalons.length > 0;
+
             let calculatedAllocations = {};
-            if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
+
+            if (isSharedPackage && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
                 const splitType = pkgConfig.revenue_splits.type || 'percent';
                 const allocations = pkgConfig.revenue_splits.allocations;
 
@@ -12255,10 +12267,11 @@ function urlBase64ToUint8Array(base64String) {
                     calculatedAllocations[sId] = salonShare;
                 }
             } else {
-                calculatedAllocations[currentSalonId] = paidNow;
+                // Pacchetto NON condiviso: 100% di pertinenza del salone proprietario
+                calculatedAllocations = { [currentSalonId]: paidNow };
             }
 
-            // 3. Aggiornamento o Creazione del Portafoglio Pacchetto Cliente (customer_packages)
+            // Aggiornamento o Creazione customer_packages
             const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
             let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
 
@@ -12277,15 +12290,6 @@ function urlBase64ToUint8Array(base64String) {
                     revenue_allocations: existingAllocs,
                     updated_at: getNowLocal()
                 });
-
-                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                    await sendToCloudDirectly('PATCH', 'customer_packages', { 
-                        total_paid: newTotalPaid, 
-                        payment_status: newStatus, 
-                        revenue_allocations: existingAllocs, 
-                        updated_at: getNowLocal() 
-                    }, targetCustPkg.id);
-                }
             } else {
                 let sessionsStateArray = associatedServices.map(it => ({
                     service_id: it.service_id,
@@ -12312,58 +12316,57 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
             }
 
-            // 4. Creazione delle mirror sales isolate per i saloni partner
-            for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
-                if (quotaVal <= 0) continue;
-                if (targetSalonId === currentSalonId) continue; 
+            // Creazione vendite specchio SOLO SE IL PACCHETTO È CONDIVISO
+            if (isSharedPackage) {
+                for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
+                    if (quotaVal <= 0 || targetSalonId === currentSalonId) continue;
 
-                const partnerSaleId = crypto.randomUUID();
-                const partnerSalePayload = {
-                    id: partnerSaleId,
-                    salon_id: targetSalonId, 
-                    cust_id: finalCustId,
-                    appointment_id: linkedAppointmentId,
-                    total: quotaVal, 
-                    date: nowObj.split(' ')[0],
-                    time: nowObj.split(' ')[1],
-                    payment_method: 'Contanti (Rata Pacchetto Condiviso)',
-                    created_by: currentUser ? currentUser.username : 'Admin',
-                    updated_at: getNowLocal()
-                };
+                    const partnerSaleId = crypto.randomUUID();
+                    const partnerSalePayload = {
+                        id: partnerSaleId,
+                        salon_id: targetSalonId, 
+                        cust_id: finalCustId,
+                        appointment_id: linkedAppointmentId,
+                        total: quotaVal, 
+                        date: nowObj.split(' ')[0],
+                        time: nowObj.split(' ')[1],
+                        payment_method: 'Contanti (Rata Pacchetto Condiviso)',
+                        created_by: currentUser ? currentUser.username : 'Admin',
+                        updated_at: getNowLocal()
+                    };
 
-                const partnerSaleItemPayload = {
-                    id: crypto.randomUUID(),
-                    salon_id: targetSalonId, 
-                    sale_id: partnerSaleId,
-                    item_name: item.name || 'Pacchetto',
-                    qty: item.qty || 1,
-                    price: quotaVal,
-                    discount: 0,
-                    unit_cost: 0,
-                    supplier_payout: 0,
-                    salon_revenue: quotaVal,
-                    updated_at: getNowLocal()
-                };
+                    const partnerSaleItemPayload = {
+                        id: crypto.randomUUID(),
+                        salon_id: targetSalonId, 
+                        sale_id: partnerSaleId,
+                        package_id: packageConfigId, // 👈 Salviamo il riferimento esatto
+                        item_name: item.name || 'Pacchetto',
+                        qty: item.qty || 1,
+                        price: quotaVal,
+                        discount: 0,
+                        unit_cost: 0,
+                        supplier_payout: 0,
+                        salon_revenue: quotaVal,
+                        updated_at: getNowLocal()
+                    };
 
-                await localDb.sales.put(partnerSalePayload);
-                await localDb.sale_items.put(partnerSaleItemPayload);
+                    await localDb.sales.put(partnerSalePayload);
+                    await localDb.sale_items.put(partnerSaleItemPayload);
 
-                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                    const okSale = await sendToCloudDirectly('POST', 'sales', partnerSalePayload);
-                    const okItem = await sendToCloudDirectly('POST', 'sale_items', partnerSaleItemPayload);
-                    if (!okSale || !okItem) {
+                    if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                        await sendToCloudDirectly('POST', 'sales', partnerSalePayload);
+                        await sendToCloudDirectly('POST', 'sale_items', partnerSaleItemPayload);
+                    } else if (localDb && localDb.sync_queue) {
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
                         await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
                     }
-                } else if (localDb && localDb.sync_queue) {
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
-                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
                 }
             }
 
             salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : paidNow;
             unitCostUsed = 0;
             supplierPayout = 0;
+        
 
         } else {
             // Prodotti e Servizi standard
