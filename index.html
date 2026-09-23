@@ -12166,7 +12166,7 @@ function urlBase64ToUint8Array(base64String) {
  async function completeSale() { 
     if(!cart.length) return alert("Carrello vuoto!"); 
     
-    // 1. Calcolo esatto dei prezzi effettivi (per i pacchetti usa customPaidAmount / rata)
+    // 1. Calcolo prezzi effettivi (per i pacchetti usa customPaidAmount / rata)
     const cartWithDiscounts = cart.map(item => {
         const val = item.discountVal || 0;
         const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
@@ -12199,7 +12199,7 @@ function urlBase64ToUint8Array(base64String) {
     const linkedAppointmentId = currentCheckoutAppointmentId || null;
     const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    // 2. Creazione della testata sales con il TOTALE EFFETTIVAMENTE INCASSATO OGGI
+    // 2. Creazione della testata sales per il salone corrente
     const res = await window.api.query({ 
         action:'INSERT', table:'sales', 
         data: { 
@@ -12223,7 +12223,7 @@ function urlBase64ToUint8Array(base64String) {
         let unitCostUsed = 0;
         let supplierPayout = 0;
         let finalItemPrice = item.transPrice; 
-        let paidNow = item.transPrice; // 👈 Dichiarata a livello di ciclo: visibile ovunque!
+        let paidNow = item.transPrice; 
         let salonRevenue = finalItemPrice;
 
         const packageConfigId = (item.isPackage && item.id) ? item.id : null;
@@ -12238,48 +12238,64 @@ function urlBase64ToUint8Array(base64String) {
             const manualExpiryDate = item.customExpiryDate || null;
 
             const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-            const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
+            const pkgConfig = allPkgConfigs.find(p => String(p.id) === String(packageConfigId));
             
             const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-            const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
+            const associatedServices = pkgItemsDef.filter(it => String(it.package_id) === String(packageConfigId));
             
-            // 🌟 Verifichiamo se il pacchetto è REALMENTE condiviso con partner
-            const partnerSalons = (pkgConfig && Array.isArray(pkgConfig.shared_salons)) 
-                ? pkgConfig.shared_salons.filter(s => s !== pkgConfig.salon_id) 
-                : [];
-            const isSharedPackage = partnerSalons.length > 0;
+            // 🌟 ESTRAZIONE ROBUSTA DI SPLIT E CONDIVISIONE (GESTISCE STRINGHE, JSON E ARRAY)
+            let splitsConfig = null;
+            if (pkgConfig && pkgConfig.revenue_splits) {
+                if (typeof pkgConfig.revenue_splits === 'object') {
+                    splitsConfig = pkgConfig.revenue_splits;
+                } else if (typeof pkgConfig.revenue_splits === 'string') {
+                    try { splitsConfig = JSON.parse(pkgConfig.revenue_splits); } catch(e) { splitsConfig = null; }
+                }
+            }
 
             let calculatedAllocations = {};
+            let isSharedPackage = false;
 
-            if (isSharedPackage && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
-                const splitType = pkgConfig.revenue_splits.type || 'percent';
-                const allocations = pkgConfig.revenue_splits.allocations;
+            if (splitsConfig && splitsConfig.allocations && typeof splitsConfig.allocations === 'object') {
+                const allocations = splitsConfig.allocations;
+                const splitType = splitsConfig.type || 'percent';
 
-                for (const [sId, val] of Object.entries(allocations)) {
-                    let salonShare = 0;
-                    if (splitType === 'percent') {
-                        salonShare = (paidNow * parseFloat(val)) / 100;
-                    } else {
-                        const totalConfigVal = Object.values(allocations).reduce((a, b) => a + parseFloat(b || 0), 0);
-                        const ratio = totalConfigVal > 0 ? (parseFloat(val) / totalConfigVal) : 0;
-                        salonShare = paidNow * ratio;
+                // Verifichiamo se ci sono partner diversi dal salone corrente con quota > 0
+                const partnerKeys = Object.keys(allocations).filter(sId => sId.trim().toLowerCase() !== currentSalonId.trim().toLowerCase() && parseFloat(allocations[sId]) > 0);
+
+                if (partnerKeys.length > 0) {
+                    isSharedPackage = true;
+                    const totalAllocSum = Object.values(allocations).reduce((a, b) => a + parseFloat(b || 0), 0);
+
+                    for (const [sId, val] of Object.entries(allocations)) {
+                        let salonShare = 0;
+                        if (splitType === 'percent') {
+                            salonShare = (paidNow * parseFloat(val)) / 100;
+                        } else {
+                            const ratio = totalAllocSum > 0 ? (parseFloat(val) / totalAllocSum) : 0;
+                            salonShare = paidNow * ratio;
+                        }
+                        calculatedAllocations[sId] = salonShare;
                     }
-                    calculatedAllocations[sId] = salonShare;
                 }
-            } else {
-                // Pacchetto NON condiviso: 100% di pertinenza del salone proprietario
+            }
+
+            // Se il pacchetto non ha saloni partner con quota > 0, il ricavo è al 100% del salone corrente
+            if (!isSharedPackage) {
                 calculatedAllocations = { [currentSalonId]: paidNow };
             }
 
-            // Aggiornamento o Creazione customer_packages
+            // Aggiornamento/Creazione del credito cliente
             const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
-            let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
+            let targetCustPkg = existingCustPkgs.find(cp => String(cp.package_id) === String(packageConfigId) && cp.payment_status !== 'paid_full');
 
             if (targetCustPkg) {
                 const newTotalPaid = (parseFloat(targetCustPkg.total_paid) || 0) + paidNow;
                 const newStatus = newTotalPaid >= targetCustPkg.total_price ? 'paid_full' : 'installment';
 
                 let existingAllocs = targetCustPkg.revenue_allocations || {};
+                if (typeof existingAllocs === 'string') { try { existingAllocs = JSON.parse(existingAllocs); } catch(e) { existingAllocs = {}; } }
+
                 for (const [sId, qVal] of Object.entries(calculatedAllocations)) {
                     existingAllocs[sId] = (parseFloat(existingAllocs[sId]) || 0) + qVal;
                 }
@@ -12290,6 +12306,15 @@ function urlBase64ToUint8Array(base64String) {
                     revenue_allocations: existingAllocs,
                     updated_at: getNowLocal()
                 });
+
+                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                    await sendToCloudDirectly('PATCH', 'customer_packages', { 
+                        total_paid: newTotalPaid, 
+                        payment_status: newStatus, 
+                        revenue_allocations: existingAllocs, 
+                        updated_at: getNowLocal() 
+                    }, targetCustPkg.id);
+                }
             } else {
                 let sessionsStateArray = associatedServices.map(it => ({
                     service_id: it.service_id,
@@ -12316,12 +12341,14 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
             }
 
-            // Creazione vendite specchio SOLO SE IL PACCHETTO È CONDIVISO
+            // 🚀 CREAZIONE E ACCODAMENTO DELLE VENDITE MIRROR PER I SALONI PARTNER
             if (isSharedPackage) {
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
-                    if (quotaVal <= 0 || targetSalonId === currentSalonId) continue;
+                    if (targetSalonId.trim().toLowerCase() === currentSalonId.trim().toLowerCase() || quotaVal <= 0) continue;
 
                     const partnerSaleId = crypto.randomUUID();
+                    const partnerSaleItemId = crypto.randomUUID();
+
                     const partnerSalePayload = {
                         id: partnerSaleId,
                         salon_id: targetSalonId, 
@@ -12336,12 +12363,12 @@ function urlBase64ToUint8Array(base64String) {
                     };
 
                     const partnerSaleItemPayload = {
-                        id: crypto.randomUUID(),
+                        id: partnerSaleItemId,
                         salon_id: targetSalonId, 
                         sale_id: partnerSaleId,
-                        package_id: packageConfigId, // 👈 Salviamo il riferimento esatto
+                        package_id: packageConfigId,
                         item_name: item.name || 'Pacchetto',
-                        qty: item.qty || 1,
+                        qty: 1,
                         price: quotaVal,
                         discount: 0,
                         unit_cost: 0,
@@ -12350,15 +12377,20 @@ function urlBase64ToUint8Array(base64String) {
                         updated_at: getNowLocal()
                     };
 
+                    console.log(`📤 [MIRROR SALE] Creazione quota per partner ${targetSalonId}: €${quotaVal.toFixed(2)}`);
+
+                    // 1. Salvataggio locale in Dexie
                     await localDb.sales.put(partnerSalePayload);
                     await localDb.sale_items.put(partnerSaleItemPayload);
 
+                    // 2. Accodamento in sync_queue per garantire il recapito offline/cloud
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemId });
+
+                    // 3. Spedizione immediata a Supabase
                     if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
                         await sendToCloudDirectly('POST', 'sales', partnerSalePayload);
                         await sendToCloudDirectly('POST', 'sale_items', partnerSaleItemPayload);
-                    } else if (localDb && localDb.sync_queue) {
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
                     }
                 }
             }
@@ -12366,10 +12398,9 @@ function urlBase64ToUint8Array(base64String) {
             salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : paidNow;
             unitCostUsed = 0;
             supplierPayout = 0;
-        
 
         } else {
-            // Prodotti e Servizi standard
+            // Prodotti/Servizi standard (invariato)
             const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
             if (productDb) { 
                 if (productDb.is_consignment && productDb.type === 'servizio') {
@@ -12381,16 +12412,11 @@ function urlBase64ToUint8Array(base64String) {
                     const baseSupplierPayout = (listinoPieno * splitPct) / 100;
                     const salonShareFull = listinoPieno * (1 - (splitPct / 100));
 
-                    if (absorptionRule === 'supplier') {
-                        salonRevenue = salonShareFull;
-                        supplierPayout = finalItemPrice - salonRevenue;
-                    } else if (absorptionRule === 'split') {
-                        supplierPayout = baseSupplierPayout - (discountAmount / 2);
-                        salonRevenue = finalItemPrice - supplierPayout;
-                    } else {
-                        supplierPayout = baseSupplierPayout;
-                        salonRevenue = finalItemPrice - supplierPayout;
-                    }
+                    if (absorptionRule === 'supplier') salonRevenue = salonShareFull;
+                    else if (absorptionRule === 'split') salonRevenue = finalItemPrice - (baseSupplierPayout - (discountAmount / 2));
+                    else salonRevenue = finalItemPrice - baseSupplierPayout;
+
+                    supplierPayout = finalItemPrice - salonRevenue;
                     unitCostUsed = 0;
 
                 } else if (productDb.is_consignment && productDb.type === 'prodotto') {
@@ -12500,6 +12526,7 @@ function urlBase64ToUint8Array(base64String) {
             salon_id: currentSalonId,
             sale_id: saleId, 
             item_name: item.name || 'Voce Manuale', 
+            package_id: packageConfigId || null,
             qty: item.qty || 1, 
             price: packageConfigId ? paidNow : (item.price || 0), 
             discount: packageConfigId ? 0 : (item.discountAmount || 0),
@@ -12525,6 +12552,11 @@ function urlBase64ToUint8Array(base64String) {
     } 
     
     currentCheckoutAppointmentId = null;
+
+    // Se ci sono transazioni nella coda di sincronizzazione, forziamo il flush verso Supabase
+    if (navigator.onLine && typeof processBrowserSyncQueue === 'function') {
+        processBrowserSyncQueue();
+    }
 
     alert("Pagamento registrato con successo!"); 
     await resetCassa(); 

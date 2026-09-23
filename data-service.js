@@ -1217,47 +1217,43 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) ? parseFloat(item.salon_revenue) : finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 GESTIONE PACCHETTI VENDUTI (SOLO RIGHE RIGOROSE)
+                    // 🎁 GESTIONE PACCHETTI VENDUTI (SOLO RIGHE RIGOROSE ED ESCLUSIONE HARDCODING)
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
 
                     if (isPackageItem) {
-                        // 1. Risoluzione esatta del pacchetto di configurazione
+                        // 1. Risoluzione esatta della configurazione pacchetto
                         let matchingPkg = null;
                         if (item.package_id) {
-                            matchingPkg = packagesConfigList.find(p => p.id === item.package_id);
+                            matchingPkg = packagesConfigList.find(p => String(p.id) === String(item.package_id));
                         }
                         if (!matchingPkg) {
                             const cleanItemName = (item.item_name || '').replace(/🎁\s*\[Pacchetto\]\s*/i, '').trim().toLowerCase();
                             matchingPkg = packagesConfigList.find(p => p.name.trim().toLowerCase() === cleanItemName);
                         }
 
-                        // 2. Cerchiamo il credito cliente SOLO se corrispondente al package_id del pacchetto attuale
-                        let matchingPkgCredit = null;
-                        if (matchingPkg) {
-                            matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id && cp.package_id === matchingPkg.id);
-                        }
-
+                        // 2. Estrazione delle quote configurate (senza fallback su pacchetti storici estranei)
                         let allocs = null;
-                        if (matchingPkg && matchingPkg.revenue_splits && matchingPkg.revenue_splits.allocations) {
-                            allocs = matchingPkg.revenue_splits.allocations;
-                        } else if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                            allocs = matchingPkgCredit.revenue_allocations;
+                        if (matchingPkg && matchingPkg.revenue_splits) {
+                            let splits = matchingPkg.revenue_splits;
+                            if (typeof splits === 'string') { try { splits = JSON.parse(splits); } catch(e) { splits = null; } }
+                            if (splits && splits.allocations && typeof splits.allocations === 'object') {
+                                allocs = splits.allocations;
+                            }
                         }
 
-                        // 3. Verifica rigorosa di condivisione Multi-Salon:
-                        // Deve avere saloni partner diversi dal proprietario O più di 1 salone nell'allocazione
-                        const partnerSalons = (matchingPkg && Array.isArray(matchingPkg.shared_salons)) 
-                            ? matchingPkg.shared_salons.filter(s => s !== matchingPkg.salon_id) 
+                        // 3. Verifica rigorosa: è condiviso se e solo se ci sono almeno due saloni con quota > 0
+                        const activeAllocKeys = (allocs && typeof allocs === 'object') 
+                            ? Object.keys(allocs).filter(k => parseFloat(allocs[k]) > 0)
                             : [];
                         
-                        const hasPartnerAllocations = allocs && Object.keys(allocs).filter(k => k !== salonId).length > 0;
-                        const isSharedPackage = (partnerSalons.length > 0) || hasPartnerAllocations;
+                        const isSharedPackage = activeAllocKeys.length > 1;
 
-                        if (isSharedPackage && allocs && Object.keys(allocs).length > 1) {
+                        if (isSharedPackage) {
                             const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
                             const isPartnerMirrorSale = sale.payment_method && sale.payment_method.includes('Condiviso');
                             let baseTransactionTotal = finalPrice;
 
+                            // Se siamo nel salone partner, ricalcoliamo la quota per mostrare lo split corretto
                             if (isPartnerMirrorSale && totalAllocSum > 0) {
                                 const myRatio = (parseFloat(allocs[salonId]) || 0) / totalAllocSum;
                                 if (myRatio > 0) baseTransactionTotal = finalPrice / myRatio;
@@ -1265,6 +1261,7 @@ async function handleSpecialAction(action, data, id) {
 
                             let splitDetailsArr = [];
                             for (const [sId, amountVal] of Object.entries(allocs)) {
+                                if (parseFloat(amountVal) <= 0) continue;
                                 const ratio = totalAllocSum > 0 ? (parseFloat(amountVal || 0) / totalAllocSum) : 0;
                                 const quotaTransazione = baseTransactionTotal * ratio;
                                 const pctVal = (ratio * 100).toFixed(0);
@@ -1273,7 +1270,7 @@ async function handleSpecialAction(action, data, id) {
 
                             supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
                         } else {
-                            // 🌟 Pacchetto NON condiviso: Nessuno split mostrato, 100% ricavo al salone
+                            // 🌟 Pacchetto NON condiviso: Nessuna ripartizione mostrata, 100% ricavo al salone
                             supplierDetailsText = `Esclusivo (100% Salone)`;
                         }
 
