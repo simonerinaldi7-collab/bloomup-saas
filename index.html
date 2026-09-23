@@ -11502,6 +11502,11 @@ function addManualItemToCart() {
         if(t === 'sale') { 
             currentCheckoutCustomer = { id, name: n }; 
             document.getElementById('cart-selected-cust').innerText = n; 
+
+            // 🌟 ATTIVAZIONE ISTANTANEA: Ricalcola il carrello all'istante per caricare i dati del pacchetto del cliente!
+            if (typeof renderCart === 'function') {
+                renderCart();
+            }
         } else { 
             document.getElementById('f-a-search').value = n; 
             document.getElementById('f-a-cust-id').value = id; 
@@ -12124,389 +12129,371 @@ function urlBase64ToUint8Array(base64String) {
     }
 
    async function completeSale() { 
-        if(!cart.length) return alert("Carrello vuoto!"); 
-        
-        const cartWithDiscounts = cart.map(item => {
-            const val = item.discountVal || 0;
-            const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
-            return { ...item, discountAmount: discountAmount };
+    if(!cart.length) return alert("Carrello vuoto!"); 
+    
+    const cartWithDiscounts = cart.map(item => {
+        const val = item.discountVal || 0;
+        const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
+        return { ...item, discountAmount: discountAmount };
+    });
+
+    const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
+    const nowObj = getNowLocal(); 
+    
+    let finalCustId = currentCheckoutCustomer?.id;
+    if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
+        const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
+        const foundC = allCustomers.find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
         });
+        finalCustId = foundC ? foundC.id : null;
+    }
 
-        const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
-        const nowObj = getNowLocal(); 
-        
-        let finalCustId = currentCheckoutCustomer?.id;
-        if (!finalCustId || finalCustId === 0 || finalCustId === '0') {
-            const custNameClean = (currentCheckoutCustomer?.name || '').trim().toLowerCase();
-            const foundC = allCustomers.find(c => {
-                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                return fullName === custNameClean || (c.name && c.name.trim().toLowerCase() === custNameClean);
-            });
-            finalCustId = foundC ? foundC.id : null;
-        }
+    const linkedAppointmentId = currentCheckoutAppointmentId || null;
+    const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-        const linkedAppointmentId = currentCheckoutAppointmentId || null;
-        const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    // 1. Creazione della testata sales principale per il salone corrente
+    const res = await window.api.query({ 
+        action:'INSERT', table:'sales', 
+        data: { 
+            cust_id: finalCustId || null, 
+            appointment_id: linkedAppointmentId, 
+            total: total, 
+            date: nowObj.split(' ')[0], 
+            time: nowObj.split(' ')[1], 
+            payment_method: 'Contanti', 
+            created_by: currentUser ? currentUser.username : 'Admin' 
+        } 
+    }); 
 
-        // 1. 🌟 CREAZIONE SEMPRE DELLA TESTATA SALES PRINCIPALE (Per il salone corrente)
-        const res = await window.api.query({ 
-            action:'INSERT', table:'sales', 
-            data: { 
-                cust_id: finalCustId || null, 
-                appointment_id: linkedAppointmentId, 
-                total: total, 
-                date: nowObj.split(' ')[0], 
-                time: nowObj.split(' ')[1], 
-                payment_method: 'Contanti', 
-                created_by: currentUser ? currentUser.username : 'Admin' 
-            } 
-        }); 
+    if (!res || !res.lastInsertRowid) {
+        return alert("Errore critico: Impossibile creare la vendita nel DB.");
+    }
 
-        if (!res || !res.lastInsertRowid) {
-            return alert("Errore critico: Impossibile creare la vendita nel DB.");
-        }
+    const saleId = res.lastInsertRowid; 
 
-        const saleId = res.lastInsertRowid; 
+    for(let item of cartWithDiscounts) { 
+        let unitCostUsed = 0;
+        let supplierPayout = 0;
+        let finalItemPrice = item.price - (item.discountAmount || 0);
+        let salonRevenue = finalItemPrice;
 
-        for(let item of cartWithDiscounts) { 
-            let unitCostUsed = 0;
-            let supplierPayout = 0;
-            let finalItemPrice = item.price - (item.discountAmount || 0);
-            let salonRevenue = finalItemPrice;
+        const finalPrice = finalItemPrice;
 
-            // 🌟 DEFINIAMO SUBITO finalPrice PER EVITARE QUALSIASI REFERENCE ERROR
-            const finalPrice = finalItemPrice;
+        // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
+        const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
-            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
-            const packageConfigId = (item.isPackage && item.id) ? item.id : null;
+        if (packageConfigId) {
+            if (!finalCustId) {
+                alert("⚠️ Attenzione: Per vendere o registrare una rata di un pacchetto è necessario associare un cliente registrato in cassa!");
+                throw new Error("Cliente mancante per pacchetto");
+            }
 
-            if (packageConfigId) {
-                if (!finalCustId) {
-                    alert("⚠️ Attenzione: Per vendere o registrare una rata di un pacchetto è necessario associare un cliente registrato in cassa!");
-                    throw new Error("Cliente mancante per pacchetto");
+            const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalPrice;
+            const manualExpiryDate = item.customExpiryDate || null;
+
+            // 1. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
+            const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+            const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
+            
+            const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+            const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
+            
+            // 2. Calcolo dello Split Contabile Multi-Salon Proporzionale
+            let calculatedAllocations = {};
+            if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
+                const splitType = pkgConfig.revenue_splits.type || 'percent';
+                const allocations = pkgConfig.revenue_splits.allocations;
+                const totalPkgPrice = finalPrice;
+
+                for (const [sId, val] of Object.entries(allocations)) {
+                    let totalSalonShare = 0;
+                    if (splitType === 'percent') {
+                        totalSalonShare = (totalPkgPrice * parseFloat(val)) / 100;
+                    } else {
+                        totalSalonShare = parseFloat(val) || 0;
+                    }
+                    const ratio = totalPkgPrice > 0 ? (paidNow / totalPkgPrice) : 0;
+                    calculatedAllocations[sId] = totalSalonShare * ratio;
+                }
+            } else {
+                calculatedAllocations[currentSalonId] = paidNow;
+            }
+
+            // 3. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo
+            const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
+            let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
+
+            if (targetCustPkg) {
+                const newTotalPaid = (parseFloat(targetCustPkg.total_paid) || 0) + paidNow;
+                const newStatus = newTotalPaid >= targetCustPkg.total_price ? 'paid_full' : 'installment';
+
+                let existingAllocs = targetCustPkg.revenue_allocations || {};
+                for (const [sId, qVal] of Object.entries(calculatedAllocations)) {
+                    existingAllocs[sId] = (parseFloat(existingAllocs[sId]) || 0) + qVal;
                 }
 
-                const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalPrice;
-                const manualExpiryDate = item.customExpiryDate || null;
+                await localDb.customer_packages.update(targetCustPkg.id, {
+                    total_paid: newTotalPaid,
+                    payment_status: newStatus,
+                    revenue_allocations: existingAllocs,
+                    updated_at: getNowLocal()
+                });
 
-                // 1. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
-                const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-                const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
-                
-                const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-                const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
-                
-                // 2. Calcolo dello Split Contabile Multi-Salon proporzionale all'incasso odierno (paidNow)
-                // 3. Calcolo dello Split Contabile Multi-Salon Proporzionale
-                let calculatedAllocations = {};
-                if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
-                    const splitType = pkgConfig.revenue_splits.type || 'percent';
-                    const allocations = pkgConfig.revenue_splits.allocations;
-                    const totalPkgPrice = finalPrice; // Prezzo pieno del pacchetto nel carrello
+                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                    await sendToCloudDirectly('PATCH', 'customer_packages', { 
+                        total_paid: newTotalPaid, 
+                        payment_status: newStatus, 
+                        revenue_allocations: existingAllocs, 
+                        updated_at: getNowLocal() 
+                    }, targetCustPkg.id);
+                }
+            } else {
+                let sessionsStateArray = associatedServices.map(it => ({
+                    service_id: it.service_id,
+                    total: it.total_sessions,
+                    remaining: it.total_sessions
+                }));
 
-                    for (const [sId, val] of Object.entries(allocations)) {
-                        let totalSalonShare = 0;
-                        if (splitType === 'percent') {
-                            totalSalonShare = (totalPkgPrice * parseFloat(val)) / 100;
-                        } else {
-                            totalSalonShare = parseFloat(val) || 0;
+                const paymentStatus = paidNow >= finalPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
+
+                const customerPackagePayload = {
+                    id: crypto.randomUUID(),
+                    salon_id: currentSalonId,
+                    customer_id: finalCustId,
+                    package_id: packageConfigId,
+                    sessions_state: sessionsStateArray,
+                    total_paid: paidNow, 
+                    total_price: finalPrice, 
+                    payment_status: paymentStatus, 
+                    revenue_allocations: calculatedAllocations,
+                    expiry_date: manualExpiryDate, 
+                    updated_at: getNowLocal()
+                };
+
+                await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
+            }
+
+            // 4. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner nello split
+            for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
+                if (quotaVal <= 0) continue;
+                if (targetSalonId === currentSalonId) continue; 
+
+                const partnerSaleId = crypto.randomUUID();
+                const partnerSalePayload = {
+                    id: partnerSaleId,
+                    salon_id: targetSalonId, 
+                    cust_id: finalCustId,
+                    appointment_id: linkedAppointmentId,
+                    total: quotaVal, 
+                    date: nowObj.split(' ')[0],
+                    time: nowObj.split(' ')[1],
+                    payment_method: 'Contanti (Rata Pacchetto Condiviso)',
+                    created_by: currentUser ? currentUser.username : 'Admin',
+                    updated_at: getNowLocal()
+                };
+
+                const partnerSaleItemPayload = {
+                    id: crypto.randomUUID(),
+                    salon_id: targetSalonId, 
+                    sale_id: partnerSaleId,
+                    item_name: item.name || 'Pacchetto',
+                    qty: item.qty || 1,
+                    price: quotaVal,
+                    discount: 0,
+                    unit_cost: 0,
+                    supplier_payout: 0,
+                    salon_revenue: quotaVal,
+                    updated_at: getNowLocal()
+                };
+
+                if (localDb && localDb.sync_queue) {
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
+                    await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
+                }
+            }
+
+            salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : paidNow;
+            unitCostUsed = 0;
+            supplierPayout = 0;
+
+        } else {
+            // Gestione standard Prodotti e Servizi esistenti
+            const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
+
+            if (productDb) { 
+                if (productDb.is_consignment && productDb.type === 'servizio') {
+                    const listinoPieno = item.price || 0;
+                    const discountAmount = item.discountAmount || 0;
+                    const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    const absorptionRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
+
+                    const baseSupplierPayout = (listinoPieno * splitPct) / 100;
+                    const salonShareFull = listinoPieno * (1 - (splitPct / 100));
+
+                    if (absorptionRule === 'supplier') {
+                        salonRevenue = salonShareFull;
+                        supplierPayout = finalItemPrice - salonRevenue;
+                    } else if (absorptionRule === 'split') {
+                        supplierPayout = baseSupplierPayout - (discountAmount / 2);
+                        salonRevenue = finalItemPrice - supplierPayout;
+                    } else {
+                        supplierPayout = baseSupplierPayout;
+                        salonRevenue = finalItemPrice - supplierPayout;
+                    }
+
+                    unitCostUsed = 0;
+
+                } else if (productDb.is_consignment && productDb.type === 'prodotto') {
+                    let qtyToProcess = item.qty || 1;
+                    let totalSupplierPayoutForThisSale = 0;
+
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        let lotSplits = [];
+                        try {
+                            lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
+                        } catch (e) {
+                            lotSplits = [];
                         }
-                        // Rapportiamo la quota totale del salone all'effettivo acconto/rata pagato oggi (paidNow)
-                        const ratio = totalPkgPrice > 0 ? (paidNow / totalPkgPrice) : 0;
-                        calculatedAllocations[sId] = totalSalonShare * ratio;
+
+                        let lotPayoutForOneUnit = 0;
+                        if (lotSplits.length > 0) {
+                            let lotTotalPct = 0;
+                            lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
+                            lotPayoutForOneUnit = (item.price * lotTotalPct) / 100;
+                        } else {
+                            lotPayoutForOneUnit = (item.price * (productDb.consignment_split_pct || 0)) / 100;
+                        }
+
+                        totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
+                        lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
+
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
                     }
-                } else {
-                    calculatedAllocations[currentSalonId] = paidNow;
+
+                    if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
+                        const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
+                        totalSupplierPayoutForThisSale = (item.price * fallbackPct / 100) * (item.qty || 1);
+                    }
+
+                    supplierPayout = totalSupplierPayoutForThisSale;
+                    salonRevenue = finalItemPrice - supplierPayout;
+
+                } else if (productDb.type === 'prodotto') {
+                    let qtyToProcess = item.qty || 1;
+                    let totalCostForThisSale = 0;
+
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const prodLots = (Array.isArray(lots) ? lots : [])
+                        .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
+                        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                    for (let lot of prodLots) {
+                        if (qtyToProcess <= 0) break;
+                        const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
+                        totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
+                        lot.qty_remaining -= takeFromLot;
+                        qtyToProcess -= takeFromLot;
+
+                        await window.universalQuery({
+                            action: 'UPDATE',
+                            table: 'stock_lots',
+                            data: { qty_remaining: lot.qty_remaining },
+                            id: lot.id
+                        });
+                    }
+
+                    if (totalCostForThisSale === 0 && prodLots.length === 0) {
+                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: productDb.id });
+                        const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
+                        totalCostForThisSale = fallbackCost * (item.qty || 1);
+                    }
+
+                    unitCostUsed = totalCostForThisSale / (item.qty || 1);
+                    salonRevenue = finalItemPrice - totalCostForThisSale;
+
+                } else if (productDb.type === 'servizio') {
+                    const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
+                    let totalConsumablesCost = 0;
+                    for (let c of (Array.isArray(consumables) ? consumables : [])) {
+                        const prod = allInventory.find(p => p.name === c.prod_name);
+                        if (prod) {
+                            const newStock = prod.stock - c.qty;
+                            await window.universalQuery({ 
+                                action:'UPDATE', table:'inventory', 
+                                data: { stock: newStock }, 
+                                id: prod.id 
+                            });
+                            totalConsumablesCost += (c.qty * (prod.cost || 0));
+                        }
+                    }
+                    unitCostUsed = totalConsumablesCost;
+                    salonRevenue = finalItemPrice - totalConsumablesCost;
                 }
-
-                // 3. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo (es. per aggiungere una rata o un saldo)
-                const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
-                let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
-
-                if (targetCustPkg) {
-                    // 🔄 AGGIORNAMENTO DI UN PACCHETTO RATEALE ESISTENTE (Aggiunta rata/saldo)
-                    const newTotalPaid = (parseFloat(targetCustPkg.total_paid) || 0) + paidNow;
-                    const newStatus = newTotalPaid >= targetCustPkg.total_price ? 'paid_full' : 'installment';
-
-                    // Aggiorniamo anche lo storico delle allocazioni unendo le quote
-                    let existingAllocs = targetCustPkg.revenue_allocations || {};
-                    for (const [sId, qVal] of Object.entries(calculatedAllocations)) {
-                        existingAllocs[sId] = (parseFloat(existingAllocs[sId]) || 0) + qVal;
-                    }
-
-                    await localDb.customer_packages.update(targetCustPkg.id, {
-                        total_paid: newTotalPaid,
-                        payment_status: newStatus,
-                        revenue_allocations: existingAllocs,
-                        updated_at: getNowLocal()
-                    });
-
-                    if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                        await sendToCloudDirectly('PATCH', 'customer_packages', { 
-                            total_paid: newTotalPaid, 
-                            payment_status: newStatus, 
-                            revenue_allocations: existingAllocs, 
-                            updated_at: getNowLocal() 
-                        }, targetCustPkg.id);
-                    }
-                    console.log("🎁 [RATA PACCHETTO REGISTRATA] Aggiornato pacchetto esistente:", targetCustPkg.id);
-
-                } else {
-                    // 🆕 PRIMO ACQUISTO / NUOVO PACCHETTO
-                    let sessionsStateArray = associatedServices.map(it => ({
-                        service_id: it.service_id,
-                        total: it.total_sessions,
-                        remaining: it.total_sessions
-                    }));
-
-                    const paymentStatus = paidNow >= finalPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
-
-                    const customerPackagePayload = {
-                        id: crypto.randomUUID(),
-                        salon_id: currentSalonId,
-                        customer_id: finalCustId,
-                        package_id: packageConfigId,
-                        sessions_state: sessionsStateArray,
-                        total_paid: paidNow, // 👈 Importo effettivamente pagato oggi
-                        total_price: finalPrice, // 👈 Prezzo pieno totale del pacchetto
-                        payment_status: paymentStatus, // 👈 'paid_full' o 'installment'
-                        revenue_allocations: calculatedAllocations,
-                        expiry_date: manualExpiryDate, 
-                        updated_at: getNowLocal()
-                    };
-
-                    await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
-                    console.log("🎁 [NUOVO PACCHETTO ATTIVATO] Credito e rateale registrati:", customerPackagePayload);
-                }
-
-                // 4. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner nello split (proporzionali a paidNow)
-                for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
-                    if (quotaVal <= 0) continue;
-                    if (targetSalonId === currentSalonId) continue; 
-
-                    const partnerSaleId = crypto.randomUUID();
-                    const partnerSalePayload = {
-                        id: partnerSaleId,
-                        salon_id: targetSalonId, 
-                        cust_id: finalCustId,
-                        appointment_id: linkedAppointmentId,
-                        total: quotaVal, 
-                        date: nowObj.split(' ')[0],
-                        time: nowObj.split(' ')[1],
-                        payment_method: 'Contanti (Rata Pacchetto Condiviso)',
-                        created_by: currentUser ? currentUser.username : 'Admin',
-                        updated_at: getNowLocal()
-                    };
-
-                    const partnerSaleItemPayload = {
-                        id: crypto.randomUUID(),
-                        salon_id: targetSalonId, 
-                        sale_id: partnerSaleId,
-                        item_name: item.name || 'Pacchetto',
-                        qty: item.qty || 1,
-                        price: quotaVal,
-                        discount: 0,
-                        unit_cost: 0,
-                        supplier_payout: 0,
-                        salon_revenue: quotaVal,
-                        updated_at: getNowLocal()
-                    };
-
-                    if (localDb && localDb.sync_queue) {
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
-                    }
-                }
-
-                // Ai fini del bilancio e della cassa odierna, il registratore incassa l'importo pagato oggi (`paidNow`)
-                salonRevenue = paidNow;
+            } else {
                 unitCostUsed = 0;
                 supplierPayout = 0;
-
-            } else {
-                // ... (gestione standard prodotti e servizi normali)
-            
-
-            
-                // Gestione standard Prodotti e Servizi esistenti
-                // ...
-                // ... (gestione standard prodotti e servizi)
-                // ... (resto della gestione standard per prodotti e servizi normali)
-                // Gestione standard Prodotti e Servizi esistenti
-                const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
-
-                if (productDb) { 
-                    if (productDb.is_consignment && productDb.type === 'servizio') {
-                        const listinoPieno = item.price || 0;
-                        const discountAmount = item.discountAmount || 0;
-                        const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        const absorptionRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
-
-                        const baseSupplierPayout = (listinoPieno * splitPct) / 100;
-                        const salonShareFull = listinoPieno * (1 - (splitPct / 100));
-
-                        if (absorptionRule === 'supplier') {
-                            salonRevenue = salonShareFull;
-                            supplierPayout = finalItemPrice - salonRevenue;
-                        } else if (absorptionRule === 'split') {
-                            supplierPayout = baseSupplierPayout - (discountAmount / 2);
-                            salonRevenue = finalItemPrice - supplierPayout;
-                        } else {
-                            supplierPayout = baseSupplierPayout;
-                            salonRevenue = finalItemPrice - supplierPayout;
-                        }
-
-                        unitCostUsed = 0;
-
-                    } else if (productDb.is_consignment && productDb.type === 'prodotto') {
-                        let qtyToProcess = item.qty || 1;
-                        let totalSupplierPayoutForThisSale = 0;
-
-                        const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
-                        const prodLots = (Array.isArray(lots) ? lots : [])
-                            .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                            .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-
-                        for (let lot of prodLots) {
-                            if (qtyToProcess <= 0) break;
-                            const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                            let lotSplits = [];
-                            try {
-                                lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
-                            } catch (e) {
-                                lotSplits = [];
-                            }
-
-                            let lotPayoutForOneUnit = 0;
-                            if (lotSplits.length > 0) {
-                                let lotTotalPct = 0;
-                                lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
-                                lotPayoutForOneUnit = (item.price * lotTotalPct) / 100;
-                            } else {
-                                lotPayoutForOneUnit = (item.price * (productDb.consignment_split_pct || 0)) / 100;
-                            }
-
-                            totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
-                            lot.qty_remaining -= takeFromLot;
-                            qtyToProcess -= takeFromLot;
-
-                            await window.universalQuery({
-                                action: 'UPDATE',
-                                table: 'stock_lots',
-                                data: { qty_remaining: lot.qty_remaining },
-                                id: lot.id
-                            });
-                        }
-
-                        if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
-                            const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
-                            totalSupplierPayoutForThisSale = (item.price * fallbackPct / 100) * (item.qty || 1);
-                        }
-
-                        supplierPayout = totalSupplierPayoutForThisSale;
-                        salonRevenue = finalItemPrice - supplierPayout;
-
-                    } else if (productDb.type === 'prodotto') {
-                        let qtyToProcess = item.qty || 1;
-                        let totalCostForThisSale = 0;
-
-                        const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
-                        const prodLots = (Array.isArray(lots) ? lots : [])
-                            .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
-                            .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-
-                        for (let lot of prodLots) {
-                            if (qtyToProcess <= 0) break;
-                            const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
-                            totalCostForThisSale += takeFromLot * (parseFloat(lot.unit_cost) || 0);
-                            lot.qty_remaining -= takeFromLot;
-                            qtyToProcess -= takeFromLot;
-
-                            await window.universalQuery({
-                                action: 'UPDATE',
-                                table: 'stock_lots',
-                                data: { qty_remaining: lot.qty_remaining },
-                                id: lot.id
-                            });
-                        }
-
-                        if (totalCostForThisSale === 0 && prodLots.length === 0) {
-                            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: productDb.id });
-                            const fallbackCost = pInfo ? (parseFloat(pInfo.cost) || 0) : 0;
-                            totalCostForThisSale = fallbackCost * (item.qty || 1);
-                        }
-
-                        unitCostUsed = totalCostForThisSale / (item.qty || 1);
-                        salonRevenue = finalItemPrice - totalCostForThisSale;
-
-                    } else if (productDb.type === 'servizio') {
-                        const consumables = await window.universalQuery({ action: 'GET_CONSUMABLES_BY_SERVICE', id: productDb.id });
-                        let totalConsumablesCost = 0;
-                        for (let c of (Array.isArray(consumables) ? consumables : [])) {
-                            const prod = allInventory.find(p => p.name === c.prod_name);
-                            if (prod) {
-                                const newStock = prod.stock - c.qty;
-                                await window.universalQuery({ 
-                                    action:'UPDATE', table:'inventory', 
-                                    data: { stock: newStock }, 
-                                    id: prod.id 
-                                });
-                                totalConsumablesCost += (c.qty * (prod.cost || 0));
-                            }
-                        }
-                        unitCostUsed = totalConsumablesCost;
-                        salonRevenue = finalItemPrice - totalConsumablesCost;
-                    }
-                } else {
-                    unitCostUsed = 0;
-                    supplierPayout = 0;
-                    salonRevenue = finalItemPrice;
-                }
+                salonRevenue = finalItemPrice;
             }
-
-            const saleItemPayload = {
-                id: crypto.randomUUID(),
-                salon_id: currentSalonId,
-                sale_id: saleId, 
-                item_name: item.name || 'Voce Manuale', 
-                qty: item.qty || 1, 
-                price: item.price || 0,
-                discount: item.discountAmount || 0,
-                unit_cost: unitCostUsed,
-                supplier_payout: supplierPayout,
-                salon_revenue: packageConfigId ? salonRevenue : salonRevenue
-            };
-
-            await window.universalQuery({ 
-                action: 'INSERT', 
-                table: 'sale_items', 
-                data: saleItemPayload 
-            });
-            
-            const productDbRef = item.id ? allInventory.find(p => p.id === item.id) : null;
-            if (productDbRef && productDbRef.type === 'prodotto') {
-                await window.universalQuery({ 
-                    action: 'UPDATE', table: 'inventory', 
-                    data: { stock: productDbRef.stock - (item.qty || 1) }, 
-                    id: productDbRef.id 
-                }); 
-            }
-        } 
-        
-        currentCheckoutAppointmentId = null;
-
-        alert("Pagato e stock aggiornato!"); 
-        await resetCassa(); 
-        await refreshAllData(); 
-        
-        if (typeof loadRFM === 'function') await loadRFM();
-
-        if (currentUser && currentUser.role === 'admin') {
-            changePage('dashboard');
-        } else {
-            changePage('calendar');
         }
+
+        const saleItemPayload = {
+            id: crypto.randomUUID(),
+            salon_id: currentSalonId,
+            sale_id: saleId, 
+            item_name: item.name || 'Voce Manuale', 
+            qty: item.qty || 1, 
+            price: item.price || 0,
+            discount: item.discountAmount || 0,
+            unit_cost: unitCostUsed,
+            supplier_payout: supplierPayout,
+            salon_revenue: packageConfigId ? salonRevenue : salonRevenue
+        };
+
+        await window.universalQuery({ 
+            action: 'INSERT', 
+            table: 'sale_items', 
+            data: saleItemPayload 
+        });
+        
+        const productDbRef = item.id ? allInventory.find(p => p.id === item.id) : null;
+        if (productDbRef && productDbRef.type === 'prodotto') {
+            await window.universalQuery({ 
+                action: 'UPDATE', table: 'inventory', 
+                data: { stock: productDbRef.stock - (item.qty || 1) }, 
+                id: productDbRef.id 
+            }); 
+        }
+    } 
+    
+    currentCheckoutAppointmentId = null;
+
+    alert("Pagato e stock aggiornato!"); 
+    await resetCassa(); 
+    await refreshAllData(); 
+    
+    if (typeof loadRFM === 'function') await loadRFM();
+
+    if (currentUser && currentUser.role === 'admin') {
+        changePage('dashboard');
+    } else {
+        changePage('calendar');
     }
+}
 
             
             // Sostituisci la tua chiave o usa una variabile di configurazione
