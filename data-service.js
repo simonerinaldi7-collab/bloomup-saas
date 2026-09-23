@@ -572,6 +572,75 @@ window.hydrateLocalDatabase = async function(salonId) {
 }
 
 
+
+// 🧮 Calcolo Centralizzato della Quota di Competenza Reale del Salone
+function computeItemSalonCompetence(si, saleDate, inventory, productSuppliers, priceHistory) {
+    const soldPrice = parseFloat(si.price) || 0;
+    const discount = parseFloat(si.discount) || 0;
+    const itemQty = parseFloat(si.qty) || 1;
+    const finalItemRev = (soldPrice - discount) * itemQty;
+
+    const isPackage = (si.item_name || '').toLowerCase().includes('pacchetto') || si.package_id;
+    const inv = inventory ? inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase()) : null;
+
+    // 1. PACCHETTI: La quota di competenza è sempre salon_revenue
+    if (isPackage) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        return finalItemRev;
+    }
+
+    // 2. SERVIZI IN CONTO VENDITA
+    if (inv && inv.type === 'servizio' && inv.is_consignment) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue) && parseFloat(si.salon_revenue) < finalItemRev) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout) && parseFloat(si.supplier_payout) > 0) {
+            return finalItemRev - (parseFloat(si.supplier_payout) * itemQty);
+        }
+        const phList = priceHistory ? priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to)) : [];
+        const listinoPieno = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+        const rule = inv.discount_absorption || 'salon';
+        const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+        const salonShareFull = listinoPieno * (1 - (splitPct / 100));
+        const basePayout = (listinoPieno * splitPct) / 100;
+
+        let supplierPayout = basePayout;
+        if (rule === 'supplier') supplierPayout = (soldPrice - discount) - salonShareFull;
+        else if (rule === 'split') supplierPayout = basePayout - (discount / 2);
+
+        return Math.max(finalItemRev - (supplierPayout * itemQty), 0);
+    }
+
+    // 3. PRODOTTI IN CONTO VENDITA
+    if (inv && inv.type === 'prodotto' && inv.is_consignment) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue) && parseFloat(si.salon_revenue) < finalItemRev) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout) && parseFloat(si.supplier_payout) > 0) {
+            return finalItemRev - (parseFloat(si.supplier_payout) * itemQty);
+        }
+        const links = productSuppliers ? productSuppliers.filter(l => l.product_id === inv.id) : [];
+        let totalPct = 0;
+        if (links.length > 0) {
+            links.forEach(l => { totalPct += (parseFloat(l.split_pct) || 0); });
+        } else {
+            totalPct = parseFloat(inv.consignment_split_pct) || 0;
+        }
+        const unitPayout = (soldPrice * totalPct) / 100;
+        return Math.max(finalItemRev - (unitPayout * itemQty), 0);
+    }
+
+    // 4. ALTRE VOCI CON SALON_REVENUE ESPLICITO
+    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+        return parseFloat(si.salon_revenue) * itemQty;
+    }
+
+    // 5. PRODOTTO / SERVIZIO STANDARD DI PROPRIETÀ
+    return finalItemRev;
+}
+
 async function handleSpecialAction(action, data, id) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
@@ -900,8 +969,7 @@ async function handleSpecialAction(action, data, id) {
         }
 
         
-       // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Con supporto articoli manuali) ---
-       // --- 2. GET_MARGIN_INSIGHTS (Allineato con Quota di Competenza Pacchetti) ---
+       // --- 2. GET_MARGIN_INSIGHTS (Solo Quote di Competenza Salone) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
@@ -916,12 +984,10 @@ async function handleSpecialAction(action, data, id) {
 
             const allSaleItems = await localDb.sale_items.toArray() || [];
             const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === salonId);
-            
-            // Escludiamo il fatturato storico fittizio
             const filteredItems = saleItems.filter(si => salesIds.has(String(si.sale_id)) && si.item_name !== 'Fatturato Storico / Chiusura');
 
             const inventory = (await localDb.inventory.toArray() || []).filter(i => String(i.salon_id || '').trim().toLowerCase() === salonId);
-            const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.toArray() : [];
+            const productSuppliers = (await localDb.product_suppliers?.toArray()) || [];
             const allConsumables = (await localDb.service_consumables.toArray()) || [];
             const allLots = (await localDb.stock_lots.toArray()) || [];
             const priceHistory = (await localDb.price_history.toArray()) || [];
@@ -929,109 +995,64 @@ async function handleSpecialAction(action, data, id) {
             const margins = {};
 
             filteredItems.forEach(si => {
-                const isPackage = (si.item_name || '').toLowerCase().includes('pacchetto');
-                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-                
-                const soldPrice = parseFloat(si.price) || 0;
-                const discount = parseFloat(si.discount) || 0;
-                const itemQty = parseFloat(si.qty) || 1;
-                const finalRev = (soldPrice - discount) * itemQty;
                 const saleDate = sales.find(s => String(s.id) === String(si.sale_id))?.date || new Date().toISOString().split('T')[0];
+                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
+                const isPackage = (si.item_name || '').toLowerCase().includes('pacchetto');
+                const isConsignment = (inv && inv.is_consignment) || (si.supplier_payout && parseFloat(si.supplier_payout) > 0);
+                const itemQty = parseFloat(si.qty) || 1;
 
-                let totalCostOrPayout = 0;
-                let effectiveRevenue = finalRev;
+                // 🌟 REVENUE REALE DI COMPETENZA DEL SALONE
+                const salonCompetenceRevenue = computeItemSalonCompetence(si, saleDate, inventory, productSuppliers, priceHistory);
 
-                if (isPackage) {
-                    // 🌟 PER I PACCHETTI: Il ricavo e il margine di competenza del salone è SEMPRE la quota di competenza (salon_revenue)
-                    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
-                        effectiveRevenue = parseFloat(si.salon_revenue) * itemQty;
-                    } else {
-                        effectiveRevenue = finalRev;
-                    }
-                    totalCostOrPayout = 0; // Nessun costo vivo d'acquisto merci sul pacchetto
-                } else if (inv) {
+                let totalCost = 0;
+                if (!isPackage && !isConsignment && inv) {
                     if (inv.type === 'servizio') {
-                        if (inv.is_consignment) {
-                            if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout)) {
-                                totalCostOrPayout = parseFloat(si.supplier_payout) * itemQty;
-                            } else {
-                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-                                const rule = inv.discount_absorption || 'salon';
-                                const splitPct = parseFloat(inv.consignment_split_pct) || 0;
-                                let basePayout = (listinoPienoOriginale * splitPct) / 100;
-                                let calculatedPayout = basePayout;
-
-                                if (rule === 'supplier') {
-                                    const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
-                                    calculatedPayout = finalRev - salonShareFull;
-                                } else if (rule === 'split') {
-                                    calculatedPayout = basePayout - (discount / 2);
+                        // Costo consumabili FIFO
+                        const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                        let totalConsCost = 0;
+                        for (let sc of serviceCons) {
+                            const consumedProd = inventory.find(p => p.id === sc.product_id);
+                            const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+                            if (consumedProd) {
+                                const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                let prodUnitCost = 0;
+                                if (prodLots.length > 0) {
+                                    prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                    prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                } else {
+                                    const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                    prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
                                 }
-                                totalCostOrPayout = calculatedPayout * itemQty;
+                                totalConsCost += (prodUnitCost * qtyNeeded);
                             }
-                        } else {
-                            const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
-                            let totalConsumablesCost = 0;
-
-                            for (let sc of serviceCons) {
-                                const consumedProd = inventory.find(p => p.id === sc.product_id);
-                                const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
-                                if (consumedProd) {
-                                    const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
-                                    let prodUnitCost = 0;
-                                    if (prodLots.length > 0) {
-                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
-                                    } else {
-                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
-                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
-                                    }
-                                    totalConsumablesCost += (prodUnitCost * qtyNeeded);
-                                }
-                            }
-                            totalCostOrPayout = totalConsumablesCost * itemQty;
                         }
-
-                    } else if (inv.is_consignment) {
-                        const links = productSuppliers.filter(l => l.product_id === inv.id);
-                        let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(inv.consignment_split_pct) || 0;
-                        }
-                        const unitPayout = (soldPrice * totalPct) / 100;
-                        totalCostOrPayout = unitPayout * itemQty;
+                        totalCost = totalConsCost * itemQty;
                     } else {
+                        // Costo merci di proprietà FIFO
                         const unitCost = (si.unit_cost !== undefined && si.unit_cost !== null && !isNaN(si.unit_cost) && parseFloat(si.unit_cost) > 0) 
                             ? parseFloat(si.unit_cost) 
                             : (priceHistory.find(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to))?.cost || 0);
-                        
-                        totalCostOrPayout = unitCost * itemQty;
+                        totalCost = unitCost * itemQty;
                     }
-                } else {
-                    const unitCost = parseFloat(si.unit_cost) || 0;
-                    totalCostOrPayout = unitCost * itemQty;
                 }
 
-                const totalMargin = isPackage ? effectiveRevenue : (effectiveRevenue - totalCostOrPayout);
+                // Per pacchetti e conto vendita: il ricavo e il margine corrispondono ESCLUSIVAMENTE alla quota netta del salone
+                const totalMargin = (isPackage || isConsignment) ? salonCompetenceRevenue : (salonCompetenceRevenue - totalCost);
                 const itemNameKey = si.item_name || 'Articolo';
 
                 if (!margins[itemNameKey]) {
                     margins[itemNameKey] = { item_name: itemNameKey, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
                 }
                 margins[itemNameKey].total_sold += itemQty;
-                margins[itemNameKey].total_revenue += effectiveRevenue; // 👈 Conteggia la sola quota di spettanza del salone
-                margins[itemNameKey].total_cost += totalCostOrPayout;
-                margins[itemNameKey].total_margin += totalMargin;       // 👈 Margine netto conforme alla quota reale
+                margins[itemNameKey].total_revenue += salonCompetenceRevenue; // 👈 Quota netta di spettanza
+                margins[itemNameKey].total_cost += totalCost;
+                margins[itemNameKey].total_margin += totalMargin;             // 👈 Margine netto conforme
             });
 
             return Object.values(margins).sort((a, b) => b.total_margin - a.total_margin);
         }
 
-        // --- 3. GET_MONTHLY_BALANCE (Incasso Netto di Competenza per Salone) ---
+        // --- 3. GET_MONTHLY_BALANCE (Incassi Mensili al Netto di Quote Fornitori e Split) ---
         if (action === 'GET_MONTHLY_BALANCE') {
             const currentSalonRaw = currentUser ? currentUser.salon_id : 'SALON_001';
             const salonId = String(currentSalonRaw).trim().toLowerCase();
@@ -1043,6 +1064,8 @@ async function handleSpecialAction(action, data, id) {
             const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === salonId);
 
             const inventory = (await localDb.inventory.toArray() || []).filter(i => String(i.salon_id || '').trim().toLowerCase() === salonId);
+            const productSuppliers = (await localDb.product_suppliers?.toArray()) || [];
+            const priceHistory = (await localDb.price_history.toArray()) || [];
             const expenses = (await localDb.expenses.toArray() || []).filter(e => String(e.salon_id || '').trim().toLowerCase() === salonId);
 
             const monthlyMap = {};
@@ -1051,41 +1074,16 @@ async function handleSpecialAction(action, data, id) {
                 const sale = sales.find(s => String(s.id) === String(si.sale_id));
                 if (!sale || !sale.date) return;
 
-                const mLabel = sale.date.substring(0, 7); // 'YYYY-MM'
+                const mLabel = sale.date.substring(0, 7);
                 if (!monthlyMap[mLabel]) {
                     monthlyMap[mLabel] = { m_label: mLabel, salon_revenue: 0, total_expenses: 0 };
                 }
 
-                const soldPrice = parseFloat(si.price) || 0;
-                const discount = parseFloat(si.discount) || 0;
-                const finalGrossRev = (soldPrice - discount) * (si.qty || 1);
-
-                const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
-                let salonShare = finalGrossRev;
-
-                // 🌟 REGOLA PRIORITARIA: Se la riga riporta salon_revenue (pacchetti, conto vendita o split), usiamo SEMPRE quella!
-                if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
-                    salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
-                } else if (inv && inv.is_consignment) {
-                    const splitPct = parseFloat(inv.consignment_split_pct) || 0;
-                    const rule = inv.discount_absorption || 'salon';
-                    const listinoPieno = soldPrice;
-                    const basePayout = (listinoPieno * splitPct) / 100;
-                    let supplierPayout = basePayout;
-
-                    if (rule === 'supplier') {
-                        const salonShareFull = listinoPieno * (1 - (splitPct / 100));
-                        supplierPayout = finalGrossRev - salonShareFull;
-                    } else if (rule === 'split') {
-                        supplierPayout = basePayout - (discount / 2);
-                    }
-                    salonShare = finalGrossRev - supplierPayout;
-                }
-
+                // 🌟 Somma esclusivamente la quota di competenza del salone
+                const salonShare = computeItemSalonCompetence(si, sale.date, inventory, productSuppliers, priceHistory);
                 monthlyMap[mLabel].salon_revenue += salonShare;
             });
 
-            // Aggiunta spese vive
             expenses.forEach(e => {
                 if (!e.date) return;
                 const mLabel = e.date.substring(0, 7);

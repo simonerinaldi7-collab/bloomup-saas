@@ -6373,13 +6373,17 @@ function toggleCalendarToolbar() {
 
         if (workingDaysRemaining <= 0) workingDaysRemaining = 1;
 
-        // 3. 🌟 INCASSO DEL MESE E DI OGGI (SOLO QUOTE DI COMPETENZA salon_revenue)
+        // 3. 🌟 INCASSO DEL MESE E DI OGGI (RIGOROSAMENTE QUOTE DI COMPETENZA DEL SALONE)
         const allSales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
         const monthSales = allSales.filter(s => String(s.salon_id || '').trim().toLowerCase() === currentSalonId && s.date && s.date.startsWith(currentMonthPrefix) && s.date <= todayStr);
         const monthSalesIds = new Set(monthSales.map(s => String(s.id)));
 
         const allSaleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
         const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === currentSalonId);
+
+        const inventory = allInventory || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
 
         let monthTotalRevenue = 0;
         let todaySalonRevenue = 0;
@@ -6389,16 +6393,8 @@ function toggleCalendarToolbar() {
             const sale = monthSales.find(s => String(s.id) === String(si.sale_id));
             if (!sale) continue;
 
-            const soldPrice = parseFloat(si.price) || 0;
-            const discount = parseFloat(si.discount) || 0;
-            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
-
-            let salonShare = finalItemRev;
-
-            // Quota reale di competenza del salone
-            if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
-                salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
-            }
+            // 🌟 Quota reale di competenza del salone (pacchetti, CV prodotti, CV servizi)
+            const salonShare = computeItemSalonCompetence(si, sale.date, inventory, productSuppliers, priceHistory);
 
             monthTotalRevenue += salonShare;
             if (sale.date === todayStr) {
@@ -6624,7 +6620,67 @@ async function executeAgentAction(intent, params) {
 
 
 
+function computeItemSalonCompetence(si, saleDate, inventory, productSuppliers, priceHistory) {
+    const soldPrice = parseFloat(si.price) || 0;
+    const discount = parseFloat(si.discount) || 0;
+    const itemQty = parseFloat(si.qty) || 1;
+    const finalItemRev = (soldPrice - discount) * itemQty;
 
+    const isPackage = (si.item_name || '').toLowerCase().includes('pacchetto') || si.package_id;
+    const inv = inventory ? inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase()) : null;
+
+    if (isPackage) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        return finalItemRev;
+    }
+
+    if (inv && inv.type === 'servizio' && inv.is_consignment) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue) && parseFloat(si.salon_revenue) < finalItemRev) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout) && parseFloat(si.supplier_payout) > 0) {
+            return finalItemRev - (parseFloat(si.supplier_payout) * itemQty);
+        }
+        const phList = priceHistory ? priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to)) : [];
+        const listinoPieno = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+        const rule = inv.discount_absorption || 'salon';
+        const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+        const salonShareFull = listinoPieno * (1 - (splitPct / 100));
+        const basePayout = (listinoPieno * splitPct) / 100;
+
+        let supplierPayout = basePayout;
+        if (rule === 'supplier') supplierPayout = (soldPrice - discount) - salonShareFull;
+        else if (rule === 'split') supplierPayout = basePayout - (discount / 2);
+
+        return Math.max(finalItemRev - (supplierPayout * itemQty), 0);
+    }
+
+    if (inv && inv.type === 'prodotto' && inv.is_consignment) {
+        if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue) && parseFloat(si.salon_revenue) < finalItemRev) {
+            return parseFloat(si.salon_revenue) * itemQty;
+        }
+        if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout) && parseFloat(si.supplier_payout) > 0) {
+            return finalItemRev - (parseFloat(si.supplier_payout) * itemQty);
+        }
+        const links = productSuppliers ? productSuppliers.filter(l => l.product_id === inv.id) : [];
+        let totalPct = 0;
+        if (links.length > 0) {
+            links.forEach(l => { totalPct += (parseFloat(l.split_pct) || 0); });
+        } else {
+            totalPct = parseFloat(inv.consignment_split_pct) || 0;
+        }
+        const unitPayout = (soldPrice * totalPct) / 100;
+        return Math.max(finalItemRev - (unitPayout * itemQty), 0);
+    }
+
+    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+        return parseFloat(si.salon_revenue) * itemQty;
+    }
+
+    return finalItemRev;
+}
 
 // ✍️ Funzione unificata Salva o Aggiorna Spesa (Con ricalcolo economico immediato)
 async function saveOrUpdateExpense() {
@@ -11522,6 +11578,10 @@ function addManualItemToCart() {
         const allSaleItems = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
         const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === currentSalonId);
 
+        const inventory = allInventory || [];
+        const productSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+
         for (let si of saleItems) {
             const sale = salesData.find(s => String(s.id) === String(si.sale_id));
             if (!sale || !sale.date) continue;
@@ -11529,16 +11589,8 @@ function addManualItemToCart() {
             const saleMonth = sale.date.substring(0, 7);
             if (saleMonth !== currentYearMonth && saleMonth !== prevYearMonth) continue;
 
-            const soldPrice = parseFloat(si.price) || 0;
-            const discount = parseFloat(si.discount) || 0;
-            const finalItemRev = (soldPrice - discount) * (si.qty || 1);
-
-            let salonShare = finalItemRev;
-
-            // Per i pacchetti (e conto vendita), legge rigorosamente la quota salon_revenue
-            if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
-                salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
-            }
+            // 🌟 Quota reale di competenza del salone (pacchetti, CV prodotti, CV servizi)
+            const salonShare = computeItemSalonCompetence(si, sale.date, inventory, productSuppliers, priceHistory);
 
             if (saleMonth === currentYearMonth) {
                 currentMonthRevenue += salonShare;
@@ -12288,10 +12340,20 @@ function urlBase64ToUint8Array(base64String) {
                     let qtyToProcess = item.qty || 1;
                     let totalSupplierPayoutForThisSale = 0;
 
-                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' });
+                    const lots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
                     const prodLots = (Array.isArray(lots) ? lots : [])
                         .filter(l => l.product_id === productDb.id && l.qty_remaining > 0)
                         .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+
+                    // Percentuale fornitore da product_suppliers
+                    const allProdSuppLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+                    const prodLinks = allProdSuppLinks.filter(l => l.product_id === productDb.id);
+                    let productTotalSplitPct = 0;
+                    if (prodLinks.length > 0) {
+                        prodLinks.forEach(l => { productTotalSplitPct += (parseFloat(l.split_pct) || 0); });
+                    } else {
+                        productTotalSplitPct = parseFloat(productDb.consignment_split_pct) || 0;
+                    }
 
                     for (let lot of prodLots) {
                         if (qtyToProcess <= 0) break;
@@ -12302,10 +12364,10 @@ function urlBase64ToUint8Array(base64String) {
                         let lotPayoutForOneUnit = 0;
                         if (lotSplits.length > 0) {
                             let lotTotalPct = 0;
-                            lotSplits.forEach(s => { lotTotalPct += s.split_pct; });
+                            lotSplits.forEach(s => { lotTotalPct += (parseFloat(s.split_pct) || 0); });
                             lotPayoutForOneUnit = (item.price * lotTotalPct) / 100;
                         } else {
-                            lotPayoutForOneUnit = (item.price * (productDb.consignment_split_pct || 0)) / 100;
+                            lotPayoutForOneUnit = (item.price * productTotalSplitPct) / 100;
                         }
 
                         totalSupplierPayoutForThisSale += takeFromLot * lotPayoutForOneUnit;
@@ -12320,9 +12382,10 @@ function urlBase64ToUint8Array(base64String) {
                         });
                     }
 
-                    if (totalSupplierPayoutForThisSale === 0 && prodLots.length === 0) {
-                        const fallbackPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        totalSupplierPayoutForThisSale = (item.price * fallbackPct / 100) * (item.qty || 1);
+                    // Se non ci sono lotti o la quantità da vendere eccede le giacenze lotti
+                    if (qtyToProcess > 0) {
+                        const remainingPayout = (item.price * productTotalSplitPct / 100) * qtyToProcess;
+                        totalSupplierPayoutForThisSale += remainingPayout;
                     }
 
                     supplierPayout = totalSupplierPayoutForThisSale;
