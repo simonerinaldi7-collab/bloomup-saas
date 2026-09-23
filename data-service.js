@@ -1157,114 +1157,55 @@ async function handleSpecialAction(action, data, id) {
             });
         }
 
-        // --- 8. GET_SALES_REPORT (Con Telemetria e Diagnostica di Tracciamento) ---
+        // --- 8. GET_SALES_REPORT (Unificato, Sincrono e Protetto da Duplicati) ---
         if (action === 'GET_SALES_REPORT') {
             try {
-                console.group("🔍 [DEBUG REPORT] Avvio Elaborazione GET_SALES_REPORT");
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-                console.log(`🏢 Salone Attivo (currentUser.salon_id): "${salonId}"`);
+                
+                // 1. Leggiamo ESCLUSIVAMENTE le vendite e gli item del salone corrente
+                // (Le vendite mirror sono già create con salon_id = salonId, quindi niente duplicati)
+                const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
+                const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
+                
+                // 2. Lettura configurazioni e pacchetti per il calcolo dello split
+                const packagesConfigList = localDb.packages_config ? (await localDb.packages_config.toArray() || []) : [];
+                const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.toArray() || []) : [];
 
-                // 1. ISPEZIONE ARCHIVI LOCALI (DEXIE)
-                const allLocalSales = (await localDb.sales.toArray()) || [];
-                const allLocalSaleItems = (await localDb.sale_items.toArray()) || [];
-                const customerPackagesList = (localDb.customer_packages ? await localDb.customer_packages.toArray() : []) || [];
-                const packagesConfigList = (localDb.packages_config ? await localDb.packages_config.toArray() : []) || [];
+                // 3. 🌟 Lettura globale dei clienti locali (garantisce la risoluzione del nome anche se creati da un salone partner)
                 const customers = (await localDb.customers.toArray()) || [];
-
-                console.log(`📊 Totale records in IndexedDB:`, {
-                    "localDb.sales totali": allLocalSales.length,
-                    "localDb.sale_items totali": allLocalSaleItems.length,
-                    "localDb.customer_packages": customerPackagesList.length,
-                    "localDb.packages_config": packagesConfigList.length,
-                    "localDb.customers": customers.length
-                });
-
-                // 2. FILTRO DELLE VENDITE PER QUESTO SALONE
-                const sales = allLocalSales.filter(s => String(s.salon_id).trim() === String(salonId).trim());
-                const saleItems = allLocalSaleItems.filter(si => String(si.salon_id).trim() === String(salonId).trim());
-
-                console.log(`🎯 Record che corrispondono a salon_id === "${salonId}":`, {
-                    "sales del salone": sales,
-                    "sale_items del salone": saleItems
-                });
-
-                // Se non ci sono vendite con salon_id esatto, verifichiamo se esistono vendite con salon_id diverso nel DB
-                if (saleItems.length === 0) {
-                    console.warn(`⚠️ Nessun sale_item trovato con salon_id === "${salonId}". Elenco dei salon_id presenti nelle vendite locali:`, 
-                        [...new Set(allLocalSaleItems.map(si => si.salon_id))]
-                    );
-                }
-
-                // 3. RECUPERO AUSILIARIO: Se siamo un partner e la riga specchio manca, verifichiamo la quota nei crediti
-                const effectiveSalesMap = new Map();
-                sales.forEach(s => effectiveSalesMap.set(String(s.id), s));
-
-                const effectiveSaleItemsMap = new Map();
-                saleItems.forEach(si => effectiveSaleItemsMap.set(String(si.id), si));
-
-                customerPackagesList.forEach(cp => {
-                    let allocs = cp.revenue_allocations;
-                    if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
-                    const myQuota = allocs ? (parseFloat(allocs[salonId]) || 0) : 0;
-                    const isOwner = String(cp.salon_id) === String(salonId);
-
-                    if (myQuota > 0 && !isOwner) {
-                        const hasAlreadyItem = Array.from(effectiveSaleItemsMap.values()).some(si => {
-                            const parentSale = effectiveSalesMap.get(String(si.sale_id));
-                            return parentSale && String(parentSale.cust_id) === String(cp.customer_id);
-                        });
-
-                        console.log(`🧩 [DEBUG PARTNER QUOTA] Trovato customer_package con quota per ${salonId} (€${myQuota}). Già presente nel report? ${hasAlreadyItem}`);
-
-                        if (!hasAlreadyItem) {
-                            const originSale = allLocalSales.find(s => String(s.cust_id) === String(cp.customer_id));
-                            if (originSale) {
-                                console.log(`🔄 [DEBUG RECOVERY] Generazione riga virtuale di competenza partner per vendita ID: ${originSale.id}`);
-                                const virtualItemId = `mirror_${originSale.id}_${salonId}`;
-                                effectiveSalesMap.set(String(originSale.id), originSale);
-                                effectiveSaleItemsMap.set(virtualItemId, {
-                                    id: virtualItemId,
-                                    sale_id: originSale.id,
-                                    salon_id: salonId,
-                                    package_id: cp.package_id,
-                                    item_name: 'Pacchetto Condiviso',
-                                    qty: 1,
-                                    price: myQuota,
-                                    discount: 0,
-                                    unit_cost: 0,
-                                    supplier_payout: 0,
-                                    salon_revenue: myQuota,
-                                    is_recovered_partner_view: true
-                                });
-                            }
-                        }
-                    }
-                });
-
                 const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
                 const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
                 const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
+                
+                let productSuppliers = [];
+                let suppliersData = [];
+                try {
+                    if (localDb.product_suppliers) productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
+                    if (localDb.suppliers) suppliersData = (await localDb.suppliers.where('salon_id').equals(salonId).toArray()) || [];
+                } catch (e) {}
 
                 const report = [];
-
-                // 4. CICLO COSTRUZIONE RIGHE REPORT
-                for (let item of effectiveSaleItemsMap.values()) {
-                    const sale = effectiveSalesMap.get(String(item.sale_id));
+                
+                for (let item of saleItems) {
+                    const sale = sales.find(s => s.id === item.sale_id);
+                    if (!sale) continue;
                     
-                    if (!sale) {
-                        console.warn(`🛑 [DEBUG SCARTO] sale_item ID: ${item.id} SCARTATO: Nessuna vendita trovata con sale_id: "${item.sale_id}"`);
-                        continue;
-                    }
-
-                    let cust = customers.find(c => String(c.id) === String(sale.cust_id));
+                    // Risoluzione robusta Nome e Cognome cliente
+                    let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
                         cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
                     }
+                    if (!cust && window.allCustomers) {
+                        cust = window.allCustomers.find(c => c.id === sale.cust_id);
+                    }
+
                     const custDisplayName = cust 
                         ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() 
                         : (sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO' ? sale.cust_id : 'Occasionale');
 
+                    const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+                    
                     const discount = parseFloat(item.discount) || 0;
                     let soldPrice = parseFloat(item.price) || 0;
                     let finalPrice = soldPrice - discount;
@@ -1276,9 +1217,11 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) ? parseFloat(item.salon_revenue) : finalPrice;
                     let supplierDetailsText = '-';
 
+                    // 🎁 GESTIONE PACCHETTI VENDUTI (SOLO RIGHE RIGOROSE ED ESCLUSIONE HARDCODING)
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
 
                     if (isPackageItem) {
+                        // 1. Risoluzione esatta della configurazione pacchetto
                         let matchingPkg = null;
                         if (item.package_id) {
                             matchingPkg = packagesConfigList.find(p => String(p.id) === String(item.package_id));
@@ -1288,43 +1231,143 @@ async function handleSpecialAction(action, data, id) {
                             matchingPkg = packagesConfigList.find(p => p.name.trim().toLowerCase() === cleanItemName);
                         }
 
+                        // 2. Estrazione delle quote configurate (senza fallback su pacchetti storici estranei)
                         let allocs = null;
                         if (matchingPkg && matchingPkg.revenue_splits) {
                             let splits = matchingPkg.revenue_splits;
                             if (typeof splits === 'string') { try { splits = JSON.parse(splits); } catch(e) { splits = null; } }
-                            if (splits && splits.allocations) allocs = splits.allocations;
+                            if (splits && splits.allocations && typeof splits.allocations === 'object') {
+                                allocs = splits.allocations;
+                            }
                         }
 
-                        const isSharedPackage = allocs && Object.keys(allocs).length > 1;
+                        // 3. Verifica rigorosa: è condiviso se e solo se ci sono almeno due saloni con quota > 0
+                        const activeAllocKeys = (allocs && typeof allocs === 'object') 
+                            ? Object.keys(allocs).filter(k => parseFloat(allocs[k]) > 0)
+                            : [];
+                        
+                        const isSharedPackage = activeAllocKeys.length > 1;
 
                         if (isSharedPackage) {
                             const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
-                            const isPartnerMirror = (sale.payment_method && sale.payment_method.includes('Condiviso')) || item.is_recovered_partner_view;
+                            const isPartnerMirrorSale = sale.payment_method && sale.payment_method.includes('Condiviso');
                             let baseTransactionTotal = finalPrice;
 
-                            if (isPartnerMirror && totalAllocSum > 0) {
+                            // Se siamo nel salone partner, ricalcoliamo la quota per mostrare lo split corretto
+                            if (isPartnerMirrorSale && totalAllocSum > 0) {
                                 const myRatio = (parseFloat(allocs[salonId]) || 0) / totalAllocSum;
                                 if (myRatio > 0) baseTransactionTotal = finalPrice / myRatio;
                             }
 
                             let splitDetailsArr = [];
                             for (const [sId, amountVal] of Object.entries(allocs)) {
+                                if (parseFloat(amountVal) <= 0) continue;
                                 const ratio = totalAllocSum > 0 ? (parseFloat(amountVal || 0) / totalAllocSum) : 0;
                                 const quotaTransazione = baseTransactionTotal * ratio;
                                 const pctVal = (ratio * 100).toFixed(0);
                                 splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${quotaTransazione.toFixed(2)}`);
                             }
+
                             supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
                         } else {
+                            // 🌟 Pacchetto NON condiviso: Nessuna ripartizione mostrata, 100% ricavo al salone
                             supplierDetailsText = `Esclusivo (100% Salone)`;
                         }
 
                         unitCost = 0;
                         supplierPayout = 0;
                         salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) ? parseFloat(item.salon_revenue) : finalPrice;
+                    
+                    } else if (inv) {
+                        // Prodotti fisici e Servizi standard (Invariati)
+                        if (inv.type === 'servizio' && !inv.is_consignment) {
+                            const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
+                            let totalConsumablesCost = 0;
+                            for (let sc of serviceCons) {
+                                const consumedProd = inventory.find(p => p.id === sc.product_id);
+                                const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
+                                if (consumedProd) {
+                                    const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
+                                    let prodUnitCost = 0;
+                                    if (prodLots.length > 0) {
+                                        prodLots.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+                                        prodUnitCost = parseFloat(prodLots[0].unit_cost) || 0;
+                                    } else {
+                                        const phList = priceHistory.filter(p => p.product_id === consumedProd.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                        prodUnitCost = phList.length > 0 ? (parseFloat(phList[0].cost) || 0) : 0;
+                                    }
+                                    totalConsumablesCost += (prodUnitCost * qtyNeeded);
+                                }
+                            }
+                            unitCost = totalConsumablesCost;
+                            salonRevenue = finalPrice - (unitCost * itemQty);
+
+                        } else if (inv.is_consignment && inv.type === 'servizio') {
+                            if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                                supplierPayout = parseFloat(item.supplier_payout) || 0;
+                            } else {
+                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                                const rule = inv.discount_absorption || 'salon';
+                                const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                                const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                                const basePayout = (listinoPienoOriginale * splitPct) / 100;
+
+                                if (rule === 'supplier') supplierPayout = finalPrice - salonShareFull;
+                                else if (rule === 'split') supplierPayout = basePayout - (discount / 2);
+                                else supplierPayout = basePayout;
+                            }
+                            const suppObj = suppliersData.find(s => s.id === inv.supplier_id);
+                            const suppName = suppObj ? suppObj.name : 'Fornitore';
+                            supplierDetailsText = `${suppName} (${inv.consignment_split_pct}%): €${supplierPayout.toFixed(2)}`;
+                            salonRevenue = finalPrice - supplierPayout;
+
+                        } else if (inv.is_consignment) {
+                            const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+                            const links = productSuppliers.filter(l => l.product_id === inv.id);
+                            if (links.length > 0) {
+                                let detailsArray = [];
+                                let totalConsignmentPayout = 0;
+                                links.forEach(l => {
+                                    const supp = suppliersData.find(s => s.id === l.supplier_id);
+                                    const suppName = supp ? supp.name : 'Fornitore';
+                                    const pct = parseFloat(l.split_pct) || 0;
+                                    const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                                    totalConsignmentPayout += payoutForThisSupp;
+                                    detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
+                                });
+                                supplierPayout = totalConsignmentPayout;
+                                supplierDetailsText = detailsArray.join('<br>');
+                            } else {
+                                const pct = parseFloat(inv.consignment_split_pct) || 0;
+                                supplierPayout = (listinoPienoOriginale * pct) / 100;
+                                const supp = suppliersData.find(s => s.id === inv.supplier_id);
+                                const suppName = supp ? supp.name : 'Fornitore';
+                                supplierDetailsText = `${suppName} (${pct}%): €${supplierPayout.toFixed(2)}`;
+                            }
+                            salonRevenue = finalPrice - supplierPayout;
+
+                        } else {
+                            if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
+                                unitCost = parseFloat(item.unit_cost) || 0;
+                            } else {
+                                const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
+                                if (phList.length > 0) unitCost = parseFloat(phList[0].cost) || 0;
+                            }
+                            salonRevenue = finalPrice - (unitCost * itemQty);
+                        }
+                    } else {
+                        if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
+                            unitCost = parseFloat(item.unit_cost) || 0;
+                        }
+                        supplierPayout = (item.supplier_payout !== undefined && item.supplier_payout !== null) ? parseFloat(item.supplier_payout) : 0;
+                        salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
+                            ? parseFloat(item.salon_revenue) 
+                            : (finalPrice - unitCost - supplierPayout);
                     }
 
-                    const reportRow = {
+                    report.push({
                         sale_id: sale.id,
                         date: sale.date,
                         time: sale.time || '00:00',
@@ -1338,19 +1381,14 @@ async function handleSpecialAction(action, data, id) {
                         salon_revenue: salonRevenue,
                         supplier_details: supplierDetailsText,
                         seller: sale.created_by || 'Admin'
-                    };
-
-                    console.log(`✅ [DEBUG ROW INCLUSA] Riga generata con successo:`, reportRow);
-                    report.push(reportRow);
+                    });
                 }
 
-                console.log(`🏁 [DEBUG REPORT] Totale righe finali restituite: ${report.length}`);
-                console.groupEnd();
+                report.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
                 return report;
 
             } catch (err) {
-                console.error("💥 [DEBUG REPORT] Eccezione critica in GET_SALES_REPORT:", err);
-                console.groupEnd();
+                console.error("Errore critico in GET_SALES_REPORT:", err);
                 return [];
             }
         }

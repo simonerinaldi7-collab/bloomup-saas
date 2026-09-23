@@ -3860,24 +3860,20 @@ async function voidSaleTransaction(saleId) {
     }
 
    async function renderSalesReport() {
-    console.group("🖥️ [DEBUG UI] Avvio renderSalesReport()");
-
     const fCust = document.getElementById('src-report-cust')?.value.toLowerCase() || '';
     const fProd = document.getElementById('src-report-prod')?.value.toLowerCase() || '';
-    const fSeller = document.getElementById('src-report-seller')?.value || 'all'; 
+    const fSeller = document.getElementById('src-report-seller')?.value || 'all'; // 👈 Lettura filtro venditore
     const fStart = document.getElementById('d-start-report')?.value || '';
     const fEnd = document.getElementById('d-end-report')?.value || '';
-
-    console.log("Filtri attivi sulla UI:", { fCust, fProd, fSeller, fStart, fEnd });
     
-    // 1. Chiamata alla query universale
+    // 1. Chiamata al backend unificato che restituisce gli item già calcolati al centesimo
     const salesData = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
-    console.log(`📥 Dati ricevuti da universalQuery (salesData): ${salesData.length}`, salesData);
-
-    // 1.5 Popolamento selettore venditori
+    
+    // 🌟 1.5 Popolamento dinamico della tendina dei venditori (se non ancora popolata)
     const sellerSelect = document.getElementById('src-report-seller');
     if (sellerSelect && salesData.length > 0) {
         const currentSelectedSeller = sellerSelect.value;
+        // Estraiamo tutti i venditori unici presenti nel report
         const uniqueSellers = [...new Set(salesData.map(r => r.seller || 'Admin'))].sort();
         
         let sellerOptions = '<option value="all">Tutti i Venditori</option>';
@@ -3889,7 +3885,7 @@ async function voidSaleTransaction(saleId) {
         }
     }
 
-    // 2. Filtro della UI
+    // 2. Filtriamo in base ai parametri di ricerca della UI (incluso il venditore)
     const filtered = (Array.isArray(salesData) ? salesData : []).filter(r => {
         const matchCust = (r.customer_name || 'Occasionale').toLowerCase().includes(fCust);
         const matchProd = (r.item_name || '').toLowerCase().includes(fProd);
@@ -3898,22 +3894,13 @@ async function voidSaleTransaction(saleId) {
         const saleDate = r.date;
         const matchStart = !fStart || saleDate >= fStart;
         const matchEnd = !fEnd || saleDate <= fEnd;
-        
-        const passed = matchCust && matchProd && matchSeller && matchStart && matchEnd;
-        if (!passed) {
-            console.log(`🚫 Riga [${r.item_name} per ${r.customer_name}] scartata dai filtri UI:`, {
-                matchCust, matchProd, matchSeller, matchStart, matchEnd
-            });
-        }
-        return passed;
+        return matchCust && matchProd && matchSeller && matchStart && matchEnd;
     });
-
-    console.log(`🎯 Righe filtrate pronte per la tabella HTML: ${filtered.length}`, filtered);
-    console.groupEnd();
     
     const tbody = document.getElementById('list-report');
     if (!tbody) return;
 
+    // 🧮 Variabili per i totali aggregati in alto
     let sumGross = 0;
     let sumDiscount = 0;
     let sumFinal = 0;
@@ -3927,12 +3914,18 @@ async function voidSaleTransaction(saleId) {
         const supplierPayout = parseFloat(r.supplier_payout) || 0;
         const netMarginOrRevenue = parseFloat(r.salon_revenue) || (finalPrice - unitCost - supplierPayout);
 
+        // Accumuliamo nei totali generali
         sumGross += soldPrice;
         sumDiscount += discount;
         sumFinal += finalPrice;
         sumMargin += netMarginOrRevenue;
 
         const isPositive = netMarginOrRevenue >= 0;
+
+        let supplierDetailsText = r.supplier_details || '-';
+        if (supplierDetailsText === '-' && supplierPayout > 0) {
+            supplierDetailsText = `Quota Fornitore: €${supplierPayout.toFixed(2)}`;
+        }
 
         return `
             <tr>
@@ -3943,7 +3936,7 @@ async function voidSaleTransaction(saleId) {
                 <td>€${discount.toFixed(2)}</td>
                 <td><b>€${finalPrice.toFixed(2)}</b></td>
                 <td>${unitCost > 0 ? '€' + unitCost.toFixed(2) : '-'}</td>
-                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${r.supplier_details || '-'}</td>
+                <td style="font-size: 11px; color: #E17055; line-height: 1.4;">${supplierDetailsText}</td>
                 <td style="color:${isPositive ? 'var(--s)' : 'var(--d)'}; font-weight:bold;">€${netMarginOrRevenue.toFixed(2)}</td>
                 <td><b>${r.seller || 'Admin'}</b></td>
                 <td style="text-align: right;">
@@ -3953,6 +3946,7 @@ async function voidSaleTransaction(saleId) {
         `;
     }).join('');
 
+    // 📊 AGGIORNIAMO LE SCHEDE DEI TOTALI IN ALTO
     const elGross = document.getElementById('rep-tot-gross');
     const elDisc = document.getElementById('rep-tot-disc');
     const elFinal = document.getElementById('rep-tot-final');
