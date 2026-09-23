@@ -54,7 +54,7 @@ function startBackgroundMultiOperatorSync() {
 
         // 🛑 Ottimizzazione 2: Nel polling frequente (20s) teniamo SOLO la tabella "calda" dell'agenda. 
         // Le altre tabelle (inventario, clienti) si sincronizzano all'apertura delle rispettive viste o via WebSocket.
-        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'packages_config','package_items'];
+        const tablesToSync = ['appointments', 'sales', 'sale_items', 'inventory', 'packages_config', 'package_items', 'customer_packages'];
         
         try {
             for (let table of tablesToSync) {
@@ -553,7 +553,7 @@ window.hydrateLocalDatabase = async function(salonId) {
         // FASE 2: Dati di magazzino e fornitori (Caricati subito dopo in background leggero)
         setTimeout(async () => {
             if (!navigator.onLine) return;
-            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history','packages_config','package_items'];
+            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history','packages_config','package_items', 'customer_packages'];
             for (let table of inventoryTables) {
                 await backgroundPullFromSupabase(table, salonId);
                 await new Promise(r => setTimeout(r, 120));

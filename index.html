@@ -6019,15 +6019,14 @@ function addPackageToCart(name, price, packageId) {
             await window.universalQuery({ action: 'GET_ALL', table: 'inventory' });
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
             renderServices();
-        } else if (active === 'v-packages' || active === 'v-sales-report') {
-        console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti e vendite condivise dal cloud...");
+        } else if (active === 'v-packages' || active === 'v-sales-report' || active === 'v-sales') {
+        console.log("🎁 [VIEW-SYNC] Aggiornamento pacchetti e crediti condivisi dal cloud...");
         if (typeof pullPackagesFromSupabase === 'function') {
             await pullPackagesFromSupabase(salonId);
         }
         if (active === 'v-packages') renderPackages();
         if (active === 'v-sales-report') renderSalesReport();
-    
-}
+    }
     }
 
     // Esecuzione dei render standard per le altre viste
@@ -11513,20 +11512,34 @@ function addManualItemToCart() {
         r.style.display = f.length ? 'block' : 'none'; 
     }
     
-   function selectClient(n, id, t) { 
+   async function selectClient(n, id, t) { 
         if(t === 'sale') { 
             currentCheckoutCustomer = { id, name: n }; 
-            document.getElementById('cart-selected-cust').innerText = n; 
+            const custLabel = document.getElementById('cart-selected-cust');
+            if (custLabel) custLabel.innerText = n; 
 
-            // 🌟 ATTIVAZIONE ISTANTANEA: Ricalcola il carrello all'istante per caricare i dati del pacchetto del cliente!
+            // 🔄 RESET STATO PACCHETTI NEL CARRELLO:
+            // Forziamo il ricaricamento dei dati pregressi per il cliente appena selezionato
+            if (Array.isArray(cart)) {
+                cart.forEach(item => {
+                    if (item.isPackage) {
+                        delete item.customPaidAmount;
+                        delete item.customExpiryDate;
+                        delete item.loadedForCustId;
+                    }
+                });
+            }
+
+            // 🌟 Ricalcolo istantaneo del carrello con i dati del cliente selezionato
             if (typeof renderCart === 'function') {
-                renderCart();
+                await renderCart();
             }
         } else { 
-            document.getElementById('f-a-search').value = n; 
-            document.getElementById('f-a-cust-id').value = id; 
+            const sInput = document.getElementById('f-a-search');
+            const idInput = document.getElementById('f-a-cust-id');
+            if (sInput) sInput.value = n; 
+            if (idInput) idInput.value = id; 
             
-            // 🔍 ATTIVIAMO IL CONTROLLO DUPLICATI APPLICATO AL CLIENTE SELEZIONATO
             if (typeof checkDuplicateAppointments === 'function') {
                 checkDuplicateAppointments();
             }
@@ -12894,7 +12907,6 @@ async function renderCart() {
         const discType = item.discountType || 'euro';
         const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
         
-        // 🌟 Per i pacchetti, l'importo da pagare ORA è la rata/saldo inserita
         let finalPrice = item.price - discountAmount;
         if (item.isPackage) {
             finalPrice = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : (item.price - discountAmount);
@@ -12909,57 +12921,106 @@ async function renderCart() {
         if (item.isPackage && item.id) {
             const customerIdForCheck = currentCheckoutCustomer?.id;
             
-            let existingCustPkgs = [];
-            if (customerIdForCheck && localDb && localDb.customer_packages) {
+            // 1. 🔍 RECUPERO RESILIENTE PACCHETTI ACQUISTATI DAL CLIENTE
+            let allCustPkgs = [];
+            if (localDb && localDb.customer_packages) {
                 try {
-                    existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(String(customerIdForCheck)).toArray() || [];
-                } catch (e) { existingCustPkgs = []; }
+                    allCustPkgs = await localDb.customer_packages.toArray() || [];
+                } catch (e) { allCustPkgs = []; }
             }
-            
-            const activePkg = existingCustPkgs.find(cp => String(cp.package_id) === String(item.id) && cp.payment_status !== 'paid_full');
+
+            // Se in locale non troviamo nulla e siamo online, facciamo un pull mirato istantaneo per questo cliente
+            if (customerIdForCheck && customerIdForCheck !== 0 && customerIdForCheck !== '0') {
+                const hasLocal = allCustPkgs.some(cp => String(cp.customer_id) === String(customerIdForCheck));
+                if (!hasLocal && navigator.onLine && window.SUPABASE_CONFIG) {
+                    try {
+                        const res = await fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/customer_packages?customer_id=eq.${customerIdForCheck}&select=*`, {
+                            headers: {
+                                'apikey': window.SUPABASE_CONFIG.key,
+                                'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key
+                            }
+                        });
+                        if (res.ok) {
+                            const cloudPkgs = await res.json();
+                            if (Array.isArray(cloudPkgs)) {
+                                for (let cp of cloudPkgs) {
+                                    await localDb.customer_packages.put(cp);
+                                    allCustPkgs.push(cp);
+                                }
+                            }
+                        }
+                    } catch (netErr) {
+                        console.warn("Pull al volo customer_packages fallito:", netErr);
+                    }
+                }
+            }
+
+            // 2. Cerchiamo se questo cliente ha già questo pacchetto attivo (non saldato)
+            let activePkg = null;
+            if (customerIdForCheck && customerIdForCheck !== 0 && customerIdForCheck !== '0') {
+                activePkg = allCustPkgs.find(cp => {
+                    const matchCust = String(cp.customer_id).trim() === String(customerIdForCheck).trim();
+                    const matchPkg = String(cp.package_id).trim() === String(item.id).trim();
+                    const notFullyPaid = (cp.payment_status !== 'paid_full') || (parseFloat(cp.total_paid || 0) < parseFloat(cp.total_price || 0));
+                    return matchCust && matchPkg && notFullyPaid;
+                });
+            }
 
             let alreadyPaidTotal = activePkg ? (parseFloat(activePkg.total_paid) || 0) : 0;
             let packageTotalPrice = activePkg ? (parseFloat(activePkg.total_price) || item.price) : item.price;
             let maxAllowedPayment = Math.max(packageTotalPrice - alreadyPaidTotal, 0);
 
-            if (item.customPaidAmount === undefined) {
+            // 3. AGGANCIO DINAMICO AL CLIENTE SELEZIONATO
+            if (item.loadedForCustId !== String(customerIdForCheck || '')) {
                 item.customPaidAmount = maxAllowedPayment > 0 ? maxAllowedPayment : item.price;
+                item.customExpiryDate = (activePkg && activePkg.expiry_date) ? activePkg.expiry_date : new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+                item.loadedForCustId = String(customerIdForCheck || '');
             }
 
-            const currentPaidInputVal = item.customPaidAmount;
-            const currentExpiryVal = item.customExpiryDate || (activePkg && activePkg.expiry_date ? activePkg.expiry_date : new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]);
-            item.customExpiryDate = currentExpiryVal;
+            const currentPaidInputVal = item.customPaidAmount !== undefined ? item.customPaidAmount : maxAllowedPayment;
+            const currentExpiryVal = item.customExpiryDate;
 
+            // 4. Calcolo sedute totali e residue (con supporto array e stringa JSON)
             let totalSessionsSum = 0;
             let remainingSessionsSum = 0;
 
-            if (activePkg && Array.isArray(activePkg.sessions_state)) {
-                activePkg.sessions_state.forEach(s => {
-                    totalSessionsSum += (s.total || 0);
-                    remainingSessionsSum += (s.remaining || 0);
+            let sessionsList = [];
+            if (activePkg) {
+                if (Array.isArray(activePkg.sessions_state)) sessionsList = activePkg.sessions_state;
+                else if (typeof activePkg.sessions_state === 'string') {
+                    try { sessionsList = JSON.parse(activePkg.sessions_state); } catch(e) { sessionsList = []; }
+                }
+            }
+
+            if (sessionsList.length > 0) {
+                sessionsList.forEach(s => {
+                    totalSessionsSum += (parseInt(s.total) || 0);
+                    remainingSessionsSum += (parseInt(s.remaining) || 0);
                 });
             } else {
                 const allPkgItems = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-                const defs = allPkgItems.filter(it => String(it.package_id) === String(item.id));
+                const defs = allPkgItems.filter(it => String(it.package_id).trim() === String(item.id).trim());
                 defs.forEach(d => {
-                    totalSessionsSum += (d.total_sessions || 0);
-                    remainingSessionsSum += (d.total_sessions || 0);
+                    totalSessionsSum += (parseInt(d.total_sessions) || 0);
+                    remainingSessionsSum += (parseInt(d.total_sessions) || 0);
                 });
             }
 
-            const newTotalPaidAfterThis = alreadyPaidTotal + currentPaidInputVal;
+            const newTotalPaidAfterThis = alreadyPaidTotal + parseFloat(currentPaidInputVal || 0);
             const newRemainingToPay = Math.max(packageTotalPrice - newTotalPaidAfterThis, 0);
 
             packageDetailsHtml = `
                 <div style="margin-top: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 10px; font-size: 12px; line-height: 1.6; color: #1e293b;">
                     <div style="font-weight: bold; color: var(--p); margin-bottom: 6px; display:flex; justify-content:space-between;">
                         <span>🎁 Dettaglio Pacchetto / Rateale</span>
-                        <span style="font-size: 10px; background: ${activePkg ? '#fef3c7; color:#d97706' : '#dcfce7; color:#16a34a'}; padding: 2px 6px; border-radius: 4px;">${activePkg ? 'Rata su Pacchetto Esistente' : 'Nuova Attivazione'}</span>
+                        <span style="font-size: 10px; font-weight:bold; background: ${activePkg ? '#fef3c7; color:#d97706' : '#dcfce7; color:#16a34a'}; padding: 2px 6px; border-radius: 4px;">
+                            ${activePkg ? 'Rata su Pacchetto Esistente' : 'Nuova Attivazione'}
+                        </span>
                     </div>
 
                     <div style="margin-bottom: 4px;">📦 <b>Sedute:</b> Totali: <b>${totalSessionsSum}</b> | Residue: <b style="color:var(--p);">${remainingSessionsSum}</b></div>
                     <div style="margin-bottom: 4px;">💳 <b>Prezzo Listino Totale Pacchetto:</b> € ${packageTotalPrice.toFixed(2)}</div>
-                    <div style="margin-bottom: 4px;">💰 <b>Già Pagato in precedenza:</b> € ${alreadyPaidTotal.toFixed(2)}</div>
+                    <div style="margin-bottom: 4px;">💰 <b>Già Pagato in precedenza:</b> <b style="color: ${alreadyPaidTotal > 0 ? 'var(--s)' : '#64748b'};">€ ${alreadyPaidTotal.toFixed(2)}</b></div>
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; background: #e2e8f0; padding: 6px; border-radius: 6px;">
                         <span style="font-weight: bold;">Rata / Saldo in Pagamento Ora:</span>
@@ -12982,6 +13043,7 @@ async function renderCart() {
             `;
             unitCostOrPayout = 0;
         } else if (item.id) {
+            // Prodotti/Servizi standard (invariato)
             const productDb = allInventoryData.find(p => p.id === item.id);
             if (productDb) {
                 const phList = priceHistory.filter(ph => ph.product_id === productDb.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
@@ -13105,7 +13167,6 @@ async function renderCart() {
     container.innerHTML = html; 
     document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
     
-    // Aggiornamento sincronizzato footer mobile
     const mobileCountEl = document.getElementById('mobile-bar-count');
     const mobileTotalEl = document.getElementById('mobile-bar-total');
     const mobileBar = document.getElementById('pos-mobile-bar');
