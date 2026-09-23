@@ -1206,8 +1206,8 @@ async function handleSpecialAction(action, data, id) {
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
                     const discount = item.discount || 0;
-                     let soldPrice = item.price || 0; // 👈 Assicurati che sia 'let'
-                    let finalPrice = soldPrice - discount; // 👈 Assicurati che sia 'let'
+                    const soldPrice = item.price || 0;
+                    const finalPrice = soldPrice - discount;
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
@@ -1216,31 +1216,26 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
+                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO (Legge direttamente dal salon_revenue salvato nello scontrino)
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
                     const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
                     if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
+                        const currentPaidTrans = finalPrice; // L'importo pagato in questa specifica transazione (es. acconto rata o saldo)
                         
-                        // Determiniamo l'importo pagato in questa specifica transazione (finalPrice)
-                        const currentPaidTrans = finalPrice;
-                        const totalPkgPriceVal = parseFloat(matchingPkgCredit.total_price || currentPaidTrans) || currentPaidTrans;
+                        // Calcoliamo la somma totale delle allocazioni registrate nel pacchetto
+                        const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
 
                         for (const [sId, amountVal] of Object.entries(allocs)) {
-                            // Verifichiamo se l'allocazione nel DB è già proporzionale o se dobbiamo calcolarla sull'importo di questa transazione
-                            const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
-                            
-                            // Se le allocazioni salvate riflettono l'intero pacchetto ma questa è una rata, 
-                            // calcoliamo la quota proporzionale a quanto pagato oggi (currentPaidTrans)
                             let quotaTransazione = parseFloat(amountVal) || 0;
-                            if (Math.abs(totalAllocSum - totalPkgPriceVal) > 0.05 && totalPkgPriceVal > 0) {
-                                const salonPct = (parseFloat(amountVal) / totalAllocSum);
-                                quotaTransazione = currentPaidTrans * salonPct;
-                            } else if (Math.abs(totalAllocSum - totalPkgPriceVal) <= 0.05 && totalPkgPriceVal > 0 && Math.abs(currentPaidTrans - totalPkgPriceVal) > 0.05) {
-                                const salonPct = (parseFloat(amountVal) / totalPkgPriceVal);
-                                quotaTransazione = currentPaidTrans * salonPct;
+                            
+                            // Se l'allocazione memorizzata è riferita all'intero pacchetto ma questo è un acconto rateale parziale,
+                            // rapportiamo la quota all'effettivo importo pagato in questa transazione (currentPaidTrans)
+                            if (Math.abs(totalAllocSum - currentPaidTrans) > 0.05 && totalAllocSum > 0) {
+                                const salonShareRatio = quotaTransazione / totalAllocSum;
+                                quotaTransazione = currentPaidTrans * salonShareRatio;
                             }
 
                             const pctVal = currentPaidTrans > 0 ? ((quotaTransazione / currentPaidTrans) * 100).toFixed(0) : 0;
@@ -1249,21 +1244,10 @@ async function handleSpecialAction(action, data, id) {
                         
                         supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // Margine netto / Ricavo di competenza: esattamente la quota spettante a questo salone sulla rata pagata oggi
-                        const myAllocMap = matchingPkgCredit.revenue_allocations;
-                        let myQuotaTrans = parseFloat(myAllocMap[salonId]) || 0;
-                        const totalAllocSumCheck = Object.values(myAllocMap).reduce((a, b) => a + parseFloat(b || 0), 0);
-                        
-                        if (Math.abs(totalAllocSumCheck - totalPkgPriceVal) > 0.05 && totalPkgPriceVal > 0) {
-                            myQuotaTrans = currentPaidTrans * (myQuotaTrans / totalAllocSumCheck);
-                        } else if (totalPkgPriceVal > 0 && Math.abs(currentPaidTrans - totalPkgPriceVal) > 0.05) {
-                            myQuotaTrans = currentPaidTrans * (parseFloat(myAllocMap[salonId] || 0) / totalPkgPriceVal);
-                        }
-
-                        salonRevenue = myQuotaTrans > 0 ? myQuotaTrans : currentPaidTrans;
+                        // 🌟 REGOLA D'ORO: Legge direttamente il valore di competenza registrato nello scontrino (item.salon_revenue)
+                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : finalPrice;
                         unitCost = 0;
                         supplierPayout = 0;
-                    
                     
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
