@@ -1216,21 +1216,32 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO (Legge in modo storico/statico)
+                    // 🎁 VERIFICA SE È UN PACCHETTO MULTI-SALON VENDUTO
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
                     const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
                     if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
-                        const allocs = matchingPkgCredit.revenue_allocations;
+                        const allocs = matchingPkgCredit.snapshot_allocations || matchingPkgCredit.revenue_allocations;
+                        const totalPkgPriceVal = parseFloat(matchingPkgCredit.total_price || finalPrice) || finalPrice;
+
                         for (const [sId, amountVal] of Object.entries(allocs)) {
-                            splitDetailsArr.push(`<b>${sId}</b>: €${parseFloat(amountVal).toFixed(2)}`);
+                            const amtNum = parseFloat(amountVal) || 0;
+                            // Calcoliamo la percentuale inversa per mostrarla nel testo (es. 60%)
+                            const pctVal = totalPkgPriceVal > 0 ? ((amtNum / totalPkgPriceVal) * 100).toFixed(0) : 0;
+                            splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${amtNum.toFixed(2)}`);
                         }
-                        supplierDetailsText = `🧩 <b>Split Storico:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // Legge direttamente il valore congelato salvato nello scontrino
-                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : (allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : finalPrice);
+                        supplierDetailsText = `🧩 <b>Split Ricavi Multi-Salon:</b><br>${splitDetailsArr.join('<br>')}`;
+                        
+                        // 🌟 COERENZA COMMERCIALE: Il prezzo esposto nella riga è il totale pieno del pacchetto per entrambi i saloni
+                        soldPrice = totalPkgPriceVal;
+                        finalPrice = totalPkgPriceVal;
+
+                        // Il ricavo di competenza (salon_revenue) è rigorosamente la quota del rispettivo salone nello split
+                        salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : finalPrice;
                         unitCost = 0;
+                        supplierPayout = 0;
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
                             // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
