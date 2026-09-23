@@ -8731,17 +8731,22 @@ async function savePackageConfig() {
 async function deletePackage(id) {
     if (!confirm("Sei sicuro di voler eliminare questo pacchetto dal listino?\n\nNota: I clienti che lo hanno già acquistato manterranno regolarmente il loro credito sedute e lo storico delle vendite rimarrà intatto e blindato.")) return;
     
-    // Eliminiamo solo la configurazione di listino
-    await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
-    
-    // Gli item di configurazione collegati possono essere puliti o lasciati orfani senza impattare lo storico
-    const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-    for (let it of items.filter(i => i.package_id === id)) {
-        await window.universalQuery({ action: 'DELETE', table: 'package_items', id: it.id });
-    }
+    try {
+        // 1. Eliminazione dal DB locale e dal Cloud Supabase (packages_config)
+        await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
+        
+        // 2. Eliminazione degli item associati (package_items)
+        const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+        for (let it of items.filter(i => String(i.package_id) === String(id))) {
+            await window.universalQuery({ action: 'DELETE', table: 'package_items', id: it.id });
+        }
 
-    alert("✅ Pacchetto rimosso dal listino. Lo storico delle vendite e i crediti dei clienti sono rimasti al sicuro.");
-    renderPackages();
+        alert("✅ Pacchetto eliminato definitivamente dal listino e dal cloud.");
+        renderPackages();
+    } catch (err) {
+        console.error("Errore durante l'eliminazione del pacchetto:", err);
+        alert("Impossibile eliminare il pacchetto dal server.");
+    }
 }
 
     async function checkDuplicateAppointments() {
