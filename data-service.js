@@ -1216,23 +1216,20 @@ async function handleSpecialAction(action, data, id) {
                     let salonRevenue = finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO (Legge direttamente dal salon_revenue salvato nello scontrino)
+                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
                     const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
                     if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
-                        const currentPaidTrans = finalPrice; // L'importo pagato in questa specifica transazione (es. acconto rata o saldo)
+                        const currentPaidTrans = finalPrice; // L'importo pagato in questa specifica transazione (rata o saldo)
                         
-                        // Calcoliamo la somma totale delle allocazioni registrate nel pacchetto
                         const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
 
                         for (const [sId, amountVal] of Object.entries(allocs)) {
                             let quotaTransazione = parseFloat(amountVal) || 0;
                             
-                            // Se l'allocazione memorizzata è riferita all'intero pacchetto ma questo è un acconto rateale parziale,
-                            // rapportiamo la quota all'effettivo importo pagato in questa transazione (currentPaidTrans)
                             if (Math.abs(totalAllocSum - currentPaidTrans) > 0.05 && totalAllocSum > 0) {
                                 const salonShareRatio = quotaTransazione / totalAllocSum;
                                 quotaTransazione = currentPaidTrans * salonShareRatio;
@@ -1244,10 +1241,15 @@ async function handleSpecialAction(action, data, id) {
                         
                         supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // 🌟 REGOLA D'ORO: Legge direttamente il valore di competenza registrato nello scontrino (item.salon_revenue)
-                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : finalPrice;
+                        // 🌟 1. COERENZA PREZZO: Entrambi i saloni vedranno l'importo della transazione odierna (es. la rata di 50€)
+                        soldPrice = currentPaidTrans;
+                        finalPrice = currentPaidTrans;
+
+                        // 2. Margine netto basato sullo scontrino
+                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : currentPaidTrans;
                         unitCost = 0;
                         supplierPayout = 0;
+                    
                     
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
