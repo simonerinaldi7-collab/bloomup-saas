@@ -12174,7 +12174,10 @@ function urlBase64ToUint8Array(base64String) {
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-           // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
+            // 🌟 DEFINIAMO SUBITO finalPrice PER EVITARE QUALSIASI REFERENCE ERROR
+            const finalPrice = finalItemPrice;
+
+            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
             const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
             if (packageConfigId) {
@@ -12194,7 +12197,7 @@ function urlBase64ToUint8Array(base64String) {
                 const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
                 const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
                 
-                // 2. Calcolo dello Split Contabile Multi-Salon (Definito in cima per essere visibile ovunque nel blocco)
+                // 2. Calcolo dello Split Contabile Multi-Salon
                 let calculatedAllocations = {};
                 if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
                     const splitType = pkgConfig.revenue_splits.type || 'percent';
@@ -12296,51 +12299,10 @@ function urlBase64ToUint8Array(base64String) {
                     }
                 }
 
-                // Ai fini del bilancio e della cassa odierna, il registratore incassa l'importo pagato oggi (`paidNow`)
-                salonRevenue = paidNow;
+                salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalPrice;
                 unitCostUsed = 0;
                 supplierPayout = 0;
-            
-            
 
-                // E. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner
-                for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
-                    if (quotaVal <= 0) continue;
-                    if (targetSalonId === currentSalonId) continue; // Il currentSalonId usa la testata `saleId` appena creata sopra
-
-                    const partnerSaleId = crypto.randomUUID();
-                    const partnerSalePayload = {
-                        id: partnerSaleId,
-                        salon_id: targetSalonId,
-                        cust_id: finalCustId,
-                        appointment_id: linkedAppointmentId,
-                        total: quotaVal,
-                        date: nowObj.split(' ')[0],
-                        time: nowObj.split(' ')[1],
-                        payment_method: 'Contanti (Pacchetto Condiviso)',
-                        created_by: currentUser ? currentUser.username : 'Admin',
-                        updated_at: getNowLocal()
-                    };
-
-                    const partnerSaleItemPayload = {
-                        id: crypto.randomUUID(),
-                        salon_id: targetSalonId,
-                        sale_id: partnerSaleId,
-                        item_name: item.name || 'Pacchetto',
-                        qty: item.qty || 1,
-                        price: quotaVal,
-                        discount: 0,
-                        unit_cost: 0,
-                        supplier_payout: 0,
-                        salon_revenue: quotaVal,
-                        updated_at: getNowLocal()
-                    };
-
-                    if (localDb && localDb.sync_queue) {
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
-                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
-                    }
-                }
             } else {
                 // ... (gestione standard prodotti e servizi normali)
             
