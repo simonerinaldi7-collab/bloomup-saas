@@ -1206,8 +1206,8 @@ async function handleSpecialAction(action, data, id) {
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
                     const discount = item.discount || 0;
-                    const soldPrice = item.price || 0;
-                    const finalPrice = soldPrice - discount;
+                    let soldPrice = item.price || 0;
+                    let finalPrice = soldPrice - discount;
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
