@@ -11198,13 +11198,13 @@ async function saveInv() {
         if (serviceSplitPct <= 0) return alert("Inserisci una percentuale valida per il fornitore.");
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
     const nowTimestamp = new Date().toISOString();
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
     if (isNew) {
         let invData = { 
             id: targetId,
-            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+            salon_id: salonId,
             name: name, 
             type: type, 
             stock: 0, 
@@ -11224,7 +11224,7 @@ async function saveInv() {
 
         const historyData = {
             id: crypto.randomUUID(),
-            salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+            salon_id: salonId,
             product_id: targetId,
             cost: 0,
             price: Number(listingPrice) || 0,
@@ -11251,10 +11251,65 @@ async function saveInv() {
 
         await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: targetId });
 
-        // Gestione storico prezzi invariata...
+        // 🌟 GESTIONE STORICO PREZZI (Tracciamento variazioni prezzo di listino / costo)
+        const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: targetId }) || [];
+        const activeHistory = historyRecords.find(h => !h.date_to);
+
+        let currentCost = activeHistory ? (parseFloat(activeHistory.cost) || 0) : 0;
+        let oldPrice = activeHistory ? (parseFloat(activeHistory.price) || 0) : 0;
+
+        // Se il prezzo di listino è cambiato, chiudiamo il vecchio record e ne apriamo uno nuovo con il prezzo aggiornato
+        if (oldPrice !== Number(listingPrice)) {
+            if (activeHistory) {
+                await window.universalQuery({ 
+                    action: 'UPDATE', 
+                    table: 'price_history', 
+                    data: { date_to: nowTimestamp }, 
+                    id: activeHistory.id 
+                });
+            }
+
+            const newHistoryData = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                product_id: targetId,
+                cost: currentCost,
+                price: Number(listingPrice) || 0,
+                date_from: nowTimestamp,
+                date_to: null
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
+        }
     }
 
-    // Gestione link fornitori per prodotti fisici (multi-fornitore) invariata...
+    // 🌟 GESTIONE LINK FORNITORI MULTI-FORNITORE (Per prodotti fisici in conto vendita con più fornitori)
+    if (type === 'prodotto' && is_consignment) {
+        const rows = document.querySelectorAll('.supplier-split-row');
+        
+        // Rimuoviamo prima i vecchi collegamenti per questo prodotto
+        const existingLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        for (let l of existingLinks.filter(x => x.product_id === targetId)) {
+            await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: l.id });
+        }
+
+        // Inseriamo i nuovi collegamenti configurati nelle righe dinamiche
+        for (let row of rows) {
+            const suppId = row.querySelector('.row-supp-select').value;
+            const splitPct = parseFloat(row.row-supp-pct || row.querySelector('.row-supp-pct').value) || 0;
+            
+            if (suppId && splitPct > 0) {
+                const linkData = {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    product_id: targetId,
+                    supplier_id: suppId,
+                    split_pct: splitPct
+                };
+                await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
+            }
+        }
+    }
+
     alert("Anagrafica salvata con successo!");
     await refreshAllData(); 
     closeMod();
