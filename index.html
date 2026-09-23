@@ -11546,7 +11546,7 @@ function addManualItemToCart() {
    async function updateStats() {
     document.getElementById('st-c').innerText = allCustomers.length;
     
-    // KPI Appuntamenti reali (escluse pause e chiusure)
+    // 🎯 1. KPI PRINCIPALE: Totale generale appuntamenti reali in agenda (escluse pause e chiusure)
     const validAppointments = (allAppointments || []).filter(a => {
         const cust = (a.cust_name || '').toLowerCase();
         const srv = (a.service || '').toLowerCase();
@@ -11557,10 +11557,91 @@ function addManualItemToCart() {
 
     document.getElementById('st-a').innerText = validAppointments.length;
     
+    // 🌟 2. RIPRISTINO SOTTOTESTO PREDITTIVO: Appuntamenti del mese in corso ancora da saldare e stima incasso
+    try {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const currentYearMonth = todayStr.substring(0, 7); // 'YYYY-MM'
+
+        const currentSalonId = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+        // Vendite del salone per verificare gli appuntamenti già pagati in cassa
+        const allSalesData = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+        const salesData = allSalesData.filter(s => String(s.salon_id || '').trim().toLowerCase() === currentSalonId);
+        const paidAppointmentIds = new Set(salesData.filter(s => s.appointment_id).map(s => String(s.appointment_id)));
+
+        // Appuntamenti del MESE IN CORSO non ancora saldati
+        const currentMonthUnpaidAppointments = validAppointments.filter(a => {
+            const isThisMonth = a.date && a.date.startsWith(currentYearMonth);
+            const isAlreadyPaid = paidAppointmentIds.has(String(a.id));
+            return isThisMonth && !isAlreadyPaid;
+        });
+
+        const monthUnpaidCount = currentMonthUnpaidAppointments.length;
+        let estimatedMonthNetEarnings = 0; 
+        const inventory = allInventory || [];
+
+        for (let app of currentMonthUnpaidAppointments) {
+            if (app.service) {
+                const services = String(app.service).split(',').map(s => s.trim().toLowerCase());
+                for (let servName of services) {
+                    if (servName.includes('pausa') || servName.includes('pranzo')) continue;
+
+                    const product = inventory.find(p => p.name.trim().toLowerCase() === servName);
+                    if (product) {
+                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                        const listinoPieno = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(product.price) || 0);
+                        
+                        let salonSharePerService = listinoPieno;
+
+                        // Se è un servizio in conto vendita, sottrae la quota fornitore
+                        if (product.is_consignment && product.type === 'servizio') {
+                            const splitPct = parseFloat(product.consignment_split_pct) || 0;
+                            const supplierPayout = (listinoPieno * splitPct) / 100;
+                            salonSharePerService = listinoPieno - supplierPayout;
+                        }
+
+                        estimatedMonthNetEarnings += salonSharePerService;
+                    } else {
+                        estimatedMonthNetEarnings += (parseFloat(app.price) || 0);
+                    }
+                }
+            } else if (app.price && parseFloat(app.price) > 0) {
+                estimatedMonthNetEarnings += parseFloat(app.price);
+            }
+        }
+
+        // Inserimento o aggiornamento del sottotesto nella card KPI Appuntamenti
+        const appElement = document.getElementById('st-a');
+        if (appElement) {
+            const statCard = appElement.closest('.stat-card');
+            if (statCard) {
+                let subText = statCard.querySelector('.kpi-subtitle');
+                if (!subText) {
+                    subText = document.createElement('div');
+                    subText.className = 'kpi-subtitle';
+                    subText.style.cssText = "font-size: 11px; margin-top: 6px; font-weight: 600; line-height: 1.4;";
+                    statCard.appendChild(subText);
+                }
+
+                if (monthUnpaidCount > 0) {
+                    subText.innerHTML = `Mese in corso: <b style="color:var(--s);">${monthUnpaidCount} da saldare</b><br>Incasso stimato: <b style="color:var(--p);">€ ${estimatedMonthNetEarnings.toFixed(2)}</b>`;
+                    subText.style.display = 'block';
+                } else {
+                    subText.innerHTML = `Mese in corso: <b style="color:var(--s);">Tutto saldato! 🚀</b>`;
+                    subText.style.display = 'block';
+                }
+            }
+        }
+    } catch (subErr) {
+        console.warn("Errore calcolo sottotesto KPI appuntamenti:", subErr);
+    }
+    
+    // KPI Prodotti Sottosoglia
     const lowStockCount = allInventory.filter(p => p.type === 'prodotto' && p.stock <= p.min_stock).length;
     document.getElementById('st-i').innerText = lowStockCount;
     
-    // 🌟 CALCOLO INCASSO MESE CORRENTE E PRECEDENTE (SOLO QUOTE DI COMPETENZA SALONE)
+    // 🌟 3. CALCOLO INCASSO MESE CORRENTE E PRECEDENTE (SOLO QUOTA COMPETENZA SALONE)
     let currentMonthRevenue = 0;
     let previousMonthRevenue = 0;
 
@@ -11589,7 +11670,7 @@ function addManualItemToCart() {
             const saleMonth = sale.date.substring(0, 7);
             if (saleMonth !== currentYearMonth && saleMonth !== prevYearMonth) continue;
 
-            // 🌟 Quota reale di competenza del salone (pacchetti, CV prodotti, CV servizi)
+            // Quota di competenza reale del salone (Pacchetti, CV, Servizi)
             const salonShare = computeItemSalonCompetence(si, sale.date, inventory, productSuppliers, priceHistory);
 
             if (saleMonth === currentYearMonth) {
