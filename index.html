@@ -8729,23 +8729,33 @@ async function savePackageConfig() {
 }
 
 async function deletePackage(id) {
-    if (!confirm("Sei sicuro di voler eliminare questo pacchetto dal listino?\n\nNota: I clienti che lo hanno già acquistato manterranno regolarmente il loro credito sedute e lo storico delle vendite rimarrà intatto e blindato.")) return;
-    
     try {
-        // 1. Eliminazione dal DB locale e dal Cloud Supabase (packages_config)
-        await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
+        // 1. Verifichiamo se qualche cliente ha già acquistato questo pacchetto
+        const allCustomerPkgs = await window.universalQuery({ action: 'GET_ALL', table: 'customer_packages' }) || [];
+        const hasBeenPurchased = allCustomerPkgs.some(cp => String(cp.package_id) === String(id));
+
+        if (hasBeenPurchased) {
+            alert("⚠️ Impossibile eliminare questo pacchetto:\n\nRisultano clienti che lo hanno già acquistato. Per preservare lo storico contabile, dei report e dei crediti attivi, i pacchetti con vendite associate non possono essere rimossi.");
+            return;
+        }
+
+        if (!confirm("Sei sicuro di voler eliminare questo pacchetto dal listino?")) return;
         
-        // 2. Eliminazione degli item associati (package_items)
+        // 2. Prima eliminiamo tutti gli item di configurazione associati (package_items) sia in locale che sul cloud
         const items = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
         for (let it of items.filter(i => String(i.package_id) === String(id))) {
             await window.universalQuery({ action: 'DELETE', table: 'package_items', id: it.id });
         }
 
-        alert("✅ Pacchetto eliminato definitivamente dal listino e dal cloud.");
+        // 3. Adesso possiamo eliminare la configurazione principale (packages_config) senza conflitti 409
+        await window.universalQuery({ action: 'DELETE', table: 'packages_config', id: id });
+
+        alert("✅ Pacchetto eliminato con successo.");
         renderPackages();
+
     } catch (err) {
         console.error("Errore durante l'eliminazione del pacchetto:", err);
-        alert("Impossibile eliminare il pacchetto dal server.");
+        alert(`Impossibile eliminare il pacchetto: ${err.message || 'Errore di server'}`);
     }
 }
 
