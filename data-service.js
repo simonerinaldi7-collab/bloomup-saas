@@ -901,43 +901,57 @@ async function handleSpecialAction(action, data, id) {
 
         
        // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Con supporto articoli manuali) ---
-       // --- 2. GET_MARGIN_INSIGHTS (PWA / IndexedDB - Aggiornato con supporto Servizi in Conto Vendita) ---
+       // --- 2. GET_MARGIN_INSIGHTS (Allineato con Quota di Competenza Pacchetti) ---
         if (action === 'GET_MARGIN_INSIGHTS') {
             const startDate = data?.startDate || '1900-01-01';
             const endDate = data?.endDate || '2099-12-31';
 
-            const sales = await localDb.sales.where('salon_id').equals(salonId).toArray();
+            const currentSalonRaw = currentUser ? currentUser.salon_id : 'SALON_001';
+            const salonId = String(currentSalonRaw).trim().toLowerCase();
+
+            const allSales = await localDb.sales.toArray() || [];
+            const sales = allSales.filter(s => String(s.salon_id || '').trim().toLowerCase() === salonId);
             const salesInRange = sales.filter(s => s.date >= startDate && s.date <= endDate);
-            const salesIds = salesInRange.map(s => s.id);
+            const salesIds = new Set(salesInRange.map(s => String(s.id)));
 
-            const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray();
+            const allSaleItems = await localDb.sale_items.toArray() || [];
+            const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === salonId);
             
-            // 🛑 Escludiamo il fatturato storico fittizio dalle analisi
-            const filteredItems = saleItems.filter(si => salesIds.includes(si.sale_id) && si.item_name !== 'Fatturato Storico / Chiusura');
+            // Escludiamo il fatturato storico fittizio
+            const filteredItems = saleItems.filter(si => salesIds.has(String(si.sale_id)) && si.item_name !== 'Fatturato Storico / Chiusura');
 
-            const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray();
-            const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.where('salon_id').equals(salonId).toArray() : [];
-            const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
-            const allLots = (await localDb.stock_lots.where('salon_id').equals(salonId).toArray()) || [];
-            const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
+            const inventory = (await localDb.inventory.toArray() || []).filter(i => String(i.salon_id || '').trim().toLowerCase() === salonId);
+            const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.toArray() : [];
+            const allConsumables = (await localDb.service_consumables.toArray()) || [];
+            const allLots = (await localDb.stock_lots.toArray()) || [];
+            const priceHistory = (await localDb.price_history.toArray()) || [];
 
             const margins = {};
 
             filteredItems.forEach(si => {
+                const isPackage = (si.item_name || '').toLowerCase().includes('pacchetto');
                 const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
                 
                 const soldPrice = parseFloat(si.price) || 0;
                 const discount = parseFloat(si.discount) || 0;
                 const itemQty = parseFloat(si.qty) || 1;
                 const finalRev = (soldPrice - discount) * itemQty;
-                const saleDate = sales.find(s => s.id === si.sale_id)?.date || new Date().toISOString().split('T')[0];
+                const saleDate = sales.find(s => String(s.id) === String(si.sale_id))?.date || new Date().toISOString().split('T')[0];
 
                 let totalCostOrPayout = 0;
+                let effectiveRevenue = finalRev;
 
-                if (inv) {
+                if (isPackage) {
+                    // 🌟 PER I PACCHETTI: Il ricavo e il margine di competenza del salone è SEMPRE la quota di competenza (salon_revenue)
+                    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+                        effectiveRevenue = parseFloat(si.salon_revenue) * itemQty;
+                    } else {
+                        effectiveRevenue = finalRev;
+                    }
+                    totalCostOrPayout = 0; // Nessun costo vivo d'acquisto merci sul pacchetto
+                } else if (inv) {
                     if (inv.type === 'servizio') {
                         if (inv.is_consignment) {
-                            // 💶 SE È UN SERVIZIO IN CONTO VENDITA: Il "costo" per il salone è la quota fornitore salvata nello scontrino o ricalcolata
                             if (si.supplier_payout !== undefined && si.supplier_payout !== null && !isNaN(si.supplier_payout)) {
                                 totalCostOrPayout = parseFloat(si.supplier_payout) * itemQty;
                             } else {
@@ -957,7 +971,6 @@ async function handleSpecialAction(action, data, id) {
                                 totalCostOrPayout = calculatedPayout * itemQty;
                             }
                         } else {
-                            // ✂️ SE È UN SERVIZIO STANDARD: Sommiamo il costo FIFO dei materiali consumabili associati
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
 
@@ -982,7 +995,6 @@ async function handleSpecialAction(action, data, id) {
                         }
 
                     } else if (inv.is_consignment) {
-                        // 💶 PRODOTTO IN CONTO VENDITA
                         const links = productSuppliers.filter(l => l.product_id === inv.id);
                         let totalPct = 0;
                         if (links.length > 0) {
@@ -993,7 +1005,6 @@ async function handleSpecialAction(action, data, id) {
                         const unitPayout = (soldPrice * totalPct) / 100;
                         totalCostOrPayout = unitPayout * itemQty;
                     } else {
-                        // 💰 PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                         const unitCost = (si.unit_cost !== undefined && si.unit_cost !== null && !isNaN(si.unit_cost) && parseFloat(si.unit_cost) > 0) 
                             ? parseFloat(si.unit_cost) 
                             : (priceHistory.find(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to))?.cost || 0);
@@ -1001,40 +1012,43 @@ async function handleSpecialAction(action, data, id) {
                         totalCostOrPayout = unitCost * itemQty;
                     }
                 } else {
-                    // Fallback se l'articolo è manuale / fuori catalogo
                     const unitCost = parseFloat(si.unit_cost) || 0;
                     totalCostOrPayout = unitCost * itemQty;
                 }
 
-                const totalMargin = finalRev - totalCostOrPayout;
+                const totalMargin = isPackage ? effectiveRevenue : (effectiveRevenue - totalCostOrPayout);
                 const itemNameKey = si.item_name || 'Articolo';
 
                 if (!margins[itemNameKey]) {
                     margins[itemNameKey] = { item_name: itemNameKey, total_sold: 0, total_revenue: 0, total_cost: 0, total_margin: 0 };
                 }
                 margins[itemNameKey].total_sold += itemQty;
-                margins[itemNameKey].total_revenue += finalRev;
+                margins[itemNameKey].total_revenue += effectiveRevenue; // 👈 Conteggia la sola quota di spettanza del salone
                 margins[itemNameKey].total_cost += totalCostOrPayout;
-                margins[itemNameKey].total_margin += totalMargin;
+                margins[itemNameKey].total_margin += totalMargin;       // 👈 Margine netto conforme alla quota reale
             });
 
-            return Object.values(margins).sort((a, b) => a.total_margin - b.total_margin);
+            return Object.values(margins).sort((a, b) => b.total_margin - a.total_margin);
         }
 
-        // --- 3. GET_MONTHLY_BALANCE ---
+        // --- 3. GET_MONTHLY_BALANCE (Incasso Netto di Competenza per Salone) ---
         if (action === 'GET_MONTHLY_BALANCE') {
-            const sales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
-            const saleItems = await localDb.sale_items.where('salon_id').equals(salonId).toArray() || [];
-            const inventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
-            const priceHistory = await localDb.price_history.where('salon_id').equals(salonId).toArray() || [];
-            const productSuppliers = localDb.product_suppliers ? await localDb.product_suppliers.where('salon_id').equals(salonId).toArray() : [];
-            const expenses = await localDb.expenses.where('salon_id').equals(salonId).toArray() || [];
+            const currentSalonRaw = currentUser ? currentUser.salon_id : 'SALON_001';
+            const salonId = String(currentSalonRaw).trim().toLowerCase();
+
+            const allSales = await localDb.sales.toArray() || [];
+            const sales = allSales.filter(s => String(s.salon_id || '').trim().toLowerCase() === salonId);
+
+            const allSaleItems = await localDb.sale_items.toArray() || [];
+            const saleItems = allSaleItems.filter(si => String(si.salon_id || '').trim().toLowerCase() === salonId);
+
+            const inventory = (await localDb.inventory.toArray() || []).filter(i => String(i.salon_id || '').trim().toLowerCase() === salonId);
+            const expenses = (await localDb.expenses.toArray() || []).filter(e => String(e.salon_id || '').trim().toLowerCase() === salonId);
 
             const monthlyMap = {};
 
-            // 1. Calcoliamo gli INCASSI DI COMPETENZA DEL NEGOZIO (Prezzo - Sconto - Quota Fornitore se in CV)
             saleItems.forEach(si => {
-                const sale = sales.find(s => s.id === si.sale_id);
+                const sale = sales.find(s => String(s.id) === String(si.sale_id));
                 if (!sale || !sale.date) return;
 
                 const mLabel = sale.date.substring(0, 7); // 'YYYY-MM'
@@ -1042,52 +1056,48 @@ async function handleSpecialAction(action, data, id) {
                     monthlyMap[mLabel] = { m_label: mLabel, salon_revenue: 0, total_expenses: 0 };
                 }
 
-                const soldPrice = si.price || 0;
-                const discount = si.discount || 0;
+                const soldPrice = parseFloat(si.price) || 0;
+                const discount = parseFloat(si.discount) || 0;
                 const finalGrossRev = (soldPrice - discount) * (si.qty || 1);
 
                 const inv = inventory.find(i => i.name.toLowerCase() === (si.item_name || '').toLowerCase());
                 let salonShare = finalGrossRev;
 
-                if (inv && inv.is_consignment) {
-                    // 🌟 SE IL DATABASE HA SALNATO IL RICAVO NETTO DI COMPETENZA DEL SALONE NELLO SCONTRINO, USIAMOLO DIRETTAMENTE!
-                    if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
-                        salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
-                    } else {
-                        // Fallback di calcolo per vecchi dati storici
-                        const splitPct = parseFloat(inv.consignment_split_pct) || 0;
-                        const rule = inv.discount_absorption || 'salon';
-                        const listinoPieno = soldPrice;
-                        const basePayout = (listinoPieno * splitPct) / 100;
-                        let supplierPayout = basePayout;
+                // 🌟 REGOLA PRIORITARIA: Se la riga riporta salon_revenue (pacchetti, conto vendita o split), usiamo SEMPRE quella!
+                if (si.salon_revenue !== undefined && si.salon_revenue !== null && !isNaN(si.salon_revenue)) {
+                    salonShare = parseFloat(si.salon_revenue) * (si.qty || 1);
+                } else if (inv && inv.is_consignment) {
+                    const splitPct = parseFloat(inv.consignment_split_pct) || 0;
+                    const rule = inv.discount_absorption || 'salon';
+                    const listinoPieno = soldPrice;
+                    const basePayout = (listinoPieno * splitPct) / 100;
+                    let supplierPayout = basePayout;
 
-                        if (rule === 'supplier') {
-                            const salonShareFull = listinoPieno * (1 - (splitPct / 100));
-                            supplierPayout = finalGrossRev - salonShareFull;
-                        } else if (rule === 'split') {
-                            supplierPayout = basePayout - (discount / 2);
-                        }
-                        salonShare = finalGrossRev - supplierPayout;
+                    if (rule === 'supplier') {
+                        const salonShareFull = listinoPieno * (1 - (splitPct / 100));
+                        supplierPayout = finalGrossRev - salonShareFull;
+                    } else if (rule === 'split') {
+                        supplierPayout = basePayout - (discount / 2);
                     }
+                    salonShare = finalGrossRev - supplierPayout;
                 }
 
                 monthlyMap[mLabel].salon_revenue += salonShare;
             });
 
-            // 2. Aggiungiamo le spese vive registrate (spese fisse + carichi merce di proprietà)
+            // Aggiunta spese vive
             expenses.forEach(e => {
                 if (!e.date) return;
                 const mLabel = e.date.substring(0, 7);
                 if (!monthlyMap[mLabel]) {
-                    monthlyMap[mLabel] = { m_label: mLabel, gross_revenue: 0, total_expenses: 0 };
+                    monthlyMap[mLabel] = { m_label: mLabel, salon_revenue: 0, total_expenses: 0 };
                 }
                 monthlyMap[mLabel].total_expenses += parseFloat(e.amount || 0);
             });
 
-            // 3. Restituiamo l'array formattato per il frontend
             return Object.values(monthlyMap).map(m => ({
                 m_label: m.m_label,
-                revenue: m.salon_revenue,         // 👈 Incasso netto di competenza del salone
+                revenue: m.salon_revenue,
                 total_expenses: m.total_expenses
             })).sort((a, b) => b.m_label.localeCompare(a.m_label));
         }
