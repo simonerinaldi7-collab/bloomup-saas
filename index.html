@@ -12143,16 +12143,27 @@ function urlBase64ToUint8Array(base64String) {
         }
     }
 
-   async function completeSale() { 
+  async function completeSale() { 
     if(!cart.length) return alert("Carrello vuoto!"); 
     
+    // 🌟 1. Calcolo esatto dei prezzi effettivi (per i pacchetti usa paidNow / customPaidAmount)
     const cartWithDiscounts = cart.map(item => {
         const val = item.discountVal || 0;
         const discountAmount = item.discountType === 'percent' ? (item.price * val / 100) : val;
-        return { ...item, discountAmount: discountAmount };
+        
+        let transPrice = item.price - discountAmount;
+        if (item.isPackage) {
+            transPrice = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : (item.price - discountAmount);
+        }
+
+        return { 
+            ...item, 
+            discountAmount: discountAmount,
+            transPrice: transPrice
+        };
     });
 
-    const total = cartWithDiscounts.reduce((s, i) => s + (i.price - i.discountAmount), 0); 
+    const total = cartWithDiscounts.reduce((s, i) => s + i.transPrice, 0); 
     const nowObj = getNowLocal(); 
     
     let finalCustId = currentCheckoutCustomer?.id;
@@ -12168,13 +12179,13 @@ function urlBase64ToUint8Array(base64String) {
     const linkedAppointmentId = currentCheckoutAppointmentId || null;
     const currentSalonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
-    // 1. Creazione della testata sales principale per il salone corrente
+    // 2. Creazione della testata sales con il TOTALE EFFETTIVAMENTE INCASSATO OGGI
     const res = await window.api.query({ 
         action:'INSERT', table:'sales', 
         data: { 
             cust_id: finalCustId || null, 
             appointment_id: linkedAppointmentId, 
-            total: total, 
+            total: total, // 👈 Importo reale incassato (es. la rata di 50€, non 200€)
             date: nowObj.split(' ')[0], 
             time: nowObj.split(' ')[1], 
             payment_method: 'Contanti', 
@@ -12191,12 +12202,9 @@ function urlBase64ToUint8Array(base64String) {
     for(let item of cartWithDiscounts) { 
         let unitCostUsed = 0;
         let supplierPayout = 0;
-        let finalItemPrice = item.price - (item.discountAmount || 0);
+        let finalItemPrice = item.transPrice; // 👈 Importo transazione per questa riga
         let salonRevenue = finalItemPrice;
 
-        const finalPrice = finalItemPrice;
-
-        // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
         const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
         if (packageConfigId) {
@@ -12205,38 +12213,39 @@ function urlBase64ToUint8Array(base64String) {
                 throw new Error("Cliente mancante per pacchetto");
             }
 
-            const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalPrice;
+            const packageFullPrice = item.price - (item.discountAmount || 0);
+            const paidNow = finalItemPrice; // La quota pagata ora (es. 50€)
             const manualExpiryDate = item.customExpiryDate || null;
 
-            // 1. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
+            // 1. Configurazioni pacchetto e split
             const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
             const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
             
             const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
             const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
             
-            // 2. Calcolo dello Split Contabile Multi-Salon Proporzionale
+            // 2. Calcolo dello split proporzionale sulla RATA PAGATA ORA (paidNow)
             let calculatedAllocations = {};
             if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
                 const splitType = pkgConfig.revenue_splits.type || 'percent';
                 const allocations = pkgConfig.revenue_splits.allocations;
-                const totalPkgPrice = finalPrice;
 
                 for (const [sId, val] of Object.entries(allocations)) {
-                    let totalSalonShare = 0;
+                    let salonShare = 0;
                     if (splitType === 'percent') {
-                        totalSalonShare = (totalPkgPrice * parseFloat(val)) / 100;
+                        salonShare = (paidNow * parseFloat(val)) / 100;
                     } else {
-                        totalSalonShare = parseFloat(val) || 0;
+                        const totalConfigVal = Object.values(allocations).reduce((a, b) => a + parseFloat(b || 0), 0);
+                        const ratio = totalConfigVal > 0 ? (parseFloat(val) / totalConfigVal) : 0;
+                        salonShare = paidNow * ratio;
                     }
-                    const ratio = totalPkgPrice > 0 ? (paidNow / totalPkgPrice) : 0;
-                    calculatedAllocations[sId] = totalSalonShare * ratio;
+                    calculatedAllocations[sId] = salonShare;
                 }
             } else {
                 calculatedAllocations[currentSalonId] = paidNow;
             }
 
-            // 3. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo
+            // 3. Aggiornamento o Creazione del Portafoglio Pacchetto Cliente (customer_packages)
             const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
             let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
 
@@ -12271,7 +12280,7 @@ function urlBase64ToUint8Array(base64String) {
                     remaining: it.total_sessions
                 }));
 
-                const paymentStatus = paidNow >= finalPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
+                const paymentStatus = paidNow >= packageFullPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
 
                 const customerPackagePayload = {
                     id: crypto.randomUUID(),
@@ -12280,7 +12289,7 @@ function urlBase64ToUint8Array(base64String) {
                     package_id: packageConfigId,
                     sessions_state: sessionsStateArray,
                     total_paid: paidNow, 
-                    total_price: finalPrice, 
+                    total_price: packageFullPrice, 
                     payment_status: paymentStatus, 
                     revenue_allocations: calculatedAllocations,
                     expiry_date: manualExpiryDate, 
@@ -12290,7 +12299,7 @@ function urlBase64ToUint8Array(base64String) {
                 await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
             }
 
-            // 4. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner nello split
+            // 4. Creazione delle mirror sales isolate per i saloni partner
             for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
                 if (quotaVal <= 0) continue;
                 if (targetSalonId === currentSalonId) continue; 
@@ -12323,7 +12332,17 @@ function urlBase64ToUint8Array(base64String) {
                     updated_at: getNowLocal()
                 };
 
-                if (localDb && localDb.sync_queue) {
+                await localDb.sales.put(partnerSalePayload);
+                await localDb.sale_items.put(partnerSaleItemPayload);
+
+                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                    const okSale = await sendToCloudDirectly('POST', 'sales', partnerSalePayload);
+                    const okItem = await sendToCloudDirectly('POST', 'sale_items', partnerSaleItemPayload);
+                    if (!okSale || !okItem) {
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
+                    }
+                } else if (localDb && localDb.sync_queue) {
                     await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
                     await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
                 }
@@ -12334,9 +12353,8 @@ function urlBase64ToUint8Array(base64String) {
             supplierPayout = 0;
 
         } else {
-            // Gestione standard Prodotti e Servizi esistenti
+            // Prodotti e Servizi standard
             const productDb = item.id ? allInventory.find(p => p.id === item.id) : null;
-
             if (productDb) { 
                 if (productDb.is_consignment && productDb.type === 'servizio') {
                     const listinoPieno = item.price || 0;
@@ -12357,7 +12375,6 @@ function urlBase64ToUint8Array(base64String) {
                         supplierPayout = baseSupplierPayout;
                         salonRevenue = finalItemPrice - supplierPayout;
                     }
-
                     unitCostUsed = 0;
 
                 } else if (productDb.is_consignment && productDb.type === 'prodotto') {
@@ -12373,11 +12390,7 @@ function urlBase64ToUint8Array(base64String) {
                         if (qtyToProcess <= 0) break;
                         const takeFromLot = Math.min(lot.qty_remaining, qtyToProcess);
                         let lotSplits = [];
-                        try {
-                            lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : [];
-                        } catch (e) {
-                            lotSplits = [];
-                        }
+                        try { lotSplits = lot.supplier_splits ? JSON.parse(lot.supplier_splits) : []; } catch (e) {}
 
                         let lotPayoutForOneUnit = 0;
                         if (lotSplits.length > 0) {
@@ -12472,11 +12485,11 @@ function urlBase64ToUint8Array(base64String) {
             sale_id: saleId, 
             item_name: item.name || 'Voce Manuale', 
             qty: item.qty || 1, 
-            price: item.price || 0,
-            discount: item.discountAmount || 0,
+            price: packageConfigId ? paidNow : (item.price || 0), // 👈 Salva la rata effettiva incassata!
+            discount: packageConfigId ? 0 : (item.discountAmount || 0),
             unit_cost: unitCostUsed,
             supplier_payout: supplierPayout,
-            salon_revenue: packageConfigId ? salonRevenue : salonRevenue
+            salon_revenue: salonRevenue
         };
 
         await window.universalQuery({ 
@@ -12497,7 +12510,7 @@ function urlBase64ToUint8Array(base64String) {
     
     currentCheckoutAppointmentId = null;
 
-    alert("Pagato e stock aggiornato!"); 
+    alert("Pagamento registrato con successo!"); 
     await resetCassa(); 
     await refreshAllData(); 
     
@@ -12850,8 +12863,10 @@ async function sendAIQuery() {
 
 
 function updatePackageCartPayment(index, field, val) {
+    if (!cart[index]) return;
     if (field === 'paid') {
-        cart[index].customPaidAmount = Math.min(Math.max(parseFloat(val) || 0, 0), cart[index].price);
+        const enteredVal = parseFloat(val) || 0;
+        cart[index].customPaidAmount = Math.max(enteredVal, 0.01);
     }
     if (field === 'expiry') {
         cart[index].customExpiryDate = val;
@@ -12861,14 +12876,12 @@ function updatePackageCartPayment(index, field, val) {
 
     
 async function renderCart() { 
-    console.log("Stato carrello attuale:", cart); 
     let total = 0; 
     const container = document.getElementById('cart-items');
     if (!container) return;
     
     let html = "";
     
-    // Recuperiamo tutte le dipendenze di magazzino necessarie per il calcolo dei costi e delle quote CV
     const allInventoryData = allInventory || [];
     const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
     const allServiceConsumables = await window.universalQuery({ action: 'GET_ALL', table: 'service_consumables' }) || [];
@@ -12880,11 +12893,15 @@ async function renderCart() {
         const item = cart[i];
         const discVal = item.discountVal || 0;
         const discType = item.discountType || 'euro';
-        const discountAmount = discType === 'percent' ? (item.price * val / 100) : discVal;
-        const finalPrice = item.price - discountAmount;
+        const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
+        
+        // 🌟 Per i pacchetti, l'importo da pagare ORA è la rata/saldo inserita
+        let finalPrice = item.price - discountAmount;
+        if (item.isPackage) {
+            finalPrice = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : (item.price - discountAmount);
+        }
         total += finalPrice; 
 
-        // 🎁 GESTIONE SPECIFICA PACCHETTO NEL CARRELLO (Rateale, Storico e Scadenza)
         let packageDetailsHtml = '';
         let unitCostOrPayout = 0;
         let isConsignment = false;
@@ -12893,25 +12910,21 @@ async function renderCart() {
         if (item.isPackage && item.id) {
             const customerIdForCheck = currentCheckoutCustomer?.id;
             
-            // Recuperiamo i pacchetti del cliente direttamente dalla tabella locale
             let existingCustPkgs = [];
             if (customerIdForCheck && localDb && localDb.customer_packages) {
                 try {
                     existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(String(customerIdForCheck)).toArray() || [];
-                } catch (e) {
-                    existingCustPkgs = [];
-                }
+                } catch (e) { existingCustPkgs = []; }
             }
             
-            // Troviamo un pacchetto dello stesso tipo non ancora saldato del tutto
             const activePkg = existingCustPkgs.find(cp => String(cp.package_id) === String(item.id) && cp.payment_status !== 'paid_full');
 
             let alreadyPaidTotal = activePkg ? (parseFloat(activePkg.total_paid) || 0) : 0;
-            let packageTotalPrice = activePkg ? (parseFloat(activePkg.total_price) || finalPrice) : finalPrice;
+            let packageTotalPrice = activePkg ? (parseFloat(activePkg.total_price) || item.price) : item.price;
             let maxAllowedPayment = Math.max(packageTotalPrice - alreadyPaidTotal, 0);
 
-            if (item.customPaidAmount === undefined || item.customPaidAmount > maxAllowedPayment) {
-                item.customPaidAmount = maxAllowedPayment > 0 ? maxAllowedPayment : finalPrice;
+            if (item.customPaidAmount === undefined) {
+                item.customPaidAmount = maxAllowedPayment > 0 ? maxAllowedPayment : item.price;
             }
 
             const currentPaidInputVal = item.customPaidAmount;
@@ -12946,14 +12959,14 @@ async function renderCart() {
                     </div>
 
                     <div style="margin-bottom: 4px;">📦 <b>Sedute:</b> Totali: <b>${totalSessionsSum}</b> | Residue: <b style="color:var(--p);">${remainingSessionsSum}</b></div>
-                    <div style="margin-bottom: 4px;">💳 <b>Prezzo Listino Pacchetto:</b> € ${packageTotalPrice.toFixed(2)}</div>
+                    <div style="margin-bottom: 4px;">💳 <b>Prezzo Listino Totale Pacchetto:</b> € ${packageTotalPrice.toFixed(2)}</div>
                     <div style="margin-bottom: 4px;">💰 <b>Già Pagato in precedenza:</b> € ${alreadyPaidTotal.toFixed(2)}</div>
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; background: #e2e8f0; padding: 6px; border-radius: 6px;">
                         <span style="font-weight: bold;">Rata / Saldo in Pagamento Ora:</span>
-                        <input type="number" step="0.01" value="${currentPaidInputVal}" max="${maxAllowedPayment}" min="0.01" 
+                        <input type="number" step="0.01" value="${currentPaidInputVal}" min="0.01" 
                             onchange="updatePackageCartPayment(${i}, 'paid', this.value)" 
-                            style="width: 90px; padding: 4px; font-size: 12px; text-align: right; font-weight: bold; background: white; margin: 0; border: 1px solid var(--p);">
+                            style="width: 90px; padding: 4px; font-size: 12px; text-align: right; font-weight: bold; background: white; margin: 0; border: 1.5px solid var(--p); border-radius: 6px;">
                     </div>
 
                     <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">
@@ -12969,7 +12982,7 @@ async function renderCart() {
                 </div>
             `;
             unitCostOrPayout = 0;
-        } else  if (item.id) {
+        } else if (item.id) {
             const productDb = allInventoryData.find(p => p.id === item.id);
             if (productDb) {
                 const phList = priceHistory.filter(ph => ph.product_id === productDb.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
@@ -12978,23 +12991,15 @@ async function renderCart() {
                 if (productDb.type === 'servizio') {
                     isConsignment = productDb.is_consignment;
                     if (isConsignment) {
-                        // ✂️💶 SERVIZIO IN CONTO VENDITA (Con logica di assorbimento sconto)
                         const splitPct = parseFloat(productDb.consignment_split_pct) || 0;
                         const currentRule = item.discountAbsorption || productDb.discount_absorption || 'salon';
-                        
                         const basePayout = (listinoPienoOriginale * splitPct) / 100;
                         const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
 
-                        if (currentRule === 'supplier') {
-                            unitCostOrPayout = finalPrice - salonShareFull;
-                        } else if (currentRule === 'split') {
-                            unitCostOrPayout = basePayout - (discountAmount / 2);
-                        } else {
-                            // 'salon'
-                            unitCostOrPayout = basePayout;
-                        }
+                        if (currentRule === 'supplier') unitCostOrPayout = finalPrice - salonShareFull;
+                        else if (currentRule === 'split') unitCostOrPayout = basePayout - (discountAmount / 2);
+                        else unitCostOrPayout = basePayout;
 
-                        // Selettore visivo in cassa per cambiare la regola d'assorbimento al volo
                         discountAbsorptionSelectorHtml = `
                             <div style="margin-top: 6px; background: #fffbeb; border: 1px solid #fde68a; padding: 6px 8px; border-radius: 6px;">
                                 <small style="font-size: 9px; color: #b45309; font-weight: bold; display: block; margin-bottom: 2px;">ASSORBIMENTO SCONTO CV:</small>
@@ -13006,14 +13011,11 @@ async function renderCart() {
                             </div>
                         `;
                     } else {
-                        // ✂️ SERVIZIO STANDARD (Costo FIFO materiali consumabili)
                         const serviceCons = allServiceConsumables.filter(sc => sc.service_id === productDb.id);
                         let totalConsumablesCost = 0;
-
                         for (let sc of serviceCons) {
                             const consumedProd = allInventoryData.find(p => p.id === sc.product_id);
                             const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
                             if (consumedProd) {
                                 const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
                                 let unitCost = 0;
@@ -13029,18 +13031,13 @@ async function renderCart() {
                         }
                         unitCostOrPayout = totalConsumablesCost;
                     }
-
                 } else {
-                    // 📦 PRODOTTO FISICO (Proprietà o Conto Vendita)
                     isConsignment = productDb.is_consignment;
                     if (isConsignment) {
                         const links = productSuppliers.filter(l => l.product_id === productDb.id);
                         let totalPct = 0;
-                        if (links.length > 0) {
-                            links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
-                        } else {
-                            totalPct = parseFloat(productDb.consignment_split_pct) || 0;
-                        }
+                        if (links.length > 0) links.forEach(l => { totalPct += parseFloat(l.split_pct) || 0; });
+                        else totalPct = parseFloat(productDb.consignment_split_pct) || 0;
                         unitCostOrPayout = (listinoPienoOriginale * totalPct) / 100;
                     } else {
                         const prodLots = allLots.filter(l => l.product_id === productDb.id && l.qty_remaining > 0);
@@ -13059,14 +13056,13 @@ async function renderCart() {
         const itemMarginEuro = finalPrice - unitCostOrPayout;
         const itemMarginPct = finalPrice > 0 ? (itemMarginEuro / finalPrice) * 100 : 0;
 
-        // 🎨 SOGLIE COLORE ALERT MARGINE IN CASSA
-        let marginBadgeColor = '#00B894'; // Verde (> 10%)
+        let marginBadgeColor = '#00B894';
         let marginText = 'Ottimale';
         if (itemMarginEuro <= 0) {
-            marginBadgeColor = '#E17055'; // Rosso (In perdita o azzerato dallo sconto)
+            marginBadgeColor = '#E17055';
             marginText = 'In Perdita!';
         } else if (itemMarginPct < 10) {
-            marginBadgeColor = '#F39C12'; // Arancione (Margine basso)
+            marginBadgeColor = '#F39C12';
             marginText = 'Margine Basso';
         }
 
@@ -13077,20 +13073,14 @@ async function renderCart() {
                         <div style="font-weight:600;">${item.name}</div>
                         <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                         
-                        <!-- 🎁 DETTAGLI CONFIGURAZIONE PACCHETTO IN CASSA -->
                         ${packageDetailsHtml}
 
-                        <!-- 💡 INFO MARGINE (Mostrato solo se non è un pacchetto o come utile stima) -->
                         ${!item.isPackage ? `
                             <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
                                 <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
                                     Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
                                 </span>
                             </div>
-                        ` : ''}
-
-                        <!-- Riquadro Sconto (Mostrato solo se non è un pacchetto) -->
-                        ${!item.isPackage ? `
                             <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
                                 <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
                                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -13103,7 +13093,6 @@ async function renderCart() {
                             </div>
                         ` : ''}
 
-                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV -->
                         ${discountAbsorptionSelectorHtml}
                     </div>
                     <div style="text-align:right;">
@@ -13116,6 +13105,14 @@ async function renderCart() {
 
     container.innerHTML = html; 
     document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+    
+    // Aggiornamento sincronizzato footer mobile
+    const mobileCountEl = document.getElementById('mobile-bar-count');
+    const mobileTotalEl = document.getElementById('mobile-bar-total');
+    const mobileBar = document.getElementById('pos-mobile-bar');
+    if (mobileCountEl) mobileCountEl.innerText = `${cart.length} articol${cart.length === 1 ? 'o' : 'i'} nel carrello`;
+    if (mobileTotalEl) mobileTotalEl.innerText = `€ ${total.toFixed(2)}`;
+    if (mobileBar) mobileBar.style.display = cart.length > 0 ? 'flex' : 'none';
 }
 
 function updatePackageCartPayment(index, field, val) {

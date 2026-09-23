@@ -290,7 +290,7 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti e crediti condivisi...");
+        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti, crediti e clienti condivisi...");
         
         // 1. SYNC PACKAGES_CONFIG
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
@@ -322,14 +322,15 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 3. SYNC CUSTOMER_PACKAGES (Il portafoglio sedute e le quote di split)
+        // 3. SYNC CUSTOMER_PACKAGES (Portafoglio sedute e quote)
+        let cloudCustPkgs = [];
         const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
         
         if (resCustPkgs.ok) {
-            const cloudCustPkgs = await resCustPkgs.json();
+            cloudCustPkgs = await resCustPkgs.json();
             for (let cp of cloudCustPkgs) {
                 const isOwner = cp.salon_id === salonId;
                 let allocs = cp.revenue_allocations;
@@ -342,19 +343,19 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 4. 🌟 PULL DELLE VENDITE E ITEM DI COMPETENZA NEL SYNC DEDICATO DEI PACCHETTI
+        // 4. PULL DELLE VENDITE E ITEM DI COMPETENZA DEL SALONE CORRENTE
+        let cloudSales = [];
         const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?salon_id=eq.${salonId}&limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
         if (resSales.ok) {
-            const cloudSales = await resSales.json();
+            cloudSales = await resSales.json();
             for (let s of cloudSales) {
                 await localDb.sales.put(s);
             }
         }
 
-        // Variabili rinominate in modo sicuro (resSaleItems / cloudSaleItems)
         const resSaleItems = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?salon_id=eq.${salonId}&limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
@@ -366,7 +367,31 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti e crediti completata.");
+        // 5. 🌟 SYNC ANAGRAFICHE CLIENTI CONDIVISI (Risolve il problema del cliente UUID nei partner)
+        const custIdsToPull = new Set();
+        if (Array.isArray(cloudCustPkgs)) {
+            cloudCustPkgs.forEach(cp => { if (cp.customer_id && cp.customer_id !== 'CLIENTE_STORICO') custIdsToPull.add(cp.customer_id); });
+        }
+        if (Array.isArray(cloudSales)) {
+            cloudSales.forEach(s => { if (s.cust_id && s.cust_id !== 'CLIENTE_STORICO') custIdsToPull.add(s.cust_id); });
+        }
+
+        if (custIdsToPull.size > 0) {
+            const idList = Array.from(custIdsToPull).join(',');
+            const resSharedCusts = await fetch(`${SUPABASE_URL}/rest/v1/customers?id=in.(${idList})`, {
+                method: 'GET',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+            });
+            if (resSharedCusts.ok) {
+                const cloudSharedCusts = await resSharedCusts.json();
+                for (let c of cloudSharedCusts) {
+                    await localDb.customers.put(c);
+                }
+                console.log(`👥 [SYNC PACCHETTI] Sincronizzate ${cloudSharedCusts.length} anagrafiche clienti condivisi.`);
+            }
+        }
+
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti, vendite e clienti completata.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
@@ -1132,48 +1157,22 @@ async function handleSpecialAction(action, data, id) {
             });
         }
 
-        // --- 8. GET_SALES_REPORT (Completo con supporto Servizi in Conto Vendita, Sconti Ripartiti e Pacchetti Multi-Salon) ---
+        // --- 8. GET_SALES_REPORT (Unificato, Sincrono e Protetto da Duplicati) ---
         if (action === 'GET_SALES_REPORT') {
             try {
                 const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
                 
-                // 1. Vendite e righe standard locali
+                // 1. Leggiamo ESCLUSIVAMENTE le vendite e gli item del salone corrente
+                // (Le vendite mirror sono già create con salon_id = salonId, quindi niente duplicati)
                 const sales = (await localDb.sales.where('salon_id').equals(salonId).toArray()) || [];
                 const saleItems = (await localDb.sale_items.where('salon_id').equals(salonId).toArray()) || [];
                 
-                // 2. 🌟 GESTIONE PARTNER MULTI-SALON: Recuperiamo anche le vendite estere/condivise dei pacchetti se il partner ha una quota
-                const allSalesCloud = (await localDb.sales.toArray()) || [];
-                const allSaleItemsCloud = (await localDb.sale_items.toArray()) || [];
+                // 2. Lettura configurazioni e pacchetti per il calcolo dello split
+                const packagesConfigList = localDb.packages_config ? (await localDb.packages_config.toArray() || []) : [];
                 const customerPackagesList = localDb.customer_packages ? (await localDb.customer_packages.toArray() || []) : [];
 
-                // Identifichiamo gli ID delle vendite di pacchetti in cui questo salone ha una quota di competenza nello split
-                const relevantSaleIdsForPartner = new Set();
-                customerPackagesList.forEach(cp => {
-                    if (cp.revenue_allocations) {
-                        const myQuota = parseFloat(cp.revenue_allocations[salonId]) || 0;
-                        if (myQuota > 0) {
-                            const matchingSale = allSalesCloud.find(s => s.cust_id === cp.customer_id && Math.abs(parseFloat(s.total) - parseFloat(cp.total_paid)) < 0.05);
-                            if (matchingSale) relevantSaleIdsForPartner.add(matchingSale.id);
-                        }
-                    }
-                });
-
-                // Uniamo le vendite locali con quelle dei partner in cui abbiamo una quota di competenza (evitando duplicati)
-                const salesMap = new Map();
-                sales.forEach(s => salesMap.set(s.id, s));
-                allSalesCloud.forEach(s => {
-                    if (relevantSaleIdsForPartner.has(s.id)) salesMap.set(s.id, s);
-                });
-                const effectiveSales = Array.from(salesMap.values());
-
-                const saleItemsMap = new Map();
-                saleItems.forEach(si => saleItemsMap.set(si.id, si));
-                allSaleItemsCloud.forEach(si => {
-                    if (relevantSaleIdsForPartner.has(si.sale_id)) saleItemsMap.set(si.id, si);
-                });
-                const effectiveSaleItems = Array.from(saleItemsMap.values());
-
-                const customers = (await localDb.customers.where('salon_id').equals(salonId).toArray()) || [];
+                // 3. 🌟 Lettura globale dei clienti locali (garantisce la risoluzione del nome anche se creati da un salone partner)
+                const customers = (await localDb.customers.toArray()) || [];
                 const inventory = (await localDb.inventory.where('salon_id').equals(salonId).toArray()) || [];
                 const priceHistory = (await localDb.price_history.where('salon_id').equals(salonId).toArray()) || [];
                 const allConsumables = (await localDb.service_consumables.where('salon_id').equals(salonId).toArray()) || [];
@@ -1182,85 +1181,97 @@ async function handleSpecialAction(action, data, id) {
                 let productSuppliers = [];
                 let suppliersData = [];
                 try {
-                    if (localDb.product_suppliers) {
-                        productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
-                    }
-                    if (localDb.suppliers) {
-                        suppliersData = (await localDb.suppliers.where('salon_id').equals(salonId).toArray()) || [];
-                    }
+                    if (localDb.product_suppliers) productSuppliers = (await localDb.product_suppliers.where('salon_id').equals(salonId).toArray()) || [];
+                    if (localDb.suppliers) suppliersData = (await localDb.suppliers.where('salon_id').equals(salonId).toArray()) || [];
                 } catch (e) {}
 
                 const report = [];
                 
-                for (let item of effectiveSaleItems) {
-                    const sale = effectiveSales.find(s => s.id === item.sale_id);
+                for (let item of saleItems) {
+                    const sale = sales.find(s => s.id === item.sale_id);
                     if (!sale) continue;
                     
+                    // Risoluzione robusta Nome e Cognome cliente
                     let cust = customers.find(c => c.id === sale.cust_id);
                     if (!cust && sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO') {
                         cust = customers.find(c => `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase() === String(sale.cust_id).toLowerCase());
                     }
+                    if (!cust && window.allCustomers) {
+                        cust = window.allCustomers.find(c => c.id === sale.cust_id);
+                    }
 
-                    const custDisplayName = cust ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() : (sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO' ? sale.cust_id : 'Occasionale');
+                    const custDisplayName = cust 
+                        ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() 
+                        : (sale.cust_id && sale.cust_id !== 'CLIENTE_STORICO' ? sale.cust_id : 'Occasionale');
 
                     const inv = inventory.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
                     
-                    const discount = item.discount || 0;
-                    let soldPrice = item.price || 0;
+                    const discount = parseFloat(item.discount) || 0;
+                    let soldPrice = parseFloat(item.price) || 0;
                     let finalPrice = soldPrice - discount;
                     const saleDate = sale.date || new Date().toISOString().split('T')[0];
                     const itemQty = parseFloat(item.qty) || 1;
 
                     let unitCost = 0;
-                    let supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
-                    let salonRevenue = finalPrice;
+                    let supplierPayout = (item.supplier_payout !== undefined && item.supplier_payout !== null) ? parseFloat(item.supplier_payout) : 0;
+                    let salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) ? parseFloat(item.salon_revenue) : finalPrice;
                     let supplierDetailsText = '-';
 
-                    // 🎁 VERIFICA SE È UN PACCHETTO VENDUTO
+                    // 🎁 GESTIONE SPLIT PACCHETTI VENDUTI
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
-                    const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
-                    if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                        let splitDetailsArr = [];
-                        const allocs = matchingPkgCredit.revenue_allocations;
-                        const currentPaidTrans = finalPrice; // L'importo pagato in questa specifica transazione (rata o saldo)
-                        
-                        const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
+                    if (isPackageItem) {
+                        // Troviamo il pacchetto di configurazione corrispondente per ricavare la suddivisione esatta
+                        const matchingPkg = packagesConfigList.find(p => (item.item_name || '').toLowerCase().includes((p.name || '').toLowerCase()));
+                        const matchingPkgCredit = customerPackagesList.find(cp => cp.customer_id === sale.cust_id);
 
-                        for (const [sId, amountVal] of Object.entries(allocs)) {
-                            let quotaTransazione = parseFloat(amountVal) || 0;
+                        let allocs = null;
+                        let splitType = 'percent';
+
+                        if (matchingPkg && matchingPkg.revenue_splits && matchingPkg.revenue_splits.allocations) {
+                            allocs = matchingPkg.revenue_splits.allocations;
+                            splitType = matchingPkg.revenue_splits.type || 'percent';
+                        } else if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                            allocs = matchingPkgCredit.revenue_allocations;
+                        }
+
+                        if (allocs && Object.keys(allocs).length > 0) {
+                            const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
                             
-                            if (Math.abs(totalAllocSum - currentPaidTrans) > 0.05 && totalAllocSum > 0) {
-                                const salonShareRatio = quotaTransazione / totalAllocSum;
-                                quotaTransazione = currentPaidTrans * salonShareRatio;
+                            // Se la vendita è una mirror sale del partner, soldPrice è già la quota del partner
+                            const isPartnerMirrorSale = sale.payment_method && sale.payment_method.includes('Condiviso');
+                            let baseTransactionTotal = finalPrice;
+
+                            if (isPartnerMirrorSale && totalAllocSum > 0) {
+                                const myRatio = (parseFloat(allocs[salonId]) || 0) / totalAllocSum;
+                                if (myRatio > 0) baseTransactionTotal = finalPrice / myRatio;
                             }
 
-                            const pctVal = currentPaidTrans > 0 ? ((quotaTransazione / currentPaidTrans) * 100).toFixed(0) : 0;
-                            splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${quotaTransazione.toFixed(2)}`);
-                        }
-                        
-                        supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
-                        
-                        // 🌟 1. COERENZA PREZZO: Entrambi i saloni vedranno l'importo della transazione odierna (es. la rata di 50€)
-                        soldPrice = currentPaidTrans;
-                        finalPrice = currentPaidTrans;
+                            let splitDetailsArr = [];
+                            for (const [sId, amountVal] of Object.entries(allocs)) {
+                                const ratio = totalAllocSum > 0 ? (parseFloat(amountVal || 0) / totalAllocSum) : 0;
+                                const quotaTransazione = baseTransactionTotal * ratio;
+                                const pctVal = (ratio * 100).toFixed(0);
+                                splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${quotaTransazione.toFixed(2)}`);
+                            }
 
-                        // 2. Margine netto basato sullo scontrino
-                        salonRevenue = item.salon_revenue !== undefined && item.salon_revenue !== null ? parseFloat(item.salon_revenue) : currentPaidTrans;
+                            supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
+                        } else {
+                            supplierDetailsText = `Esclusivo (100% Salone)`;
+                        }
+
                         unitCost = 0;
                         supplierPayout = 0;
-                    
-                    
+                        salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) ? parseFloat(item.salon_revenue) : finalPrice;
+
                     } else if (inv) {
+                        // Prodotti fisici e Servizi standard (Invariati)
                         if (inv.type === 'servizio' && !inv.is_consignment) {
-                            // ✂️ 1. SERVIZIO STANDARD DI PROPRIETÀ (Consumabili FIFO)
                             const serviceCons = allConsumables.filter(sc => sc.service_id === inv.id);
                             let totalConsumablesCost = 0;
-
                             for (let sc of serviceCons) {
                                 const consumedProd = inventory.find(p => p.id === sc.product_id);
                                 const qtyNeeded = parseFloat(sc.quantity_per_service) || 0;
-
                                 if (consumedProd) {
                                     const prodLots = allLots.filter(l => l.product_id === consumedProd.id && l.qty_remaining > 0);
                                     let prodUnitCost = 0;
@@ -1278,7 +1289,6 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
 
                         } else if (inv.is_consignment && inv.type === 'servizio') {
-                            // ✂️💶 2. SERVIZIO IN CONTO VENDITA (Fornitore Singolo + Regola Sconto)
                             if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
                                 supplierPayout = parseFloat(item.supplier_payout) || 0;
                             } else {
@@ -1289,30 +1299,22 @@ async function handleSpecialAction(action, data, id) {
                                 const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
                                 const basePayout = (listinoPienoOriginale * splitPct) / 100;
 
-                                if (rule === 'supplier') {
-                                    supplierPayout = finalPrice - salonShareFull;
-                                } else if (rule === 'split') {
-                                    supplierPayout = basePayout - (discount / 2);
-                                } else {
-                                    supplierPayout = basePayout;
-                                }
+                                if (rule === 'supplier') supplierPayout = finalPrice - salonShareFull;
+                                else if (rule === 'split') supplierPayout = basePayout - (discount / 2);
+                                else supplierPayout = basePayout;
                             }
-                            
                             const suppObj = suppliersData.find(s => s.id === inv.supplier_id);
                             const suppName = suppObj ? suppObj.name : 'Fornitore';
                             supplierDetailsText = `${suppName} (${inv.consignment_split_pct}%): €${supplierPayout.toFixed(2)}`;
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else if (inv.is_consignment) {
-                            // 📦 3. PRODOTTO FISICO IN CONTO VENDITA
                             const phList = priceHistory.filter(p => p.product_id === inv.id && saleDate >= p.date_from && (saleDate <= p.date_to || !p.date_to));
                             const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
                             const links = productSuppliers.filter(l => l.product_id === inv.id);
                             if (links.length > 0) {
                                 let detailsArray = [];
                                 let totalConsignmentPayout = 0;
-                                
                                 links.forEach(l => {
                                     const supp = suppliersData.find(s => s.id === l.supplier_id);
                                     const suppName = supp ? supp.name : 'Fornitore';
@@ -1321,7 +1323,6 @@ async function handleSpecialAction(action, data, id) {
                                     totalConsignmentPayout += payoutForThisSupp;
                                     detailsArray.push(`${suppName} (${pct}%): €${payoutForThisSupp.toFixed(2)}`);
                                 });
-                                
                                 supplierPayout = totalConsignmentPayout;
                                 supplierDetailsText = detailsArray.join('<br>');
                             } else {
@@ -1334,7 +1335,6 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - supplierPayout;
 
                         } else {
-                            // 📦 4. PRODOTTO FISICO DI PROPRIETÀ (FIFO)
                             if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost) && parseFloat(item.unit_cost) > 0) {
                                 unitCost = parseFloat(item.unit_cost) || 0;
                             } else {
@@ -1344,20 +1344,13 @@ async function handleSpecialAction(action, data, id) {
                             salonRevenue = finalPrice - (unitCost * itemQty);
                         }
                     } else {
-                        // ✍️ 5. ARTICOLO MANUALE / FUORI CATALOGO
                         if (item.unit_cost !== undefined && item.unit_cost !== null && !isNaN(item.unit_cost)) {
                             unitCost = parseFloat(item.unit_cost) || 0;
                         }
-                        supplierPayout = item.supplier_payout !== undefined && item.supplier_payout !== null ? parseFloat(item.supplier_payout) : 0;
+                        supplierPayout = (item.supplier_payout !== undefined && item.supplier_payout !== null) ? parseFloat(item.supplier_payout) : 0;
                         salonRevenue = (item.salon_revenue !== undefined && item.salon_revenue !== null) 
                             ? parseFloat(item.salon_revenue) 
                             : (finalPrice - unitCost - supplierPayout);
-                    }
-
-                    // Se siamo un salone partner e c'è uno split, mostriamo la riga solo se la nostra quota è > 0
-                    if (matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
-                        const myAlloc = parseFloat(matchingPkgCredit.revenue_allocations[salonId]) || 0;
-                        if (myAlloc <= 0) continue; 
                     }
 
                     report.push({
