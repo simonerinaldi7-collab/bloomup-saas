@@ -12174,7 +12174,7 @@ function urlBase64ToUint8Array(base64String) {
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
+           // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
             const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
             if (packageConfigId) {
@@ -12183,11 +12183,35 @@ function urlBase64ToUint8Array(base64String) {
                     throw new Error("Cliente mancante per pacchetto");
                 }
 
-                const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalItemPrice;
+                const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalPrice;
                 const manualExpiryDate = item.customExpiryDate || null;
-                const paymentStatus = paidNow >= finalItemPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
+                const paymentStatus = paidNow >= finalPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
 
-                // 1. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo (es. per aggiungere una rata o un saldo)
+                // 1. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
+                const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+                const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
+                
+                const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+                const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
+                
+                // 2. Calcolo dello Split Contabile Multi-Salon (Definito in cima per essere visibile ovunque nel blocco)
+                let calculatedAllocations = {};
+                if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
+                    const splitType = pkgConfig.revenue_splits.type || 'percent';
+                    const allocations = pkgConfig.revenue_splits.allocations;
+                    
+                    for (const [sId, val] of Object.entries(allocations)) {
+                        if (splitType === 'percent') {
+                            calculatedAllocations[sId] = (paidNow * parseFloat(val)) / 100;
+                        } else {
+                            calculatedAllocations[sId] = parseFloat(val) || 0;
+                        }
+                    }
+                } else {
+                    calculatedAllocations[currentSalonId] = paidNow;
+                }
+
+                // 3. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo (es. per aggiungere una rata o un saldo)
                 const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
                 let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
 
@@ -12202,40 +12226,18 @@ function urlBase64ToUint8Array(base64String) {
                         updated_at: getNowLocal()
                     });
 
-                    if (navigator.onLine) {
+                    if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
                         await sendToCloudDirectly('PATCH', 'customer_packages', { total_paid: newTotalPaid, payment_status: newStatus, updated_at: getNowLocal() }, targetCustPkg.id);
                     }
                     console.log("🎁 [RATA PACCHETTO REGISTRATA] Aggiornato pacchetto esistente:", targetCustPkg.id);
 
                 } else {
                     // 🆕 PRIMO ACQUISTO / NUOVO PACCHETTO
-                    const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-                    const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
-                    
-                    const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-                    const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
-                    
                     let sessionsStateArray = associatedServices.map(it => ({
                         service_id: it.service_id,
                         total: it.total_sessions,
                         remaining: it.total_sessions
                     }));
-
-                    let calculatedAllocations = {};
-                    if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
-                        const splitType = pkgConfig.revenue_splits.type || 'percent';
-                        const allocations = pkgConfig.revenue_splits.allocations;
-                        
-                        for (const [sId, val] of Object.entries(allocations)) {
-                            if (splitType === 'percent') {
-                                calculatedAllocations[sId] = (paidNow * parseFloat(val)) / 100; // Lo split viene calcolato proporzionalmente all'effettivo pagato oggi
-                            } else {
-                                calculatedAllocations[sId] = parseFloat(val) || 0;
-                            }
-                        }
-                    } else {
-                        calculatedAllocations[currentSalonId] = paidNow;
-                    }
 
                     const customerPackagePayload = {
                         id: crypto.randomUUID(),
@@ -12243,11 +12245,11 @@ function urlBase64ToUint8Array(base64String) {
                         customer_id: finalCustId,
                         package_id: packageConfigId,
                         sessions_state: sessionsStateArray,
-                        total_paid: paidNow, // 👈 Importo effettivamente pagato oggi in cassa
-                        total_price: item.price, // 👈 Prezzo pieno di listino del pacchetto
-                        payment_status: paymentStatus, // 👈 'paid_full' o 'installment'
+                        total_paid: paidNow, 
+                        total_price: finalPrice, 
+                        payment_status: paymentStatus, 
                         revenue_allocations: calculatedAllocations,
-                        expiry_date: manualExpiryDate, // 👈 Data di scadenza inserita manualmente dall'operatore
+                        expiry_date: manualExpiryDate, 
                         updated_at: getNowLocal()
                     };
 
@@ -12255,10 +12257,50 @@ function urlBase64ToUint8Array(base64String) {
                     console.log("🎁 [NUOVO PACCHETTO ATTIVATO] Credito e rateale registrati:", customerPackagePayload);
                 }
 
+                // 4. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner nello split
+                for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
+                    if (quotaVal <= 0) continue;
+                    if (targetSalonId === currentSalonId) continue; 
+
+                    const partnerSaleId = crypto.randomUUID();
+                    const partnerSalePayload = {
+                        id: partnerSaleId,
+                        salon_id: targetSalonId, 
+                        cust_id: finalCustId,
+                        appointment_id: linkedAppointmentId,
+                        total: quotaVal, 
+                        date: nowObj.split(' ')[0],
+                        time: nowObj.split(' ')[1],
+                        payment_method: 'Contanti (Pacchetto Condiviso)',
+                        created_by: currentUser ? currentUser.username : 'Admin',
+                        updated_at: getNowLocal()
+                    };
+
+                    const partnerSaleItemPayload = {
+                        id: crypto.randomUUID(),
+                        salon_id: targetSalonId, 
+                        sale_id: partnerSaleId,
+                        item_name: item.name || 'Pacchetto',
+                        qty: item.qty || 1,
+                        price: quotaVal,
+                        discount: 0,
+                        unit_cost: 0,
+                        supplier_payout: 0,
+                        salon_revenue: quotaVal,
+                        updated_at: getNowLocal()
+                    };
+
+                    if (localDb && localDb.sync_queue) {
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sales', data: partnerSalePayload, target_id: partnerSaleId });
+                        await localDb.sync_queue.add({ action: 'INSERT', table_name: 'sale_items', data: partnerSaleItemPayload, target_id: partnerSaleItemPayload.id });
+                    }
+                }
+
                 // Ai fini del bilancio e della cassa odierna, il registratore incassa l'importo pagato oggi (`paidNow`)
                 salonRevenue = paidNow;
                 unitCostUsed = 0;
                 supplierPayout = 0;
+            
             
 
                 // E. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner
