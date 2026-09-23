@@ -12174,65 +12174,92 @@ function urlBase64ToUint8Array(base64String) {
             let finalItemPrice = item.price - (item.discountAmount || 0);
             let salonRevenue = finalItemPrice;
 
-            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO
+            // 🎁 GESTIONE SPECIFICA VENDITA PACCHETTO (CON RATEALE E SCADENZA MANUALE)
             const packageConfigId = (item.isPackage && item.id) ? item.id : null;
 
             if (packageConfigId) {
                 if (!finalCustId) {
-                    alert("⚠️ Attenzione: Per vendere e attivare un pacchetto è necessario associare un cliente registrato in cassa!");
-                    throw new Error("Cliente mancante per attivazione pacchetto");
+                    alert("⚠️ Attenzione: Per vendere o registrare una rata di un pacchetto è necessario associare un cliente registrato in cassa!");
+                    throw new Error("Cliente mancante per pacchetto");
                 }
 
-                // A. Recuperiamo la configurazione e i servizi inclusi nel pacchetto
-                const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-                const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
-                
-                const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
-                const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
-                
-                let sessionsStateArray = associatedServices.map(it => ({
-                    service_id: it.service_id,
-                    total: it.total_sessions,
-                    remaining: it.total_sessions
-                }));
+                const paidNow = item.customPaidAmount !== undefined ? parseFloat(item.customPaidAmount) : finalItemPrice;
+                const manualExpiryDate = item.customExpiryDate || null;
+                const paymentStatus = paidNow >= finalItemPrice ? 'paid_full' : (paidNow > 0 ? 'installment' : 'unpaid');
 
-                // B. Calcolo dello Split Contabile Multi-Salon
-                let calculatedAllocations = {};
-                if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
-                    const splitType = pkgConfig.revenue_splits.type || 'percent';
-                    const allocations = pkgConfig.revenue_splits.allocations;
-                    
-                    for (const [sId, val] of Object.entries(allocations)) {
-                        if (splitType === 'percent') {
-                            calculatedAllocations[sId] = (finalItemPrice * parseFloat(val)) / 100;
-                        } else {
-                            calculatedAllocations[sId] = parseFloat(val) || 0;
-                        }
+                // 1. Verifichiamo se il cliente ha già un pacchetto attivo dello stesso tipo (es. per aggiungere una rata o un saldo)
+                const existingCustPkgs = await localDb.customer_packages.where('customer_id').equals(finalCustId).toArray() || [];
+                let targetCustPkg = existingCustPkgs.find(cp => cp.package_id === packageConfigId && cp.payment_status !== 'paid_full');
+
+                if (targetCustPkg) {
+                    // 🔄 AGGIORNAMENTO DI UN PACCHETTO RATEALE ESISTENTE (Aggiunta rata/saldo)
+                    const newTotalPaid = (parseFloat(targetCustPkg.total_paid) || 0) + paidNow;
+                    const newStatus = newTotalPaid >= targetCustPkg.total_price ? 'paid_full' : 'installment';
+
+                    await localDb.customer_packages.update(targetCustPkg.id, {
+                        total_paid: newTotalPaid,
+                        payment_status: newStatus,
+                        updated_at: getNowLocal()
+                    });
+
+                    if (navigator.onLine) {
+                        await sendToCloudDirectly('PATCH', 'customer_packages', { total_paid: newTotalPaid, payment_status: newStatus, updated_at: getNowLocal() }, targetCustPkg.id);
                     }
+                    console.log("🎁 [RATA PACCHETTO REGISTRATA] Aggiornato pacchetto esistente:", targetCustPkg.id);
+
                 } else {
-                    calculatedAllocations[currentSalonId] = finalItemPrice;
+                    // 🆕 PRIMO ACQUISTO / NUOVO PACCHETTO
+                    const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+                    const pkgConfig = allPkgConfigs.find(p => p.id === packageConfigId);
+                    
+                    const pkgItemsDef = await window.universalQuery({ action: 'GET_ALL', table: 'package_items' }) || [];
+                    const associatedServices = pkgItemsDef.filter(it => it.package_id === packageConfigId);
+                    
+                    let sessionsStateArray = associatedServices.map(it => ({
+                        service_id: it.service_id,
+                        total: it.total_sessions,
+                        remaining: it.total_sessions
+                    }));
+
+                    let calculatedAllocations = {};
+                    if (pkgConfig && pkgConfig.revenue_splits && pkgConfig.revenue_splits.allocations) {
+                        const splitType = pkgConfig.revenue_splits.type || 'percent';
+                        const allocations = pkgConfig.revenue_splits.allocations;
+                        
+                        for (const [sId, val] of Object.entries(allocations)) {
+                            if (splitType === 'percent') {
+                                calculatedAllocations[sId] = (paidNow * parseFloat(val)) / 100; // Lo split viene calcolato proporzionalmente all'effettivo pagato oggi
+                            } else {
+                                calculatedAllocations[sId] = parseFloat(val) || 0;
+                            }
+                        }
+                    } else {
+                        calculatedAllocations[currentSalonId] = paidNow;
+                    }
+
+                    const customerPackagePayload = {
+                        id: crypto.randomUUID(),
+                        salon_id: currentSalonId,
+                        customer_id: finalCustId,
+                        package_id: packageConfigId,
+                        sessions_state: sessionsStateArray,
+                        total_paid: paidNow, // 👈 Importo effettivamente pagato oggi in cassa
+                        total_price: item.price, // 👈 Prezzo pieno di listino del pacchetto
+                        payment_status: paymentStatus, // 👈 'paid_full' o 'installment'
+                        revenue_allocations: calculatedAllocations,
+                        expiry_date: manualExpiryDate, // 👈 Data di scadenza inserita manualmente dall'operatore
+                        updated_at: getNowLocal()
+                    };
+
+                    await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
+                    console.log("🎁 [NUOVO PACCHETTO ATTIVATO] Credito e rateale registrati:", customerPackagePayload);
                 }
 
-                // C. Salvataggio del credito sedute globale nel database
-                const customerPackagePayload = {
-                    id: crypto.randomUUID(),
-                    salon_id: currentSalonId,
-                    customer_id: finalCustId,
-                    package_id: packageConfigId,
-                    sessions_state: sessionsStateArray,
-                    total_paid: finalItemPrice,
-                    total_price: item.price,
-                    payment_status: 'paid_full',
-                    revenue_allocations: calculatedAllocations,
-                    updated_at: new Date().toISOString()
-                };
-
-                await window.universalQuery({ action: 'INSERT', table: 'customer_packages', data: customerPackagePayload });
-
-                // D. Assegniamo al sale_item corrente la quota esatta del salone corrente
-                salonRevenue = calculatedAllocations[currentSalonId] !== undefined ? calculatedAllocations[currentSalonId] : finalItemPrice;
+                // Ai fini del bilancio e della cassa odierna, il registratore incassa l'importo pagato oggi (`paidNow`)
+                salonRevenue = paidNow;
                 unitCostUsed = 0;
                 supplierPayout = 0;
+            
 
                 // E. Creazione delle vendite gemelle in sync_queue SOLO per i saloni partner
                 for (const [targetSalonId, quotaVal] of Object.entries(calculatedAllocations)) {
@@ -12795,6 +12822,18 @@ async function sendAIQuery() {
             </div>`;
     }
 
+
+function updatePackageCartPayment(index, field, val) {
+    if (field === 'paid') {
+        cart[index].customPaidAmount = Math.min(Math.max(parseFloat(val) || 0, 0), cart[index].price);
+    }
+    if (field === 'expiry') {
+        cart[index].customExpiryDate = val;
+    }
+    renderCart();
+}
+
+    
 async function renderCart() { 
     console.log("Stato carrello attuale:", cart); 
     let total = 0; 
@@ -12815,16 +12854,49 @@ async function renderCart() {
         const item = cart[i];
         const discVal = item.discountVal || 0;
         const discType = item.discountType || 'euro';
-        const discountAmount = discType === 'percent' ? (item.price * discVal / 100) : discVal;
+        const discountAmount = discType === 'percent' ? (item.price * val / 100) : discVal;
         const finalPrice = item.price - discountAmount;
         total += finalPrice; 
 
-        // 🧮 CALCOLO DEL COSTO / QUOTA FORNITORE E DEL MARGINE REALE AL CENTESIMO
+        // 🧮 GESTIONE SPECIFICA PACCHETTO NEL CARRELLO (Rateale e Scadenza)
+        let packageDetailsHtml = '';
         let unitCostOrPayout = 0;
         let isConsignment = false;
         let discountAbsorptionSelectorHtml = ''; 
         
-        if (item.id) {
+        if (item.isPackage && item.id) {
+            const currentPaidInputVal = item.customPaidAmount !== undefined ? item.customPaidAmount : finalPrice;
+            const currentExpiryVal = item.customExpiryDate || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+
+            item.customPaidAmount = currentPaidInputVal;
+            item.customExpiryDate = currentExpiryVal;
+
+            packageDetailsHtml = `
+                <div style="margin-top: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 10px; font-size: 12px; line-height: 1.6; color: #1e293b;">
+                    <div style="font-weight: bold; color: var(--p); margin-bottom: 4px;">🎁 Configurazione Pacchetto in Cassa</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>Prezzo Listino Totale:</span>
+                        <b>€ ${finalPrice.toFixed(2)}</b>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>Importo Pagato Ora (Acconto/Rata):</span>
+                        <input type="number" step="0.01" value="${currentPaidInputVal}" max="${finalPrice}" min="0" 
+                            onchange="updatePackageCartPayment(${i}, 'paid', this.value)" 
+                            style="width: 90px; padding: 4px; font-size: 12px; text-align: right; font-weight: bold; background: white; margin: 0;">
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Data di Scadenza:</span>
+                        <input type="date" value="${currentExpiryVal}" 
+                            onchange="updatePackageCartPayment(${i}, 'expiry', this.value)" 
+                            style="width: 130px; padding: 4px; font-size: 12px; background: white; margin: 0;">
+                    </div>
+                </div>
+            `;
+            unitCostOrPayout = 0;
+        } else if (item.id) {
             const productDb = allInventoryData.find(p => p.id === item.id);
             if (productDb) {
                 const phList = priceHistory.filter(ph => ph.product_id === productDb.id && todayStr >= ph.date_from && (todayStr <= ph.date_to || !ph.date_to));
@@ -12932,26 +13004,33 @@ async function renderCart() {
                         <div style="font-weight:600;">${item.name}</div>
                         <small style="color:#888;">Listino: €${item.price.toFixed(2)}</small>
                         
-                        <!-- 💡 INFO MARGINE -->
-                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                            <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
-                                Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
-                            </span>
-                        </div>
+                        <!-- 🎁 DETTAGLI CONFIGURAZIONE PACCHETTO IN CASSA -->
+                        ${packageDetailsHtml}
 
-                        <!-- Riquadro Sconto -->
-                        <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
-                            <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
-                                <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
-                                    <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
-                                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
-                                </select>
+                        <!-- 💡 INFO MARGINE (Mostrato solo se non è un pacchetto o come utile stima) -->
+                        ${!item.isPackage ? `
+                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                                <span style="background: ${marginBadgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Margine stimato">
+                                    Margine: €${itemMarginEuro.toFixed(2)} (${itemMarginPct.toFixed(1)}%) - ${marginText}
+                                </span>
                             </div>
-                        </div>
+                        ` : ''}
 
-                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV (Inserito subito sotto il box sconto) -->
+                        <!-- Riquadro Sconto (Mostrato solo se non è un pacchetto) -->
+                        ${!item.isPackage ? `
+                            <div class="discount-box" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; width: fit-content;">
+                                <span class="discount-label" style="font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase;">Modifica Sconto</span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="number" value="${discVal}" min="0" step="0.01" onchange="updateCartDiscount(${i}, 'val', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white; text-align: center;" placeholder="0.00">
+                                    <select onchange="updateCartDiscount(${i}, 'type', this.value)" style="width: 60px; padding: 6px; margin: 0; font-size: 13px; font-weight: bold; background: white;">
+                                        <option value="euro" ${discType === 'euro' ? 'selected' : ''}>€</option>
+                                        <option value="percent" ${discType === 'percent' ? 'selected' : ''}>%</option>
+                                    </select>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- 🌟 SELETTORE ASSORBIMENTO SCONTO CV -->
                         ${discountAbsorptionSelectorHtml}
                     </div>
                     <div style="text-align:right;">
@@ -12964,6 +13043,16 @@ async function renderCart() {
 
     container.innerHTML = html; 
     document.getElementById('cart-total').innerText = `€ ${total.toFixed(2)}`; 
+}
+
+// Funzione di supporto per aggiornare i campi interattivi del pacchetto nel carrello
+function updatePackageCartPayment(index, field, val) {
+    if (field === 'paid') {
+        cart[index].customPaidAmount = Math.min(Math.max(parseFloat(val) || 0, 0), cart[index].price);
+    }
+    if (field === 'expiry') {
+        cart[index].customExpiryDate = val;
+    }
 }
 
 // Funzione di supporto per aggiornare lo stato dell'assorbimento sconto nel carrello
