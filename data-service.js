@@ -1220,26 +1220,50 @@ async function handleSpecialAction(action, data, id) {
                     const isPackageItem = (item.item_name || '').toLowerCase().includes('pacchetto');
                     const matchingPkgCredit = isPackageItem ? customerPackagesList.find(cp => cp.customer_id === sale.cust_id) : null;
 
-                   if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
+                    if (isPackageItem && matchingPkgCredit && matchingPkgCredit.revenue_allocations) {
                         let splitDetailsArr = [];
                         const allocs = matchingPkgCredit.revenue_allocations;
-                        const totalPkgPriceVal = parseFloat(matchingPkgCredit.total_price || finalPrice) || finalPrice;
+                        
+                        // Determiniamo l'importo pagato in questa specifica transazione (finalPrice)
+                        const currentPaidTrans = finalPrice;
+                        const totalPkgPriceVal = parseFloat(matchingPkgCredit.total_price || currentPaidTrans) || currentPaidTrans;
 
                         for (const [sId, amountVal] of Object.entries(allocs)) {
-                            const amtNum = parseFloat(amountVal) || 0;
-                            const pctVal = totalPkgPriceVal > 0 ? ((amtNum / totalPkgPriceVal) * 100).toFixed(0) : 0;
-                            splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${amtNum.toFixed(2)}`);
+                            // Verifichiamo se l'allocazione nel DB è già proporzionale o se dobbiamo calcolarla sull'importo di questa transazione
+                            const totalAllocSum = Object.values(allocs).reduce((a, b) => a + parseFloat(b || 0), 0);
+                            
+                            // Se le allocazioni salvate riflettono l'intero pacchetto ma questa è una rata, 
+                            // calcoliamo la quota proporzionale a quanto pagato oggi (currentPaidTrans)
+                            let quotaTransazione = parseFloat(amountVal) || 0;
+                            if (Math.abs(totalAllocSum - totalPkgPriceVal) > 0.05 && totalPkgPriceVal > 0) {
+                                const salonPct = (parseFloat(amountVal) / totalAllocSum);
+                                quotaTransazione = currentPaidTrans * salonPct;
+                            } else if (Math.abs(totalAllocSum - totalPkgPriceVal) <= 0.05 && totalPkgPriceVal > 0 && Math.abs(currentPaidTrans - totalPkgPriceVal) > 0.05) {
+                                const salonPct = (parseFloat(amountVal) / totalPkgPriceVal);
+                                quotaTransazione = currentPaidTrans * salonPct;
+                            }
+
+                            const pctVal = currentPaidTrans > 0 ? ((quotaTransazione / currentPaidTrans) * 100).toFixed(0) : 0;
+                            splitDetailsArr.push(`<b>${sId}</b> (${pctVal}%): €${quotaTransazione.toFixed(2)}`);
                         }
                         
-                        supplierDetailsText = `🧩 <b>Split Ricavi Multi-Salon:</b><br>${splitDetailsArr.join('<br>')}`;
+                        supplierDetailsText = `🧩 <b>Split Rata / Acconto:</b><br>${splitDetailsArr.join('<br>')}`;
                         
-                        // Ora le variabili 'let' possono essere assegnate correttamente
-                        soldPrice = totalPkgPriceVal;
-                        finalPrice = totalPkgPriceVal;
+                        // Margine netto / Ricavo di competenza: esattamente la quota spettante a questo salone sulla rata pagata oggi
+                        const myAllocMap = matchingPkgCredit.revenue_allocations;
+                        let myQuotaTrans = parseFloat(myAllocMap[salonId]) || 0;
+                        const totalAllocSumCheck = Object.values(myAllocMap).reduce((a, b) => a + parseFloat(b || 0), 0);
+                        
+                        if (Math.abs(totalAllocSumCheck - totalPkgPriceVal) > 0.05 && totalPkgPriceVal > 0) {
+                            myQuotaTrans = currentPaidTrans * (myQuotaTrans / totalAllocSumCheck);
+                        } else if (totalPkgPriceVal > 0 && Math.abs(currentPaidTrans - totalPkgPriceVal) > 0.05) {
+                            myQuotaTrans = currentPaidTrans * (parseFloat(myAllocMap[salonId] || 0) / totalPkgPriceVal);
+                        }
 
-                        salonRevenue = allocs[salonId] !== undefined ? parseFloat(allocs[salonId]) : finalPrice;
+                        salonRevenue = myQuotaTrans > 0 ? myQuotaTrans : currentPaidTrans;
                         unitCost = 0;
                         supplierPayout = 0;
+                    
                     
                     } else if (inv) {
                         if (inv.type === 'servizio' && !inv.is_consignment) {
