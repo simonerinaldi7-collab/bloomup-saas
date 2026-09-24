@@ -1961,7 +1961,7 @@
 </div>
     <!-- MODALE DOSSIER CLIENTE A SCHEDE (TABBED INTERFACE) -->
     <div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
-        <div class="modal-box" style="width: 650px; max-width: 95vw; height: 85vh; display: flex; flex-direction: column; padding: 25px;">
+        <div class="modal-box" id="modal-box-cust">
             
             <!-- Header Fisso con Titolo e Chiusura -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
@@ -1970,7 +1970,7 @@
             </div>
 
             <!-- 📑 TAB BAR DI NAVIGAZIONE SCHEDE -->
-            <div id="cust-modal-tabs-bar" style="display: flex; gap: 6px; border-bottom: 2px solid #e2e8f0; margin-bottom: 15px; flex-shrink: 0; overflow-x: auto;">
+            <div id="cust-modal-tabs-bar" style="display: flex; gap: 6px; border-bottom: 2px solid #e2e8f0; margin-bottom: 12px; flex-shrink: 0; overflow-x: auto;">
                 <button type="button" class="btn cust-tab-btn active-tab" id="tab-btn-cust-info" onclick="switchCustomerTab('info')">
                     👤 Anagrafica
                 </button>
@@ -1985,41 +1985,41 @@
             <!-- ========================================== -->
             <!-- 👤 TAB 1: DATI ANAGRAFICI E PRIVACY        -->
             <!-- ========================================== -->
-            <div id="tab-content-cust-info" class="cust-tab-content" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <div id="tab-content-cust-info" class="cust-tab-content" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 4px;">
                 <input type="hidden" id="edit-c-id" value="-1">
                 
-                <div id="contact-picker-wrapper" style="display: none; margin-bottom: 15px;">
+                <div id="contact-picker-wrapper" style="display: none; margin-bottom: 12px;">
                     <button type="button" class="btn" style="width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="importPhoneContact()">
                         📱 Importa contatto dalla rubrica del telefono
                     </button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="cust-two-cols">
                     <div>
                         <label>Nome *</label>
-                        <input type="text" id="f-c-firstname" placeholder="Es. Mario" style="margin: 4px 0 12px 0;">
+                        <input type="text" id="f-c-firstname" placeholder="Es. Mario" style="margin: 4px 0 10px 0;">
                     </div>
                     <div>
                         <label>Cognome *</label>
-                        <input type="text" id="f-c-lastname" placeholder="Es. Rossi" style="margin: 4px 0 12px 0;">
+                        <input type="text" id="f-c-lastname" placeholder="Es. Rossi" style="margin: 4px 0 10px 0;">
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="cust-two-cols">
                     <div>
                         <label>Telefono Cellulare</label>
-                        <input type="text" id="f-c-phone" placeholder="Es. 3331234567" style="margin: 4px 0 12px 0;">
+                        <input type="text" id="f-c-phone" placeholder="Es. 3331234567" style="margin: 4px 0 10px 0;">
                     </div>
                     <div>
                         <label>Email</label>
-                        <input type="email" id="f-c-email" placeholder="cliente@email.it" style="margin: 4px 0 12px 0;">
+                        <input type="email" id="f-c-email" placeholder="cliente@email.it" style="margin: 4px 0 10px 0;">
                     </div>
                 </div>
 
                 <label>Data di Nascita (per promo compleanno)</label>
-                <input type="date" id="f-c-birth" style="margin: 4px 0 12px 0;">
+                <input type="date" id="f-c-birth" style="margin: 4px 0 10px 0;">
 
-                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px;">
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <input type="checkbox" id="f-c-gdpr" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
                         <label for="f-c-gdpr" style="margin: 0; font-weight: bold; color: var(--txt); cursor: pointer; text-transform: none;">Consenso Privacy GDPR firmato</label>
@@ -2027,15 +2027,15 @@
                 </div>
 
                 <label>Note / Allerte Trattamenti</label>
-                <textarea id="f-c-notes" rows="3" placeholder="Colorazioni preferite, allergie, preferenze di piega..." style="margin: 4px 0 12px 0;"></textarea>
+                <textarea id="f-c-notes" rows="3" placeholder="Colorazioni preferite, allergie, preferenze di piega..." style="margin: 4px 0 10px 0;"></textarea>
             </div>
 
             <!-- ========================================== -->
             <!-- 🎁 TAB 2: PACCHETTI E CARNET CON FILTRI    -->
             <!-- ========================================== -->
-            <div id="tab-content-cust-pkgs" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <div id="tab-content-cust-pkgs" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 4px;">
                 
-                <!-- 🎁 Barra Filtri Pacchetti Mobile-First con Label Chiare -->
+                <!-- Barra Filtri Pacchetti Mobile-First con Label Chiare -->
                 <div class="cust-filter-card">
                     <div class="filter-field-group filter-field-full">
                         <label for="cust-filter-pkg-name">🔍 Cerca Pacchetto o Trattamento</label>
@@ -2061,13 +2061,11 @@
                     </div>
                 </div>
 
-                <!-- Box Riepilogo Saldo Totale Pacchetti del Cliente (Flessibile per Mobile) -->
+                <!-- Box Riepilogo Saldo Totale Pacchetti del Cliente -->
                 <div id="cust-pkg-summary-bar" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; background: #ede9fe; color: #4338ca; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: bold; margin-bottom: 12px;">
                     <span id="cust-pkg-total-credit">Debito Residuo da Incassare: € 0.00</span>
                     <span id="cust-pkg-total-sessions-avail">Sedute Rimanenti: 0</span>
                 </div>
-
-            
 
                 <!-- Elenco Pacchetti Filtrato -->
                 <div id="customer-packages-tab-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -2076,9 +2074,9 @@
             <!-- ========================================== -->
             <!-- 📅 TAB 3: APPUNTAMENTI CON FILTRI E STORICO-->
             <!-- ========================================== -->
-            <div id="tab-content-cust-apps" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <div id="tab-content-cust-apps" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 4px;">
                 
-                <!-- 📅 Barra Filtri Appuntamenti Mobile-First con Label Chiare -->
+                <!-- Barra Filtri Appuntamenti Mobile-First con Label Chiare -->
                 <div class="cust-filter-card">
                     <div class="filter-field-group">
                         <label for="cust-filter-app-timeline">📅 Periodo Appuntamenti</label>
@@ -2098,37 +2096,53 @@
 
                     <div class="filter-field-group filter-field-full">
                         <label for="cust-filter-app-search">🔍 Cerca per Servizio o Note</label>
-                        <input type="text" id="cust-filter-app-search" placeholder="Es. Piega, Colore, Note trattamento..." onkeyup="filterCustomerAppointmentsTab()" autocomplete="off">
+                        <input type="text" id="cust-filter-app-search" placeholder="Es. Piega, Colore, Note..." onkeyup="filterCustomerAppointmentsTab()" autocomplete="off">
                     </div>
-                </div>
-
-                    <select id="cust-filter-app-user" onchange="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
-                        <option value="all">Tutti Operatori</option>
-                    </select>
                 </div>
 
                 <!-- Elenco Appuntamenti Filtrato -->
                 <div id="customer-appointments-tab-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
 
-            <!-- Footer Fisso con i Tasti di Azione -->
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
-                <button class="btn btn-p" id="btn-save-cust" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveCust()">Salva Scheda Cliente</button>
-                <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Chiudi</button>
+            <!-- ========================================== -->
+            <!-- 🔘 FOOTER FISSO DENTRO LA MODALE          -->
+            <!-- ========================================== -->
+            <div id="cust-modal-footer" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
+                <button class="btn btn-p" id="btn-save-cust" style="flex: 1; justify-content: center; padding: 12px;" onclick="saveCust()">Salva Scheda Cliente</button>
+                <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 12px;" onclick="closeMod()">Chiudi</button>
             </div>
 
-        </div>
-    </div>
+        </div> <!-- Fine modal-box -->
+    </div> <!-- Fine mod-cust -->
 
-    <!-- STILI CSS DEDICATI PER LE SCHEDE (TAB) -->
+    <!-- STILI CSS DEDICATI PER IL DOSSIER CLIENTE -->
     <style>
+        #modal-box-cust {
+            width: 650px;
+            max-width: 95vw;
+            height: 85vh;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            padding: 22px;
+            box-sizing: border-box;
+            background: white;
+            border-radius: 20px;
+        }
+
+        .cust-two-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
         .cust-tab-btn {
             background: transparent !important;
             color: #64748b !important;
             border: none !important;
             border-bottom: 3px solid transparent !important;
             border-radius: 0 !important;
-            padding: 8px 16px !important;
+            padding: 8px 14px !important;
             font-size: 13px !important;
             font-weight: 600 !important;
             min-height: unset !important;
@@ -2137,17 +2151,21 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }
+
         .cust-tab-btn:hover {
             color: var(--p) !important;
             background: #faf5ff !important;
         }
+
         .cust-tab-btn.active-tab {
             color: var(--p) !important;
             border-bottom-color: var(--p) !important;
             background: #faf5ff !important;
             font-weight: 700 !important;
         }
+
         .tab-pill-badge {
             font-size: 10px;
             background: #e2e8f0;
@@ -2156,93 +2174,103 @@
             border-radius: 10px;
             font-weight: bold;
         }
+
         .cust-tab-btn.active-tab .tab-pill-badge {
             background: var(--p);
             color: white;
         }
 
-/* 📱 STILE MOBILE-FIRST PER I FILTRI DEL DOSSIER CLIENTE */
-    .cust-filter-card {
-        background: #f8fafc;
-        border: 1.5px solid #cbd5e1;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 12px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-
-    .filter-field-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .filter-field-group.filter-field-full {
-        grid-column: 1 / -1;
-    }
-
-    .filter-field-group label {
-        font-size: 11px !important;
-        font-weight: 800 !important;
-        color: #334155 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        margin: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-    }
-
-    .filter-field-group input,
-    .filter-field-group select {
-        width: 100% !important;
-        padding: 10px 12px !important;
-        font-size: 14px !important; /* Dimensione ottimale anti-zoom per smartphone */
-        font-weight: 500 !important;
-        border: 1.5px solid #cbd5e1 !important;
-        border-radius: 8px !important;
-        background: #ffffff !important;
-        color: #1e293b !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        min-height: 42px !important; /* Area touch agevole per i pollici */
-        outline: none !important;
-        transition: border-color 0.2s, box-shadow 0.2s !important;
-    }
-
-    .filter-field-group input:focus,
-    .filter-field-group select:focus {
-        border-color: #6366f1 !important;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
-    }
-
-    /* 📱 ADATTAMENTO SCHERMI STRETTI (SMARTPHONE) */
-    @media screen and (max-width: 600px) {
+        /* CARD FILTRI */
         .cust-filter-card {
-            grid-template-columns: 1fr !important; /* Ogni campo occupa tutta la larghezza */
-            gap: 8px !important;
-            padding: 10px !important;
+            background: #f8fafc;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            flex-shrink: 0;
+        }
+
+        .filter-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
         .filter-field-group.filter-field-full {
-            grid-column: auto !important;
+            grid-column: 1 / -1;
+        }
+
+        .filter-field-group label {
+            font-size: 11px !important;
+            font-weight: 800 !important;
+            color: #334155 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            margin: 0 !important;
         }
 
         .filter-field-group input,
         .filter-field-group select {
-            font-size: 13px !important;
+            width: 100% !important;
+            padding: 9px 12px !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            color: #1e293b !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
             min-height: 40px !important;
+            outline: none !important;
         }
 
-        .cust-tab-btn {
-            padding: 8px 10px !important;
-            font-size: 12px !important;
+        .filter-field-group input:focus,
+        .filter-field-group select:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
         }
-    }
 
+        /* 📱 RESPONSIVE SMARTPHONE */
+        @media screen and (max-width: 600px) {
+            #modal-box-cust {
+                width: 96vw !important;
+                max-width: 96vw !important;
+                height: 90vh !important;
+                max-height: 90vh !important;
+                padding: 14px 12px !important;
+                border-radius: 16px !important;
+            }
+
+            .cust-two-cols {
+                grid-template-columns: 1fr !important;
+                gap: 0 !important;
+            }
+
+            .cust-filter-card {
+                grid-template-columns: 1fr !important;
+                gap: 8px !important;
+                padding: 10px !important;
+            }
+
+            .filter-field-group.filter-field-full {
+                grid-column: auto !important;
+            }
+
+            .cust-tab-btn {
+                padding: 6px 10px !important;
+                font-size: 12px !important;
+            }
+
+            #cust-modal-footer button {
+                padding: 10px 8px !important;
+                font-size: 12px !important;
+            }
+        }
     </style>
 
 <!-- MODALE RILEVAMENTO CLIENTE DUPLICATO -->
