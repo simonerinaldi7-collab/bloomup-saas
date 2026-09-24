@@ -1959,83 +1959,183 @@
         </div>
     </div>
 </div>
+    <!-- MODALE DOSSIER CLIENTE A SCHEDE (TABBED INTERFACE) -->
     <div id="mod-cust" class="modal" onclick="if(event.target==this) closeMod()">
-        <div class="modal-box" style="width: 500px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-box" style="width: 650px; max-width: 95vw; height: 85vh; display: flex; flex-direction: column; padding: 25px;">
             
-            <!-- Header con tasto di chiusura -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
-                <h3 style="margin: 0; color: var(--p);">👥 Gestione Cliente</h3>
-                <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #666;">✕</button>
+            <!-- Header Fisso con Titolo e Chiusura -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+                <h3 id="cust-modal-title" style="margin: 0; color: var(--p); font-size: 18px; font-weight: 800;">👥 Scheda Cliente</h3>
+                <button onclick="closeMod()" style="border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; color: #64748b;">✕</button>
             </div>
 
-            
-            <!-- Area scrollabile dei campi -->
-            <div style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+            <!-- 📑 TAB BAR DI NAVIGAZIONE SCHEDE -->
+            <div id="cust-modal-tabs-bar" style="display: flex; gap: 6px; border-bottom: 2px solid #e2e8f0; margin-bottom: 15px; flex-shrink: 0; overflow-x: auto;">
+                <button type="button" class="btn cust-tab-btn active-tab" id="tab-btn-cust-info" onclick="switchCustomerTab('info')">
+                    👤 Anagrafica
+                </button>
+                <button type="button" class="btn cust-tab-btn" id="tab-btn-cust-pkgs" onclick="switchCustomerTab('pkgs')">
+                    🎁 Pacchetti & Carnet <span id="badge-tab-pkgs" class="tab-pill-badge">0</span>
+                </button>
+                <button type="button" class="btn cust-tab-btn" id="tab-btn-cust-apps" onclick="switchCustomerTab('apps')">
+                    📅 Appuntamenti <span id="badge-tab-apps" class="tab-pill-badge">0</span>
+                </button>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 👤 TAB 1: DATI ANAGRAFICI E PRIVACY        -->
+            <!-- ========================================== -->
+            <div id="tab-content-cust-info" class="cust-tab-content" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
                 <input type="hidden" id="edit-c-id" value="-1">
                 
-<!-- 📱 Pulsante di Importazione Rapida da Rubrica del Telefono -->
                 <div id="contact-picker-wrapper" style="display: none; margin-bottom: 15px;">
                     <button type="button" class="btn" style="width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="importPhoneContact()">
                         📱 Importa contatto dalla rubrica del telefono
                     </button>
                 </div>
 
-                <label>Nome</label>
-                <input type="text" id="f-c-firstname" placeholder="Nome">
-                
-                <label>Cognome</label>
-                <input type="text" id="f-c-lastname" placeholder="Cognome">
-                
-                <label>Telefono</label>
-                <input type="text" id="f-c-phone" placeholder="Es. 3331234567">
-                
-                <label>Email</label>
-                <input type="email" id="f-c-email" placeholder="cliente@email.it">
-                
-                <label>Data di Nascita</label>
-                <input type="date" id="f-c-birth">
-                
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin: 10px 0;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <input type="checkbox" id="f-c-gdpr" style="width: 18px; height: 18px; margin:0;">
-                        <label for="f-c-gdpr" style="margin:0; font-weight:bold; color:var(--txt); cursor:pointer; text-transform:none;">Consenso Privacy GDPR firmato</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label>Nome *</label>
+                        <input type="text" id="f-c-firstname" placeholder="Es. Mario" style="margin: 4px 0 12px 0;">
+                    </div>
+                    <div>
+                        <label>Cognome *</label>
+                        <input type="text" id="f-c-lastname" placeholder="Es. Rossi" style="margin: 4px 0 12px 0;">
                     </div>
                 </div>
 
-                <label>Note / Allerte</label>
-                <textarea id="f-c-notes" rows="2" placeholder="Eventuali note sul cliente..."></textarea>
-
-
-                <!-- 🎁 SEZIONE PACCHETTI E CARNET ASSOCIATI AL CLIENTE -->
-                <div id="customer-packages-section" style="margin-top: 15px; background: #fdfcff; border: 1.5px solid #e9d5ff; border-radius: 12px; padding: 15px; display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <label style="color: var(--p); margin: 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                            🎁 Pacchetti & Carnet del Cliente
-                        </label>
-                        <span id="cust-packages-count-badge" style="font-size: 11px; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 12px; font-weight: bold;">
-                            0 pacchetti
-                        </span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label>Telefono Cellulare</label>
+                        <input type="text" id="f-c-phone" placeholder="Es. 3331234567" style="margin: 4px 0 12px 0;">
                     </div>
-                    <div id="customer-packages-list" style="display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Popolato dinamicamente da editCust -->
+                    <div>
+                        <label>Email</label>
+                        <input type="email" id="f-c-email" placeholder="cliente@email.it" style="margin: 4px 0 12px 0;">
                     </div>
                 </div>
 
-                <!-- 🕒 SEZIONE STORICO ULTIMI APPUUNTAMENTI (Visibile in Edit) -->
-                <div id="customer-history-section" style="margin-top: 20px; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: none;">
-                    <label style="color: var(--p); margin-top: 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">📅 Ultimi Appuntamenti (Passati e Futuri)</label>
-                    <div id="customer-last-apps" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+                <label>Data di Nascita (per promo compleanno)</label>
+                <input type="date" id="f-c-birth" style="margin: 4px 0 12px 0;">
+
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="f-c-gdpr" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                        <label for="f-c-gdpr" style="margin: 0; font-weight: bold; color: var(--txt); cursor: pointer; text-transform: none;">Consenso Privacy GDPR firmato</label>
+                    </div>
                 </div>
+
+                <label>Note / Allerte Trattamenti</label>
+                <textarea id="f-c-notes" rows="3" placeholder="Colorazioni preferite, allergie, preferenze di piega..." style="margin: 4px 0 12px 0;"></textarea>
             </div>
 
-            <!-- Footer con tasti Salva e Annulla -->
+            <!-- ========================================== -->
+            <!-- 🎁 TAB 2: PACCHETTI E CARNET CON FILTRI    -->
+            <!-- ========================================== -->
+            <div id="tab-content-cust-pkgs" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+                
+                <!-- Barra Filtri Pacchetti -->
+                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 150px 140px; gap: 8px; align-items: center;">
+                    <input type="text" id="cust-filter-pkg-name" placeholder="🔍 Cerca pacchetto o servizio..." onkeyup="filterCustomerPackagesTab()" style="margin:0; padding: 8px 10px; font-size: 12px; background: white;">
+                    
+                    <select id="cust-filter-pkg-status" onchange="filterCustomerPackagesTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
+                        <option value="all">Tutti gli Stati</option>
+                        <option value="installment">⏳ In Rateazione</option>
+                        <option value="paid_full">✓ Saldati</option>
+                    </select>
+
+                    <select id="cust-filter-pkg-sessions" onchange="filterCustomerPackagesTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
+                        <option value="all">Tutte le Sedute</option>
+                        <option value="available">✨ Disponibili (>0)</option>
+                        <option value="exhausted">🏁 Esaurite (0)</option>
+                    </select>
+                </div>
+
+                <!-- Box Riepilogo Saldo Totale Pacchetti del Cliente -->
+                <div id="cust-pkg-summary-bar" style="display: flex; justify-content: space-between; align-items: center; background: #ede9fe; color: #4338ca; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-bottom: 12px;">
+                    <span id="cust-pkg-total-credit">Debito Residuo da Incassare: € 0.00</span>
+                    <span id="cust-pkg-total-sessions-avail">Sedute Rimanenti: 0</span>
+                </div>
+
+                <!-- Elenco Pacchetti Filtrato -->
+                <div id="customer-packages-tab-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 📅 TAB 3: APPUNTAMENTI CON FILTRI E STORICO-->
+            <!-- ========================================== -->
+            <div id="tab-content-cust-apps" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
+                
+                <!-- Barra Filtri Appuntamenti -->
+                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 140px 1fr 140px; gap: 8px; align-items: center;">
+                    <select id="cust-filter-app-timeline" onchange="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px; font-size: 12px; background: white; font-weight: bold;">
+                        <option value="all">Tutti (Cronologico)</option>
+                        <option value="future" selected>📅 In Programma (Futuri)</option>
+                        <option value="past">✅ Completati (Passati)</option>
+                    </select>
+
+                    <input type="text" id="cust-filter-app-search" placeholder="🔍 Cerca trattamento o note..." onkeyup="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px 10px; font-size: 12px; background: white;">
+
+                    <select id="cust-filter-app-user" onchange="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
+                        <option value="all">Tutti Operatori</option>
+                    </select>
+                </div>
+
+                <!-- Elenco Appuntamenti Filtrato -->
+                <div id="customer-appointments-tab-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
+            <!-- Footer Fisso con i Tasti di Azione -->
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 10px;">
-                <button class="btn btn-p" id="btn-save-cust" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveCust()">Salva Cliente</button>
-                <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Annulla</button>
+                <button class="btn btn-p" id="btn-save-cust" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveCust()">Salva Scheda Cliente</button>
+                <button class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 14px;" onclick="closeMod()">Chiudi</button>
             </div>
 
         </div>
     </div>
+
+    <!-- STILI CSS DEDICATI PER LE SCHEDE (TAB) -->
+    <style>
+        .cust-tab-btn {
+            background: transparent !important;
+            color: #64748b !important;
+            border: none !important;
+            border-bottom: 3px solid transparent !important;
+            border-radius: 0 !important;
+            padding: 8px 16px !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            min-height: unset !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cust-tab-btn:hover {
+            color: var(--p) !important;
+            background: #faf5ff !important;
+        }
+        .cust-tab-btn.active-tab {
+            color: var(--p) !important;
+            border-bottom-color: var(--p) !important;
+            background: #faf5ff !important;
+            font-weight: 700 !important;
+        }
+        .tab-pill-badge {
+            font-size: 10px;
+            background: #e2e8f0;
+            color: #475569;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .cust-tab-btn.active-tab .tab-pill-badge {
+            background: var(--p);
+            color: white;
+        }
+    </style>
 
 <!-- MODALE RILEVAMENTO CLIENTE DUPLICATO -->
 <div id="mod-duplicate-customer" class="modal" style="z-index: 35000;">
@@ -7240,6 +7340,56 @@ async function executePasswordUpdate() {
 
 
 
+
+// =========================================================================
+// 📑 GESTORE SCHEDE (TAB) DEL MODALE CLIENTE CON FILTRI AVANZATI
+// =========================================================================
+
+let currentCustModalId = null;
+let cachedModalCustPkgs = [];
+let cachedModalCustApps = [];
+
+// 1. Cambio Scheda Attiva
+function switchCustomerTab(tabName) {
+    // Aggiorna bottoni
+    document.querySelectorAll('.cust-tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+    const activeBtn = document.getElementById(`tab-btn-cust-${tabName}`);
+    if (activeBtn) activeBtn.classList.add('active-tab');
+
+    // Mostra contenuto della scheda selezionata
+    document.querySelectorAll('.cust-tab-content').forEach(c => c.style.display = 'none');
+    const targetContent = document.getElementById(`tab-content-cust-${tabName}`);
+    if (targetContent) targetContent.style.display = 'flex';
+}
+
+// 2. Aggiornamento in openMod('cust')
+const prevOpenMod = window.openMod;
+window.openMod = async function(t, targetDate = null, targetTime = null, targetEnd = null) {
+    if (typeof prevOpenMod === 'function') {
+        await prevOpenMod(t, targetDate, targetTime, targetEnd);
+    }
+    
+    if (t === 'cust') {
+        // All'apertura per Nuovo Cliente, torna alla prima scheda e disattiva le altre
+        switchCustomerTab('info');
+        currentCustModalId = null;
+        cachedModalCustPkgs = [];
+        cachedModalCustApps = [];
+
+        const isNew = document.getElementById('edit-c-id').value === "-1";
+        const titleEl = document.getElementById('cust-modal-title');
+        if (titleEl) titleEl.innerText = isNew ? "👤 Nuovo Cliente" : "👥 Scheda Cliente";
+
+        const btnPkgs = document.getElementById('tab-btn-cust-pkgs');
+        const btnApps = document.getElementById('tab-btn-cust-apps');
+        if (btnPkgs && btnApps) {
+            btnPkgs.style.display = isNew ? 'none' : 'inline-flex';
+            btnApps.style.display = isNew ? 'none' : 'inline-flex';
+        }
+    }
+};
+
+
     function renderTimeline(area, cols) {
         area.innerHTML = ''; 
         const containerClass = (cols === 7) ? 'time-grid-week' : 'time-grid-day';
@@ -10750,107 +10900,322 @@ async function decrementInventoryFIFO(productId) {
         refreshAllData(); 
         closeMod();
     }
-    async function editCust(id) { 
-        const c = allCustomers.find(x => x.id === id); 
-        if (!c) return;
+    // 3. Funzione Principale di Caricamento Dossier in editCust(id)
+async function editCust(id) { 
+    const c = allCustomers.find(x => x.id === id); 
+    if (!c) return;
 
-        document.getElementById('edit-c-id').value = id; 
-        document.getElementById('f-c-firstname').value = c.first_name || ''; 
-        document.getElementById('f-c-lastname').value = c.last_name || ''; 
-        document.getElementById('f-c-phone').value = c.phone || ''; 
-        document.getElementById('f-c-email').value = c.email || ''; 
-        document.getElementById('f-c-birth').value = c.birth_date || ''; 
-        document.getElementById('f-c-gdpr').checked = Number(c.gdpr_consent) === 1;
-        document.getElementById('f-c-notes').value = c.notes || '';
+    currentCustModalId = id;
 
+    // Popolamento form anagrafico (Tab 1)
+    document.getElementById('edit-c-id').value = id; 
+    document.getElementById('f-c-firstname').value = c.first_name || ''; 
+    document.getElementById('f-c-lastname').value = c.last_name || ''; 
+    document.getElementById('f-c-phone').value = c.phone || ''; 
+    document.getElementById('f-c-email').value = c.email || ''; 
+    document.getElementById('f-c-birth').value = c.birth_date || ''; 
+    document.getElementById('f-c-gdpr').checked = Number(c.gdpr_consent) === 1;
+    document.getElementById('f-c-notes').value = c.notes || '';
 
-// 🌟 1. CARICAMENTO E MOSTRA PACCHETTI DEL CLIENTE
-        const pkgSection = document.getElementById('customer-packages-section');
-        if (pkgSection) {
-            pkgSection.style.display = 'block';
-            await renderCustomerPackagesInModal(id);
-        }
+    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente';
+    const titleEl = document.getElementById('cust-modal-title');
+    if (titleEl) titleEl.innerText = `👥 Scheda Cliente: ${fullName}`;
 
-        // --- CARICAMENTO ULTIMI APPUNTAMENTI PRESI (PASSATI E FUTURI) ---
-        const historySection = document.getElementById('customer-history-section');
-        if (historySection) historySection.style.display = 'block'; // 👈 Fondamentale per renderlo visibile
-        const historyContainer = document.getElementById('customer-last-apps');
-        
-        if (!historySection || !historyContainer) return;
-        
-        // Aggiorniamo l'etichetta del box dinamicamente per coerenza
-        const labelEl = historySection.querySelector('label');
-        if (labelEl) labelEl.innerText = "Ultimi Appuntamenti Presi (Passati e Futuri)";
+    // Mostra le tab Pacchetti e Appuntamenti
+    const btnPkgs = document.getElementById('tab-btn-cust-pkgs');
+    const btnApps = document.getElementById('tab-btn-cust-apps');
+    if (btnPkgs) btnPkgs.style.display = 'inline-flex';
+    if (btnApps) btnApps.style.display = 'inline-flex';
 
-        const firstName = (c.first_name || '').trim().toLowerCase();
-        const lastName = (c.last_name || '').trim().toLowerCase();
-        const fullName = `${firstName} ${lastName}`.trim();
-        const phone = (c.phone || '').trim();
-
-        // Filtriamo tutti gli appuntamenti associati al cliente
-        const custApps = (allAppointments || []).filter(a => {
-            const appCustName = (a.cust_name || '').trim().toLowerCase();
-            const matchByName = fullName && (appCustName === fullName || (appCustName.includes(firstName) && appCustName.includes(lastName)));
-            const matchByPhone = phone && a.phone && a.phone.trim() === phone;
-            return matchByName || matchByPhone;
-        });
-
-        // 🔄 ORDINAMENTO INTELLIGENTE: 
-        // Mostriamo prima gli appuntamenti più vicini a oggi (sia futuri che passati recenti) 
-        // oppure ordiniamo in modo misto. Mettiamo i futuri in evidenza o ordiniamo cronologicamente per data decrescente.
-        // Usiamo l'ordinamento per data decrescente (dal più lontano nel futuro al passato, o viceversa).
-        // Soluzione ideale: ordinati per data/ora dal più recente al più vecchio (includendo i futuri).
-        custApps.sort((a, b) => {
-            const dateTimeA = `${a.date || '1900-01-01'} ${a.time || '00:00'}`;
-            const dateTimeB = `${b.date || '1900-01-01'} ${b.time || '00:00'}`;
-            return dateTimeB.localeCompare(dateTimeA); // Dal futuro/recente al passato
-        });
-
-        const lastThree = custApps.slice(0, 3);
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        if (lastThree.length > 0) {
-        historyContainer.innerHTML = lastThree.map(a => {
-                const isFuture = a.date >= todayStr;
-                const badgeStyle = isFuture 
-                    ? 'background:#00b894; color:white;' 
-                    : 'background:#f0efff; color:var(--p);';
-
-                const statusTag = isFuture ? '📅 In Programma' : '✅ Effettuato';
-
-                return `
-                    <div style="background:white; padding:12px; border-radius:8px; border:1px solid ${isFuture ? '#00b894' : '#eee'}; display:flex; flex-direction:column; gap:8px; margin-bottom:8px; text-align:left; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                        
-                        <!-- Riga superiore: Data e Badge (Forzati a non rompersi) -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <b style="color:var(--txt);">${formatDateIt(a.date)}</b> @ ${a.time ? a.time.substring(0,5) : ''}
-                            <span style="font-size:10px; padding:3px 8px; border-radius:4px; font-weight:bold; white-space:nowrap; ${badgeStyle}">${statusTag}</span>
-                        </div>
-
-                        <!-- Dettaglio Servizio e Operatore -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#2d3436; gap:8px;">
-                            <span>Servizio: <b>${a.service || 'N/D'}</b></span>
-                            <span style="font-size:11px; background:#f8f9fa; color:#666; padding:2px 6px; border-radius:4px; font-weight:bold; white-space:nowrap;">
-                                ${a.assigned_user || 'Admin'}
-                            </span>
-                        </div>
-                        
-                        <!-- Note Trattamento -->
-                        ${a.notes && a.notes.trim() !== "" ? `
-                            <div style="background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.4;">
-                                <b>Note:</b> ${a.notes}
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-        } else {
-            historyContainer.innerHTML = `<div style="font-size:12px; color:#888; font-style:italic; padding:4px;">Nessun appuntamento registrato.</div>`;
-        }
-
-        document.getElementById('mod-cust').classList.add('active'); 
+    // Popola filtro operatori nella tab appuntamenti
+    const appUserSelect = document.getElementById('cust-filter-app-user');
+    if (appUserSelect) {
+        const users = (allUsers && allUsers.length > 0) ? allUsers : (await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || []);
+        appUserSelect.innerHTML = `<option value="all">Tutti Operatori</option>` + users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
     }
+
+    // Carica e calcola i dati per le schede 2 e 3
+    await loadCustomerPackagesTabData(id);
+    await loadCustomerAppointmentsTabData(id, c);
+
+    // Apri di default sulla scheda Anagrafica
+    switchCustomerTab('info');
+    document.getElementById('mod-cust').classList.add('active'); 
+}
+
+
+// =========================================================================
+// 🎁 TAB PACCHETTI: CARICAMENTO E FILTRI
+// =========================================================================
+
+async function loadCustomerPackagesTabData(customerId) {
+    const allCustPkgs = (localDb && localDb.customer_packages) 
+        ? await localDb.customer_packages.toArray() 
+        : [];
+
+    cachedModalCustPkgs = allCustPkgs.filter(cp => String(cp.customer_id).trim() === String(customerId).trim());
+
+    // Aggiorna il badge della scheda
+    const badge = document.getElementById('badge-tab-pkgs');
+    if (badge) badge.innerText = cachedModalCustPkgs.length;
+
+    // Reset campi filtri
+    const fName = document.getElementById('cust-filter-pkg-name');
+    const fStatus = document.getElementById('cust-filter-pkg-status');
+    const fSessions = document.getElementById('cust-filter-pkg-sessions');
+    if (fName) fName.value = '';
+    if (fStatus) fStatus.value = 'all';
+    if (fSessions) fSessions.value = 'all';
+
+    filterCustomerPackagesTab();
+}
         
+
+
+
+async function filterCustomerPackagesTab() {
+    const container = document.getElementById('customer-packages-tab-container');
+    if (!container) return;
+
+    const fName = document.getElementById('cust-filter-pkg-name')?.value.toLowerCase().trim() || '';
+    const fStatus = document.getElementById('cust-filter-pkg-status')?.value || 'all';
+    const fSessions = document.getElementById('cust-filter-pkg-sessions')?.value || 'all';
+
+    const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+    const inventory = allInventory || [];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let totalDebtSum = 0;
+    let totalSessionsRemSum = 0;
+
+    let itemsToDisplay = [];
+
+    for (let cp of cachedModalCustPkgs) {
+        const pkgConfig = allPkgConfigs.find(p => String(p.id) === String(cp.package_id));
+        const pkgName = pkgConfig ? pkgConfig.name : 'Pacchetto Trattamenti';
+
+        const totalPrice = parseFloat(cp.total_price) || (pkgConfig ? parseFloat(pkgConfig.price) : 0);
+        const totalPaid = parseFloat(cp.total_paid) || 0;
+        const remainingPay = Math.max(totalPrice - totalPaid, 0);
+        const isFullyPaid = (remainingPay <= 0.01) || cp.payment_status === 'paid_full';
+
+        // Calcolo Sedute
+        let sessionsList = [];
+        if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
+        else if (typeof cp.sessions_state === 'string') {
+            try { sessionsList = JSON.parse(cp.sessions_state); } catch(e) { sessionsList = []; }
+        }
+
+        let totalSessionsSum = 0;
+        let remainingSessionsSum = 0;
+        let servicesList = [];
+
+        sessionsList.forEach(s => {
+            const tot = parseInt(s.total) || 0;
+            const rem = parseInt(s.remaining) || 0;
+            totalSessionsSum += tot;
+            remainingSessionsSum += rem;
+
+            const servObj = inventory.find(i => String(i.id) === String(s.service_id));
+            servicesList.push({
+                name: servObj ? servObj.name : 'Servizio',
+                total: tot,
+                remaining: rem
+            });
+        });
+
+        // Accumulo totali riepilogo
+        totalDebtSum += remainingPay;
+        totalSessionsRemSum += remainingSessionsSum;
+
+        // FILTRI
+        // 1. Filtro Nome / Servizio
+        const matchName = pkgName.toLowerCase().includes(fName) || servicesList.some(s => s.name.toLowerCase().includes(fName));
+        if (!matchName) continue;
+
+        // 2. Filtro Stato Pagamento
+        if (fStatus === 'installment' && isFullyPaid) continue;
+        if (fStatus === 'paid_full' && !isFullyPaid) continue;
+
+        // 3. Filtro Disponibilità Sedute
+        if (fSessions === 'available' && remainingSessionsSum <= 0) continue;
+        if (fSessions === 'exhausted' && remainingSessionsSum > 0) continue;
+
+        itemsToDisplay.push({
+            cp, pkgName, totalPrice, totalPaid, remainingPay, isFullyPaid,
+            totalSessionsSum, remainingSessionsSum, servicesList
+        });
+    }
+
+    // Aggiorna banner riepilogo crediti
+    const creditEl = document.getElementById('cust-pkg-total-credit');
+    const sessEl = document.getElementById('cust-pkg-total-sessions-avail');
+    if (creditEl) creditEl.innerText = `Debito Residuo da Incassare: € ${totalDebtSum.toFixed(2)}`;
+    if (sessEl) sessEl.innerText = `Sedute Rimanenti: ${totalSessionsRemSum}`;
+
+    if (itemsToDisplay.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #888; font-size: 13px; padding: 30px; background: white; border-radius: 10px; border: 1px dashed #cbd5e1;">Nessun pacchetto trovato con i filtri selezionati.</div>`;
+        return;
+    }
+
+    container.innerHTML = itemsToDisplay.map(item => {
+        const progressPct = item.totalSessionsSum > 0 ? Math.round(((item.totalSessionsSum - item.remainingSessionsSum) / item.totalSessionsSum) * 100) : 0;
+        const isExhausted = item.remainingSessionsSum <= 0;
+
+        let expiryHtml = '';
+        if (item.cp.expiry_date) {
+            const isExpired = item.cp.expiry_date < todayStr;
+            expiryHtml = `<span style="font-size: 11px; color: ${isExpired ? '#dc2626' : '#64748b'}; font-weight: ${isExpired ? 'bold' : 'normal'};">${isExpired ? '⚠️ Scaduto il:' : '📅 Scadenza:'} ${formatDateIt(item.cp.expiry_date)}</span>`;
+        }
+
+        const servicesRowsHtml = item.servicesList.map(s => `
+            <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; border-bottom: 1px dashed #f1f5f9;">
+                <span>• <b>${s.name}</b></span>
+                <span style="color: ${s.remaining > 0 ? 'var(--p)' : '#94a3b8'}; font-weight: 700;">${s.remaining} su ${s.total} disponibili</span>
+            </div>
+        `).join('');
+
+        return `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div>
+                        <div style="font-weight: 800; font-size: 14px; color: #1e1b4b;">${item.pkgName}</div>
+                        ${expiryHtml}
+                    </div>
+                    <span style="font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 6px; ${item.isFullyPaid ? 'background: #dcfce7; color: #16a34a;' : 'background: #fef3c7; color: #d97706;'}">
+                        ${item.isFullyPaid ? '✓ Saldato al 100%' : `Rata Aperta: Mancano € ${item.remainingPay.toFixed(2)}`}
+                    </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 11px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; text-align: center;">
+                    <div>Valore Totale: <br><b style="font-size: 12px;">€ ${item.totalPrice.toFixed(2)}</b></div>
+                    <div>Già Versato: <br><b style="font-size: 12px; color: #047857;">€ ${item.totalPaid.toFixed(2)}</b></div>
+                    <div>Residuo: <br><b style="font-size: 12px; ${item.remainingPay > 0 ? 'color: #dc2626;' : 'color: #047857;'}">€ ${item.remainingPay.toFixed(2)}</b></div>
+                </div>
+
+                <div style="margin-top: 2px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                        <span style="color: #64748b;">Consumo sedute carnet:</span>
+                        <b style="color: ${isExhausted ? '#dc2626' : 'var(--p)'};">${isExhausted ? 'Carnet Esaurito (0 rimaste)' : `${item.remainingSessionsSum} su ${item.totalSessionsSum} disponibili`}</b>
+                    </div>
+                    <div style="width: 100%; height: 7px; background: #ede9fe; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${progressPct}%; height: 100%; background: ${isExhausted ? '#94a3b8' : 'var(--p)'};"></div>
+                    </div>
+                </div>
+
+                <div style="background: #fafafa; border: 1px solid #f1f5f9; padding: 8px 12px; border-radius: 8px; margin-top: 4px;">
+                    ${servicesRowsHtml || '<span style="font-size: 10px; color:#888;">Nessun servizio tracciato.</span>'}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+
+
+// =========================================================================
+// 📅 TAB APPUNTAMENTI: CARICAMENTO E FILTRI
+// =========================================================================
+
+async function loadCustomerAppointmentsTabData(customerId, customerObj) {
+    const firstName = (customerObj.first_name || '').trim().toLowerCase();
+    const lastName = (customerObj.last_name || '').trim().toLowerCase();
+    const fullName = `${firstName} ${lastName}`.trim();
+    const phone = (customerObj.phone || '').trim();
+
+    const apps = allAppointments || [];
+    cachedModalCustApps = apps.filter(a => {
+        const appCust = (a.cust_name || '').trim().toLowerCase();
+        const matchName = fullName && (appCust === fullName || (appCust.includes(firstName) && appCust.includes(lastName)));
+        const matchPhone = phone && a.phone && a.phone.trim() === phone;
+        return matchName || matchPhone;
+    });
+
+    // Ordina dal più recente/futuro al più vecchio
+    cachedModalCustApps.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+
+    // Aggiorna il badge della scheda
+    const badge = document.getElementById('badge-tab-apps');
+    if (badge) badge.innerText = cachedModalCustApps.length;
+
+    // Reset campi filtri
+    const fTimeline = document.getElementById('cust-filter-app-timeline');
+    const fSearch = document.getElementById('cust-filter-app-search');
+    const fUser = document.getElementById('cust-filter-app-user');
+    if (fTimeline) fTimeline.value = 'future';
+    if (fSearch) fSearch.value = '';
+    if (fUser) fUser.value = 'all';
+
+    filterCustomerAppointmentsTab();
+}
+
+function filterCustomerAppointmentsTab() {
+    const container = document.getElementById('customer-appointments-tab-container');
+    if (!container) return;
+
+    const fTimeline = document.getElementById('cust-filter-app-timeline')?.value || 'all';
+    const fSearch = document.getElementById('cust-filter-app-search')?.value.toLowerCase().trim() || '';
+    const fUser = document.getElementById('cust-filter-app-user')?.value || 'all';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const salesList = allSales || [];
+
+    const filtered = cachedModalCustApps.filter(a => {
+        const isFuture = a.date >= todayStr;
+        if (fTimeline === 'future' && !isFuture) return false;
+        if (fTimeline === 'past' && isFuture) return false;
+
+        if (fUser !== 'all' && (a.assigned_user || 'admin').toLowerCase() !== fUser.toLowerCase()) return false;
+
+        const matchText = (a.service || '').toLowerCase().includes(fSearch) || (a.notes || '').toLowerCase().includes(fSearch);
+        if (!matchText) return false;
+
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #888; font-size: 13px; padding: 30px; background: white; border-radius: 10px; border: 1px dashed #cbd5e1;">Nessun appuntamento trovato per questo intervallo o filtro.</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(a => {
+        const isFuture = a.date >= todayStr;
+        const isPaid = salesList.some(s => String(s.appointment_id) === String(a.id));
+
+        return `
+            <div style="background: white; padding: 12px 14px; border-radius: 10px; border: 1px solid ${isFuture ? '#00b894' : '#e2e8f0'}; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 13px; font-weight: 700; color: #1e1b4b;">
+                        📅 ${formatDateIt(a.date)} alle ore ${a.time ? a.time.substring(0, 5) : '--:--'}
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <span style="font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 4px; ${isFuture ? 'background: #dcfce7; color: #16a34a;' : 'background: #f1f5f9; color: #64748b;'}">
+                            ${isFuture ? 'In Programma' : 'Completato'}
+                        </span>
+                        ${isPaid ? `<span style="font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 4px; background: #e0f2fe; color: #0284c7;">💶 Pagato</span>` : ''}
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #334155;">
+                    <span>Trattamento: <b>${a.service || 'Servizio Generico'}</b></span>
+                    <span style="font-size: 11px; background: #f8fafc; padding: 2px 6px; border-radius: 4px; font-weight: 600; color: #64748b;">Op: ${a.assigned_user || 'Admin'}</span>
+                </div>
+
+                ${a.notes && a.notes.trim() !== '' ? `
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 6px 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;">
+                        <b>Note:</b> ${a.notes}
+                    </div>
+                ` : ''}
+
+                <div style="text-align: right; margin-top: 4px;">
+                    <button type="button" class="btn btn-s" style="padding: 4px 10px; font-size: 11px;" onclick="closeMod(); editApp('${a.id}');">
+                        ✏️ Apri in Agenda
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
     function formatDateIt(dateStr) {
         if (!dateStr) return '-';
         // Se la stringa è nel formato "AAAA-MM-DD" o contiene l'orario "AAAA-MM-DD HH:MM:SS"
