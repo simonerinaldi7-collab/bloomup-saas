@@ -4237,8 +4237,7 @@ async function voidSaleTransaction(saleId) {
 
 window._selectedPackageRedemption = null;
 
-// Rileva pacchetti attivi per il cliente (anche di altri saloni partner)
-async function checkCustomerActivePackagesForAppointment(custId, custName) {
+async function checkCustomerActivePackagesForAppointment(custId, custName, preselectedCustPkgId = null, preselectedServiceId = null) {
     const container = document.getElementById('package-redemption-container');
     const select = document.getElementById('f-a-package-service-select');
     const badge = document.getElementById('pkg-redemption-avail-badge');
@@ -4258,28 +4257,25 @@ async function checkCustomerActivePackagesForAppointment(custId, custName) {
         const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // 1. Lettura crediti pacchetti cliente
         const allCustPkgs = (localDb && localDb.customer_packages) ? await localDb.customer_packages.toArray() : [];
         const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
         const inventory = allInventory || [];
 
-        // Ricerca per ID o per Nome Cliente
+        // Match cliente per ID o Nome
         const clientPkgs = allCustPkgs.filter(cp => {
             const matchId = custId && String(cp.customer_id).trim() === String(custId).trim();
             const matchName = custName && String(cp.customer_name || '').trim().toLowerCase() === custName.trim().toLowerCase();
             return matchId || matchName;
         });
 
-        // 2. Filtriamo solo i pacchetti abilitati per questo salone e non scaduti
         const eligibleOptions = [];
         let totalAvailableSessions = 0;
 
         for (let cp of clientPkgs) {
-            if (cp.expiry_date && cp.expiry_date < todayStr) continue; // Scaduto
+            if (cp.expiry_date && cp.expiry_date < todayStr) continue;
 
             const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
             
-            // Verifica che il salone sia abilitato
             let isAllowedSalon = true;
             if (pkgConfig && pkgConfig.shared_salons) {
                 let sArr = pkgConfig.shared_salons;
@@ -4293,7 +4289,6 @@ async function checkCustomerActivePackagesForAppointment(custId, custName) {
 
             const pkgName = pkgConfig ? pkgConfig.name : 'Pacchetto';
 
-            // Estrazione sedute residue per ciascun servizio
             let sessionsList = [];
             if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
             else if (typeof cp.sessions_state === 'string') {
@@ -4304,8 +4299,10 @@ async function checkCustomerActivePackagesForAppointment(custId, custName) {
                 const rem = parseInt(s.remaining) || 0;
                 const tot = parseInt(s.total) || 0;
 
-                // 🛑 REQUISITO: Mostra il servizio SOLO se le sedute residue sono > 0
-                if (rem > 0) {
+                // Mostra se ci sono sedute disponibili (>0) OPPURE se è la seduta già in uso da questo appuntamento
+                const isCurrentRedemption = (preselectedCustPkgId && String(cp.id).trim() === String(preselectedCustPkgId).trim() && String(s.service_id).trim() === String(preselectedServiceId).trim());
+
+                if (rem > 0 || isCurrentRedemption) {
                     totalAvailableSessions += rem;
                     const servObj = inventory.find(i => String(i.id).trim() === String(s.service_id).trim());
                     const servName = servObj ? servObj.name : 'Trattamento';
@@ -4317,7 +4314,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName) {
                         pkgName: pkgName,
                         rem: rem,
                         tot: tot,
-                        price: servObj ? parseFloat(servObj.price) || 0 : 0
+                        isSelected: isCurrentRedemption
                     });
                 }
             }
@@ -4328,14 +4325,32 @@ async function checkCustomerActivePackagesForAppointment(custId, custName) {
             return;
         }
 
-        // 3. Popolamento tendina con i soli servizi prenotabili
-        select.innerHTML = `<option value="">-- Nessun riscatto (Servizio standard a pagamento) --</option>` + 
-            eligibleOptions.map(opt => 
-                `<option value="${opt.custPkgId}___${opt.serviceId}">🎁 [${opt.pkgName}] ${opt.servName} (${opt.rem} su ${opt.tot} disponibili)</option>`
-            ).join('');
+        // Popola la tendina e gestisce la preselezionata
+        let optionsHtml = `<option value="">-- Nessun riscatto (Servizio standard a pagamento) --</option>`;
+        let selectedFound = false;
 
+        eligibleOptions.forEach(opt => {
+            const valStr = `${opt.custPkgId}___${opt.serviceId}`;
+            const selectedAttr = opt.isSelected ? 'selected' : '';
+            if (opt.isSelected) selectedFound = true;
+            optionsHtml += `<option value="${valStr}" ${selectedAttr}>🎁 [${opt.pkgName}] ${opt.servName} (${opt.rem} su ${opt.tot} disponibili)</option>`;
+        });
+
+        select.innerHTML = optionsHtml;
         if (badge) badge.innerText = `${totalAvailableSessions} sedute disp.`;
         container.style.display = 'block';
+
+        if (selectedFound && preselectedCustPkgId && preselectedServiceId) {
+            window._selectedPackageRedemption = {
+                customerPackageId: preselectedCustPkgId,
+                serviceId: preselectedServiceId,
+                isAlreadyDecremented: true // Flag fondamentale: evita il doppio decremento in modifica
+            };
+            if (feedback) {
+                feedback.innerHTML = `✓ <b>Seduta coperta da pacchetto</b> già associata a questo appuntamento (Prezzo: <b>€ 0.00</b>).`;
+                feedback.style.display = 'block';
+            }
+        }
 
     } catch (err) {
         console.error("Errore verifica pacchetti per appuntamento:", err);
@@ -9553,7 +9568,6 @@ async function deletePackage(id) {
     let finalService = "Chiusura / Ferie";
 
     if (!isClosure) {
-        // Lettura diretta da pillole servizi
         totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
         selectedServiceNames = currentSelectedServices.map(s => s.name);
 
@@ -9564,77 +9578,83 @@ async function deletePackage(id) {
         }
     }
 
-    // 🎁 GESTIONE DECREMENTO / RISCATTO SEDUTA PACCHETTO
+    // 🎁 GESTIONE DECREMENTO / RIPRISTINO SEDUTA PACCHETTO
     const redemption = window._selectedPackageRedemption;
     let existingOldApp = (id !== "-1") ? allAppointments.find(a => a.id === id) : null;
     let oldPkgMatch = existingOldApp ? (existingOldApp.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/) : null;
+    const oldCustPkgId = oldPkgMatch ? oldPkgMatch[1] : null;
+    const oldServiceId = oldPkgMatch ? oldPkgMatch[2] : null;
+
+    // 🌟 Pulizia preventiva note da eventuali vecchi tag tecnici
+    let cleanNotes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
 
     if (redemption) {
-        try {
-            const targetCustPkg = await localDb.customer_packages.get(redemption.customerPackageId);
-            if (!targetCustPkg) {
-                return alert("⚠️ Pacchetto del cliente non trovato nel database.");
+        const isSameRedemptionAsBefore = Boolean(redemption.isAlreadyDecremented) || (oldCustPkgId === redemption.customerPackageId && oldServiceId === redemption.serviceId);
+
+        // Decrementa solo se è una NUOVA associazione o se è cambiata rispetto a prima
+        if (!isSameRedemptionAsBefore) {
+            // Se prima c'era un pacchetto diverso, ripristiniamo la vecchia seduta (+1)
+            if (oldCustPkgId && oldServiceId) {
+                try {
+                    const oldPkg = await localDb.customer_packages.get(oldCustPkgId);
+                    if (oldPkg) {
+                        let oldSessions = Array.isArray(oldPkg.sessions_state) ? oldPkg.sessions_state : JSON.parse(oldPkg.sessions_state || '[]');
+                        const oldItem = oldSessions.find(s => String(s.service_id).trim() === String(oldServiceId).trim());
+                        if (oldItem) {
+                            oldItem.remaining = Math.min((parseInt(oldItem.remaining) || 0) + 1, parseInt(oldItem.total) || 999);
+                            await localDb.customer_packages.update(oldPkg.id, { sessions_state: oldSessions, updated_at: getNowLocal() });
+                            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                                await sendToCloudDirectly('PATCH', 'customer_packages', { sessions_state: oldSessions, updated_at: getNowLocal() }, oldPkg.id);
+                            }
+                        }
+                    }
+                } catch(e) {}
             }
 
-            let sessionsList = [];
-            if (Array.isArray(targetCustPkg.sessions_state)) sessionsList = targetCustPkg.sessions_state;
-            else if (typeof targetCustPkg.sessions_state === 'string') {
-                try { sessionsList = JSON.parse(targetCustPkg.sessions_state); } catch(e) { sessionsList = []; }
+            // Decremento della nuova seduta (-1)
+            try {
+                const targetCustPkg = await localDb.customer_packages.get(redemption.customerPackageId);
+                if (!targetCustPkg) return alert("⚠️ Pacchetto del cliente non trovato nel database.");
+
+                let sessionsList = Array.isArray(targetCustPkg.sessions_state) ? targetCustPkg.sessions_state : JSON.parse(targetCustPkg.sessions_state || '[]');
+                const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(redemption.serviceId).trim());
+                if (!sessionItem || parseInt(sessionItem.remaining) <= 0) {
+                    return alert("⚠️ Attenzione: Tutte le sedute per questo trattamento sono state esaurite nel pacchetto!");
+                }
+
+                sessionItem.remaining = Math.max(parseInt(sessionItem.remaining) - 1, 0);
+
+                await localDb.customer_packages.update(targetCustPkg.id, { sessions_state: sessionsList, updated_at: getNowLocal() });
+                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                    await sendToCloudDirectly('PATCH', 'customer_packages', { sessions_state: sessionsList, updated_at: getNowLocal() }, targetCustPkg.id);
+                }
+            } catch(e) {
+                return alert("Errore durante l'applicazione della seduta del pacchetto.");
             }
-
-            const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(redemption.serviceId).trim());
-            if (!sessionItem || parseInt(sessionItem.remaining) <= 0) {
-                return alert("⚠️ Attenzione: Tutte le sedute per questo trattamento sono state esaurite nel pacchetto!");
-            }
-
-            // 📉 Decremento della seduta (-1)
-            sessionItem.remaining = Math.max(parseInt(sessionItem.remaining) - 1, 0);
-
-            // Salvataggio aggiornato su IndexedDB e Supabase
-            await localDb.customer_packages.update(targetCustPkg.id, {
-                sessions_state: sessionsList,
-                updated_at: getNowLocal()
-            });
-
-            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                await sendToCloudDirectly('PATCH', 'customer_packages', {
-                    sessions_state: sessionsList,
-                    updated_at: getNowLocal()
-                }, targetCustPkg.id);
-            }
-
-            console.log(`🎁 [PACCHETTO RISCATTATO] Seduta scalata. Rimanenti: ${sessionItem.remaining} su ${sessionItem.total}`);
-
-            // Pulizia vecchio tag se presente e inserimento del nuovo tag [PKG:custPkgId:serviceId]
-            const cleanNotes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
-            notes = `[PKG:${targetCustPkg.id}:${redemption.serviceId}] ` + cleanNotes;
-
-        } catch (pkgErr) {
-            console.error("Errore durante il decremento della seduta del pacchetto:", pkgErr);
-            return alert("Impossibile usufruire del pacchetto in questo momento.");
         }
-    } else if (existingOldApp && oldPkgMatch) {
-        // Se in modifica l'utente ha deselezionato il pacchetto, ripristina la vecchia seduta (+1)
-        const oldCustPkgId = oldPkgMatch[1];
-        const oldServiceId = oldPkgMatch[2];
+
+        // Riapplica il tag pulito nelle note
+        notes = `[PKG:${redemption.customerPackageId}:${redemption.serviceId}] ` + cleanNotes;
+
+    } else if (oldCustPkgId && oldServiceId) {
+        // Se in modifica l'utente ha tolto il pacchetto (selezionato "Nessun riscatto"), ripristina la seduta (+1)
         try {
-            const oldCustPkg = await localDb.customer_packages.get(oldCustPkgId);
-            if (oldCustPkg) {
-                let sessionsList = Array.isArray(oldCustPkg.sessions_state) 
-                    ? oldCustPkg.sessions_state 
-                    : JSON.parse(oldCustPkg.sessions_state || '[]');
-                
-                const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(oldServiceId).trim());
-                if (sessionItem) {
-                    sessionItem.remaining = Math.min((parseInt(sessionItem.remaining) || 0) + 1, parseInt(sessionItem.total) || 999);
-                    await localDb.customer_packages.update(oldCustPkg.id, { sessions_state: sessionsList, updated_at: getNowLocal() });
+            const oldPkg = await localDb.customer_packages.get(oldCustPkgId);
+            if (oldPkg) {
+                let oldSessions = Array.isArray(oldPkg.sessions_state) ? oldPkg.sessions_state : JSON.parse(oldPkg.sessions_state || '[]');
+                const oldItem = oldSessions.find(s => String(s.service_id).trim() === String(oldServiceId).trim());
+                if (oldItem) {
+                    oldItem.remaining = Math.min((parseInt(oldItem.remaining) || 0) + 1, parseInt(oldItem.total) || 999);
+                    await localDb.customer_packages.update(oldPkg.id, { sessions_state: oldSessions, updated_at: getNowLocal() });
                     if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                        await sendToCloudDirectly('PATCH', 'customer_packages', { sessions_state: sessionsList, updated_at: getNowLocal() }, oldCustPkg.id);
+                        await sendToCloudDirectly('PATCH', 'customer_packages', { sessions_state: oldSessions, updated_at: getNowLocal() }, oldPkg.id);
                     }
                 }
             }
         } catch(e) {}
-        notes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+        notes = cleanNotes;
+    } else {
+        notes = cleanNotes;
     }
 
     const data = { 
@@ -9660,18 +9680,16 @@ async function deletePackage(id) {
         await window.universalQuery({ action: 'UPDATE', table: 'appointments', data: data, id: id });
     }
 
-    // Reset selettore riscatto temporaneo
     window._selectedPackageRedemption = null;
 
     await refreshAllData();
     if (typeof renderCalendar === 'function') renderCalendar();
     closeMod();
 
-    // Reset della checkbox di chiusura
     if (isClosureCheckbox) isClosureCheckbox.checked = false;
     if (typeof toggleClosureMode === 'function') toggleClosureMode(false);
 
-    // ✨ SMART REBOOKING (Escluso se Chiusura o Pausa)
+    // ✨ Smart Rebooking (Invariato)
     if (!isClosure && !custName.toLowerCase().includes('pausa') && !custName.toLowerCase().includes('pranzo')) {
         const avgDays = getCustomerAverageFrequency(custName);
         if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
@@ -11091,56 +11109,25 @@ async function getAdvancedBusinessAnalytics() {
     const a = allAppointments.find(x => x.id === id); 
     if (!a) return;
 
-
-
-
-    
-    // 🧹 PULIZIA TOTALE PREVENTIVA
+    // 1. Pulizia preventiva
     currentSelectedServices = [];
+    window._selectedPackageRedemption = null;
 
-    // 🎯 ESTRAZIONE DI OGNI SINGOLA VOCE DI SERVIZIO (Mantenendo i duplicati se presenti es. "Piega, Piega")
-    const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
-        
-        const matchedServiceItems = [];
-        for (let nameStr of savedServiceNames) {
-            const nameLower = nameStr.toLowerCase();
-            if (!nameLower || nameLower === 'servizio' || nameLower === 'trattamento' || nameLower.includes('pausa')) continue;
-            
-            // 🎯 RICERCA ESATTA (Exact match case-insensitive)
-            let foundServ = allInventory.find(i => i.type === 'servizio' && i.name.toLowerCase().trim() === nameLower);
-            
-            if (!foundServ) {
-                foundServ = allInventory.find(i => i.type === 'servizio' && i.id === nameStr);
-            }
-        
-        if (foundServ) {
-            // Recuperiamo il prezzo corrente del servizio
-            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
-            const price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
-            
-            // Generiamo un UID univoco per ogni istanza (permette di gestire i duplicati come pillole separate)
-            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-            matchedServiceItems.push({ uid: uniqueInstanceId, id: foundServ.id, name: foundServ.name, price: price });
-        }
-    }
+    // 2. Controllo se l'appuntamento usufruiva di un pacchetto tramite il tag [PKG:custPkgId:serviceId]
+    const pkgMatch = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
+    const existingCustPkgId = pkgMatch ? pkgMatch[1] : null;
+    const existingServiceId = pkgMatch ? pkgMatch[2] : null;
 
-    // Iniettiamo direttamente le istanze multiple in currentSelectedServices se la funzione di supporto esiste
-    if (typeof renderSelectedServiceTags === 'function') {
-        currentSelectedServices = matchedServiceItems;
-        renderSelectedServiceTags();
-    } else if (typeof initServiceAutocomplete === 'function') {
-        // Fallback di compatibilità
-        const matchedIds = matchedServiceItems.map(s => s.id);
-        await initServiceAutocomplete(matchedIds);
-    }
+    // 🌟 3. PULIZIA DELLE NOTE: Rimuove il tag tecnico [PKG:...] dalla textarea visibile all'utente
+    const cleanNotes = (a.notes || '').replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+    document.getElementById('f-a-notes').value = cleanNotes;
 
-    // Mappatura campi base del modale
+    // 4. Mappatura campi base
     document.getElementById('edit-a-id').value = id;
     document.getElementById('f-a-search').value = a.cust_name || '';
     document.getElementById('f-a-date').value = a.date || '';
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
-    document.getElementById('f-a-notes').value = a.notes || '';
     
     const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
     const userSelect = document.getElementById('f-a-user');
@@ -11152,9 +11139,55 @@ async function getAdvancedBusinessAnalytics() {
     const titleEl = document.getElementById('mod-cale-title');
     if (titleEl) titleEl.innerText = "Modifica Appuntamento";
 
+    // 🌟 5. ESTRAZIONE E RICARICAMENTO DEI SERVIZI (Supporta sia servizi standard che riscattati da pacchetto)
+    const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
+    const matchedServiceItems = [];
+
+    for (let nameStr of savedServiceNames) {
+        if (!nameStr || nameStr.toLowerCase() === 'servizio' || nameStr.toLowerCase() === 'trattamento' || nameStr.toLowerCase().includes('pausa')) continue;
+        
+        const isPkgItem = nameStr.includes('Pacchetto') || Boolean(pkgMatch);
+        // Rimuove il prefisso "🎁 [Pacchetto]" per trovare il servizio originale nel listino inventario
+        const cleanServiceName = nameStr.replace(/🎁\s*\[Pacchetto\]\s*/gi, '').trim().toLowerCase();
+
+        let foundServ = null;
+        if (isPkgItem && existingServiceId) {
+            foundServ = allInventory.find(i => String(i.id).trim() === String(existingServiceId).trim());
+        }
+        if (!foundServ) {
+            foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().trim() === cleanServiceName || String(i.id).trim() === nameStr));
+        }
+
+        if (foundServ) {
+            let price = 0;
+            if (isPkgItem) {
+                price = 0.00; // Servizio del pacchetto prepagato a € 0.00
+            } else {
+                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+                price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
+            }
+            
+            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+            matchedServiceItems.push({
+                uid: uniqueInstanceId,
+                id: foundServ.id,
+                name: isPkgItem ? `🎁 [Pacchetto] ${foundServ.name}` : foundServ.name,
+                price: price,
+                isPackageRedemption: isPkgItem
+            });
+        }
+    }
+
+    currentSelectedServices = matchedServiceItems;
+    if (typeof renderSelectedServiceTags === 'function') {
+        renderSelectedServiceTags();
+    }
+
+    // 🌟 6. RILEVAMENTO PACCHETTI E PRESELEZIONE DEL SERVIZIO GIÀ ASSOCIATO
+    await checkCustomerActivePackagesForAppointment(a.cust_id || null, a.cust_name, existingCustPkgId, existingServiceId);
+
     document.getElementById('mod-cale').classList.add('active'); 
 
-    // Riavviamo i controlli di validità e duplicati
     if (typeof checkDuplicateAppointments === 'function') {
         checkDuplicateAppointments();
     }
