@@ -2005,6 +2005,22 @@
                 <label>Note / Allerte</label>
                 <textarea id="f-c-notes" rows="2" placeholder="Eventuali note sul cliente..."></textarea>
 
+
+                <!-- 🎁 SEZIONE PACCHETTI E CARNET ASSOCIATI AL CLIENTE -->
+                <div id="customer-packages-section" style="margin-top: 15px; background: #fdfcff; border: 1.5px solid #e9d5ff; border-radius: 12px; padding: 15px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="color: var(--p); margin: 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                            🎁 Pacchetti & Carnet del Cliente
+                        </label>
+                        <span id="cust-packages-count-badge" style="font-size: 11px; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 12px; font-weight: bold;">
+                            0 pacchetti
+                        </span>
+                    </div>
+                    <div id="customer-packages-list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Popolato dinamicamente da editCust -->
+                    </div>
+                </div>
+
                 <!-- 🕒 SEZIONE STORICO ULTIMI APPUUNTAMENTI (Visibile in Edit) -->
                 <div id="customer-history-section" style="margin-top: 20px; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: none;">
                     <label style="color: var(--p); margin-top: 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">📅 Ultimi Appuntamenti (Passati e Futuri)</label>
@@ -6210,7 +6226,148 @@ async function renderPackages() {
         `).join('');
     }
 
+async function renderCustomerPackagesInModal(customerId) {
+    const container = document.getElementById('customer-packages-list');
+    const badgeCount = document.getElementById('cust-packages-count-badge');
+    if (!container) return;
 
+    container.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">Caricamento pacchetti in corso...</div>`;
+
+    try {
+        // 1. Recupero di tutti i pacchetti associati al cliente (da Dexie o Supabase)
+        let allCustPkgs = (localDb && localDb.customer_packages) 
+            ? await localDb.customer_packages.toArray() 
+            : [];
+
+        // Filtro per ID cliente
+        const customerPkgs = allCustPkgs.filter(cp => String(cp.customer_id).trim() === String(customerId).trim());
+        
+        // 2. Recupero configurazioni pacchetti e listino inventario per i nomi dei servizi
+        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const inventory = allInventory || [];
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        if (customerPkgs.length === 0) {
+            container.innerHTML = `<div style="font-size: 12px; color: #64748b; font-style: italic; background: white; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center;">Nessun pacchetto o carnet associato a questo cliente.</div>`;
+            if (badgeCount) badgeCount.innerText = "0 pacchetti";
+            return;
+        }
+
+        if (badgeCount) badgeCount.innerText = `${customerPkgs.length} pacchett${customerPkgs.length === 1 ? 'o' : 'i'}`;
+
+        let html = '';
+
+        customerPkgs.forEach(cp => {
+            const pkgConfig = allPkgConfigs.find(p => String(p.id) === String(cp.package_id));
+            const pkgName = pkgConfig ? pkgConfig.name : 'Pacchetto Trattamenti';
+            
+            const totalPrice = parseFloat(cp.total_price) || (pkgConfig ? parseFloat(pkgConfig.price) : 0);
+            const totalPaid = parseFloat(cp.total_paid) || 0;
+            const remainingPay = Math.max(totalPrice - totalPaid, 0);
+
+            // Stato Pagamento
+            const isFullyPaid = (remainingPay <= 0.01) || cp.payment_status === 'paid_full';
+            const paymentBadgeStyle = isFullyPaid 
+                ? 'background: #dcfce7; color: #16a34a;' 
+                : 'background: #fef3c7; color: #d97706;';
+            const paymentText = isFullyPaid 
+                ? '✓ Saldato al 100%' 
+                : `Rata Aperta: Mancano € ${remainingPay.toFixed(2)}`;
+
+            // Calcolo Sedute
+            let sessionsList = [];
+            if (Array.isArray(cp.sessions_state)) {
+                sessionsList = cp.sessions_state;
+            } else if (typeof cp.sessions_state === 'string') {
+                try { sessionsList = JSON.parse(cp.sessions_state); } catch(e) { sessionsList = []; }
+            }
+
+            let totalSessionsSum = 0;
+            let remainingSessionsSum = 0;
+            let servicesDetailHtml = '';
+
+            sessionsList.forEach(s => {
+                const totalS = parseInt(s.total) || 0;
+                const remS = parseInt(s.remaining) || 0;
+                totalSessionsSum += totalS;
+                remainingSessionsSum += remS;
+
+                const servObj = inventory.find(i => String(i.id) === String(s.service_id));
+                const servName = servObj ? servObj.name : 'Servizio';
+
+                servicesDetailHtml += `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-bottom: 1px dashed #f1f5f9;">
+                        <span>• ${servName}</span>
+                        <b style="color: ${remS > 0 ? 'var(--p)' : '#94a3b8'};">${remS} su ${totalS} rimanenti</b>
+                    </div>
+                `;
+            });
+
+            // Barra di avanzamento
+            const progressPct = totalSessionsSum > 0 ? Math.round(((totalSessionsSum - remainingSessionsSum) / totalSessionsSum) * 100) : 0;
+            const isExhausted = remainingSessionsSum <= 0;
+
+            // Scadenza
+            let expiryHtml = '';
+            if (cp.expiry_date) {
+                const isExpired = cp.expiry_date < todayStr;
+                expiryHtml = `
+                    <span style="font-size: 10px; color: ${isExpired ? '#dc2626' : '#64748b'}; font-weight: ${isExpired ? 'bold' : 'normal'};">
+                        ${isExpired ? '⚠️ Scaduto il:' : '📅 Scadenza:'} ${formatDateIt(cp.expiry_date)}
+                    </span>
+                `;
+            }
+
+            html += `
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 8px;">
+                    
+                    <!-- Header Card: Nome e Badge Stato Pagamento -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 13px; color: #1e1b4b;">${pkgName}</div>
+                            ${expiryHtml}
+                        </div>
+                        <span style="font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 6px; white-space: nowrap; ${paymentBadgeStyle}">
+                            ${paymentText}
+                        </span>
+                    </div>
+
+                    <!-- Riepilogo Economico -->
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; color: #475569;">
+                        <span>Totale: <b>€ ${totalPrice.toFixed(2)}</b></span>
+                        <span>Pagato: <b style="color: #047857;">€ ${totalPaid.toFixed(2)}</b></span>
+                        <span>Residuo: <b style="${remainingPay > 0 ? 'color: #dc2626;' : 'color: #047857;'}">€ ${remainingPay.toFixed(2)}</b></span>
+                    </div>
+
+                    <!-- Avanzamento Sedute con Progress Bar -->
+                    <div style="margin-top: 2px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                            <span style="color: #64748b;">Utilizzo sedute carnet:</span>
+                            <b style="color: ${isExhausted ? '#dc2626' : 'var(--p)'};">
+                                ${isExhausted ? 'Carnet Esaurito (0 rimaste)' : `${remainingSessionsSum} su ${totalSessionsSum} disponibili`}
+                            </b>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: #ede9fe; border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${progressPct}%; height: 100%; background: ${isExhausted ? '#94a3b8' : 'var(--p)'}; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Dettaglio Trattamenti Inclusi -->
+                    <div style="margin-top: 4px; background: #fafafa; padding: 6px 10px; border-radius: 6px;">
+                        ${servicesDetailHtml || '<span style="font-size: 10px; color:#888;">Nessuna seduta specifica tracciata.</span>'}
+                    </div>
+
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error("Errore visualizzazione pacchetti cliente:", err);
+        container.innerHTML = `<div style="color:red; font-size:11px; padding:10px;">Impossibile recuperare i pacchetti del cliente.</div>`;
+    }
+}
 
 // 🎨 Funzione che sincronizza in tempo reale l'anteprima esatta con il colore HEX
     function syncColorPreview(hexColor) {
@@ -10606,6 +10763,14 @@ async function decrementInventoryFIFO(productId) {
         document.getElementById('f-c-gdpr').checked = Number(c.gdpr_consent) === 1;
         document.getElementById('f-c-notes').value = c.notes || '';
 
+
+// 🌟 1. CARICAMENTO E MOSTRA PACCHETTI DEL CLIENTE
+        const pkgSection = document.getElementById('customer-packages-section');
+        if (pkgSection) {
+            pkgSection.style.display = 'block';
+            await renderCustomerPackagesInModal(id);
+        }
+
         // --- CARICAMENTO ULTIMI APPUNTAMENTI PRESI (PASSATI E FUTURI) ---
         const historySection = document.getElementById('customer-history-section');
         if (historySection) historySection.style.display = 'block'; // 👈 Fondamentale per renderlo visibile
@@ -11875,6 +12040,10 @@ function urlBase64ToUint8Array(base64String) {
             const el5 = document.getElementById('f-c-birth'); if(el5) el5.value = "";
             const el6 = document.getElementById('f-c-gdpr'); if(el6) el6.checked = false;
             const el7 = document.getElementById('f-c-notes'); if(el7) el7.value = "";
+
+
+            const pkgSection = document.getElementById('customer-packages-section');
+            if (pkgSection) pkgSection.style.display = 'none';
 
             const historySection = document.getElementById('customer-history-section');
             if (historySection) historySection.style.display = 'none';
