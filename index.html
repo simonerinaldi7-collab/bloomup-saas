@@ -4237,6 +4237,7 @@ async function voidSaleTransaction(saleId) {
 
 window._selectedPackageRedemption = null;
 
+// In checkCustomerActivePackagesForAppointment, memorizziamo il nome del pacchetto nell'attributo data-pkgname:
 async function checkCustomerActivePackagesForAppointment(custId, custName, preselectedCustPkgId = null, preselectedServiceId = null) {
     const container = document.getElementById('package-redemption-container');
     const select = document.getElementById('f-a-package-service-select');
@@ -4261,7 +4262,6 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
         const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
         const inventory = allInventory || [];
 
-        // Match cliente per ID o Nome
         const clientPkgs = allCustPkgs.filter(cp => {
             const matchId = custId && String(cp.customer_id).trim() === String(custId).trim();
             const matchName = custName && String(cp.customer_name || '').trim().toLowerCase() === custName.trim().toLowerCase();
@@ -4298,8 +4298,6 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
             for (let s of sessionsList) {
                 const rem = parseInt(s.remaining) || 0;
                 const tot = parseInt(s.total) || 0;
-
-                // Mostra se ci sono sedute disponibili (>0) OPPURE se è la seduta già in uso da questo appuntamento
                 const isCurrentRedemption = (preselectedCustPkgId && String(cp.id).trim() === String(preselectedCustPkgId).trim() && String(s.service_id).trim() === String(preselectedServiceId).trim());
 
                 if (rem > 0 || isCurrentRedemption) {
@@ -4311,7 +4309,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
                         custPkgId: cp.id,
                         serviceId: s.service_id,
                         servName: servName,
-                        pkgName: pkgName,
+                        pkgName: pkgName, // 👈 Nome specifico del pacchetto
                         rem: rem,
                         tot: tot,
                         isSelected: isCurrentRedemption
@@ -4325,7 +4323,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
             return;
         }
 
-        // Popola la tendina e gestisce la preselezionata
+        // Inseriamo data-pkgname per leggerlo istantaneamente alla selezione
         let optionsHtml = `<option value="">-- Nessun riscatto (Servizio standard a pagamento) --</option>`;
         let selectedFound = false;
 
@@ -4333,7 +4331,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
             const valStr = `${opt.custPkgId}___${opt.serviceId}`;
             const selectedAttr = opt.isSelected ? 'selected' : '';
             if (opt.isSelected) selectedFound = true;
-            optionsHtml += `<option value="${valStr}" ${selectedAttr}>🎁 [${opt.pkgName}] ${opt.servName} (${opt.rem} su ${opt.tot} disponibili)</option>`;
+            optionsHtml += `<option value="${valStr}" data-pkgname="${opt.pkgName.replace(/"/g, '&quot;')}" ${selectedAttr}>🎁 [${opt.pkgName}] ${opt.servName} (${opt.rem} su ${opt.tot} disponibili)</option>`;
         });
 
         select.innerHTML = optionsHtml;
@@ -4344,7 +4342,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
             window._selectedPackageRedemption = {
                 customerPackageId: preselectedCustPkgId,
                 serviceId: preselectedServiceId,
-                isAlreadyDecremented: true // Flag fondamentale: evita il doppio decremento in modifica
+                isAlreadyDecremented: true
             };
             if (feedback) {
                 feedback.innerHTML = `✓ <b>Seduta coperta da pacchetto</b> già associata a questo appuntamento (Prezzo: <b>€ 0.00</b>).`;
@@ -4357,7 +4355,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
     }
 }
 
-// Quando l'operatore seleziona un servizio dal pacchetto
+// 🌟 Quando l'utente seleziona il servizio, compone il nome: "🎁 [NomePacchetto] NomeServizio"
 function onPackageServiceSelected(val) {
     const feedback = document.getElementById('pkg-redemption-feedback');
     if (!val) {
@@ -4368,7 +4366,10 @@ function onPackageServiceSelected(val) {
 
     const [custPkgId, serviceId] = val.split('___');
     const select = document.getElementById('f-a-package-service-select');
-    const selectedOptionText = select.options[select.selectedIndex].text;
+    const selectedOption = select.options[select.selectedIndex];
+    
+    // Leggiamo il nome del pacchetto dall'attributo data-pkgname
+    const pkgName = selectedOption.getAttribute('data-pkgname') || 'Pacchetto';
 
     const servObj = allInventory.find(i => String(i.id).trim() === String(serviceId).trim());
     const servName = servObj ? servObj.name : 'Servizio';
@@ -4377,20 +4378,19 @@ function onPackageServiceSelected(val) {
         customerPackageId: custPkgId,
         serviceId: serviceId,
         serviceName: servName,
-        fullOptionText: selectedOptionText
+        packageName: pkgName
     };
 
-    // Aggiunge automaticamente il servizio a € 0.00 alle pillole dei trattamenti
     const uniqueInstanceId = 'srv_pkg_' + Math.random().toString(36).substring(2, 9);
     
-    // Rimuove eventuali duplicati dello stesso servizio a pagamento per non far pagare il cliente
+    // Rimuove eventuali doppioni dello stesso servizio a pagamento
     currentSelectedServices = currentSelectedServices.filter(s => String(s.id).trim() !== String(serviceId).trim());
     
-    // Aggiunge la voce a costo zero coperta da pacchetto
+    // 🏷️ Inserisce il nome completo del pacchetto nella pillola e nel servizio: "🎁 [NomePacchetto] NomeServizio"
     currentSelectedServices.push({
         uid: uniqueInstanceId,
         id: serviceId,
-        name: `🎁 [Pacchetto] ${servName}`,
+        name: `🎁 [${pkgName}] ${servName}`,
         price: 0.00,
         isPackageRedemption: true
     });
@@ -4398,11 +4398,10 @@ function onPackageServiceSelected(val) {
     renderSelectedServiceTags();
 
     if (feedback) {
-        feedback.innerHTML = `✓ <b>1 seduta di "${servName}"</b> verrà scalata dal pacchetto al salvataggio (Prezzo: <b>€ 0.00</b> prepagato).`;
+        feedback.innerHTML = `✓ <b>1 seduta di "${servName}"</b> verrà scalata dal pacchetto <b>"${pkgName}"</b> (Prezzo: <b>€ 0.00</b> prepagato).`;
         feedback.style.display = 'block';
     }
 }
-
 
 
 
@@ -7882,18 +7881,28 @@ window.openMod = async function(t, targetDate = null, targetTime = null, targetE
                     ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
                     : `viewApp('${ev.id}')`;
 
-                html += `
-                    <div class="absolute-event ${finalClass}${compactClass}" 
-                        draggable="true"
-                        ondragstart="onEventDragStart(event, '${ev.id}')"
-                        ondragend="onEventDragEnd(event)"
-                        onclick="event.stopPropagation(); ${clickAction}" 
-                        style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                        title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
-                        <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
-                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
-                    </div>
-                `;
+                // In renderTimeline(), dentro processedApps.forEach(ev => { ... }):
+            html += `
+                <div class="absolute-event ${finalClass}${compactClass}" 
+                    draggable="true"
+                    ondragstart="onEventDragStart(event, '${ev.id}')"
+                    ondragend="onEventDragEnd(event)"
+                    onclick="event.stopPropagation(); ${clickAction}" 
+                    style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
+                    title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} - ${ev.service || ''} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
+                    
+                    <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
+                    <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
+                    
+                    <!-- 🌟 RIGA 3: NOME SERVIZIO E PACCHETTO VISIBILE DIRETTAMENTE SULLA CARD -->
+                    ${!isCompact ? `
+                        <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">
+                            ${ev.service || ''}
+                        </div>
+                    ` : ''}
+
+                </div>
+            `;
             });
 
             html += `</div>`; // Chiude day-column
@@ -11146,9 +11155,10 @@ async function getAdvancedBusinessAnalytics() {
     for (let nameStr of savedServiceNames) {
         if (!nameStr || nameStr.toLowerCase() === 'servizio' || nameStr.toLowerCase() === 'trattamento' || nameStr.toLowerCase().includes('pausa')) continue;
         
-        const isPkgItem = nameStr.includes('Pacchetto') || Boolean(pkgMatch);
-        // Rimuove il prefisso "🎁 [Pacchetto]" per trovare il servizio originale nel listino inventario
-        const cleanServiceName = nameStr.replace(/🎁\s*\[Pacchetto\]\s*/gi, '').trim().toLowerCase();
+        const isPkgItem = nameStr.includes('🎁') || nameStr.includes('[') || Boolean(pkgMatch);
+        
+        // 🌟 Estrae il nome puro del servizio rimuovendo qualsiasi tag "🎁 [Nome Del Pacchetto]"
+        const cleanServiceName = nameStr.replace(/🎁\s*\[[^\]]+\]\s*/gi, '').trim().toLowerCase();
 
         let foundServ = null;
         if (isPkgItem && existingServiceId) {
@@ -11161,7 +11171,7 @@ async function getAdvancedBusinessAnalytics() {
         if (foundServ) {
             let price = 0;
             if (isPkgItem) {
-                price = 0.00; // Servizio del pacchetto prepagato a € 0.00
+                price = 0.00;
             } else {
                 const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
                 price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
@@ -11171,7 +11181,8 @@ async function getAdvancedBusinessAnalytics() {
             matchedServiceItems.push({
                 uid: uniqueInstanceId,
                 id: foundServ.id,
-                name: isPkgItem ? `🎁 [Pacchetto] ${foundServ.name}` : foundServ.name,
+                // Mantiene il nome completo registrato con il pacchetto (es. "🎁 [Pacchetto Benessere] Massaggio")
+                name: isPkgItem ? (nameStr.startsWith('🎁') ? nameStr : `🎁 [Pacchetto] ${foundServ.name}`) : foundServ.name,
                 price: price,
                 isPackageRedemption: isPkgItem
             });

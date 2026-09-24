@@ -1228,9 +1228,11 @@ async function handleSpecialAction(action, data, id) {
                             matchingPkg = packagesConfigList.find(p => String(p.id) === String(item.package_id));
                         }
                         if (!matchingPkg) {
-                            const cleanItemName = (item.item_name || '').replace(/🎁\s*\[Pacchetto\]\s*/i, '').trim().toLowerCase();
+                            // Rimuove qualsiasi prefisso tra parentesi quadre per ricavare il nome del pacchetto o del servizio
+                            const cleanItemName = (item.item_name || '').replace(/🎁\s*\[[^\]]+\]\s*/i, '').trim().toLowerCase();
                             matchingPkg = packagesConfigList.find(p => p.name.trim().toLowerCase() === cleanItemName);
                         }
+
 
                         // 2. Estrazione delle quote configurate (senza fallback su pacchetti storici estranei)
                         let allocs = null;
