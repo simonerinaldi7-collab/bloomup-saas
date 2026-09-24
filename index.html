@@ -2323,6 +2323,25 @@
             <span id="operator-schedule-alert-text">Lo slot selezionato presenta un'incompatibilità di orario o sovrapposizione.</span>
         </div>
 
+<!-- 🎁 BOX RISCATTO SEDUTA DA PACCHETTO CONDIVISO -->
+        <div id="package-redemption-container" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; margin-top: 10px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #6b21a8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">
+                    🎁 Pacchetto Attivo per questo Cliente
+                </span>
+                <span id="pkg-redemption-avail-badge" style="font-size: 10px; font-weight: bold; background: #ede9fe; color: #6b21a8; padding: 2px 8px; border-radius: 10px;">
+                    0 sedute disp.
+                </span>
+            </div>
+
+            <label style="margin-top: 0; font-size: 10px; color: #581c87;">Seleziona Servizio da usufruire col Pacchetto:</label>
+            <select id="f-a-package-service-select" onchange="onPackageServiceSelected(this.value)" style="margin: 4px 0 6px 0; background: white; font-weight: 600; font-size: 13px; border: 1.5px solid #c084fc; border-radius: 8px; padding: 8px;">
+                <!-- Popolato dinamicamente da JS -->
+            </select>
+
+            <div id="pkg-redemption-feedback" style="font-size: 11px; color: #6b21a8; line-height: 1.4; display: none;"></div>
+        </div>
+
         <!-- ⚠️ BOX LISTA APPUNTAMENTI FUTURI (PREVENZIONE DUPLICATI) -->
         <div id="duplicate-app-alert" style="display:none; background:#fff3cd; border:1px solid #ffeeba; padding:12px; border-radius:8px; font-size:12px; margin-top:8px;">
             <div style="font-weight:bold; color:#856404; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
@@ -2330,6 +2349,8 @@
             </div>
             <div id="duplicate-apps-list" style="display:flex; flex-direction:column; gap:4px;"></div>
         </div>
+
+
 
 <!-- 🏖️ Checkbox Chiusura / Ferie Giornaliera -->
 <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 12px; margin: 12px 0; display: flex; align-items: center; gap: 10px;">
@@ -4214,7 +4235,158 @@ async function voidSaleTransaction(saleId) {
 }
 
 
+window._selectedPackageRedemption = null;
 
+// Rileva pacchetti attivi per il cliente (anche di altri saloni partner)
+async function checkCustomerActivePackagesForAppointment(custId, custName) {
+    const container = document.getElementById('package-redemption-container');
+    const select = document.getElementById('f-a-package-service-select');
+    const badge = document.getElementById('pkg-redemption-avail-badge');
+    const feedback = document.getElementById('pkg-redemption-feedback');
+
+    if (!container || !select) return;
+
+    window._selectedPackageRedemption = null;
+    if (feedback) feedback.style.display = 'none';
+
+    if (!custId && (!custName || custName.trim().length < 2)) {
+        container.style.display = 'none';
+        return;
+    }
+
+    try {
+        const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // 1. Lettura crediti pacchetti cliente
+        const allCustPkgs = (localDb && localDb.customer_packages) ? await localDb.customer_packages.toArray() : [];
+        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const inventory = allInventory || [];
+
+        // Ricerca per ID o per Nome Cliente
+        const clientPkgs = allCustPkgs.filter(cp => {
+            const matchId = custId && String(cp.customer_id).trim() === String(custId).trim();
+            const matchName = custName && String(cp.customer_name || '').trim().toLowerCase() === custName.trim().toLowerCase();
+            return matchId || matchName;
+        });
+
+        // 2. Filtriamo solo i pacchetti abilitati per questo salone e non scaduti
+        const eligibleOptions = [];
+        let totalAvailableSessions = 0;
+
+        for (let cp of clientPkgs) {
+            if (cp.expiry_date && cp.expiry_date < todayStr) continue; // Scaduto
+
+            const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+            
+            // Verifica che il salone sia abilitato
+            let isAllowedSalon = true;
+            if (pkgConfig && pkgConfig.shared_salons) {
+                let sArr = pkgConfig.shared_salons;
+                if (typeof sArr === 'string') { try { sArr = JSON.parse(sArr); } catch(e) { sArr = []; } }
+                if (Array.isArray(sArr) && sArr.length > 0) {
+                    isAllowedSalon = sArr.some(s => String(s).trim().toLowerCase() === currentSalon) || String(pkgConfig.salon_id).trim().toLowerCase() === currentSalon;
+                }
+            }
+
+            if (!isAllowedSalon) continue;
+
+            const pkgName = pkgConfig ? pkgConfig.name : 'Pacchetto';
+
+            // Estrazione sedute residue per ciascun servizio
+            let sessionsList = [];
+            if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
+            else if (typeof cp.sessions_state === 'string') {
+                try { sessionsList = JSON.parse(cp.sessions_state); } catch(e) { sessionsList = []; }
+            }
+
+            for (let s of sessionsList) {
+                const rem = parseInt(s.remaining) || 0;
+                const tot = parseInt(s.total) || 0;
+
+                // 🛑 REQUISITO: Mostra il servizio SOLO se le sedute residue sono > 0
+                if (rem > 0) {
+                    totalAvailableSessions += rem;
+                    const servObj = inventory.find(i => String(i.id).trim() === String(s.service_id).trim());
+                    const servName = servObj ? servObj.name : 'Trattamento';
+
+                    eligibleOptions.push({
+                        custPkgId: cp.id,
+                        serviceId: s.service_id,
+                        servName: servName,
+                        pkgName: pkgName,
+                        rem: rem,
+                        tot: tot,
+                        price: servObj ? parseFloat(servObj.price) || 0 : 0
+                    });
+                }
+            }
+        }
+
+        if (eligibleOptions.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // 3. Popolamento tendina con i soli servizi prenotabili
+        select.innerHTML = `<option value="">-- Nessun riscatto (Servizio standard a pagamento) --</option>` + 
+            eligibleOptions.map(opt => 
+                `<option value="${opt.custPkgId}___${opt.serviceId}">🎁 [${opt.pkgName}] ${opt.servName} (${opt.rem} su ${opt.tot} disponibili)</option>`
+            ).join('');
+
+        if (badge) badge.innerText = `${totalAvailableSessions} sedute disp.`;
+        container.style.display = 'block';
+
+    } catch (err) {
+        console.error("Errore verifica pacchetti per appuntamento:", err);
+    }
+}
+
+// Quando l'operatore seleziona un servizio dal pacchetto
+function onPackageServiceSelected(val) {
+    const feedback = document.getElementById('pkg-redemption-feedback');
+    if (!val) {
+        window._selectedPackageRedemption = null;
+        if (feedback) feedback.style.display = 'none';
+        return;
+    }
+
+    const [custPkgId, serviceId] = val.split('___');
+    const select = document.getElementById('f-a-package-service-select');
+    const selectedOptionText = select.options[select.selectedIndex].text;
+
+    const servObj = allInventory.find(i => String(i.id).trim() === String(serviceId).trim());
+    const servName = servObj ? servObj.name : 'Servizio';
+
+    window._selectedPackageRedemption = {
+        customerPackageId: custPkgId,
+        serviceId: serviceId,
+        serviceName: servName,
+        fullOptionText: selectedOptionText
+    };
+
+    // Aggiunge automaticamente il servizio a € 0.00 alle pillole dei trattamenti
+    const uniqueInstanceId = 'srv_pkg_' + Math.random().toString(36).substring(2, 9);
+    
+    // Rimuove eventuali duplicati dello stesso servizio a pagamento per non far pagare il cliente
+    currentSelectedServices = currentSelectedServices.filter(s => String(s.id).trim() !== String(serviceId).trim());
+    
+    // Aggiunge la voce a costo zero coperta da pacchetto
+    currentSelectedServices.push({
+        uid: uniqueInstanceId,
+        id: serviceId,
+        name: `🎁 [Pacchetto] ${servName}`,
+        price: 0.00,
+        isPackageRedemption: true
+    });
+
+    renderSelectedServiceTags();
+
+    if (feedback) {
+        feedback.innerHTML = `✓ <b>1 seduta di "${servName}"</b> verrà scalata dal pacchetto al salvataggio (Prezzo: <b>€ 0.00</b> prepagato).`;
+        feedback.style.display = 'block';
+    }
+}
 
 
 
@@ -7140,6 +7312,15 @@ async function editExpense(id) {
     }
 }
 
+
+
+
+
+
+
+
+
+
 // ✕ Annulla la modifica e ripristina il form allo stato pulito
 function resetExpenseForm() {
     document.getElementById('edit-expense-id').value = "-1";
@@ -9352,101 +9533,177 @@ async function deletePackage(id) {
     }
         // Modifica della funzione saveApp per attivare il flusso Ghost post-salvataggio
     async function saveApp() {
-        const id = document.getElementById('edit-a-id').value; 
-        const isClosureCheckbox = document.getElementById('f-a-is-closure');
-        const isClosure = isClosureCheckbox ? isClosureCheckbox.checked : false;
+    const id = document.getElementById('edit-a-id').value; 
+    const isClosureCheckbox = document.getElementById('f-a-is-closure');
+    const isClosure = isClosureCheckbox ? isClosureCheckbox.checked : false;
 
-        const custName = isClosure ? "Chiusura / Ferie" : document.getElementById('f-a-search').value.trim();
-        const date = document.getElementById('f-a-date').value;
-        const start = isClosure ? "07:00" : document.getElementById('f-a-time').value;
-        const end = isClosure ? "22:00" : document.getElementById('f-a-end').value;
-        const notes = document.getElementById('f-a-notes').value;
-        const assignedUser = document.getElementById('f-a-user').value;
-        
-        if (!custName || !date || !start) {
-            return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
-        }
+    const custName = isClosure ? "Chiusura / Ferie" : document.getElementById('f-a-search').value.trim();
+    const date = document.getElementById('f-a-date').value;
+    const start = isClosure ? "07:00" : document.getElementById('f-a-time').value;
+    const end = isClosure ? "22:00" : document.getElementById('f-a-end').value;
+    let notes = document.getElementById('f-a-notes').value || '';
+    const assignedUser = document.getElementById('f-a-user').value;
+    
+    if (!custName || !date || !start) {
+        return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
+    }
 
-        let totalPrice = 0;
-        let selectedServiceNames = [];
-        let finalService = "Chiusura / Ferie";
+    let totalPrice = 0;
+    let selectedServiceNames = [];
+    let finalService = "Chiusura / Ferie";
 
-        if (!isClosure) {
-            // 🎯 LETTURA DIRETTA DAL MEMORANDUM A PILLOLE (currentSelectedServices)
-            totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
-            selectedServiceNames = currentSelectedServices.map(s => s.name);
+    if (!isClosure) {
+        // Lettura diretta da pillole servizi
+        totalPrice = currentSelectedServices.reduce((sum, s) => sum + s.price, 0);
+        selectedServiceNames = currentSelectedServices.map(s => s.name);
 
-            finalService = selectedServiceNames.join(', ') || "Servizio";
-            if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
-                finalService = "Pausa Pranzo";
-                totalPrice = 0;
-            }
-        }
-
-        const data = { 
-            cust_name: custName, 
-            date, 
-            time: start, 
-            end_time: end, 
-            service: finalService, 
-            price: totalPrice, 
-            notes, 
-            assigned_user: assignedUser 
-        };
-        
-        if (id === "-1") {
-            const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data });
-            const newId = res && res.lastInsertRowid ? res.lastInsertRowid : crypto.randomUUID(); 
-            allAppointments.push({ ...data, id: newId });
-        } else {
-            const oldAppIndex = allAppointments.findIndex(a => a.id === id);
-            if (oldAppIndex !== -1) {
-                allAppointments[oldAppIndex] = { ...allAppointments[oldAppIndex], ...data };
-            }
-            await window.universalQuery({ action: 'UPDATE', table: 'appointments', data: data, id: id });
-        }
-
-        await refreshAllData();
-        if (typeof renderCalendar === 'function') renderCalendar();
-        closeMod();
-
-        // Reset della checkbox di chiusura per i prossimi inserimenti
-        if (isClosureCheckbox) isClosureCheckbox.checked = false;
-        if (typeof toggleClosureMode === 'function') toggleClosureMode(false);
-
-        // ✨ SMART REBOOKING (Escluso automaticamente se è una giornata di Chiusura/Ferie o Pausa)
-        if (!isClosure && !custName.toLowerCase().includes('pausa') && !custName.toLowerCase().includes('pranzo')) {
-            const avgDays = getCustomerAverageFrequency(custName);
-            if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
-                const baseDate = new Date(date);
-                baseDate.setDate(baseDate.getDate() + avgDays);
-
-                const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
-                const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
-                const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
-                const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
-
-                window.pendingSmartPreview = {
-                    custName: custName,
-                    date: targetDate,
-                    time: targetTime,
-                    end_time: targetEndTime,
-                    service: finalService,
-                    assigned_user: assignedUser,
-                    notes: notes,
-                    selectedServices: selectedServiceNames 
-                };
-
-                viewDate = new Date(targetDate);
-                
-                const userFilter = document.getElementById('user-filter');
-                if (userFilter) userFilter.value = assignedUser;
-
-                changePage('calendar');
-                if (typeof renderCalendar === 'function') renderCalendar();
-            }
+        finalService = selectedServiceNames.join(', ') || "Servizio";
+        if (custName.toLowerCase().includes('pausa') || custName.toLowerCase().includes('pranzo')) {
+            finalService = "Pausa Pranzo";
+            totalPrice = 0;
         }
     }
+
+    // 🎁 GESTIONE DECREMENTO / RISCATTO SEDUTA PACCHETTO
+    const redemption = window._selectedPackageRedemption;
+    let existingOldApp = (id !== "-1") ? allAppointments.find(a => a.id === id) : null;
+    let oldPkgMatch = existingOldApp ? (existingOldApp.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/) : null;
+
+    if (redemption) {
+        try {
+            const targetCustPkg = await localDb.customer_packages.get(redemption.customerPackageId);
+            if (!targetCustPkg) {
+                return alert("⚠️ Pacchetto del cliente non trovato nel database.");
+            }
+
+            let sessionsList = [];
+            if (Array.isArray(targetCustPkg.sessions_state)) sessionsList = targetCustPkg.sessions_state;
+            else if (typeof targetCustPkg.sessions_state === 'string') {
+                try { sessionsList = JSON.parse(targetCustPkg.sessions_state); } catch(e) { sessionsList = []; }
+            }
+
+            const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(redemption.serviceId).trim());
+            if (!sessionItem || parseInt(sessionItem.remaining) <= 0) {
+                return alert("⚠️ Attenzione: Tutte le sedute per questo trattamento sono state esaurite nel pacchetto!");
+            }
+
+            // 📉 Decremento della seduta (-1)
+            sessionItem.remaining = Math.max(parseInt(sessionItem.remaining) - 1, 0);
+
+            // Salvataggio aggiornato su IndexedDB e Supabase
+            await localDb.customer_packages.update(targetCustPkg.id, {
+                sessions_state: sessionsList,
+                updated_at: getNowLocal()
+            });
+
+            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                await sendToCloudDirectly('PATCH', 'customer_packages', {
+                    sessions_state: sessionsList,
+                    updated_at: getNowLocal()
+                }, targetCustPkg.id);
+            }
+
+            console.log(`🎁 [PACCHETTO RISCATTATO] Seduta scalata. Rimanenti: ${sessionItem.remaining} su ${sessionItem.total}`);
+
+            // Pulizia vecchio tag se presente e inserimento del nuovo tag [PKG:custPkgId:serviceId]
+            const cleanNotes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+            notes = `[PKG:${targetCustPkg.id}:${redemption.serviceId}] ` + cleanNotes;
+
+        } catch (pkgErr) {
+            console.error("Errore durante il decremento della seduta del pacchetto:", pkgErr);
+            return alert("Impossibile usufruire del pacchetto in questo momento.");
+        }
+    } else if (existingOldApp && oldPkgMatch) {
+        // Se in modifica l'utente ha deselezionato il pacchetto, ripristina la vecchia seduta (+1)
+        const oldCustPkgId = oldPkgMatch[1];
+        const oldServiceId = oldPkgMatch[2];
+        try {
+            const oldCustPkg = await localDb.customer_packages.get(oldCustPkgId);
+            if (oldCustPkg) {
+                let sessionsList = Array.isArray(oldCustPkg.sessions_state) 
+                    ? oldCustPkg.sessions_state 
+                    : JSON.parse(oldCustPkg.sessions_state || '[]');
+                
+                const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(oldServiceId).trim());
+                if (sessionItem) {
+                    sessionItem.remaining = Math.min((parseInt(sessionItem.remaining) || 0) + 1, parseInt(sessionItem.total) || 999);
+                    await localDb.customer_packages.update(oldCustPkg.id, { sessions_state: sessionsList, updated_at: getNowLocal() });
+                    if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                        await sendToCloudDirectly('PATCH', 'customer_packages', { sessions_state: sessionsList, updated_at: getNowLocal() }, oldCustPkg.id);
+                    }
+                }
+            }
+        } catch(e) {}
+        notes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+    }
+
+    const data = { 
+        cust_name: custName, 
+        date, 
+        time: start, 
+        end_time: end, 
+        service: finalService, 
+        price: totalPrice, 
+        notes, 
+        assigned_user: assignedUser 
+    };
+    
+    if (id === "-1") {
+        const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data });
+        const newId = res && res.lastInsertRowid ? res.lastInsertRowid : crypto.randomUUID(); 
+        allAppointments.push({ ...data, id: newId });
+    } else {
+        const oldAppIndex = allAppointments.findIndex(a => a.id === id);
+        if (oldAppIndex !== -1) {
+            allAppointments[oldAppIndex] = { ...allAppointments[oldAppIndex], ...data };
+        }
+        await window.universalQuery({ action: 'UPDATE', table: 'appointments', data: data, id: id });
+    }
+
+    // Reset selettore riscatto temporaneo
+    window._selectedPackageRedemption = null;
+
+    await refreshAllData();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    closeMod();
+
+    // Reset della checkbox di chiusura
+    if (isClosureCheckbox) isClosureCheckbox.checked = false;
+    if (typeof toggleClosureMode === 'function') toggleClosureMode(false);
+
+    // ✨ SMART REBOOKING (Escluso se Chiusura o Pausa)
+    if (!isClosure && !custName.toLowerCase().includes('pausa') && !custName.toLowerCase().includes('pranzo')) {
+        const avgDays = getCustomerAverageFrequency(custName);
+        if (confirm(`✅ Appuntamento salvato con successo!\n\nVuoi posizionare un'anteprima (Ghost Preview) del prossimo appuntamento in agenda per ${custName}? (Frequenza stimata: ${avgDays} giorni)`)) {
+            const baseDate = new Date(date);
+            baseDate.setDate(baseDate.getDate() + avgDays);
+
+            const freeSlots = await findAvailableSlots(baseDate, assignedUser, 1);
+            const targetDate = freeSlots.length > 0 ? freeSlots[0].date : baseDate.toLocaleDateString('en-CA');
+            const targetTime = freeSlots.length > 0 ? freeSlots[0].time : start;
+            const targetEndTime = freeSlots.length > 0 ? freeSlots[0].endTime : end;
+
+            window.pendingSmartPreview = {
+                custName: custName,
+                date: targetDate,
+                time: targetTime,
+                end_time: targetEndTime,
+                service: finalService,
+                assigned_user: assignedUser,
+                notes: notes,
+                selectedServices: selectedServiceNames 
+            };
+
+            viewDate = new Date(targetDate);
+            
+            const userFilter = document.getElementById('user-filter');
+            if (userFilter) userFilter.value = assignedUser;
+
+            changePage('calendar');
+            if (typeof renderCalendar === 'function') renderCalendar();
+        }
+    }
+}
 
 function cancelSmartPreview() {
         window.pendingSmartPreview = null;
@@ -9454,6 +9711,53 @@ function cancelSmartPreview() {
         if (banner) banner.style.display = 'none';
         if (typeof renderCalendar === 'function') renderCalendar();
     }
+
+
+
+// Funzione universale per ripristinare la seduta se l'appuntamento era coperto da pacchetto
+async function restorePackageSessionIfApplicable(app) {
+    if (!app || !app.notes) return;
+
+    // Cerca il tag [PKG:cust_pkg_id:service_id] nelle note
+    const match = app.notes.match(/\[PKG:([^:]+):([^\]]+)\]/);
+    if (!match) return;
+
+    const custPkgId = match[1];
+    const serviceId = match[2];
+
+    try {
+        const targetCustPkg = await localDb.customer_packages.get(custPkgId);
+        if (!targetCustPkg) return;
+
+        let sessionsList = [];
+        if (Array.isArray(targetCustPkg.sessions_state)) sessionsList = targetCustPkg.sessions_state;
+        else if (typeof targetCustPkg.sessions_state === 'string') {
+            try { sessionsList = JSON.parse(targetCustPkg.sessions_state); } catch(e) { sessionsList = []; }
+        }
+
+        const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(serviceId).trim());
+        if (sessionItem) {
+            // 📈 Ripristino seduta (+1)
+            sessionItem.remaining = Math.min(parseInt(sessionItem.remaining) + 1, parseInt(sessionItem.total));
+
+            await localDb.customer_packages.update(targetCustPkg.id, {
+                sessions_state: sessionsList,
+                updated_at: getNowLocal()
+            });
+
+            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                await sendToCloudDirectly('PATCH', 'customer_packages', {
+                    sessions_state: sessionsList,
+                    updated_at: getNowLocal()
+                }, targetCustPkg.id);
+            }
+
+            console.log(`🔄 [RIPRISTINO PACCHETTO] Appuntamento cancellato. Seduta riaccreditata (Disponibili: ${sessionItem.remaining} su ${sessionItem.total}).`);
+        }
+    } catch (err) {
+        console.error("Errore durante il ripristino della seduta del pacchetto:", err);
+    }
+}
 
 
 
@@ -10579,49 +10883,63 @@ async function getAdvancedBusinessAnalytics() {
     if(!a) return; 
     currentViewApp = a;
 
-    // Verifichiamo se l'appuntamento è pagato
-        const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
+    // 1. Verifichiamo se l'appuntamento è pagato in cassa
+    const isPaid = (allSales || []).some(s => s.appointment_id === a.id);
     
-    const services = (a.service || "").split(',').map(s => s.trim());
-        let calculatedTotalPrice = 0;
+    // 2. Controllo riscatto pacchetto tramite tag nelle note [PKG:custPkgId:serviceId]
+    const pkgMatch = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
+    const isPackageCovered = Boolean(pkgMatch) || (parseFloat(a.price) === 0 && (a.service || '').includes('Pacchetto'));
+    
+    // Pulizia delle note per visualizzazione utente (nasconde il tag tecnico [PKG:...])
+    const cleanDisplayNotes = (a.notes || '').replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
 
-        for (let servName of services) {
-            const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
-            if (product) {
-                try {
-                    const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
-                    const validPriceRow = historyRecords.find(ph => 
-                        a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
-                    );
-                    if (validPriceRow && validPriceRow.price) {
-                        calculatedTotalPrice += parseFloat(validPriceRow.price);
-                    } else if (historyRecords.length > 0) {
-                        calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
-                    }
-                } catch (e) {
-                    console.error("Errore recupero storico prezzi:", e);
-                }
-            }
+    const services = (a.service || "").split(',').map(s => s.trim());
+    let calculatedTotalPrice = 0;
+
+    for (let servName of services) {
+        if (servName.toLowerCase().includes('pausa') || servName.toLowerCase().includes('pranzo')) continue;
+
+        // Se l'appuntamento è coperto da pacchetto prepagato, il costo per il cliente è € 0.00
+        if (isPackageCovered && (servName.includes('Pacchetto') || services.length === 1)) {
+            continue; 
         }
 
-        const finalDisplayPrice = calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0);
+        const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
+        if (product) {
+            try {
+                const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
+                const validPriceRow = (historyRecords || []).find(ph => 
+                    a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
+                );
+                if (validPriceRow && validPriceRow.price) {
+                    calculatedTotalPrice += parseFloat(validPriceRow.price);
+                } else if (historyRecords && historyRecords.length > 0) {
+                    calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
+                }
+            } catch (e) {
+                console.error("Errore recupero storico prezzi:", e);
+            }
+        }
+    }
 
-        document.getElementById('v-app-content').innerHTML = `
-            <b>STATO:</b> ${isPaid ? '<span style="color:#047857; font-weight:bold;">💶 Pagato in Cassa</span>' : '<span style="color:#d97706; font-weight:bold;">⏳ Da Saldare</span>'}<br>
-            <b>CLIENTE:</b> ${a.cust_name}<br>
-            <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
-            <b>SERVIZIO:</b> ${a.service}<br>
-            <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
-            <b>NOTE:</b> ${a.notes || '-'}
-        `;
+    const finalDisplayPrice = isPackageCovered ? 0.00 : (calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0));
+
+    document.getElementById('v-app-content').innerHTML = `
+        <b>STATO:</b> ${isPaid ? '<span style="color:#047857; font-weight:bold;">💶 Pagato in Cassa</span>' : '<span style="color:#d97706; font-weight:bold;">⏳ Da Saldare</span>'}<br>
+        ${isPackageCovered ? '<b>COPERTURA:</b> <span style="color:var(--p); font-weight:bold;">🎁 Seduta Prepagata da Pacchetto</span><br>' : ''}
+        <b>CLIENTE:</b> ${a.cust_name}<br>
+        <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
+        <b>SERVIZIO:</b> ${a.service}<br>
+        <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
+        <b>NOTE:</b> ${cleanDisplayNotes || '-'}
+    `;
 
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
         btnCheckout.onclick = async () => { 
-            // 🛡️ MEMORIZZIAMO L'ID DELL'APPUNTAMENTO CORRENTE (SOLO COME RIFERIMENTO TEMPORANEO DI PASSAGGIO)
             const targetAppId = currentViewApp.id;
 
-            // Verifichiamo se questo specifico appuntamento è già stato saldato in precedenza
+            // Controllo se già pagato
             try {
                 const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
                 const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
@@ -10634,7 +10952,6 @@ async function getAdvancedBusinessAnalytics() {
                 console.warn("Controllo appuntamento già pagato non riuscito:", e);
             }
 
-            // Impostiamo l'ID dell'appuntamento da passare alla cassa
             currentCheckoutAppointmentId = targetAppId;
 
             const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
@@ -10642,13 +10959,26 @@ async function getAdvancedBusinessAnalytics() {
             for (let servizio of cartServices) {
                 if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
 
-                const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
-                if (product) {
-                    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                    const price = pInfo ? parseFloat(pInfo.price) : 0;
-                    cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
+                // 🌟 RICONOSCIMENTO COPERTURA PACCHETTO IN CASSA (€ 0.00)
+                const isItemPackageRedeemed = isPackageCovered && (servizio.includes('Pacchetto') || cartServices.length === 1);
+
+                if (isItemPackageRedeemed) {
+                    cart.push({ 
+                        name: servizio.includes('Pacchetto') ? servizio : `🎁 [Pacchetto] ${servizio}`, 
+                        price: 0.00, 
+                        id: null, 
+                        discountVal: 0, 
+                        discountType: 'euro' 
+                    });
                 } else {
-                    cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
+                    const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
+                    if (product) {
+                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                        const price = pInfo ? parseFloat(pInfo.price) : 0;
+                        cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
+                    } else {
+                        cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
+                    }
                 }
             }
 
@@ -10692,16 +11022,59 @@ async function getAdvancedBusinessAnalytics() {
     if (btnDel) {
         btnDel.onclick = async () => {
             if(!confirm("Eliminare l'appuntamento?")) return;
+
+            // 🔄 RIPRISTINO AUTOMATICO SEDUTA PACCHETTO (+1) SE ERA STATO RISCATTATO
+            if (currentViewApp && currentViewApp.notes) {
+                const match = currentViewApp.notes.match(/\[PKG:([^:]+):([^\]]+)\]/);
+                if (match) {
+                    const custPkgId = match[1];
+                    const serviceId = match[2];
+                    try {
+                        const targetCustPkg = await localDb.customer_packages.get(custPkgId);
+                        if (targetCustPkg) {
+                            let sessionsList = [];
+                            if (Array.isArray(targetCustPkg.sessions_state)) sessionsList = targetCustPkg.sessions_state;
+                            else if (typeof targetCustPkg.sessions_state === 'string') {
+                                try { sessionsList = JSON.parse(targetCustPkg.sessions_state); } catch(e) { sessionsList = []; }
+                            }
+
+                            const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(serviceId).trim());
+                            if (sessionItem) {
+                                // Riaccredito della seduta
+                                sessionItem.remaining = Math.min((parseInt(sessionItem.remaining) || 0) + 1, parseInt(sessionItem.total) || 999);
+
+                                await localDb.customer_packages.update(targetCustPkg.id, {
+                                    sessions_state: sessionsList,
+                                    updated_at: getNowLocal()
+                                });
+
+                                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                                    await sendToCloudDirectly('PATCH', 'customer_packages', {
+                                        sessions_state: sessionsList,
+                                        updated_at: getNowLocal()
+                                    }, targetCustPkg.id);
+                                }
+
+                                console.log(`🔄 [RIPRISTINO PACCHETTO] Appuntamento eliminato. Seduta riaccreditata (Disponibili: ${sessionItem.remaining} su ${sessionItem.total}).`);
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Errore durante il ripristino della seduta del pacchetto:", err);
+                    }
+                }
+            }
+
             await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
-            // All'atto di eliminare un appuntamento:
-const srvCheck = (currentViewApp.service || '').toLowerCase();
-const custCheck = (currentViewApp.cust_name || '').toLowerCase();
-if (srvCheck.includes('pausa') || custCheck.includes('pausa')) {
-    const cleanUser = (currentViewApp.assigned_user || 'admin').trim().toLowerCase();
-    const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
-    dismissedBreaks[`${cleanUser}_${currentViewApp.date}`] = true;
-    localStorage.setItem('VaiMUp_dismissed_breaks', JSON.stringify(dismissedBreaks));
-}
+            
+            // Gestione cancellazione pause pranzo
+            const srvCheck = (currentViewApp.service || '').toLowerCase();
+            const custCheck = (currentViewApp.cust_name || '').toLowerCase();
+            if (srvCheck.includes('pausa') || custCheck.includes('pausa')) {
+                const cleanUser = (currentViewApp.assigned_user || 'admin').trim().toLowerCase();
+                const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
+                dismissedBreaks[`${cleanUser}_${currentViewApp.date}`] = true;
+                localStorage.setItem('VaiMUp_dismissed_breaks', JSON.stringify(dismissedBreaks));
+            }
             
             closeMod(); 
             await refreshAllData();
@@ -12159,21 +12532,25 @@ function addManualItemToCart() {
     // Aggiorniamo anche la ricerca nei campi di cassa / agenda
     function filterClients(v, t) { 
         const r = document.getElementById(t + '-search-results'); 
-        if(!v) { r.style.display='none'; return; } 
+         if(!v) { 
+        r.style.display='none'; 
+        if (t === 'app') checkCustomerActivePackagesForAppointment(null, null);
+        return; 
+    }  
 
         const f = allCustomers.filter(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-            const phone = (c.phone || '').toLowerCase();
-            return fullName.includes(v.toLowerCase()) || phone.includes(v);
-        });
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        return fullName.includes(v.toLowerCase()) || phone.includes(v);
+    });
 
-        r.innerHTML = f.map(c => {
-            const displayName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
-            return `<div class="search-item" onclick="selectClient('${displayName.replace(/'/g, "\\'")}', '${c.id}', '${t}')">${displayName} (${c.phone || 'N/D'})</div>`;
-        }).join(''); 
+    r.innerHTML = f.map(c => {
+        const displayName = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+        return `<div class="search-item" onclick="selectClient('${displayName.replace(/'/g, "\\'")}', '${c.id}', '${t}')">${displayName} (${c.phone || 'N/D'})</div>`;
+    }).join(''); 
 
-        r.style.display = f.length ? 'block' : 'none'; 
-    }
+    r.style.display = f.length ? 'block' : 'none'; 
+}
     
    async function selectClient(n, id, t) { 
         if(t === 'sale') { 
@@ -12206,6 +12583,9 @@ function addManualItemToCart() {
             if (typeof checkDuplicateAppointments === 'function') {
                 checkDuplicateAppointments();
             }
+
+            // 🌟 Controllo immediato pacchetti attivi per il cliente selezionato in agenda
+            await checkCustomerActivePackagesForAppointment(id, n);
         } 
         document.querySelectorAll('.search-results').forEach(r => r.style.display='none'); 
     }

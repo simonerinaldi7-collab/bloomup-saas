@@ -322,26 +322,7 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 3. SYNC CUSTOMER_PACKAGES (Portafoglio sedute e quote)
-        let cloudCustPkgs = [];
-        const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
-            method: 'GET',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-        });
         
-        if (resCustPkgs.ok) {
-            cloudCustPkgs = await resCustPkgs.json();
-            for (let cp of cloudCustPkgs) {
-                const isOwner = cp.salon_id === salonId;
-                let allocs = cp.revenue_allocations;
-                if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
-                const hasQuota = allocs && allocs[salonId] !== undefined && parseFloat(allocs[salonId]) > 0;
-
-                if (isOwner || hasQuota) {
-                    await localDb.customer_packages.put(cp);
-                }
-            }
-        }
 
         // 4. PULL DELLE VENDITE E ITEM DI COMPETENZA DEL SALONE CORRENTE
         let cloudSales = [];
@@ -367,27 +348,39 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 5. 🌟 SYNC ANAGRAFICHE CLIENTI CONDIVISI (Risolve il problema del cliente UUID nei partner)
-        const custIdsToPull = new Set();
-        if (Array.isArray(cloudCustPkgs)) {
-            cloudCustPkgs.forEach(cp => { if (cp.customer_id && cp.customer_id !== 'CLIENTE_STORICO') custIdsToPull.add(cp.customer_id); });
-        }
-        if (Array.isArray(cloudSales)) {
-            cloudSales.forEach(s => { if (s.cust_id && s.cust_id !== 'CLIENTE_STORICO') custIdsToPull.add(s.cust_id); });
-        }
-
-        if (custIdsToPull.size > 0) {
-            const idList = Array.from(custIdsToPull).join(',');
-            const resSharedCusts = await fetch(`${SUPABASE_URL}/rest/v1/customers?id=in.(${idList})`, {
-                method: 'GET',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-            });
-            if (resSharedCusts.ok) {
-                const cloudSharedCusts = await resSharedCusts.json();
-                for (let c of cloudSharedCusts) {
-                    await localDb.customers.put(c);
+        // In data-service.js, sostituisci il blocco 3 e 5 di pullPackagesFromSupabase:
+        // 3. SYNC CUSTOMER_PACKAGES (Condivisi tra saloni partner)
+        let cloudCustPkgs = [];
+        const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        
+        if (resCustPkgs.ok) {
+            cloudCustPkgs = await resCustPkgs.json();
+            for (let cp of cloudCustPkgs) {
+                const isOwner = String(cp.salon_id || '').trim().toLowerCase() === salonIdLower;
+                let allocs = cp.revenue_allocations;
+                if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+                
+                let hasQuota = false;
+                if (allocs && typeof allocs === 'object') {
+                    const matchKey = Object.keys(allocs).find(k => k.trim().toLowerCase() === salonIdLower);
+                    if (matchKey && parseFloat(allocs[matchKey]) > 0) hasQuota = true;
                 }
-                console.log(`👥 [SYNC PACCHETTI] Sincronizzate ${cloudSharedCusts.length} anagrafiche clienti condivisi.`);
+
+                // Verifica se il salone è presente nei shared_salons della configurazione pacchetto
+                const parentPkg = await localDb.packages_config.get(cp.package_id);
+                let isSharedSalon = false;
+                if (parentPkg && parentPkg.shared_salons) {
+                    let sArr = parentPkg.shared_salons;
+                    if (typeof sArr === 'string') { try { sArr = JSON.parse(sArr); } catch(e) { sArr = []; } }
+                    if (Array.isArray(sArr)) isSharedSalon = sArr.some(s => String(s).trim().toLowerCase() === salonIdLower);
+                }
+
+                if (isOwner || hasQuota || isSharedSalon) {
+                    await localDb.customer_packages.put(cp);
+                }
             }
         }
 
