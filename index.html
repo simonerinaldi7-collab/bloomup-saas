@@ -2035,28 +2035,39 @@
             <!-- ========================================== -->
             <div id="tab-content-cust-pkgs" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
                 
-                <!-- Barra Filtri Pacchetti -->
-                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 150px 140px; gap: 8px; align-items: center;">
-                    <input type="text" id="cust-filter-pkg-name" placeholder="🔍 Cerca pacchetto o servizio..." onkeyup="filterCustomerPackagesTab()" style="margin:0; padding: 8px 10px; font-size: 12px; background: white;">
-                    
-                    <select id="cust-filter-pkg-status" onchange="filterCustomerPackagesTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
-                        <option value="all">Tutti gli Stati</option>
-                        <option value="installment">⏳ In Rateazione</option>
-                        <option value="paid_full">✓ Saldati</option>
-                    </select>
+                <!-- 🎁 Barra Filtri Pacchetti Mobile-First con Label Chiare -->
+                <div class="cust-filter-card">
+                    <div class="filter-field-group filter-field-full">
+                        <label for="cust-filter-pkg-name">🔍 Cerca Pacchetto o Trattamento</label>
+                        <input type="text" id="cust-filter-pkg-name" placeholder="Es. Benessere, Massaggio, Viso..." onkeyup="filterCustomerPackagesTab()" autocomplete="off">
+                    </div>
 
-                    <select id="cust-filter-pkg-sessions" onchange="filterCustomerPackagesTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
-                        <option value="all">Tutte le Sedute</option>
-                        <option value="available">✨ Disponibili (>0)</option>
-                        <option value="exhausted">🏁 Esaurite (0)</option>
-                    </select>
+                    <div class="filter-field-group">
+                        <label for="cust-filter-pkg-status">💳 Stato Pagamento</label>
+                        <select id="cust-filter-pkg-status" onchange="filterCustomerPackagesTab()">
+                            <option value="all">Tutti gli stati</option>
+                            <option value="installment">⏳ In Rateazione (Aperto)</option>
+                            <option value="paid_full">✓ Saldato al 100%</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-field-group">
+                        <label for="cust-filter-pkg-sessions">📦 Sedute Disponibili</label>
+                        <select id="cust-filter-pkg-sessions" onchange="filterCustomerPackagesTab()">
+                            <option value="all">Tutte le disponibilità</option>
+                            <option value="available">✨ Con Sedute Residue (>0)</option>
+                            <option value="exhausted">🏁 Carnet Esaurito (0)</option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Box Riepilogo Saldo Totale Pacchetti del Cliente -->
-                <div id="cust-pkg-summary-bar" style="display: flex; justify-content: space-between; align-items: center; background: #ede9fe; color: #4338ca; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-bottom: 12px;">
+                <!-- Box Riepilogo Saldo Totale Pacchetti del Cliente (Flessibile per Mobile) -->
+                <div id="cust-pkg-summary-bar" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; background: #ede9fe; color: #4338ca; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: bold; margin-bottom: 12px;">
                     <span id="cust-pkg-total-credit">Debito Residuo da Incassare: € 0.00</span>
                     <span id="cust-pkg-total-sessions-avail">Sedute Rimanenti: 0</span>
                 </div>
+
+            
 
                 <!-- Elenco Pacchetti Filtrato -->
                 <div id="customer-packages-tab-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -2067,15 +2078,29 @@
             <!-- ========================================== -->
             <div id="tab-content-cust-apps" class="cust-tab-content" style="display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding-right: 5px;">
                 
-                <!-- Barra Filtri Appuntamenti -->
-                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 140px 1fr 140px; gap: 8px; align-items: center;">
-                    <select id="cust-filter-app-timeline" onchange="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px; font-size: 12px; background: white; font-weight: bold;">
-                        <option value="all">Tutti (Cronologico)</option>
-                        <option value="future" selected>📅 In Programma (Futuri)</option>
-                        <option value="past">✅ Completati (Passati)</option>
-                    </select>
+                <!-- 📅 Barra Filtri Appuntamenti Mobile-First con Label Chiare -->
+                <div class="cust-filter-card">
+                    <div class="filter-field-group">
+                        <label for="cust-filter-app-timeline">📅 Periodo Appuntamenti</label>
+                        <select id="cust-filter-app-timeline" onchange="filterCustomerAppointmentsTab()">
+                            <option value="future" selected>In Programma (Futuri)</option>
+                            <option value="past">Completati (Passati)</option>
+                            <option value="all">Tutti (Storico Completo)</option>
+                        </select>
+                    </div>
 
-                    <input type="text" id="cust-filter-app-search" placeholder="🔍 Cerca trattamento o note..." onkeyup="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px 10px; font-size: 12px; background: white;">
+                    <div class="filter-field-group">
+                        <label for="cust-filter-app-user">👤 Operatore Assegnato</label>
+                        <select id="cust-filter-app-user" onchange="filterCustomerAppointmentsTab()">
+                            <option value="all">Tutti gli Operatori</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-field-group filter-field-full">
+                        <label for="cust-filter-app-search">🔍 Cerca per Servizio o Note</label>
+                        <input type="text" id="cust-filter-app-search" placeholder="Es. Piega, Colore, Note trattamento..." onkeyup="filterCustomerAppointmentsTab()" autocomplete="off">
+                    </div>
+                </div>
 
                     <select id="cust-filter-app-user" onchange="filterCustomerAppointmentsTab()" style="margin:0; padding: 8px; font-size: 12px; background: white;">
                         <option value="all">Tutti Operatori</option>
@@ -2135,6 +2160,89 @@
             background: var(--p);
             color: white;
         }
+
+/* 📱 STILE MOBILE-FIRST PER I FILTRI DEL DOSSIER CLIENTE */
+    .cust-filter-card {
+        background: #f8fafc;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .filter-field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .filter-field-group.filter-field-full {
+        grid-column: 1 / -1;
+    }
+
+    .filter-field-group label {
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        color: #334155 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+
+    .filter-field-group input,
+    .filter-field-group select {
+        width: 100% !important;
+        padding: 10px 12px !important;
+        font-size: 14px !important; /* Dimensione ottimale anti-zoom per smartphone */
+        font-weight: 500 !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        color: #1e293b !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        min-height: 42px !important; /* Area touch agevole per i pollici */
+        outline: none !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
+    }
+
+    .filter-field-group input:focus,
+    .filter-field-group select:focus {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+    }
+
+    /* 📱 ADATTAMENTO SCHERMI STRETTI (SMARTPHONE) */
+    @media screen and (max-width: 600px) {
+        .cust-filter-card {
+            grid-template-columns: 1fr !important; /* Ogni campo occupa tutta la larghezza */
+            gap: 8px !important;
+            padding: 10px !important;
+        }
+
+        .filter-field-group.filter-field-full {
+            grid-column: auto !important;
+        }
+
+        .filter-field-group input,
+        .filter-field-group select {
+            font-size: 13px !important;
+            min-height: 40px !important;
+        }
+
+        .cust-tab-btn {
+            padding: 8px 10px !important;
+            font-size: 12px !important;
+        }
+    }
+
     </style>
 
 <!-- MODALE RILEVAMENTO CLIENTE DUPLICATO -->
