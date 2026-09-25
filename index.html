@@ -8363,6 +8363,46 @@ function resetAppointmentModal() {
             id: appId
         });
 
+        try {
+            const allBookings = (localDb && localDb.workstation_bookings) ? await localDb.workstation_bookings.toArray() : [];
+            const linkedBooking = allBookings.find(b => String(b.appointment_id) === String(appId));
+
+            if (linkedBooking) {
+                const wsCheck = await window.universalQuery({
+                    action: 'CHECK_WORKSTATION_AVAILABILITY',
+                    data: {
+                        workstationId: linkedBooking.workstation_id,
+                        date: targetDateStr,
+                        startTime: targetTimeStr,
+                        endTime: targetEndTimeStr,
+                        excludeBookingId: linkedBooking.id
+                    }
+                });
+
+                if (!wsCheck.available) {
+                    alert(`⚠️ ATTENZIONE POSTAZIONE CONDIVISA:\n\nL'appuntamento è stato spostato, ma la postazione associata è già OCCUPATA nel nuovo slot:\n"${wsCheck.message}".\n\nVerifica lo spazio nell'Agenda Postazioni.`);
+                } else {
+                    await window.universalQuery({
+                        action: 'BOOK_WORKSTATION_ATOMIC',
+                        data: {
+                            bookingId: linkedBooking.id,
+                            workstationId: linkedBooking.workstation_id,
+                            date: targetDateStr,
+                            startTime: targetTimeStr,
+                            endTime: targetEndTimeStr,
+                            appointmentId: appId,
+                            operatorName: appToMove.assigned_user || 'Operatore',
+                            notes: linkedBooking.notes,
+                            excludeBookingId: linkedBooking.id
+                        }
+                    });
+                    console.log(`🔄 [DRAG & DROP] Postazione sincronizzata al ${targetDateStr} (${targetTimeStr} - ${targetEndTimeStr})`);
+                }
+            }
+        } catch (wsErr) {
+            console.warn("Errore sincronizzazione postazione da drag & drop:", wsErr);
+        }
+
         const localApp = allAppointments.find(a => a.id === appId);
         if (localApp) {
             localApp.date = targetDateStr;
@@ -9985,28 +10025,29 @@ async function deletePackage(id) {
     }
 
     // 🏢 5. PRENOTAZIONE ATOMICA DELLA POSTAZIONE FISICA CONDIVISA
+    // All'interno di saveApp(), nel blocco 5:
     if (selectedWsId) {
-        // Rilascia eventuale blocco precedente su questo appuntamento
-        await window.universalQuery({
-            action: 'RELEASE_WORKSTATION_BOOKING',
-            data: { appointmentId: savedAppointmentId }
-        });
+        // Cerca se esisteva già una prenotazione per questo appuntamento
+        const allBookings = (localDb && localDb.workstation_bookings) ? await localDb.workstation_bookings.toArray() : [];
+        const existingBooking = allBookings.find(b => String(b.appointment_id) === String(savedAppointmentId));
+        const existingBookingId = existingBooking ? existingBooking.id : null;
 
-        // Riserva la postazione con lock di concorrenza
         await window.universalQuery({
             action: 'BOOK_WORKSTATION_ATOMIC',
             data: {
+                bookingId: existingBookingId, // 👈 Se valorizzato, fa UPDATE in-place senza duplicare!
                 workstationId: selectedWsId,
                 date: date,
                 startTime: start,
                 endTime: end,
                 appointmentId: savedAppointmentId,
                 operatorName: assignedUser,
-                notes: `Appuntamento: ${custName} (${finalService})`
+                notes: `Appuntamento: ${custName} (${finalService})`,
+                excludeBookingId: existingBookingId
             }
         });
     } else if (!isNewAppointment) {
-        // Se in modifica l'utente ha tolto la postazione, rilascia il vecchio blocco
+        // Se la postazione è stata deselezionata, rilascia il vecchio blocco
         await window.universalQuery({
             action: 'RELEASE_WORKSTATION_BOOKING',
             data: { appointmentId: savedAppointmentId }
@@ -10866,7 +10907,7 @@ async function deleteWorkstationConfig(id) {
     renderWorkstationsView();
 }
 
-// 6. Modale Riserva Rapida Postazione
+// 1. Apertura Modale Prenotazione Postazione (Carica dati reali se in modifica)
 async function openWorkstationBookingDirectModal(wsId = null, dateStr = null, timeStr = null, bookingId = null) {
     cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
     const select = document.getElementById('f-wb-station-select');
@@ -10876,20 +10917,35 @@ async function openWorkstationBookingDirectModal(wsId = null, dateStr = null, ti
         `<option value="${ws.id}" ${ws.id === wsId ? 'selected' : ''}>🏢 ${ws.name}</option>`
     ).join('');
 
-    const startH = timeStr ? parseInt(timeStr.split(':')[0]) : 9;
-    const startM = timeStr ? timeStr.split(':')[1].substring(0, 2) : '00';
-    const startTimeFormatted = `${String(startH).padStart(2, '0')}:${startM}`;
-    const endTimeFormatted = `${String(Math.min(startH + 1, 23)).padStart(2, '0')}:${startM}`;
+    let existingBooking = null;
+    if (bookingId && bookingId !== "-1") {
+        existingBooking = (localDb && localDb.workstation_bookings) ? await localDb.workstation_bookings.get(bookingId) : null;
+    }
 
-    document.getElementById('f-wb-booking-id').value = bookingId || "-1";
-    document.getElementById('f-wb-date').value = dateStr || new Date().toLocaleDateString('en-CA');
-    document.getElementById('f-wb-start').value = startTimeFormatted;
-    document.getElementById('f-wb-end').value = endTimeFormatted;
-    document.getElementById('f-wb-operator').value = currentUser ? currentUser.username : "Operatore";
-    document.getElementById('f-wb-notes').value = "";
+    if (existingBooking) {
+        document.getElementById('f-wb-booking-id').value = existingBooking.id;
+        document.getElementById('f-wb-station-select').value = existingBooking.workstation_id;
+        document.getElementById('f-wb-date').value = existingBooking.date;
+        document.getElementById('f-wb-start').value = existingBooking.start_time ? existingBooking.start_time.substring(0, 5) : '09:00';
+        document.getElementById('f-wb-end').value = existingBooking.end_time ? existingBooking.end_time.substring(0, 5) : '10:00';
+        document.getElementById('f-wb-operator').value = existingBooking.operator_name || '';
+        document.getElementById('f-wb-notes').value = existingBooking.notes || '';
+    } else {
+        const startH = timeStr ? parseInt(timeStr.split(':')[0]) : 9;
+        const startM = timeStr ? timeStr.split(':')[1].substring(0, 2) : '00';
+        const startTimeFormatted = `${String(startH).padStart(2, '0')}:${startM}`;
+        const endTimeFormatted = `${String(Math.min(startH + 1, 23)).padStart(2, '0')}:${startM}`;
+
+        document.getElementById('f-wb-booking-id').value = "-1";
+        document.getElementById('f-wb-date').value = dateStr || new Date().toLocaleDateString('en-CA');
+        document.getElementById('f-wb-start').value = startTimeFormatted;
+        document.getElementById('f-wb-end').value = endTimeFormatted;
+        document.getElementById('f-wb-operator').value = currentUser ? currentUser.username : "Operatore";
+        document.getElementById('f-wb-notes').value = "";
+    }
 
     const delBtn = document.getElementById('btn-delete-wb-direct');
-    if (delBtn) delBtn.style.display = bookingId ? 'block' : 'none';
+    if (delBtn) delBtn.style.display = (bookingId && bookingId !== "-1") ? 'block' : 'none';
 
     document.getElementById('direct-booking-conflict-alert').style.display = 'none';
     document.getElementById('mod-workstation-booking').classList.add('active');
@@ -10939,16 +10995,26 @@ async function saveWorkstationDirectBooking() {
         return alert("Compila tutti i campi obbligatori!");
     }
 
+    // 1. Recupero eventuale prenotazione esistente e id appuntamento collegato
+    let linkedAppointmentId = null;
+    if (bookingId && bookingId !== "-1") {
+        const existing = (localDb && localDb.workstation_bookings) ? await localDb.workstation_bookings.get(bookingId) : null;
+        if (existing) linkedAppointmentId = existing.appointment_id;
+    }
+
+    // 2. Salvataggio / Aggiornamento Atomico (NON DUPLICA MAI LA RIGA)
     const res = await window.universalQuery({
         action: 'BOOK_WORKSTATION_ATOMIC',
         data: {
+            bookingId: (bookingId && bookingId !== "-1") ? bookingId : null,
             workstationId: wsId,
             date: date,
             startTime: start,
             endTime: end,
             operatorName: operator,
             notes: notes,
-            excludeBookingId: bookingId !== "-1" ? bookingId : null
+            appointmentId: linkedAppointmentId,
+            excludeBookingId: (bookingId && bookingId !== "-1") ? bookingId : null
         }
     });
 
@@ -10956,7 +11022,34 @@ async function saveWorkstationDirectBooking() {
         return alert(`⚠️ Impossibile riservare la postazione:\n\n${res.message}`);
     }
 
-    alert("✅ Postazione bloccata con successo!");
+    // 🌟 3. SINCRONIZZAZIONE BIDIREZIONALE: Se la postazione è collegata a un appuntamento, aggiorna anche l'appuntamento!
+    if (linkedAppointmentId) {
+        const appToUpdate = allAppointments.find(a => String(a.id) === String(linkedAppointmentId));
+        if (appToUpdate) {
+            const cleanAppNotes = (appToUpdate.notes || '').replace(/\[WS:[^\]]+\]/g, '').trim();
+            const updatedAppPayload = {
+                date: date,
+                time: start,
+                end_time: end,
+                assigned_user: operator || appToUpdate.assigned_user,
+                notes: cleanAppNotes + ` [WS:${wsId}]`
+            };
+
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'appointments',
+                data: updatedAppPayload,
+                id: linkedAppointmentId
+            });
+
+            // Aggiorna lo stato in memoria e l'agenda
+            Object.assign(appToUpdate, updatedAppPayload);
+            if (typeof renderCalendar === 'function') renderCalendar();
+            console.log(`🔄 [SYNC BIDIREZIONALE] Aggiornato appuntamento collegato ID: ${linkedAppointmentId}`);
+        }
+    }
+
+    alert("✅ Postazione e appuntamenti sincronizzati!");
     closeMod();
     renderWorkstationsView();
 }

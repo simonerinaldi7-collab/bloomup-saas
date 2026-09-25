@@ -1374,10 +1374,12 @@ async function handleSpecialAction(action, data, id) {
             return { available: true };
         }
 
-        // --- 🏢 14. BOOK_WORKSTATION_ATOMIC (Prenotazione Atomica con Concorrenza Protetta) ---
+        // --- 🏢 14. BOOK_WORKSTATION_ATOMIC (Con Supporto Update Senza Duplicazioni) ---
         if (action === 'BOOK_WORKSTATION_ATOMIC') {
-            const { workstationId, date, startTime, endTime, appointmentId, operatorName, notes, excludeBookingId } = data;
+            const { bookingId, workstationId, date, startTime, endTime, appointmentId, operatorName, notes, excludeBookingId } = data;
             const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+            const targetBookingId = (bookingId && bookingId !== "-1") ? bookingId : null;
+            const targetExcludeId = targetBookingId || excludeBookingId || null;
 
             // 1. Esecuzione Atomica su Supabase se online
             if (navigator.onLine && window.SUPABASE_CONFIG) {
@@ -1398,16 +1400,17 @@ async function handleSpecialAction(action, data, id) {
                             p_end_time: endTime,
                             p_operator_name: operatorName || null,
                             p_notes: notes || null,
-                            p_exclude_booking_id: excludeBookingId || null
+                            p_booking_id: targetBookingId,
+                            p_exclude_booking_id: targetExcludeId
                         })
                     });
 
                     if (res.ok) {
                         const result = await res.json();
                         if (result && result.success) {
-                            // Salvataggio locale immediato
+                            const effectiveId = result.booking_id || targetBookingId;
                             const bookingRecord = {
-                                id: result.booking_id,
+                                id: effectiveId,
                                 workstation_id: workstationId,
                                 salon_id: currentSalon,
                                 appointment_id: appointmentId || null,
@@ -1422,23 +1425,23 @@ async function handleSpecialAction(action, data, id) {
                             await localDb.workstation_bookings.put(bookingRecord);
                             return result;
                         } else {
-                            return result; // Restituisce l'avviso di collisione
+                            return result;
                         }
                     }
                 } catch (netErr) {
-                    console.warn("Errore chiamata atomica cloud, fallback su coda offline:", netErr);
+                    console.warn("Errore chiamata atomica cloud, fallback locale:", netErr);
                 }
             }
 
-            // 2. Fallback Offline: verifica locale e accodamento in sync_queue
-            const localCheck = await checkLocalWorkstationAvailability(workstationId, date, startTime, endTime, excludeBookingId);
+            // 2. Fallback Locale (Offline)
+            const localCheck = await checkLocalWorkstationAvailability(workstationId, date, startTime, endTime, targetExcludeId);
             if (!localCheck.available) {
                 return { success: false, message: localCheck.message };
             }
 
-            const fallbackId = crypto.randomUUID();
+            const effectiveId = targetBookingId || crypto.randomUUID();
             const localBooking = {
-                id: fallbackId,
+                id: effectiveId,
                 workstation_id: workstationId,
                 salon_id: currentSalon,
                 appointment_id: appointmentId || null,
@@ -1452,9 +1455,11 @@ async function handleSpecialAction(action, data, id) {
             };
 
             await localDb.workstation_bookings.put(localBooking);
-            await localDb.sync_queue.add({ action: 'INSERT', table_name: 'workstation_bookings', data: localBooking, target_id: fallbackId });
 
-            return { success: true, booking_id: fallbackId, message: "Prenotazione registrata in locale (Offline)." };
+            const queueAction = targetBookingId ? 'UPDATE' : 'INSERT';
+            await localDb.sync_queue.add({ action: queueAction, table_name: 'workstation_bookings', data: localBooking, target_id: effectiveId });
+
+            return { success: true, booking_id: effectiveId, is_update: Boolean(targetBookingId), message: "Prenotazione salvata in locale." };
         }
 
         // --- 🏢 15. RELEASE_WORKSTATION_BOOKING ---
