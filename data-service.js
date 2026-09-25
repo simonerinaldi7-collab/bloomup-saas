@@ -6,7 +6,7 @@ const SUPABASE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_p
 let localDb = null;
 if (typeof Dexie !== 'undefined') {
     localDb = new Dexie("RetailMasterPWA");
-    localDb.version(25).stores({
+    localDb.version(26).stores({
         users: 'id, salon_id, username, status, updated_at',
         customers: 'id, salon_id, first_name, last_name, phone, gdpr_date, updated_at',
         inventory: 'id, salon_id, name, type, supplier_id, model, barcode, size, unit, location, is_consignment, updated_at',
@@ -27,7 +27,9 @@ if (typeof Dexie !== 'undefined') {
         packages_config: 'id, salon_id, name',             // 👈 Nome corretto al plurale
         package_items: 'id, package_id, salon_id, service_id', // 👈 Aggiunto salon_id 
         customer_packages: 'id, salon_id, customer_id',     // 👈 NUOVA TABELLA PACCHETTI ACQUISTATI DAI CLIENTI
-        settings: 'key, salon_id, updated_at',                                // 👈 Aggiunto
+        settings: 'key, salon_id, updated_at',           
+        shared_workstations: 'id, salon_id, name, status, updated_at',
+        workstation_bookings: 'id, workstation_id, salon_id, date, start_time, updated_at',                     // 👈 Aggiunto
         sync_queue: '++local_id, action, table_name, data, target_id'
     });
 
@@ -64,6 +66,10 @@ function startBackgroundMultiOperatorSync() {
 
                 if (typeof pullPackagesFromSupabase === 'function') {
                 await pullPackagesFromSupabase(salonId);
+            }
+
+            if (typeof pullWorkstationsFromSupabase === 'function') {
+                await pullWorkstationsFromSupabase(salonId);
             }
 
             // Aggiorniamo la memoria globale includendo clienti e appuntamenti condivisi
@@ -341,6 +347,15 @@ window.appDataService = async function(action, table, data = null, id = null) {
         }
         if (table === 'customer_packages') {
             return await getVisibleCustomerPackagesForSalon(salonId);
+        }
+
+
+        // 🏢 GESTIONE SPECIALE: POSTAZIONI E OCCUPAZIONI CONDIVISE
+        if (table === 'shared_workstations') {
+            return await localDb.shared_workstations.toArray() || [];
+        }
+        if (table === 'workstation_bookings') {
+            return await localDb.workstation_bookings.toArray() || [];
         }
 
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
@@ -679,6 +694,72 @@ async function pullPackagesFromSupabase(salonId) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }
 }
+
+
+// 🏢 SYNC DEDICATO: Postazioni Fisiche e Occupazioni Condivise (Con protezione RPC)
+async function pullWorkstationsFromSupabase(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    try {
+        const salonIdClean = String(salonId).trim();
+        console.log(`🏢 [SYNC POSTAZIONI] Verifica risorse e spazi condivisi per salone: ${salonIdClean}...`);
+
+        // 1. PULL POSTAZIONI ACCESSIBILI VIA RPC
+        try {
+            const resStations = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_accessible_workstations`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_salon_id: salonIdClean })
+            });
+
+            if (resStations.ok) {
+                const cloudStations = await resStations.json();
+                if (Array.isArray(cloudStations)) {
+                    for (let ws of cloudStations) {
+                        await localDb.shared_workstations.put(ws);
+                    }
+                    console.log(`🏢 [SYNC POSTAZIONI] Scaricate ${cloudStations.length} postazioni.`);
+                }
+            }
+        } catch (errStations) {
+            console.warn("Errore RPC get_accessible_workstations:", errStations);
+        }
+
+        // 2. PULL PRENOTAZIONI / BLOCCHI SPAZIO CON SCUDO PRIVACY GDPR
+        try {
+            const resBookings = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_workstation_bookings_protected`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_salon_id: salonIdClean })
+            });
+
+            if (resBookings.ok) {
+                const cloudBookings = await resBookings.json();
+                if (Array.isArray(cloudBookings)) {
+                    for (let b of cloudBookings) {
+                        await localDb.workstation_bookings.put(b);
+                    }
+                    console.log(`🔒 [SYNC POSTAZIONI] Sincronizzati ${cloudBookings.length} blocchi orari postazioni.`);
+                }
+            }
+        } catch (errBookings) {
+            console.warn("Errore RPC get_workstation_bookings_protected:", errBookings);
+        }
+
+    } catch (err) {
+        console.error("⚠️ [SYNC POSTAZIONI] Errore generale:", err);
+    }
+}
+
+
+
 async function handleWriteOperation(action, table, data, id, isOnline) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     console.log(`🛠️ [WRITE] Azione: ${action} su Tabella: ${table}`, data);
