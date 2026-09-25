@@ -61,6 +61,11 @@ function startBackgroundMultiOperatorSync() {
                 await backgroundPullFromSupabase(table, salonId);
             }
 
+
+                if (typeof pullPackagesFromSupabase === 'function') {
+                await pullPackagesFromSupabase(salonId);
+            }
+
             // Aggiorniamo la memoria globale in tempo reale
             allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
@@ -191,6 +196,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
         return await handleSpecialAction(action, data, id);
     }
 
+    // In window.appDataService dentro data-service.js:
     if (action === 'GET_ALL') {
         try {
             if (isOnline) {
@@ -199,6 +205,80 @@ window.appDataService = async function(action, table, data = null, id = null) {
         } catch (e) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
+
+        const currentSalonLower = String(salonId).trim().toLowerCase();
+
+        // 👥 GESTIONE SPECIALE: ANAGRAFICA CLIENTI CONDIVISA TRAMITE PACCHETTI
+        if (table === 'customers') {
+            const allLocalCustomers = await localDb.customers.toArray() || [];
+            const allCustPkgs = (localDb.customer_packages ? await localDb.customer_packages.toArray() : []) || [];
+            const allPkgConfigs = (localDb.packages_config ? await localDb.packages_config.toArray() : []) || [];
+
+            // Identifichiamo tutti i clienti con pacchetti accessibili a questo salone
+            const sharedCustIds = new Set();
+            for (let cp of allCustPkgs) {
+                const isOwner = String(cp.salon_id || '').trim().toLowerCase() === currentSalonLower;
+                let allocs = cp.revenue_allocations;
+                if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+                const hasQuota = allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === currentSalonLower && parseFloat(allocs[k]) > 0);
+
+                const parentPkg = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+                let isSharedWithMe = false;
+                if (parentPkg && parentPkg.shared_salons) {
+                    let sArr = parentPkg.shared_salons;
+                    if (typeof sArr === 'string') { try { sArr = JSON.parse(sArr); } catch(e) { sArr = []; } }
+                    if (Array.isArray(sArr) && sArr.some(s => String(s).trim().toLowerCase() === currentSalonLower)) {
+                        isSharedWithMe = true;
+                    }
+                }
+
+                if (isOwner || hasQuota || isSharedWithMe) {
+                    if (cp.customer_id) sharedCustIds.add(String(cp.customer_id).trim());
+                }
+            }
+
+            // Restituisce i clienti proprietari + i clienti dei pacchetti condivisi
+            const customerMap = new Map();
+            allLocalCustomers.forEach(c => {
+                const isDirect = String(c.salon_id || '').trim().toLowerCase() === currentSalonLower;
+                const isShared = sharedCustIds.has(String(c.id).trim());
+                if (isDirect || isShared) {
+                    customerMap.set(String(c.id), {
+                        ...c,
+                        is_shared_client: !isDirect
+                    });
+                }
+            });
+            return Array.from(customerMap.values());
+        }
+
+        // 📅 GESTIONE SPECIALE: APPUNTAMENTI SUI PACCHETTI CONDIVISI
+        if (table === 'appointments') {
+            const allLocalApps = await localDb.appointments.toArray() || [];
+            const allCustPkgs = (localDb.customer_packages ? await localDb.customer_packages.toArray() : []) || [];
+            const accessibleCreditIds = new Set(allCustPkgs.map(cp => String(cp.id).trim()));
+
+            const appsMap = new Map();
+            allLocalApps.forEach(a => {
+                const isDirect = String(a.salon_id || '').trim().toLowerCase() === currentSalonLower;
+                let isSharedApp = false;
+
+                const match = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
+                if (match && accessibleCreditIds.has(String(match[1]).trim())) {
+                    isSharedApp = true;
+                }
+
+                if (isDirect || isSharedApp) {
+                    appsMap.set(String(a.id), {
+                        ...a,
+                        is_shared_appointment: !isDirect
+                    });
+                }
+            });
+            return Array.from(appsMap.values());
+        }
+
+        // Standard per tutte le altre tabelle
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
@@ -290,7 +370,9 @@ async function backgroundPullFromSupabase(table, salonId) {
 async function pullPackagesFromSupabase(salonId) {
     if (!salonId || !navigator.onLine) return;
     try {
-        console.log("🌐 [SYNC PACCHETTI] Inizio fetch pacchetti, crediti e clienti condivisi...");
+        const salonIdClean = String(salonId).trim();
+        const salonIdLower = salonIdClean.toLowerCase();
+        console.log(`🌐 [SYNC PACCHETTI] Sincronizzazione completa per salone: ${salonIdClean}...`);
         
         // 1. SYNC PACKAGES_CONFIG
         const response = await fetch(`${SUPABASE_URL}/rest/v1/packages_config?limit=1000`, {
@@ -300,10 +382,12 @@ async function pullPackagesFromSupabase(salonId) {
         if (response.ok) {
             const cloudRecords = await response.json();
             for (let record of cloudRecords) {
-                const isOwner = record.salon_id === salonId;
+                const isOwner = String(record.salon_id || '').trim().toLowerCase() === salonIdLower;
                 let sharedArr = record.shared_salons;
-                if (typeof sharedArr === 'string') { try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; } }
-                if (isOwner || (Array.isArray(sharedArr) && sharedArr.includes(salonId))) {
+                if (typeof sharedArr === 'string') { try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = sharedArr.split(',').map(s=>s.trim()); } }
+                const isShared = Array.isArray(sharedArr) && sharedArr.some(s => String(s).trim().toLowerCase() === salonIdLower);
+
+                if (isOwner || isShared) {
                     await localDb.packages_config.put(record);
                 }
             }
@@ -322,34 +406,7 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        
-
-        // 4. PULL DELLE VENDITE E ITEM DI COMPETENZA DEL SALONE CORRENTE
-        let cloudSales = [];
-        const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?salon_id=eq.${salonId}&limit=1000`, {
-            method: 'GET',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-        });
-        if (resSales.ok) {
-            cloudSales = await resSales.json();
-            for (let s of cloudSales) {
-                await localDb.sales.put(s);
-            }
-        }
-
-        const resSaleItems = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?salon_id=eq.${salonId}&limit=1000`, {
-            method: 'GET',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
-        });
-        if (resSaleItems.ok) {
-            const cloudSaleItems = await resSaleItems.json();
-            for (let si of cloudSaleItems) {
-                await localDb.sale_items.put(si);
-            }
-        }
-
-        // In data-service.js, sostituisci il blocco 3 e 5 di pullPackagesFromSupabase:
-        // 3. SYNC CUSTOMER_PACKAGES (Condivisi tra saloni partner)
+        // 3. SYNC CUSTOMER_PACKAGES (Portafoglio crediti/sedute condivisi)
         let cloudCustPkgs = [];
         const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {
             method: 'GET',
@@ -369,7 +426,7 @@ async function pullPackagesFromSupabase(salonId) {
                     if (matchKey && parseFloat(allocs[matchKey]) > 0) hasQuota = true;
                 }
 
-                // Verifica se il salone è presente nei shared_salons della configurazione pacchetto
+                // Verifica condivisione tramite il pacchetto genitore
                 const parentPkg = await localDb.packages_config.get(cp.package_id);
                 let isSharedSalon = false;
                 if (parentPkg && parentPkg.shared_salons) {
@@ -384,7 +441,83 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione pacchetti, vendite e clienti completata.");
+        // 4. SYNC VENDITE E ITEM
+        let cloudSales = [];
+        const resSales = await fetch(`${SUPABASE_URL}/rest/v1/sales?salon_id=ilike.${salonIdClean}&limit=1000`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        if (resSales.ok) {
+            cloudSales = await resSales.json();
+            for (let s of cloudSales) {
+                await localDb.sales.put(s);
+            }
+        }
+
+        const resSaleItems = await fetch(`${SUPABASE_URL}/rest/v1/sale_items?salon_id=ilike.${salonIdClean}&limit=1000`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+        });
+        if (resSaleItems.ok) {
+            const cloudSaleItems = await resSaleItems.json();
+            for (let si of cloudSaleItems) {
+                await localDb.sale_items.put(si);
+            }
+        }
+
+        // 5. 👥 PULL CLIENTI CONDIVISI TRAMITE RPC (Bypassa RLS in modo controllato e sicuro)
+        try {
+            const resSharedCusts = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_shared_package_customers`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_salon_id: salonIdClean })
+            });
+
+            if (resSharedCusts.ok) {
+                const cloudSharedCusts = await resSharedCusts.json();
+                if (Array.isArray(cloudSharedCusts)) {
+                    for (let c of cloudSharedCusts) {
+                        await localDb.customers.put(c);
+                    }
+                    console.log(`👥 [SYNC RPC] Sincronizzati ${cloudSharedCusts.length} clienti condivisi da Supabase.`);
+                }
+            } else {
+                console.warn(`⚠️ [SYNC RPC] Errore RPC clienti: ${await resSharedCusts.text()}`);
+            }
+        } catch (rpcCustErr) {
+            console.warn("Errore chiamata RPC get_shared_package_customers:", rpcCustErr);
+        }
+
+        // 6. 📅 PULL APPUNTAMENTI CONDIVISI TRAMITE RPC (Bypassa RLS in modo controllato e sicuro)
+        try {
+            const resSharedApps = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_shared_package_appointments`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_salon_id: salonIdClean })
+            });
+
+            if (resSharedApps.ok) {
+                const cloudSharedApps = await resSharedApps.json();
+                if (Array.isArray(cloudSharedApps)) {
+                    for (let app of cloudSharedApps) {
+                        await localDb.appointments.put(app);
+                    }
+                    console.log(`📅 [SYNC RPC] Sincronizzati ${cloudSharedApps.length} appuntamenti collegati a pacchetti condivisi.`);
+                }
+            } else {
+                console.warn(`⚠️ [SYNC RPC] Errore RPC appuntamenti: ${await resSharedApps.text()}`);
+            }
+        } catch (rpcAppErr) {
+            console.warn("Errore chiamata RPC get_shared_package_appointments:", rpcAppErr);
+        }
+
+        console.log("🎁 [SYNC PACCHETTI] Sincronizzazione completata.");
     } catch (err) {
         console.error("⚠️ [SYNC PACCHETTI] Eccezione di rete:", err);
     }

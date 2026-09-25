@@ -11011,13 +11011,16 @@ async function getAdvancedBusinessAnalytics() {
 
     const finalDisplayPrice = isPackageCovered ? 0.00 : (calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0));
 
+    const isOtherSalon = a.salon_id && currentUser && String(a.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase();
+    const salonTag = isOtherSalon ? `<br><b>SEDE PRENOTAZIONE:</b> <span style="color:var(--p); font-weight:bold;">${a.salon_id}</span>` : '';
+
     document.getElementById('v-app-content').innerHTML = `
         <b>STATO:</b> ${isPaid ? '<span style="color:#047857; font-weight:bold;">💶 Pagato in Cassa</span>' : '<span style="color:#d97706; font-weight:bold;">⏳ Da Saldare</span>'}<br>
         ${isPackageCovered ? '<b>COPERTURA:</b> <span style="color:var(--p); font-weight:bold;">🎁 Seduta Prepagata da Pacchetto</span><br>' : ''}
         <b>CLIENTE:</b> ${a.cust_name}<br>
         <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
         <b>SERVIZIO:</b> ${a.service}<br>
-        <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}<br>
+        <b>PREZZO:</b> € ${finalDisplayPrice.toFixed(2)}${salonTag}<br>
         <b>NOTE:</b> ${cleanDisplayNotes || '-'}
     `;
 
@@ -11447,7 +11450,6 @@ async function decrementInventoryFIFO(productId) {
             function renderCust() { 
         const f = document.getElementById('src-c').value.toLowerCase(); 
 
-        // Aggiorna l'header della tabella se necessario
         document.querySelector('#v-customers thead tr').innerHTML = `
             <th>Nome e Cognome</th><th>Tel / Email</th><th>Compleanno</th><th>Note / Allerte</th><th style="text-align:right">Azioni</th>
         `;
@@ -11457,18 +11459,26 @@ async function decrementInventoryFIFO(productId) {
             const phone = (c.phone || '').toLowerCase();
             return fullName.includes(f) || phone.includes(f);
         })
-        .sort((a,b)=>(a.first_name || '').localeCompare(b.first_name || '')) // Ordinamento alfabetico per Nome
-        .map(c => `
-            <tr>
-                <td><b>${c.first_name || ''} ${c.last_name || ''}</b></td> <!-- 👈 PRIMA NOME, POI COGNOME -->
-                <td>${c.phone || '-'}<br><small style="color:#666;">${c.email || ''}</small></td>
-                <td>${c.birth_date ? formatDateIt(c.birth_date) : '-'}</td>
-                <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
-                <td style="text-align:right">
-                    <button class="btn btn-s" style="padding:4px 10px;" onclick="editCust('${c.id}')">Edit</button> 
-                    <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
-                </td>
-            </tr>`).join(''); 
+        .sort((a,b)=>(a.first_name || '').localeCompare(b.first_name || ''))
+        .map(c => {
+            // 🌟 Badge distintivo se il cliente proviene da un pacchetto condiviso da un altro salone
+            const isShared = Boolean(c.is_shared_client) || (currentUser && c.salon_id && String(c.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase());
+            const sharedBadge = isShared 
+                ? `<span style="background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">🎁 Pacchetto Condiviso</span>` 
+                : '';
+
+            return `
+                <tr>
+                    <td><b>${c.first_name || ''} ${c.last_name || ''}</b>${sharedBadge}</td>
+                    <td>${c.phone || '-'}<br><small style="color:#666;">${c.email || ''}</small></td>
+                    <td>${c.birth_date ? formatDateIt(c.birth_date) : '-'}</td>
+                    <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
+                    <td style="text-align:right">
+                        <button class="btn btn-s" style="padding:4px 10px;" onclick="editCust('${c.id}')">Edit</button> 
+                        <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
+                    </td>
+                </tr>`;
+        }).join(''); 
     }
             
             async function saveCust() {
