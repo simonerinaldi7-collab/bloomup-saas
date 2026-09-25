@@ -6447,8 +6447,10 @@ function addPackageToCart(name, price, packageId) {
     if (navigator.onLine) {
         if (active === 'v-customers') {
             console.log("👥 [VIEW-SYNC] Aggiornamento anagrafica clienti dal cloud...");
-            await window.universalQuery({ action: 'GET_ALL', table: 'customers' });
-            allCustomers = await localDb.customers.where('salon_id').equals(salonId).toArray() || [];
+            if (typeof pullPackagesFromSupabase === 'function') {
+                await pullPackagesFromSupabase(salonId);
+            }
+            allCustomers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
             renderCust();
         } else if (active === 'v-products') {
             console.log("📦 [VIEW-SYNC] Aggiornamento magazzino dal cloud...");
@@ -7722,166 +7724,168 @@ window.openMod = async function(t, targetDate = null, targetTime = null, targetE
 
 
     function renderTimeline(area, cols) {
-        area.innerHTML = ''; 
-        const containerClass = (cols === 7) ? 'time-grid-week' : 'time-grid-day';
-        
-        let html = `<div style="display:flex; flex-direction:column; width:100%; min-height:100%;">`;
+    area.innerHTML = ''; 
+    const containerClass = (cols === 7) ? 'time-grid-week' : 'time-grid-day';
+    
+    let html = `<div style="display:flex; flex-direction:column; width:100%; min-height:100%;">`;
 
-        /// 1. HEADER GIORNI (📌 Bloccato in alto con sticky)
-        html += `<div class="time-grid-container ${containerClass}" style="position: sticky; top: 0; z-index: 60; background: #fff;">`;
-        html += `<div class="slot-header" style="border-right:1px solid #dadce0; position: sticky; left: 0; z-index: 61; background: #fff;"></div>`;
+    // 1. HEADER GIORNI (📌 Bloccato in alto con sticky)
+    html += `<div class="time-grid-container ${containerClass}" style="position: sticky; top: 0; z-index: 60; background: #fff;">`;
+    html += `<div class="slot-header" style="border-right:1px solid #dadce0; position: sticky; left: 0; z-index: 61; background: #fff;"></div>`;
 
-        let startDate = new Date(viewDate);
-        if (cols === 7) {
-            startDate = getMonday(viewDate);
+    let startDate = new Date(viewDate);
+    if (cols === 7) {
+        startDate = getMonday(viewDate);
+    }
+
+    for (let c = 0; c < cols; c++) {
+        const t = new Date(startDate);
+        t.setDate(startDate.getDate() + c);
+        const dStr = t.toLocaleDateString('en-CA');
+        const isToday = new Date().toLocaleDateString('en-CA') === dStr;
+        html += `<div class="slot-header" style="${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">${t.toLocaleDateString('it-IT',{weekday:'short',day:'numeric'})}</div>`;
+    }
+    html += `</div>`;
+
+    // 2. CORPO GRIGLIA TEMPORALE (Ore fisse a sinistra + Colonne giorni)
+    html += `<div class="time-grid-container ${containerClass}">`;
+    
+    // Colonna delle ore bloccata a sinistra (Sticky Left)
+    html += `<div class="time-label-column">`;
+    for (let h = 7; h < 22; h++) {
+        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+    }
+    html += `</div>`;
+
+    const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+    // Colonne dei singoli giorni
+    for (let c = 0; c < cols; c++) {
+        const t = new Date(startDate);
+        t.setDate(startDate.getDate() + c);
+        const dStr = t.toLocaleDateString('en-CA');
+        const dayOfWeek = t.getDay();
+
+        const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
+        let isWorkingSlotFunc = (user, hour) => true;
+
+        if (activeFilterUser !== 'all') {
+            const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
+                s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
+                s.day_of_week === dayOfWeek
+            );
+
+            isWorkingSlotFunc = (username, h) => {
+                if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
+                const shifts = [];
+                if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
+                if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
+
+                const slotMinutes = h * 60;
+                return shifts.some(sh => {
+                    const [sH, sM] = sh.start.split(':').map(Number);
+                    const [eH, eM] = sh.end.split(':').map(Number);
+                    return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
+                });
+            };
         }
 
-        for (let c = 0; c < cols; c++) {
-            const t = new Date(startDate);
-            t.setDate(startDate.getDate() + c);
-            const dStr = t.toLocaleDateString('en-CA');
-            const isToday = new Date().toLocaleDateString('en-CA') === dStr;
-            html += `<div class="slot-header" style="${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">${t.toLocaleDateString('it-IT',{weekday:'short',day:'numeric'})}</div>`;
-        }
-        html += `</div>`;
-
-        // 2. CORPO GRIGLIA TEMPORALE (Ore fisse a sinistra + Colonne giorni)
-        html += `<div class="time-grid-container ${containerClass}">`;
+        const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
         
-        // Colonna delle ore bloccata a sinistra (Sticky Left)
-        html += `<div class="time-label-column">`;
+        // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
+        const banner = document.getElementById('smart-preview-banner');
+        if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
+            const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
+            const activeOp = activeFilterUser.trim().toLowerCase();
+            if (activeOp === 'all' || activeOp === pUser) {
+                if (banner) {
+                    banner.style.display = 'flex';
+                    document.getElementById('smart-preview-banner-text').innerHTML = `⭐ Anteprima attiva per <b>${window.pendingSmartPreview.custName}</b> (${formatDateIt(window.pendingSmartPreview.date)} @ ${window.pendingSmartPreview.time}). Clicca sul blocco in griglia per confermare.`;
+                }
+                dayApps.push({
+                    id: 'ghost_preview_temp',
+                    cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
+                    date: window.pendingSmartPreview.date,
+                    time: window.pendingSmartPreview.time,
+                    end_time: window.pendingSmartPreview.end_time,
+                    service: window.pendingSmartPreview.service,
+                    assigned_user: window.pendingSmartPreview.assigned_user,
+                    isGhost: true
+                });
+            }
+        } else {
+            if (banner && !window.pendingSmartPreview) banner.style.display = 'none';
+        }
+
+        const processedApps = calculateEventOverlapLayout(dayApps);
+
+        html += `<div class="day-column">`;
+        
+        // Sfondi orari suddivisi in intervalli da 15 minuti (dalle 07:00 alle 22:00)
         for (let h = 7; h < 22; h++) {
-            html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+            for (let m = 0; m < 60; m += 15) {
+                const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
+                const slotStyleClass = isWorking ? '' : 'non-working';
+                const slotHeight = 15; 
+
+                html += `<div class="day-hour-slot ${slotStyleClass}" 
+                            style="height: ${slotHeight}px; min-height: ${slotHeight}px; box-sizing: border-box;"
+                            ondragover="allowDrop(event)" 
+                            drop-time="${timeStr}"
+                            ondrop="onEventDrop(event, '${dStr}', '${timeStr}')" 
+                            onclick="onTimeSlotClick('${dStr}', '${timeStr}')" 
+                            title="Sposta o crea appuntamento alle ${timeStr}"></div>`;
+            }
         }
-        html += `</div>`;
 
-        // Colonne dei singoli giorni
-        for (let c = 0; c < cols; c++) {
-            const t = new Date(startDate);
-            t.setDate(startDate.getDate() + c);
-            const dStr = t.toLocaleDateString('en-CA');
-            const dayOfWeek = t.getDay();
+        // Eventi posizionati in assoluto con gestione anti-sovrapposizione ed eventi brevi
+        processedApps.forEach(ev => {
+            const userColor = getUserColor(ev.assigned_user);
+            const topPx = ev.topPx;
+            const heightPx = Math.max(ev.heightPx, 18);
+            const widthPct = ev.widthPct;
+            const leftPct = ev.leftPct;
+            const statusClass = getEventStyles(ev);
 
-            const activeFilterUser = document.getElementById('user-filter')?.value || 'all';
-            let isWorkingSlotFunc = (user, hour) => true;
+            // 🛑 Controlli eventi speciali (Pausa / Chiusura)
+            const isPausa = (ev.service || '').toLowerCase().includes('pausa') || (ev.service || '').toLowerCase().includes('pranzo') || (ev.cust_name || '').toLowerCase().includes('pausa');
+            const isChiusura = (ev.service || '').toLowerCase().includes('chiusura') || (ev.service || '').toLowerCase().includes('ferie') || (ev.cust_name || '').toLowerCase().includes('chiusura') || (ev.cust_name || '').toLowerCase().includes('ferie');
 
-            if (activeFilterUser !== 'all') {
-                const dayConfig = (window.cachedOperatorSchedules || []).find(s => 
-                    s.username.trim().toLowerCase() === activeFilterUser.trim().toLowerCase() && 
-                    s.day_of_week === dayOfWeek
-                );
+            let finalClass = statusClass;
+            let finalStyle = `background-color: ${userColor}; color: white;`;
 
-                isWorkingSlotFunc = (username, h) => {
-                    if (!dayConfig || Number(dayConfig.is_working) !== 1) return false;
-                    const shifts = [];
-                    if (dayConfig.start_time_1 && dayConfig.end_time_1) shifts.push({ start: dayConfig.start_time_1, end: dayConfig.end_time_1 });
-                    if (dayConfig.start_time_2 && dayConfig.end_time_2) shifts.push({ start: dayConfig.start_time_2, end: dayConfig.end_time_2 });
-
-                    const slotMinutes = h * 60;
-                    return shifts.some(sh => {
-                        const [sH, sM] = sh.start.split(':').map(Number);
-                        const [eH, eM] = sh.end.split(':').map(Number);
-                        return slotMinutes >= (sH * 60 + sM) && slotMinutes < (eH * 60 + eM);
-                    });
-                };
+            if (isPausa) {
+                finalClass += ' event-break';
+                finalStyle = '';
+            } else if (isChiusura) {
+                finalClass += ' event-closure';
+                finalStyle = '';
             }
 
-            const dayApps = getFilteredAppointments().filter(a => a.date === dStr);
+            // 💶 Indicatore di pagamento in cassa
+            const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
+            const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
+
+            // 🌟 Riconoscimento appuntamenti condivisi da altra sede
+            const isOtherSalon = Boolean(ev.is_shared_appointment) || (ev.salon_id && String(ev.salon_id).trim().toLowerCase() !== currentSalon);
+            const salonTag = isOtherSalon ? ` [Sede: ${ev.salon_id}]` : '';
+            const sharedBadge = isOtherSalon ? ` <span style="background: rgba(255,255,255,0.3); font-size: 8.5px; padding: 1px 4px; border-radius: 3px; font-weight: bold; margin-left: 2px;">📍 ${ev.salon_id}</span>` : '';
+
+            // ⏱️ Gestione appuntamenti brevi (< 35 min) per evitare sovrapposizioni di testo
+            const durationMin = ev.endMin - ev.startMin;
+            const isCompact = durationMin < 35;
+            const compactClass = isCompact ? ' compact-event' : '';
+
+            const isGhost = ev.isGhost === true;
+            const ghostStyle = isGhost 
+                ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold; cursor: pointer;' 
+                : finalStyle;
             
-            // 👻 INIETTIAMO LA PREVIEW SE COINCIDE CON DATA E OPERATORE ATTIVO
-            const banner = document.getElementById('smart-preview-banner');
-            if (window.pendingSmartPreview && window.pendingSmartPreview.date === dStr) {
-                const pUser = (window.pendingSmartPreview.assigned_user || 'admin').trim().toLowerCase();
-                const activeOp = activeFilterUser.trim().toLowerCase();
-                if (activeOp === 'all' || activeOp === pUser) {
-                    if (banner) {
-                        banner.style.display = 'flex';
-                        document.getElementById('smart-preview-banner-text').innerHTML = `⭐ Anteprima attiva per <b>${window.pendingSmartPreview.custName}</b> (${formatDateIt(window.pendingSmartPreview.date)} @ ${window.pendingSmartPreview.time}). Clicca sul blocco in griglia per confermare.`;
-                    }
-                    dayApps.push({
-                        id: 'ghost_preview_temp',
-                        cust_name: `⭐ [Preview] ${window.pendingSmartPreview.custName}`,
-                        date: window.pendingSmartPreview.date,
-                        time: window.pendingSmartPreview.time,
-                        end_time: window.pendingSmartPreview.end_time,
-                        service: window.pendingSmartPreview.service,
-                        assigned_user: window.pendingSmartPreview.assigned_user,
-                        isGhost: true
-                    });
-                }
-            } else {
-                if (banner && !window.pendingSmartPreview) banner.style.display = 'none';
-            }
+            const clickAction = isGhost 
+                ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
+                : `viewApp('${ev.id}')`;
 
-            const processedApps = calculateEventOverlapLayout(dayApps);
-
-            html += `<div class="day-column">`;
-            
-           // Sfondi orari suddivisi in intervalli da 15 minuti (dalle 07:00 alle 22:00)
-            for (let h = 7; h < 22; h++) {
-                for (let m = 0; m < 60; m += 15) {
-                    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                    
-                    // Verifichiamo se l'ora intera cade nel turno lavorativo
-                    const isWorking = activeFilterUser === 'all' || isWorkingSlotFunc(activeFilterUser, h);
-                    const slotStyleClass = isWorking ? '' : 'non-working';
-                    
-                    // Altezza di ogni slot da 15 minuti = 15 pixel (poiché 1 ora = 60px)
-                    const slotHeight = 15; 
-
-                    html += `<div class="day-hour-slot ${slotStyleClass}" 
-                                style="height: ${slotHeight}px; min-height: ${slotHeight}px; box-sizing: border-box;"
-                                ondragover="allowDrop(event)" 
-                                drop-time="${timeStr}"
-                                ondrop="onEventDrop(event, '${dStr}', '${timeStr}')" 
-                                onclick="onTimeSlotClick('${dStr}', '${timeStr}')" 
-                                title="Sposta o crea appuntamento alle ${timeStr}"></div>`;
-                }
-            }
-
-            // Eventi posizionati in assoluto con gestione anti-sovrapposizione ed eventi brevi
-            processedApps.forEach(ev => {
-                const userColor = getUserColor(ev.assigned_user);
-                const topPx = ev.topPx;
-                const heightPx = Math.max(ev.heightPx, 18);
-                const widthPct = ev.widthPct;
-                const leftPct = ev.leftPct;
-                const statusClass = getEventStyles(ev);
-
-                // 🛑 Controlli eventi speciali (Pausa / Chiusura)
-                const isPausa = (ev.service || '').toLowerCase().includes('pausa') || (ev.service || '').toLowerCase().includes('pranzo') || (ev.cust_name || '').toLowerCase().includes('pausa');
-                const isChiusura = (ev.service || '').toLowerCase().includes('chiusura') || (ev.service || '').toLowerCase().includes('ferie') || (ev.cust_name || '').toLowerCase().includes('chiusura') || (ev.cust_name || '').toLowerCase().includes('ferie');
-
-                let finalClass = statusClass;
-                let finalStyle = `background-color: ${userColor}; color: white;`;
-
-                if (isPausa) {
-                    finalClass += ' event-break';
-                    finalStyle = '';
-                } else if (isChiusura) {
-                    finalClass += ' event-closure';
-                    finalStyle = '';
-                }
-
-                // 💶 Indicatore di pagamento in cassa
-                const isPaid = (allSales || []).some(s => s.appointment_id === ev.id);
-                const paidIcon = (isPaid && !isPausa && !isChiusura) ? ' 💶' : '';
-
-                // ⏱️ Gestione appuntamenti brevi (< 35 min) per evitare sovrapposizioni di testo
-                const durationMin = ev.endMin - ev.startMin;
-                const isCompact = durationMin < 35;
-                const compactClass = isCompact ? ' compact-event' : '';
-
-                const isGhost = ev.isGhost === true;
-                const ghostStyle = isGhost 
-                    ? 'border: 2px dashed #6c5ce7; background: rgba(108, 92, 231, 0.15) !important; color: #4834d4 !important; backdrop-filter: blur(2px); font-weight: bold; cursor: pointer;' 
-                    : finalStyle;
-                
-                const clickAction = isGhost 
-                    ? `confirmSmartPreviewClick('${ev.date}', '${ev.time}', '${ev.end_time}')` 
-                    : `viewApp('${ev.id}')`;
-
-                // In renderTimeline(), dentro processedApps.forEach(ev => { ... }):
             html += `
                 <div class="absolute-event ${finalClass}${compactClass}" 
                     draggable="true"
@@ -7889,9 +7893,9 @@ window.openMod = async function(t, targetDate = null, targetTime = null, targetE
                     ondragend="onEventDragEnd(event)"
                     onclick="event.stopPropagation(); ${clickAction}" 
                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; ${ghostStyle}"
-                    title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} - ${ev.service || ''} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
+                    title="${isGhost ? 'Clicca per confermare' : (isPaid ? 'Appuntamento già pagato in cassa' : `${ev.cust_name} - ${ev.service || ''}${salonTag} (${ev.time} - ${ev.end_time || 'N/D'})`)}">
                     
-                    <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}</div>
+                    <div style="opacity:0.9; white-space:nowrap; overflow:hidden;">${ev.time.substring(0,5)}${paidIcon}${sharedBadge}</div>
                     <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.cust_name}</div>
                     
                     <!-- 🌟 RIGA 3: NOME SERVIZIO E PACCHETTO VISIBILE DIRETTAMENTE SULLA CARD -->
@@ -7903,14 +7907,14 @@ window.openMod = async function(t, targetDate = null, targetTime = null, targetE
 
                 </div>
             `;
-            });
+        });
 
-            html += `</div>`; // Chiude day-column
-        }
-
-        html += `</div></div>`; // Chiude time-grid-container e wrapper generale
-        area.innerHTML = html;
+        html += `</div>`; // Chiude day-column
     }
+
+    html += `</div></div>`; // Chiude time-grid-container e wrapper generale
+    area.innerHTML = html;
+}
 
 
 // 🧹 RESET TOTALE E PULIZIA STATO DEL MODALE APPUNTAMENTO (#mod-cale)
@@ -11447,7 +11451,7 @@ async function decrementInventoryFIFO(productId) {
 
 
 
-            function renderCust() { 
+          function renderCust() { 
         const f = document.getElementById('src-c').value.toLowerCase(); 
 
         document.querySelector('#v-customers thead tr').innerHTML = `
@@ -11461,7 +11465,6 @@ async function decrementInventoryFIFO(productId) {
         })
         .sort((a,b)=>(a.first_name || '').localeCompare(b.first_name || ''))
         .map(c => {
-            // 🌟 Badge distintivo se il cliente proviene da un pacchetto condiviso da un altro salone
             const isShared = Boolean(c.is_shared_client) || (currentUser && c.salon_id && String(c.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase());
             const sharedBadge = isShared 
                 ? `<span style="background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">🎁 Pacchetto Condiviso</span>` 

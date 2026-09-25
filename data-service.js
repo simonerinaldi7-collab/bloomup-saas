@@ -66,8 +66,9 @@ function startBackgroundMultiOperatorSync() {
                 await pullPackagesFromSupabase(salonId);
             }
 
-            // Aggiorniamo la memoria globale in tempo reale
-            allAppointments = await localDb.appointments.where('salon_id').equals(salonId).toArray() || [];
+            // Aggiorniamo la memoria globale includendo clienti e appuntamenti condivisi
+            allAppointments = await getVisibleAppointmentsForSalon(salonId);
+            allCustomers = await getVisibleCustomersForSalon(salonId);
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
 
@@ -77,7 +78,7 @@ function startBackgroundMultiOperatorSync() {
                 const isModalOpen = document.querySelector('.modal.active');
                 if (!isModalOpen) {
                     renderCalendar();
-                    console.log("📅 [SMART-SYNC] Agenda sincronizzata.");
+                    console.log("📅 [SMART-SYNC] Agenda sincronizzata con appuntamenti condivisi.");
                 }
             }
             
@@ -154,6 +155,80 @@ async function loadSecureAiKey() {
     }
 }
 
+
+// 👥 Estrae i clienti del salone corrente + i clienti dei pacchetti condivisi
+async function getVisibleCustomersForSalon(salonId) {
+    const salonIdLower = String(salonId).trim().toLowerCase();
+    const allLocalCustomers = await localDb.customers.toArray() || [];
+    const allCustPkgs = (localDb.customer_packages ? await localDb.customer_packages.toArray() : []) || [];
+    const allPkgConfigs = (localDb.packages_config ? await localDb.packages_config.toArray() : []) || [];
+
+    const sharedCustIds = new Set();
+    for (let cp of allCustPkgs) {
+        const isOwner = String(cp.salon_id || '').trim().toLowerCase() === salonIdLower;
+        let allocs = cp.revenue_allocations;
+        if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+        const hasQuota = allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === salonIdLower && parseFloat(allocs[k]) > 0);
+
+        const parentPkg = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+        let isSharedWithMe = false;
+        if (parentPkg && parentPkg.shared_salons) {
+            let sArr = parentPkg.shared_salons;
+            if (typeof sArr === 'string') { try { sArr = JSON.parse(sArr); } catch(e) { sArr = []; } }
+            if (Array.isArray(sArr) && sArr.some(s => String(s).trim().toLowerCase() === salonIdLower)) {
+                isSharedWithMe = true;
+            }
+        }
+
+        if (isOwner || hasQuota || isSharedWithMe) {
+            if (cp.customer_id) sharedCustIds.add(String(cp.customer_id).trim());
+        }
+    }
+
+    const customerMap = new Map();
+    allLocalCustomers.forEach(c => {
+        const isDirect = String(c.salon_id || '').trim().toLowerCase() === salonIdLower;
+        const isShared = sharedCustIds.has(String(c.id).trim());
+        if (isDirect || isShared) {
+            customerMap.set(String(c.id), {
+                ...c,
+                is_shared_client: !isDirect
+            });
+        }
+    });
+
+    return Array.from(customerMap.values());
+}
+
+// 📅 Estrae gli appuntamenti del salone corrente + gli appuntamenti dei pacchetti condivisi
+async function getVisibleAppointmentsForSalon(salonId) {
+    const salonIdLower = String(salonId).trim().toLowerCase();
+    const allLocalApps = await localDb.appointments.toArray() || [];
+    const allCustPkgs = (localDb.customer_packages ? await localDb.customer_packages.toArray() : []) || [];
+    const accessibleCreditIds = new Set(allCustPkgs.map(cp => String(cp.id).trim()));
+
+    const appsMap = new Map();
+    allLocalApps.forEach(a => {
+        const isDirect = String(a.salon_id || '').trim().toLowerCase() === salonIdLower;
+        let isSharedApp = false;
+
+        const match = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
+        if (match && accessibleCreditIds.has(String(match[1]).trim())) {
+            isSharedApp = true;
+        }
+
+        if (isDirect || isSharedApp) {
+            appsMap.set(String(a.id), {
+                ...a,
+                is_shared_appointment: !isDirect
+            });
+        }
+    });
+
+    return Array.from(appsMap.values());
+}
+
+
 // Aggiunta/Modifica nel file data-service.js dentro window.appDataService
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
@@ -206,6 +281,15 @@ window.appDataService = async function(action, table, data = null, id = null) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
 
+if (table === 'customers') {
+            return await getVisibleCustomersForSalon(salonId);
+        }
+        if (table === 'appointments') {
+            return await getVisibleAppointmentsForSalon(salonId);
+        }
+
+        return await localDb.table(table).where('salon_id').equals(salonId).toArray();
+        
         const currentSalonLower = String(salonId).trim().toLowerCase();
 
         // 👥 GESTIONE SPECIALE: ANAGRAFICA CLIENTI CONDIVISA TRAMITE PACCHETTI
