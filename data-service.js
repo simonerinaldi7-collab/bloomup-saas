@@ -490,6 +490,27 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
+        // 2b. 📦 SYNC SERVIZI INVENTARIO COLLEGATI AI PACCHETTI CONDIVISI
+        if (resItems.ok && Array.isArray(cloudItems)) {
+            const serviceIdsToPull = new Set();
+            for (let item of cloudItems) {
+                if (item.service_id) serviceIdsToPull.add(item.service_id);
+            }
+            if (serviceIdsToPull.size > 0) {
+                const sIdList = Array.from(serviceIdsToPull).join(',');
+                const resServices = await fetch(`${SUPABASE_URL}/rest/v1/inventory?id=in.(${sIdList})`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+                });
+                if (resServices.ok) {
+                    const cloudServices = await resServices.json();
+                    for (let s of cloudServices) {
+                        await localDb.inventory.put(s);
+                    }
+                    console.log(`✂️ [SYNC PACCHETTI] Sincronizzati ${cloudServices.length} servizi associati ai pacchetti.`);
+                }
+            }
+        }
+
         // 3. SYNC CUSTOMER_PACKAGES (Portafoglio crediti/sedute condivisi)
         let cloudCustPkgs = [];
         const resCustPkgs = await fetch(`${SUPABASE_URL}/rest/v1/customer_packages?limit=1000`, {

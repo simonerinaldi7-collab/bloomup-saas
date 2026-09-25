@@ -4356,7 +4356,7 @@ async function checkCustomerActivePackagesForAppointment(custId, custName, prese
 }
 
 // 🌟 Quando l'utente seleziona il servizio, compone il nome: "🎁 [NomePacchetto] NomeServizio"
-function onPackageServiceSelected(val) {
+async function onPackageServiceSelected(val) {
     const feedback = document.getElementById('pkg-redemption-feedback');
     if (!val) {
         window._selectedPackageRedemption = null;
@@ -4370,9 +4370,22 @@ function onPackageServiceSelected(val) {
     
     // Leggiamo il nome del pacchetto dall'attributo data-pkgname
     const pkgName = selectedOption.getAttribute('data-pkgname') || 'Pacchetto';
+    const selectedOptionText = selectedOption.text || '';
 
-    const servObj = allInventory.find(i => String(i.id).trim() === String(serviceId).trim());
-    const servName = servObj ? servObj.name : 'Servizio';
+    // Cerchiamo il nome del servizio in locale oppure estraiamolo dal testo della tendina
+    const allLocalInventory = (localDb && localDb.inventory) ? await localDb.inventory.toArray() : (allInventory || []);
+    const servObj = allLocalInventory.find(i => String(i.id).trim() === String(serviceId).trim());
+    
+    let servName = 'Trattamento';
+    if (servObj && servObj.name) {
+        servName = servObj.name;
+    } else {
+        // Estrazione di sicurezza dal testo dell'opzione: "🎁 [NomePacchetto] NomeServizio (X su Y...)"
+        const matchText = selectedOptionText.match(/\]\s*([^(]+)/);
+        if (matchText && matchText[1]) {
+            servName = matchText[1].trim();
+        }
+    }
 
     window._selectedPackageRedemption = {
         customerPackageId: custPkgId,
@@ -4386,7 +4399,7 @@ function onPackageServiceSelected(val) {
     // Rimuove eventuali doppioni dello stesso servizio a pagamento
     currentSelectedServices = currentSelectedServices.filter(s => String(s.id).trim() !== String(serviceId).trim());
     
-    // 🏷️ Inserisce il nome completo del pacchetto nella pillola e nel servizio: "🎁 [NomePacchetto] NomeServizio"
+    // Aggiunge la pillola con il nome esatto del pacchetto a costo zero
     currentSelectedServices.push({
         uid: uniqueInstanceId,
         id: serviceId,
@@ -11189,12 +11202,12 @@ async function getAdvancedBusinessAnalytics() {
     currentSelectedServices = [];
     window._selectedPackageRedemption = null;
 
-    // 2. Controllo se l'appuntamento usufruiva di un pacchetto tramite il tag [PKG:custPkgId:serviceId]
+    // 2. Controllo riscatto pacchetto tramite tag [PKG:custPkgId:serviceId]
     const pkgMatch = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
     const existingCustPkgId = pkgMatch ? pkgMatch[1] : null;
     const existingServiceId = pkgMatch ? pkgMatch[2] : null;
 
-    // 🌟 3. PULIZIA DELLE NOTE: Rimuove il tag tecnico [PKG:...] dalla textarea visibile all'utente
+    // 3. Pulizia note: nascondiamo il tag tecnico [PKG:...] dall'input dell'utente
     const cleanNotes = (a.notes || '').replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
     document.getElementById('f-a-notes').value = cleanNotes;
 
@@ -11215,45 +11228,48 @@ async function getAdvancedBusinessAnalytics() {
     const titleEl = document.getElementById('mod-cale-title');
     if (titleEl) titleEl.innerText = "Modifica Appuntamento";
 
-    // 🌟 5. ESTRAZIONE E RICARICAMENTO DEI SERVIZI (Supporta sia servizi standard che riscattati da pacchetto)
+    // 🌟 5. ESTRAZIONE E RICARICAMENTO GARANTITO DEI SERVIZI (ANCHE TRA SALONI PARTNER DIVERSI)
     const savedServiceNames = (a.service || "").split(',').map(s => s.trim());
     const matchedServiceItems = [];
+
+    // Cerchiamo in tutto l'inventario locale senza restrizioni di salon_id
+    const allLocalInventory = (localDb && localDb.inventory) ? await localDb.inventory.toArray() : (allInventory || []);
 
     for (let nameStr of savedServiceNames) {
         if (!nameStr || nameStr.toLowerCase() === 'servizio' || nameStr.toLowerCase() === 'trattamento' || nameStr.toLowerCase().includes('pausa')) continue;
         
         const isPkgItem = nameStr.includes('🎁') || nameStr.includes('[') || Boolean(pkgMatch);
-        
-        // 🌟 Estrae il nome puro del servizio rimuovendo qualsiasi tag "🎁 [Nome Del Pacchetto]"
         const cleanServiceName = nameStr.replace(/🎁\s*\[[^\]]+\]\s*/gi, '').trim().toLowerCase();
 
+        // Ricerca del servizio nel catalogo locale completo
         let foundServ = null;
         if (isPkgItem && existingServiceId) {
-            foundServ = allInventory.find(i => String(i.id).trim() === String(existingServiceId).trim());
+            foundServ = allLocalInventory.find(i => String(i.id).trim() === String(existingServiceId).trim());
         }
         if (!foundServ) {
-            foundServ = allInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().trim() === cleanServiceName || String(i.id).trim() === nameStr));
+            foundServ = allLocalInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().trim() === cleanServiceName || String(i.id).trim() === nameStr));
         }
 
-        if (foundServ) {
-            let price = 0;
-            if (isPkgItem) {
-                price = 0.00;
-            } else {
-                const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
-                price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
-            }
-            
-            const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
-            matchedServiceItems.push({
-                uid: uniqueInstanceId,
-                id: foundServ.id,
-                // Mantiene il nome completo registrato con il pacchetto (es. "🎁 [Pacchetto Benessere] Massaggio")
-                name: isPkgItem ? (nameStr.startsWith('🎁') ? nameStr : `🎁 [Pacchetto] ${foundServ.name}`) : foundServ.name,
-                price: price,
-                isPackageRedemption: isPkgItem
-            });
+        // Calcolo prezzo (se da pacchetto è sempre € 0.00)
+        let price = 0.00;
+        if (!isPkgItem && foundServ) {
+            const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
+            price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
         }
+
+        // 🌟 Se è un servizio da pacchetto, lo aggiungiamo SEMPRE anche se il servizio appartiene al listino dell'altro salone
+        const displayName = isPkgItem 
+            ? (nameStr.startsWith('🎁') ? nameStr : `🎁 [Pacchetto] ${foundServ ? foundServ.name : cleanServiceName}`) 
+            : (foundServ ? foundServ.name : nameStr);
+
+        const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
+        matchedServiceItems.push({
+            uid: uniqueInstanceId,
+            id: foundServ ? foundServ.id : (existingServiceId || 'pkg_service'),
+            name: displayName,
+            price: price,
+            isPackageRedemption: isPkgItem
+        });
     }
 
     currentSelectedServices = matchedServiceItems;
@@ -11261,7 +11277,7 @@ async function getAdvancedBusinessAnalytics() {
         renderSelectedServiceTags();
     }
 
-    // 🌟 6. RILEVAMENTO PACCHETTI E PRESELEZIONE DEL SERVIZIO GIÀ ASSOCIATO
+    // 6. Rilevamento pacchetti e preselezione nella tendina del riscatto
     await checkCustomerActivePackagesForAppointment(a.cust_id || null, a.cust_name, existingCustPkgId, existingServiceId);
 
     document.getElementById('mod-cale').classList.add('active'); 
