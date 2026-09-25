@@ -965,6 +965,7 @@
         <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
         <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
         <a href="#" class="nav-item" id="n-packages" onclick="changePageMobileWrapper('packages')">🎁 Gestione Pacchetti</a>
+        <a href="#" class="nav-item" id="n-workstations" onclick="changePageMobileWrapper('workstations')">🏢 Spazi & Postazioni</a>
         <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
         <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
         <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
@@ -1314,6 +1315,63 @@
         </div>
     </section>
 
+
+
+<!-- ======================================================== -->
+    <!-- 🏢 VISTA AGENDA RISORSE & POSTAZIONI CONDIVISE            -->
+    <!-- ======================================================== -->
+    <section id="v-workstations" class="view" style="padding: 0;">
+        <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+            
+            <!-- HEADER TOOLBAR AGENDA POSTAZIONI -->
+            <div class="cal-header" style="padding: 12px 20px; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <h2 id="ws-cal-label" style="margin: 0; font-size: 16px; font-weight: 800; color: #1e1b4b;">Agenda Spazi & Postazioni</h2>
+                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px; gap: 2px;">
+                        <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(-1)" title="Giorno precedente">◀</button>
+                        <button class="btn" style="padding: 4px 10px; min-height: unset; background: white; border: none; font-size: 11px; font-weight: bold; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onclick="moveWorkstationDate(0)">Oggi</button>
+                        <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(1)" title="Giorno successivo">▶</button>
+                    </div>
+                    <input type="date" id="ws-date-picker" onchange="onWorkstationDatePicked(this.value)" style="margin: 0; padding: 4px 8px; font-size: 12px; width: 130px; background: #f8fafc; border-radius: 8px;">
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button class="btn" style="padding: 6px 12px; font-size: 12px; min-height: unset; background: #f8fafc; border: 1px solid var(--border);" onclick="openWorkstationBookingDirectModal()">
+                        ⏱️ Riserva Slot
+                    </button>
+                    <button class="btn btn-p" style="padding: 6px 14px; font-size: 12px; min-height: unset;" onclick="openWorkstationConfigModal()">
+                        + Gestisci Postazioni
+                    </button>
+                </div>
+            </div>
+
+            <!-- LEGENDA RAPIDA STATO POSTAZIONI -->
+            <div style="background: #f8fafc; padding: 8px 20px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 15px; align-items: center; font-size: 11px; color: #64748b; flex-shrink: 0; overflow-x: auto;">
+                <span style="font-weight: bold; color: #1e1b4b;">Legenda:</span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 12px; height: 12px; background: var(--p); border-radius: 3px; display: inline-block;"></span> 
+                    <b>Tua Prenotazione (In Chiaro)</b>
+                </span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 12px; height: 12px; background: repeating-linear-gradient(45deg, #64748b, #64748b 4px, #475569 4px, #475569 8px); border-radius: 3px; display: inline-block;"></span> 
+                    <b>Occupato Salone Partner (GDPR Shield)</b>
+                </span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 12px; height: 12px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 3px; display: inline-block;"></span> 
+                    <b>Slot Libero (Clicca per prenotare)</b>
+                </span>
+            </div>
+
+            <!-- GRIGLIA SCROLLABILE DELLE POSTAZIONI (COLONNE = RISORSE FISICHE) -->
+            <div class="cal-scroll-area" id="ws-grid-scroll-area" style="flex-grow: 1; overflow-y: auto; overflow-x: auto; background: #fff; position: relative;">
+                <!-- Generato dinamicamente da renderWorkstationsView() -->
+            </div>
+
+        </div>
+    </section>
+
+    
     <section id="v-sales" class="view" style="padding: 15px !important; overflow-y: hidden !important;">
         <!-- Contenitore principale POS Responsive -->
         <div id="pos-container" class="pos-desktop-layout">
@@ -2304,6 +2362,15 @@
         <h3 id="mod-cale-title" style="margin-top:0; color:var(--p);">Gestione Appuntamento</h3>
         <input type="hidden" id="edit-a-id" value="-1">
         
+<!-- 🏖️ Checkbox Chiusura / Ferie Giornaliera -->
+<div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 12px; margin: 12px 0; display: flex; align-items: center; gap: 10px;">
+    <input type="checkbox" id="f-a-is-closure" onchange="toggleClosureMode(this.checked)" style="width: 20px; height: 20px; accent-color: #dc2626; cursor: pointer; margin: 0;">
+    <label for="f-a-is-closure" style="margin: 0; font-weight: bold; color: #991b1b; cursor: pointer; text-transform: none; font-size: 13px;">
+        🏖️ Segna come Giornata di Chiusura / Ferie (Tutto il giorno)
+    </label>
+</div>
+
+
         <label>Operatore Assegnato</label>
         <select id="f-a-user" onchange="checkOperatorScheduleValidity(); if(typeof onOperatorChange === 'function') onOperatorChange()"></select>
 
@@ -2352,13 +2419,7 @@
 
 
 
-<!-- 🏖️ Checkbox Chiusura / Ferie Giornaliera -->
-<div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 12px; margin: 12px 0; display: flex; align-items: center; gap: 10px;">
-    <input type="checkbox" id="f-a-is-closure" onchange="toggleClosureMode(this.checked)" style="width: 20px; height: 20px; accent-color: #dc2626; cursor: pointer; margin: 0;">
-    <label for="f-a-is-closure" style="margin: 0; font-weight: bold; color: #991b1b; cursor: pointer; text-transform: none; font-size: 13px;">
-        🏖️ Segna come Giornata di Chiusura / Ferie (Tutto il giorno)
-    </label>
-</div>
+
 
 
         <div style="display:flex; gap:10px; margin-top: 10px;">
@@ -2389,13 +2450,123 @@
                 <span id="selected-services-total">Totale stimato: € 0.00</span>
             </div>
         </div>
-        
+        <!-- 🏢 TENDINA SELEZIONE POSTAZIONE FISICA CONDIVISA (OPZIONALE) -->
+        <div style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin: 0; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">
+                    🏢 Postazione Condivisa Riservata
+                </label>
+                <small style="color: #64748b; font-size: 10px;">Opzionale (es. Cabina Laser, Poltrona Barber)</small>
+            </div>
+            
+            <select id="f-a-workstation" onchange="checkAppointmentWorkstationConflict()" style="margin: 4px 0 0 0; background: white; font-weight: 600; font-size: 13px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <option value="">-- Nessuna postazione (Lavoro libero / Postazione personale) --</option>
+            </select>
+
+            <!-- ⚠️ Banner Alert Collisione Postazione -->
+            <div id="workstation-conflict-alert" style="display: none; background: #fef2f2; color: #991b1b; border: 1.5px solid #fecaca; padding: 10px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-top: 8px; line-height: 1.4;"></div>
+        </div>
         <label>Note Trattamento</label>
         <textarea id="f-a-notes" rows="2"></textarea>
         
     
         <!-- TASTO SALVA ORIGINALE -->
         <button id="btn-save-original-app" class="btn btn-p" style="width:100%; margin-top:15px; justify-content:center; padding: 14px;" onclick="saveApp()">SALVA APPUNTAMENTO</button>
+    </div>
+</div>
+
+
+<!-- MODALE CONFIGURAZIONE POSTAZIONI FISICHE -->
+<div id="mod-workstation-config" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 550px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; color: var(--p);">🏢 Gestione Postazioni & Spazi Condivisi</h3>
+            <button onclick="closeMod()" style="border: none; background: none; font-size: 18px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            <!-- Form Nuova Postazione -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                <input type="hidden" id="f-ws-id" value="-1">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <b id="ws-form-title" style="font-size: 13px; color: #1e1b4b;">Crea Nuova Postazione / Stanza</b>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 11px; background: white;" onclick="resetWorkstationForm()">Pulisci</button>
+                </div>
+
+                <label>Nome Postazione / Cabina *</label>
+                <input type="text" id="f-ws-name" placeholder="Es. Cabina Laser Diodo, Poltrona Barber 1" style="margin: 4px 0 10px 0;">
+
+                <label>Descrizione / Dotazioni</label>
+                <input type="text" id="f-ws-desc" placeholder="Es. Dotata di lettino elettrico e presa 380V" style="margin: 4px 0 10px 0;">
+
+                <div style="display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <label style="margin: 0 0 4px 0;">Saloni Partner Abilitati (separa con virgola)</label>
+                        <input type="text" id="f-ws-salons" placeholder="Es. salon_001, salon_002" style="margin: 0;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 4px 0;">Colore Grafico</label>
+                        <input type="color" id="f-ws-color" value="#6C5CE7" style="margin: 0; height: 42px; padding: 4px; cursor: pointer; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <button class="btn btn-p" style="width: 100%; justify-content: center; padding: 12px;" onclick="saveWorkstationRecord()">
+                    Salva Postazione
+                </button>
+            </div>
+
+            <!-- Elenco Postazioni Esistenti -->
+            <label style="color: #64748b; font-weight: bold; font-size: 11px; text-transform: uppercase;">Postazioni Esistenti</label>
+            <div id="workstations-list-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;"></div>
+        </div>
+
+        <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px; text-align: right; flex-shrink: 0;">
+            <button class="btn" style="background: #f1f5f9; color: #475569;" onclick="closeMod()">Chiudi</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE RISERVA RAPIDA POSTAZIONE (DALL'AGENDA RISORSE) -->
+<div id="mod-workstation-booking" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 480px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: var(--p);">⏱️ Riserva Postazione Condivisa</h3>
+            <button onclick="closeMod()" style="border: none; background: none; font-size: 18px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <input type="hidden" id="f-wb-booking-id" value="-1">
+
+        <label>Postazione Selezionata *</label>
+        <select id="f-wb-station-select" onchange="validateDirectBookingConflict()" style="background: white; font-weight: bold;"></select>
+
+        <label>Data *</label>
+        <input type="date" id="f-wb-date" onchange="validateDirectBookingConflict()">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label>Ora Inizio *</label>
+                <input type="time" id="f-wb-start" onchange="validateDirectBookingConflict()">
+            </div>
+            <div>
+                <label>Ora Fine *</label>
+                <input type="time" id="f-wb-end" onchange="validateDirectBookingConflict()">
+            </div>
+        </div>
+
+        <label>Operatore Assegnato</label>
+        <input type="text" id="f-wb-operator" placeholder="Nome operatore">
+
+        <label>Note / Motivazione (Visibili solo al tuo salone)</label>
+        <input type="text" id="f-wb-notes" placeholder="Es. Trattamento corpo con macchinario">
+
+        <!-- Banner Alert Conflitto -->
+        <div id="direct-booking-conflict-alert" style="display: none; background: #fef2f2; color: #991b1b; border: 1.5px solid #fecaca; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; margin: 10px 0;"></div>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button id="btn-save-wb-direct" class="btn btn-p" style="flex: 1; justify-content: center; padding: 14px;" onclick="saveWorkstationDirectBooking()">Conferma e Blocca Postazione</button>
+            <button id="btn-delete-wb-direct" class="btn btn-d" style="display: none; padding: 14px 18px;" onclick="deleteWorkstationDirectBooking()">Elimina</button>
+        </div>
     </div>
 </div>
 
@@ -6497,7 +6668,12 @@ function addPackageToCart(name, price, packageId) {
         if (active === 'v-sales-report') renderSalesReport();
     }
     }
-
+if (active === 'v-workstations') {
+        if (typeof pullWorkstationsFromSupabase === 'function') {
+            await pullWorkstationsFromSupabase(salonId);
+        }
+        renderWorkstationsView();
+    }
     // Esecuzione dei render standard per le altre viste
     if(active === 'v-dashboard') {
         refreshDashboard();
@@ -9627,7 +9803,8 @@ async function deletePackage(id) {
             'settings': 'n-sett',
             'sales-report': 'n-repo',
             'supplier-payouts': 'n-payouts',
-            'schedules': 'n-schedules'
+            'schedules': 'n-schedules',
+            'workstations': 'n-workstations'
         };
 
         const menuId = menuMap[p];
@@ -9659,6 +9836,28 @@ async function deletePackage(id) {
     if (!custName || !date || !start) {
         return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
     }
+
+    // All'interno di saveApp(), subito dopo il controllo dei campi obbligatori:
+    const selectedWsId = document.getElementById('f-a-workstation')?.value || '';
+
+    if (selectedWsId) {
+        // Controllo atomico collisione prima del salvataggio
+        const wsCheck = await window.universalQuery({
+            action: 'CHECK_WORKSTATION_AVAILABILITY',
+            data: {
+                workstationId: selectedWsId,
+                date: date,
+                startTime: start,
+                endTime: end
+            }
+        });
+
+        if (!wsCheck.available) {
+            return alert(`⚠️ POSTAZIONE OCCUPATA:\n\n${wsCheck.message}\n\nScegli un altro orario o una postazione differente prima di salvare.`);
+        }
+    }
+
+
 
     let totalPrice = 0;
     let selectedServiceNames = [];
@@ -9775,6 +9974,34 @@ async function deletePackage(id) {
             allAppointments[oldAppIndex] = { ...allAppointments[oldAppIndex], ...data };
         }
         await window.universalQuery({ action: 'UPDATE', table: 'appointments', data: data, id: id });
+    }
+
+    // Se c'è una postazione selezionata, registra/aggiorna il blocco atomico
+    if (selectedWsId) {
+        const appointmentRecordId = (id === "-1") ? newId : id;
+        
+        // Rilascia eventuale blocco precedente su quell'appuntamento
+        await window.universalQuery({
+            action: 'RELEASE_WORKSTATION_BOOKING',
+            data: { appointmentId: appointmentRecordId }
+        });
+
+        // Riserva la postazione linkata a questo appuntamento
+        await window.universalQuery({
+            action: 'BOOK_WORKSTATION_ATOMIC',
+            data: {
+                workstationId: selectedWsId,
+                date: date,
+                startTime: start,
+                endTime: end,
+                appointmentId: appointmentRecordId,
+                operatorName: assignedUser,
+                notes: `Appuntamento: ${custName} (${finalService})`
+            }
+        });
+
+        // Aggiunge tag tecnico alle note per tracciare la postazione associata
+        notes = cleanNotes + ` [WS:${selectedWsId}]`;
     }
 
     window._selectedPackageRedemption = null;
@@ -10297,6 +10524,439 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { passive: true });
 });
+
+
+
+
+// =========================================================================
+// 🏢 STEP 3: LOGICA AGENDA RISORSE & POSTAZIONI CONDIVISE
+// =========================================================================
+
+let workstationViewDate = new Date();
+let cachedAccessibleWorkstations = [];
+
+// 1. Spostamento Data Agenda Postazioni
+function moveWorkstationDate(d) {
+    if (d === 0) workstationViewDate = new Date();
+    else workstationViewDate.setDate(workstationViewDate.getDate() + d);
+    renderWorkstationsView();
+}
+
+function onWorkstationDatePicked(dateVal) {
+    if (!dateVal) return;
+    workstationViewDate = new Date(dateVal + 'T00:00:00');
+    renderWorkstationsView();
+}
+
+// 2. Renderizzazione Vista a Colonne (Colonne = Postazioni Fisiche)
+async function renderWorkstationsView() {
+    const area = document.getElementById('ws-grid-scroll-area');
+    const label = document.getElementById('ws-cal-label');
+    const datePicker = document.getElementById('ws-date-picker');
+    if (!area || !label) return;
+
+    const dateStr = workstationViewDate.toLocaleDateString('en-CA');
+    label.innerText = `Postazioni: ${formatDateIt(dateStr).toUpperCase()}`;
+    if (datePicker) datePicker.value = dateStr;
+
+    area.innerHTML = `<div style="text-align:center; padding: 40px; color: #64748b;">Caricamento griglia postazioni...</div>`;
+
+    const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+    // Recupera postazioni e occupazioni
+    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
+    const dayBookings = allBookings.filter(b => b.date === dateStr);
+
+    if (cachedAccessibleWorkstations.length === 0) {
+        area.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px;">
+                <div style="font-size: 36px; margin-bottom: 10px;">🏢</div>
+                <h3 style="margin: 0 0 6px 0; color: #1e1b4b;">Nessuna postazione condivisa configurata</h3>
+                <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Crea la tua prima cabina o poltrona per gestire gli spazi condivisi tra saloni partner.</p>
+                <button class="btn btn-p" onclick="openWorkstationConfigModal()">+ Crea Nuova Postazione</button>
+            </div>
+        `;
+        return;
+    }
+
+    const colsCount = cachedAccessibleWorkstations.length;
+    let html = `<div style="display:flex; flex-direction:column; min-width: ${Math.max(colsCount * 180 + 60, 750)}px; min-height: 100%;">`;
+
+    // HEADER COLONNE (📌 Postazioni ancorate in alto con sticky)
+    html += `<div style="display: grid; grid-template-columns: 60px repeat(${colsCount}, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
+    html += `<div style="padding: 10px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
+
+    cachedAccessibleWorkstations.forEach(ws => {
+        const isOwner = String(ws.salon_id || '').trim().toLowerCase() === currentSalon;
+        html += `
+            <div style="padding: 10px; text-align: center; background: #fff; border-right: 1px solid #dadce0;">
+                <div style="font-weight: 800; font-size: 13px; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: ${ws.color || '#6C5CE7'}; display: inline-block;"></span>
+                    <span>${ws.name}</span>
+                </div>
+                <small style="color: #64748b; font-size: 10px;">${isOwner ? 'Proprietario: Tu' : `Partner: ${ws.salon_id}`}</small>
+            </div>
+        `;
+    });
+    html += `</div>`;
+
+    // CORPO GRIGLIA TEMPORALE (Ore a sinistra + Colonne postazioni)
+    html += `<div style="display: grid; grid-template-columns: 60px repeat(${colsCount}, 1fr); position: relative;">`;
+
+    // Colonna Ore fissa a sinistra
+    html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #dadce0;">`;
+    for (let h = 7; h < 22; h++) {
+        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+    }
+    html += `</div>`;
+
+    // Colonne delle singole postazioni
+    cachedAccessibleWorkstations.forEach(ws => {
+        const wsBookings = dayBookings.filter(b => String(b.workstation_id).trim() === String(ws.id).trim());
+
+        html += `<div class="day-column" style="border-right: 1px solid #f1f3f4; position: relative;">`;
+
+        // Slot orari cliccabili (15 minuti per slot = 15px di altezza)
+        for (let h = 7; h < 22; h++) {
+            for (let m = 0; m < 60; m += 15) {
+                const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                html += `
+                    <div class="day-hour-slot" 
+                         style="height: 15px; min-height: 15px; box-sizing: border-box;" 
+                         onclick="openWorkstationBookingDirectModal('${ws.id}', '${dateStr}', '${timeStr}')"
+                         title="Clicca per riserva ${ws.name} alle ${timeStr}">
+                    </div>
+                `;
+            }
+        }
+
+        // Blocchi Occupazione su questa postazione
+        wsBookings.forEach(b => {
+            const isMine = b.is_mine !== undefined ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
+            const [sH, sM] = (b.start_time || '09:00').substring(0, 5).split(':').map(Number);
+            const [eH, eM] = (b.end_time || '10:00').substring(0, 5).split(':').map(Number);
+            const startMin = sH * 60 + sM;
+            const endMin = eH * 60 + eM;
+
+            const gridStartMin = 7 * 60; // 07:00
+            const topPx = (startMin - gridStartMin) * (60 / 60);
+            const heightPx = Math.max((endMin - startMin) * (60 / 60) - 2, 22);
+
+            let blockStyle = '';
+            let blockContent = '';
+
+            if (isMine) {
+                // 🟢 Prenotazione del salone corrente (In chiaro)
+                blockStyle = `background: ${ws.color || '#6C5CE7'}; color: white; border-left: 4px solid #312e81;`;
+                blockContent = `
+                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
+                    </div>
+                    <div style="font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        👤 ${b.operator_name || 'Tuo Operatore'}
+                    </div>
+                    <div style="font-size: 10px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.notes || 'Trattamento'}
+                    </div>
+                `;
+            } else {
+                // 🔒 Occupazione salone partner (GDPR SHIELD: Mascherata)
+                blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
+                blockContent = `
+                    <div style="font-weight: bold; font-size: 11px;">
+                        ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
+                    </div>
+                    <div style="font-weight: 800; font-size: 11px; color: #fef08a;">
+                        🔒 Occupato (Partner)
+                    </div>
+                    <div style="font-size: 9.5px; opacity: 0.85;">
+                        Risorsa non disponibile
+                    </div>
+                `;
+            }
+
+            const clickAction = isMine ? `onclick="openWorkstationBookingDirectModal('${ws.id}', '${b.date}', '${b.start_time}', '${b.id}')"` : '';
+
+            html += `
+                <div class="absolute-event" 
+                     style="top: ${topPx}px; height: ${heightPx}px; width: 94%; left: 3%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
+                     ${clickAction}
+                     title="${isMine ? `Tua prenotazione (${b.start_time} - ${b.end_time})` : `Postazione occupata dal salone partner`}">
+                    ${blockContent}
+                </div>
+            `;
+        });
+
+        html += `</div>`; // fine day-column
+    });
+
+    html += `</div></div>`;
+    area.innerHTML = html;
+}
+
+// 3. Popolamento Tendina Postazioni nel Modale Appuntamenti (#mod-cale)
+async function populateWorkstationDropdownInAppointmentModal(selectedWsId = '') {
+    const select = document.getElementById('f-a-workstation');
+    if (!select) return;
+
+    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+
+    let html = `<option value="">-- Nessuna postazione (Lavoro libero / Postazione personale) --</option>`;
+    cachedAccessibleWorkstations.forEach(ws => {
+        html += `<option value="${ws.id}" ${String(ws.id).trim() === String(selectedWsId).trim() ? 'selected' : ''}>🏢 [${ws.name}]</option>`;
+    });
+
+    select.innerHTML = html;
+    checkAppointmentWorkstationConflict();
+}
+
+// 4. Controllo Collisione Postazione in Tempo Reale nel Modale Appuntamenti (#mod-cale)
+async function checkAppointmentWorkstationConflict() {
+    const wsSelect = document.getElementById('f-a-workstation');
+    const dateInput = document.getElementById('f-a-date');
+    const timeInput = document.getElementById('f-a-time');
+    const endInput = document.getElementById('f-a-end');
+    const alertBox = document.getElementById('workstation-conflict-alert');
+
+    if (!wsSelect || !alertBox) return;
+
+    const wsId = wsSelect.value;
+    const date = dateInput ? dateInput.value : '';
+    const startTime = timeInput ? timeInput.value : '';
+    const endTime = endInput ? endInput.value : '';
+
+    if (!wsId || !date || !startTime || !endTime) {
+        alertBox.style.display = 'none';
+        return;
+    }
+
+    const check = await window.universalQuery({
+        action: 'CHECK_WORKSTATION_AVAILABILITY',
+        data: {
+            workstationId: wsId,
+            date: date,
+            startTime: startTime,
+            endTime: endTime
+        }
+    });
+
+    if (!check.available) {
+        alertBox.innerHTML = `⚠️ <b>Conflitto Spazio:</b> ${check.message}`;
+        alertBox.style.display = 'block';
+    } else {
+        alertBox.style.display = 'none';
+    }
+}
+
+// 5. Gestione Modale Configurazione Postazioni
+function openWorkstationConfigModal() {
+    resetWorkstationForm();
+    renderWorkstationsConfigList();
+    document.getElementById('mod-workstation-config').classList.add('active');
+}
+
+function resetWorkstationForm() {
+    document.getElementById('f-ws-id').value = "-1";
+    document.getElementById('f-ws-name').value = "";
+    document.getElementById('f-ws-desc').value = "";
+    document.getElementById('f-ws-color').value = "#6C5CE7";
+    document.getElementById('f-ws-salons').value = currentUser ? currentUser.salon_id : "SALON_001";
+    document.getElementById('ws-form-title').innerText = "Crea Nuova Postazione / Stanza";
+}
+
+async function renderWorkstationsConfigList() {
+    const container = document.getElementById('workstations-list-container');
+    if (!container) return;
+
+    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+    if (cachedAccessibleWorkstations.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; color:#888; text-align:center; padding:10px;">Nessuna postazione creata.</div>`;
+        return;
+    }
+
+    container.innerHTML = cachedAccessibleWorkstations.map(ws => {
+        const isOwner = String(ws.salon_id || '').trim().toLowerCase() === currentSalon;
+        return `
+            <div style="background: white; border: 1px solid var(--border); border-left: 4px solid ${ws.color || '#6C5CE7'}; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <b style="font-size: 13px; color: #1e1b4b;">${ws.name}</b>
+                    <small style="display: block; color: #64748b;">${ws.description || 'Nessuna descrizione'} | Saloni: ${Array.isArray(ws.shared_salons) ? ws.shared_salons.join(', ') : ws.shared_salons}</small>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    ${isOwner ? `
+                        <button class="btn btn-s" style="padding: 4px 8px; font-size: 11px;" onclick="editWorkstationConfig('${ws.id}')">✎</button>
+                        <button class="btn btn-d" style="padding: 4px 8px; font-size: 11px;" onclick="deleteWorkstationConfig('${ws.id}')">✕</button>
+                    ` : `<span style="font-size: 10px; background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-weight: bold;">Condivisa da ${ws.salon_id}</span>`}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function editWorkstationConfig(id) {
+    const ws = cachedAccessibleWorkstations.find(w => String(w.id) === String(id));
+    if (!ws) return;
+
+    document.getElementById('f-ws-id').value = ws.id;
+    document.getElementById('f-ws-name').value = ws.name || '';
+    document.getElementById('f-ws-desc').value = ws.description || '';
+    document.getElementById('f-ws-color').value = ws.color || '#6C5CE7';
+    document.getElementById('f-ws-salons').value = Array.isArray(ws.shared_salons) ? ws.shared_salons.join(', ') : (ws.shared_salons || '');
+    document.getElementById('ws-form-title').innerText = "Modifica Postazione";
+}
+
+async function saveWorkstationRecord() {
+    const editId = document.getElementById('f-ws-id').value;
+    const name = document.getElementById('f-ws-name').value.trim();
+    const desc = document.getElementById('f-ws-desc').value.trim();
+    const color = document.getElementById('f-ws-color').value;
+    const salonsRaw = document.getElementById('f-ws-salons').value.trim();
+    const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    if (!name) return alert("Inserisci il nome della postazione / cabina!");
+
+    let sharedSalonsArray = salonsRaw ? salonsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0) : [currentSalon];
+    if (!sharedSalonsArray.some(s => s.toLowerCase() === currentSalon.toLowerCase())) {
+        sharedSalonsArray.unshift(currentSalon);
+    }
+
+    const payload = {
+        name: name,
+        description: desc,
+        color: color,
+        shared_salons: sharedSalonsArray,
+        status: 'active'
+    };
+
+    if (editId === "-1" || !editId) {
+        payload.id = crypto.randomUUID();
+        payload.salon_id = currentSalon;
+        await window.universalQuery({ action: 'INSERT', table: 'shared_workstations', data: payload });
+        alert("✅ Postazione creata con successo!");
+    } else {
+        await window.universalQuery({ action: 'UPDATE', table: 'shared_workstations', data: payload, id: editId });
+        alert("✅ Postazione aggiornata!");
+    }
+
+    resetWorkstationForm();
+    renderWorkstationsConfigList();
+    renderWorkstationsView();
+}
+
+async function deleteWorkstationConfig(id) {
+    if (!confirm("Sei sicuro di voler eliminare questa postazione condivisa?")) return;
+    await window.universalQuery({ action: 'DELETE', table: 'shared_workstations', id: id });
+    renderWorkstationsConfigList();
+    renderWorkstationsView();
+}
+
+// 6. Modale Riserva Rapida Postazione
+async function openWorkstationBookingDirectModal(wsId = null, dateStr = null, timeStr = null, bookingId = null) {
+    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const select = document.getElementById('f-wb-station-select');
+    if (!select) return;
+
+    select.innerHTML = cachedAccessibleWorkstations.map(ws => 
+        `<option value="${ws.id}" ${ws.id === wsId ? 'selected' : ''}>🏢 ${ws.name}</option>`
+    ).join('');
+
+    const startH = timeStr ? parseInt(timeStr.split(':')[0]) : 9;
+    const startM = timeStr ? timeStr.split(':')[1].substring(0, 2) : '00';
+    const startTimeFormatted = `${String(startH).padStart(2, '0')}:${startM}`;
+    const endTimeFormatted = `${String(Math.min(startH + 1, 23)).padStart(2, '0')}:${startM}`;
+
+    document.getElementById('f-wb-booking-id').value = bookingId || "-1";
+    document.getElementById('f-wb-date').value = dateStr || new Date().toLocaleDateString('en-CA');
+    document.getElementById('f-wb-start').value = startTimeFormatted;
+    document.getElementById('f-wb-end').value = endTimeFormatted;
+    document.getElementById('f-wb-operator').value = currentUser ? currentUser.username : "Operatore";
+    document.getElementById('f-wb-notes').value = "";
+
+    const delBtn = document.getElementById('btn-delete-wb-direct');
+    if (delBtn) delBtn.style.display = bookingId ? 'block' : 'none';
+
+    document.getElementById('direct-booking-conflict-alert').style.display = 'none';
+    document.getElementById('mod-workstation-booking').classList.add('active');
+
+    validateDirectBookingConflict();
+}
+
+async function validateDirectBookingConflict() {
+    const wsId = document.getElementById('f-wb-station-select').value;
+    const date = document.getElementById('f-wb-date').value;
+    const start = document.getElementById('f-wb-start').value;
+    const end = document.getElementById('f-wb-end').value;
+    const bookingId = document.getElementById('f-wb-booking-id').value;
+    const alertBox = document.getElementById('direct-booking-conflict-alert');
+
+    if (!wsId || !date || !start || !end) return;
+
+    const check = await window.universalQuery({
+        action: 'CHECK_WORKSTATION_AVAILABILITY',
+        data: {
+            workstationId: wsId,
+            date: date,
+            startTime: start,
+            endTime: end,
+            excludeBookingId: bookingId !== "-1" ? bookingId : null
+        }
+    });
+
+    if (!check.available) {
+        alertBox.innerHTML = `⚠️ ${check.message}`;
+        alertBox.style.display = 'block';
+    } else {
+        alertBox.style.display = 'none';
+    }
+}
+
+async function saveWorkstationDirectBooking() {
+    const wsId = document.getElementById('f-wb-station-select').value;
+    const date = document.getElementById('f-wb-date').value;
+    const start = document.getElementById('f-wb-start').value;
+    const end = document.getElementById('f-wb-end').value;
+    const operator = document.getElementById('f-wb-operator').value.trim();
+    const notes = document.getElementById('f-wb-notes').value.trim();
+    const bookingId = document.getElementById('f-wb-booking-id').value;
+
+    if (!wsId || !date || !start || !end) {
+        return alert("Compila tutti i campi obbligatori!");
+    }
+
+    const res = await window.universalQuery({
+        action: 'BOOK_WORKSTATION_ATOMIC',
+        data: {
+            workstationId: wsId,
+            date: date,
+            startTime: start,
+            endTime: end,
+            operatorName: operator,
+            notes: notes,
+            excludeBookingId: bookingId !== "-1" ? bookingId : null
+        }
+    });
+
+    if (!res.success) {
+        return alert(`⚠️ Impossibile riservare la postazione:\n\n${res.message}`);
+    }
+
+    alert("✅ Postazione bloccata con successo!");
+    closeMod();
+    renderWorkstationsView();
+}
+
+async function deleteWorkstationDirectBooking() {
+    const bookingId = document.getElementById('f-wb-booking-id').value;
+    if (!bookingId || bookingId === "-1") return;
+    if (!confirm("Sei sicuro di voler liberare questa postazione?")) return;
+
+    await window.universalQuery({ action: 'DELETE', table: 'workstation_bookings', id: bookingId });
+    closeMod();
+    renderWorkstationsView();
+}
 
 // --- ATTIVAZIONE E RICHIESTA PERMESSO NOTIFICHE NATIVE ---
 async function requestNativeNotificationPermission() {
@@ -11141,6 +11801,12 @@ async function getAdvancedBusinessAnalytics() {
         btnDel.onclick = async () => {
             if(!confirm("Eliminare l'appuntamento?")) return;
 
+
+            await window.universalQuery({
+        action: 'RELEASE_WORKSTATION_BOOKING',
+        data: { appointmentId: currentViewApp.id }
+    });
+
             // 🔄 RIPRISTINO AUTOMATICO SEDUTA PACCHETTO (+1) SE ERA STATO RISCATTATO
             if (currentViewApp && currentViewApp.notes) {
                 const match = currentViewApp.notes.match(/\[PKG:([^:]+):([^\]]+)\]/);
@@ -11229,6 +11895,14 @@ async function getAdvancedBusinessAnalytics() {
     document.getElementById('f-a-time').value = a.time || '';
     document.getElementById('f-a-end').value = a.end_time || "";
     
+// All'interno di editApp(id), sotto la mappatura campi:
+    const wsMatch = (a.notes || '').match(/\[WS:([^\]]+)\]/);
+    const existingWsId = wsMatch ? wsMatch[1] : '';
+    if (typeof populateWorkstationDropdownInAppointmentModal === 'function') {
+        populateWorkstationDropdownInAppointmentModal(existingWsId);
+    }
+
+
     const users = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
     const userSelect = document.getElementById('f-a-user');
     if (userSelect) {
@@ -13012,6 +13686,11 @@ function urlBase64ToUint8Array(base64String) {
             // 🎯 INIZIALIZZAZIONE AUTOCOMPLETE SERVIZI A PILLOLE VUOTO
             if (typeof initServiceAutocomplete === 'function') {
                 await initServiceAutocomplete([]);
+            }
+
+            // Dentro openMod('cale'):
+            if (typeof populateWorkstationDropdownInAppointmentModal === 'function') {
+                populateWorkstationDropdownInAppointmentModal();
             }
 
             const users = await window.api.query({ action: 'GET_ALL', table: 'users' });
