@@ -7913,7 +7913,67 @@ window.openMod = async function(t, targetDate = null, targetTime = null, targetE
     }
 
 
+// 🧹 RESET TOTALE E PULIZIA STATO DEL MODALE APPUNTAMENTO (#mod-cale)
+function resetAppointmentModal() {
+    // 1. Reset variabili di stato e riscatto pacchetto in memoria
+    window._selectedPackageRedemption = null;
+    currentSelectedServices = [];
+    if (typeof renderSelectedServiceTags === 'function') {
+        renderSelectedServiceTags();
+    }
 
+    // 2. Reset ID e campi anagrafici
+    const elId = document.getElementById('edit-a-id'); if (elId) elId.value = "-1";
+    const elCustId = document.getElementById('f-a-cust-id'); if (elCustId) elCustId.value = "";
+    const elSearch = document.getElementById('f-a-search'); if (elSearch) elSearch.value = "";
+    const elNotes = document.getElementById('f-a-notes'); if (elNotes) elNotes.value = "";
+    const elSrvInput = document.getElementById('service-autocomplete-input'); if (elSrvInput) elSrvInput.value = "";
+
+    // 3. Reset Chiusura / Ferie
+    const isClosureCb = document.getElementById('f-a-is-closure');
+    if (isClosureCb) {
+        isClosureCb.checked = false;
+        if (typeof toggleClosureMode === 'function') toggleClosureMode(false);
+    }
+
+    // 4. Reset Completo Box Riscatto Pacchetto
+    const pkgContainer = document.getElementById('package-redemption-container');
+    if (pkgContainer) pkgContainer.style.display = 'none';
+
+    const pkgSelect = document.getElementById('f-a-package-service-select');
+    if (pkgSelect) pkgSelect.innerHTML = '<option value="">-- Nessun riscatto (Servizio standard a pagamento) --</option>';
+
+    const pkgFeedback = document.getElementById('pkg-redemption-feedback');
+    if (pkgFeedback) {
+        pkgFeedback.style.display = 'none';
+        pkgFeedback.innerHTML = '';
+    }
+
+    const pkgBadge = document.getElementById('pkg-redemption-avail-badge');
+    if (pkgBadge) pkgBadge.innerText = '0 sedute disp.';
+
+    // 5. Reset Dropdown risultati e Box Allerte
+    const srvResults = document.getElementById('service-autocomplete-results');
+    if (srvResults) srvResults.style.display = 'none';
+
+    const appSearchResults = document.getElementById('app-search-results');
+    if (appSearchResults) appSearchResults.style.display = 'none';
+
+    const dupAlert = document.getElementById('duplicate-app-alert');
+    if (dupAlert) dupAlert.style.display = 'none';
+
+    const schedAlert = document.getElementById('operator-schedule-alert');
+    if (schedAlert) schedAlert.style.display = 'none';
+
+    const smartBox = document.getElementById('smart-rebooking-box');
+    if (smartBox) smartBox.style.display = 'none';
+
+    const saveBtn = document.getElementById('btn-save-original-app');
+    if (saveBtn) saveBtn.style.display = 'block';
+
+    const titleEl = document.getElementById('mod-cale-title');
+    if (titleEl) titleEl.innerText = "Nuovo Appuntamento";
+}
 
 // 🚚 Inizio trascinamento
     function onEventDragStart(event, appId) {
@@ -12908,6 +12968,7 @@ function urlBase64ToUint8Array(base64String) {
     // Funzione unificata per aprire i modali (con supporto a data/ora preimpostate)
     async function openMod(t, targetDate = null, targetTime = null, targetEnd = null) {
         if (t === 'cale') {
+             resetAppointmentModal();
             // 🎯 INIZIALIZZAZIONE AUTOCOMPLETE SERVIZI A PILLOLE VUOTO
             if (typeof initServiceAutocomplete === 'function') {
                 await initServiceAutocomplete([]);
@@ -13132,6 +13193,9 @@ function urlBase64ToUint8Array(base64String) {
     function closeMod() {
         document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
         
+
+resetAppointmentModal();
+
         // Resetta gli ID di edit in modo che non restino "sporchi"
         const editP = document.getElementById('edit-p-id'); if(editP) editP.value = "-1";
         const editC = document.getElementById('edit-c-id'); if(editC) editC.value = "-1";
