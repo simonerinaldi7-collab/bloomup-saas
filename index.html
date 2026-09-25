@@ -10750,7 +10750,7 @@ async function renderWorkstationDayView() {
     const colsCount = stationsToDisplay.length;
     let html = `<div style="display:flex; flex-direction:column; min-width: ${Math.max(colsCount * 190 + 60, 650)}px; min-height: 100%;">`;
 
-    // HEADER COLONNE (Postazioni)
+    // HEADER COLONNE
     html += `<div style="display: grid; grid-template-columns: 60px repeat(${colsCount}, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
     html += `<div style="padding: 10px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
 
@@ -10782,6 +10782,18 @@ async function renderWorkstationDayView() {
     stationsToDisplay.forEach(ws => {
         const wsBookings = dayBookings.filter(b => String(b.workstation_id).trim() === String(ws.id).trim());
 
+        // 🌟 MAPPARE PER L'ALGORITMO DI AFFIANCAMENTO
+        const mappedBookings = wsBookings.map(b => ({
+            ...b,
+            time: (b.start_time || '09:00').substring(0, 5),
+            end_time: (b.end_time || '10:00').substring(0, 5)
+        }));
+
+        // Calcolo atomico delle larghezze e posizioni affiancate
+        const processedBookings = (typeof calculateEventOverlapLayout === 'function') 
+            ? calculateEventOverlapLayout(mappedBookings) 
+            : mappedBookings.map(b => ({ ...b, topPx: 0, heightPx: 30, widthPct: 94, leftPct: 3 }));
+
         html += `<div class="day-column" style="border-right: 1px solid #f1f3f4; position: relative;">`;
 
         for (let h = 7; h < 22; h++) {
@@ -10797,18 +10809,15 @@ async function renderWorkstationDayView() {
             }
         }
 
-        // Blocchi Occupazione
-        wsBookings.forEach(b => {
+        // Blocchi Occupazione Affiancati
+        processedBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
             const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'Altro Salone';
 
-            const [sH, sM] = (b.start_time || '09:00').substring(0, 5).split(':').map(Number);
-            const [eH, eM] = (b.end_time || '10:00').substring(0, 5).split(':').map(Number);
-            const startMin = sH * 60 + sM;
-            const endMin = eH * 60 + eM;
-
-            const topPx = (startMin - (7 * 60)) * (60 / 60);
-            const heightPx = Math.max((endMin - startMin) * (60 / 60) - 2, 22);
+            const topPx = b.topPx;
+            const heightPx = Math.max(b.heightPx, 22);
+            const widthPct = b.widthPct || 94;
+            const leftPct = b.leftPct || 3;
 
             let blockStyle = '';
             let blockContent = '';
@@ -10816,16 +10825,16 @@ async function renderWorkstationDayView() {
             if (isMine) {
                 blockStyle = `background: ${ws.color || '#6C5CE7'}; color: white; border-left: 4px solid #312e81;`;
                 blockContent = `
-                    <div style="font-weight: bold; font-size: 11px;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-weight: 700; font-size: 11px;">👤 ${b.operator_name || 'Tuo Operatore'}</div>
-                    <div style="font-size: 9.5px; opacity: 0.9;">${b.notes || 'Riservato'}</div>
+                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
+                    <div style="font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${b.operator_name || 'Tuo Operatore'}</div>
+                    <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.notes || 'Riservato'}</div>
                 `;
             } else {
                 blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
                 blockContent = `
-                    <div style="font-weight: bold; font-size: 11px;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-weight: 800; font-size: 11px; color: #fef08a;">🔒 Occupato - ${occupyingSalonId}</div>
-                    <div style="font-size: 9.5px; opacity: 0.85;">Non disponibile</div>
+                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
+                    <div style="font-weight: 800; font-size: 11px; color: #fef08a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🔒 Occupato - ${occupyingSalonId}</div>
+                    <div style="font-size: 9.5px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sede: ${occupyingSalonId}</div>
                 `;
             }
 
@@ -10833,7 +10842,7 @@ async function renderWorkstationDayView() {
 
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: 94%; left: 3%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
                      ${clickAction}
                      title="${isMine ? `Tua prenotazione (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
                     ${blockContent}
@@ -10849,7 +10858,7 @@ async function renderWorkstationDayView() {
 }
 
 // =========================================================================
-// 📅 VISTA SETTIMANA: COLONNE = I 7 GIORNI (LUN - DOM) CON CODICE COLORE POSTAZIONI
+// 📅 VISTA SETTIMANA (CON AFFIANCAMENTO AUTOMATICO SOVRAPPOSIZIONI)
 // =========================================================================
 async function renderWorkstationWeekView() {
     const area = document.getElementById('ws-grid-scroll-area');
@@ -10857,7 +10866,6 @@ async function renderWorkstationWeekView() {
     const datePicker = document.getElementById('ws-date-picker');
     if (!area || !label) return;
 
-    // Calcolo del Lunedì della settimana selezionata
     const monday = getMonday(workstationViewDate);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
@@ -10883,7 +10891,7 @@ async function renderWorkstationWeekView() {
 
     let html = `<div style="display:flex; flex-direction:column; min-width: 850px; min-height: 100%;">`;
 
-    // HEADER DEI 7 GIORNI (Sticky in alto)
+    // HEADER DEI 7 GIORNI
     html += `<div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
     html += `<div style="padding: 10px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
 
@@ -10918,6 +10926,18 @@ async function renderWorkstationWeekView() {
 
         const dayBookingsForDay = weekBookings.filter(b => b.date === dStr);
 
+        // 🌟 MAPPARE PER L'ALGORITMO DI AFFIANCAMENTO DELLA SETTIMANA
+        const mappedWeekBookings = dayBookingsForDay.map(b => ({
+            ...b,
+            time: (b.start_time || '09:00').substring(0, 5),
+            end_time: (b.end_time || '10:00').substring(0, 5)
+        }));
+
+        // Calcolo atomico delle colonne affiancate nel giorno della settimana
+        const processedWeekBookings = (typeof calculateEventOverlapLayout === 'function') 
+            ? calculateEventOverlapLayout(mappedWeekBookings) 
+            : mappedWeekBookings.map(b => ({ ...b, topPx: 0, heightPx: 30, widthPct: 94, leftPct: 3 }));
+
         html += `<div class="day-column" style="border-right: 1px solid #f1f3f4; position: relative;">`;
 
         for (let h = 7; h < 22; h++) {
@@ -10934,7 +10954,8 @@ async function renderWorkstationWeekView() {
             }
         }
 
-        dayBookingsForDay.forEach(b => {
+        // Blocchi Occupazione Affiancati nella Settimana
+        processedWeekBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
             const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'Altro Salone';
 
@@ -10942,13 +10963,10 @@ async function renderWorkstationWeekView() {
             const wsName = wsObj ? wsObj.name : 'Postazione';
             const wsColor = wsObj ? (wsObj.color || '#6C5CE7') : '#6C5CE7';
 
-            const [sH, sM] = (b.start_time || '09:00').substring(0, 5).split(':').map(Number);
-            const [eH, eM] = (b.end_time || '10:00').substring(0, 5).split(':').map(Number);
-            const startMin = sH * 60 + sM;
-            const endMin = eH * 60 + eM;
-
-            const topPx = (startMin - (7 * 60)) * (60 / 60);
-            const heightPx = Math.max((endMin - startMin) * (60 / 60) - 2, 22);
+            const topPx = b.topPx;
+            const heightPx = Math.max(b.heightPx, 22);
+            const widthPct = b.widthPct || 94;
+            const leftPct = b.leftPct || 3;
 
             let blockStyle = '';
             let blockContent = '';
@@ -10956,16 +10974,16 @@ async function renderWorkstationWeekView() {
             if (isMine) {
                 blockStyle = `background: ${wsColor}; color: white; border-left: 4px solid #312e81;`;
                 blockContent = `
-                    <div style="font-weight: 800; font-size: 10px; opacity: 0.95;">🏢 ${wsName}</div>
-                    <div style="font-weight: bold; font-size: 11px;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
+                    <div style="font-weight: 800; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏢 ${wsName}</div>
+                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
                     <div style="font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${b.operator_name || 'Tuo Operatore'}</div>
                 `;
             } else {
                 blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
                 blockContent = `
-                    <div style="font-weight: 800; font-size: 10px; color: #fef08a;">🏢 ${wsName}</div>
-                    <div style="font-weight: bold; font-size: 11px;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-size: 9.5px; opacity: 0.9;">🔒 Occupato - ${occupyingSalonId}</div>
+                    <div style="font-weight: 800; font-size: 10px; color: #fef08a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏢 ${wsName}</div>
+                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
+                    <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🔒 Occupato - ${occupyingSalonId}</div>
                 `;
             }
 
@@ -10973,7 +10991,7 @@ async function renderWorkstationWeekView() {
 
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: 94%; left: 3%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
                      ${clickAction}
                      title="${isMine ? `Tua prenotazione su ${wsName} (${b.start_time} - ${b.end_time})` : `Postazione ${wsName} occupata da ${occupyingSalonId}`}">
                     ${blockContent}
