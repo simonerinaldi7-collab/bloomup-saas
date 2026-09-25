@@ -477,25 +477,26 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 2. SYNC PACKAGE_ITEMS
+        // 2. 🌟 SYNC PACKAGE_ITEMS & SERVIZI INVENTARIO COLLEGATI
+        let cloudItems = [];
         const resItems = await fetch(`${SUPABASE_URL}/rest/v1/package_items?limit=1000`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
         });
+        
         if (resItems.ok) {
-            const cloudItems = await resItems.json();
+            cloudItems = await resItems.json();
+            const serviceIdsToPull = new Set();
+
             for (let item of cloudItems) {
                 const parentPkg = await localDb.packages_config.get(item.package_id);
-                if (parentPkg) await localDb.package_items.put(item);
+                if (parentPkg) {
+                    await localDb.package_items.put(item);
+                    if (item.service_id) serviceIdsToPull.add(item.service_id);
+                }
             }
-        }
 
-        // 2b. 📦 SYNC SERVIZI INVENTARIO COLLEGATI AI PACCHETTI CONDIVISI
-        if (resItems.ok && Array.isArray(cloudItems)) {
-            const serviceIdsToPull = new Set();
-            for (let item of cloudItems) {
-                if (item.service_id) serviceIdsToPull.add(item.service_id);
-            }
+            // 2b. Scarica e salva in locale le anagrafiche dei servizi inclusi nei pacchetti condivisi
             if (serviceIdsToPull.size > 0) {
                 const sIdList = Array.from(serviceIdsToPull).join(',');
                 const resServices = await fetch(`${SUPABASE_URL}/rest/v1/inventory?id=in.(${sIdList})`, {
@@ -531,7 +532,6 @@ async function pullPackagesFromSupabase(salonId) {
                     if (matchKey && parseFloat(allocs[matchKey]) > 0) hasQuota = true;
                 }
 
-                // Verifica condivisione tramite il pacchetto genitore
                 const parentPkg = await localDb.packages_config.get(cp.package_id);
                 let isSharedSalon = false;
                 if (parentPkg && parentPkg.shared_salons) {
@@ -568,7 +568,7 @@ async function pullPackagesFromSupabase(salonId) {
             }
         }
 
-        // 5. 👥 PULL CLIENTI CONDIVISI TRAMITE RPC (Bypassa RLS in modo controllato e sicuro)
+        // 5. 👥 PULL CLIENTI CONDIVISI TRAMITE RPC
         try {
             const resSharedCusts = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_shared_package_customers`, {
                 method: 'POST',
@@ -588,14 +588,12 @@ async function pullPackagesFromSupabase(salonId) {
                     }
                     console.log(`👥 [SYNC RPC] Sincronizzati ${cloudSharedCusts.length} clienti condivisi da Supabase.`);
                 }
-            } else {
-                console.warn(`⚠️ [SYNC RPC] Errore RPC clienti: ${await resSharedCusts.text()}`);
             }
         } catch (rpcCustErr) {
             console.warn("Errore chiamata RPC get_shared_package_customers:", rpcCustErr);
         }
 
-        // 6. 📅 PULL APPUNTAMENTI CONDIVISI TRAMITE RPC (Bypassa RLS in modo controllato e sicuro)
+        // 6. 📅 PULL APPUNTAMENTI CONDIVISI TRAMITE RPC
         try {
             const resSharedApps = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_shared_package_appointments`, {
                 method: 'POST',
@@ -615,8 +613,6 @@ async function pullPackagesFromSupabase(salonId) {
                     }
                     console.log(`📅 [SYNC RPC] Sincronizzati ${cloudSharedApps.length} appuntamenti collegati a pacchetti condivisi.`);
                 }
-            } else {
-                console.warn(`⚠️ [SYNC RPC] Errore RPC appuntamenti: ${await resSharedApps.text()}`);
             }
         } catch (rpcAppErr) {
             console.warn("Errore chiamata RPC get_shared_package_appointments:", rpcAppErr);
