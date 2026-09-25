@@ -9837,11 +9837,14 @@ async function deletePackage(id) {
         return alert("Compila i campi obbligatori (Cliente, Data, Ora Inizio).");
     }
 
-    // All'interno di saveApp(), subito dopo il controllo dei campi obbligatori:
+    // 🌟 1. RISOLUZIONE PREVENTIVA DELL'ID DELL'APPUNTAMENTO (EVITA IL REFERENCE ERROR)
+    const isNewAppointment = (id === "-1" || !id);
+    const targetAppointmentId = isNewAppointment ? crypto.randomUUID() : id;
+
+    // 🏢 2. VERIFICA DISPONIBILITÀ POSTAZIONE CONDIVISA PRIMA DI SALVARE
     const selectedWsId = document.getElementById('f-a-workstation')?.value || '';
 
     if (selectedWsId) {
-        // Controllo atomico collisione prima del salvataggio
         const wsCheck = await window.universalQuery({
             action: 'CHECK_WORKSTATION_AVAILABILITY',
             data: {
@@ -9853,11 +9856,9 @@ async function deletePackage(id) {
         });
 
         if (!wsCheck.available) {
-            return alert(`⚠️ POSTAZIONE OCCUPATA:\n\n${wsCheck.message}\n\nScegli un altro orario o una postazione differente prima di salvare.`);
+            return alert(`⚠️ POSTAZIONE OCCUPATA:\n\n${wsCheck.message}\n\nScegli un altro orario o una postazione differente prima di procedere.`);
         }
     }
-
-
 
     let totalPrice = 0;
     let selectedServiceNames = [];
@@ -9874,22 +9875,21 @@ async function deletePackage(id) {
         }
     }
 
-    // 🎁 GESTIONE DECREMENTO / RIPRISTINO SEDUTA PACCHETTO
+    // 🎁 3. GESTIONE DECREMENTO / RIPRISTINO SEDUTA PACCHETTO
     const redemption = window._selectedPackageRedemption;
-    let existingOldApp = (id !== "-1") ? allAppointments.find(a => a.id === id) : null;
+    let existingOldApp = (!isNewAppointment) ? allAppointments.find(a => a.id === id) : null;
     let oldPkgMatch = existingOldApp ? (existingOldApp.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/) : null;
     const oldCustPkgId = oldPkgMatch ? oldPkgMatch[1] : null;
     const oldServiceId = oldPkgMatch ? oldPkgMatch[2] : null;
 
-    // 🌟 Pulizia preventiva note da eventuali vecchi tag tecnici
-    let cleanNotes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+    // Pulizia note da vecchi tag tecnici
+    let cleanNotes = notes.replace(/\[PKG:[^\]]+\]\s*/g, '').replace(/\[WS:[^\]]+\]\s*/g, '').trim();
 
     if (redemption) {
         const isSameRedemptionAsBefore = Boolean(redemption.isAlreadyDecremented) || (oldCustPkgId === redemption.customerPackageId && oldServiceId === redemption.serviceId);
 
-        // Decrementa solo se è una NUOVA associazione o se è cambiata rispetto a prima
         if (!isSameRedemptionAsBefore) {
-            // Se prima c'era un pacchetto diverso, ripristiniamo la vecchia seduta (+1)
+            // Se c'era un pacchetto diverso prima, ripristina la vecchia seduta (+1)
             if (oldCustPkgId && oldServiceId) {
                 try {
                     const oldPkg = await localDb.customer_packages.get(oldCustPkgId);
@@ -9907,7 +9907,7 @@ async function deletePackage(id) {
                 } catch(e) {}
             }
 
-            // Decremento della nuova seduta (-1)
+            // Decrementa la nuova seduta (-1)
             try {
                 const targetCustPkg = await localDb.customer_packages.get(redemption.customerPackageId);
                 if (!targetCustPkg) return alert("⚠️ Pacchetto del cliente non trovato nel database.");
@@ -9929,11 +9929,10 @@ async function deletePackage(id) {
             }
         }
 
-        // Riapplica il tag pulito nelle note
-        notes = `[PKG:${redemption.customerPackageId}:${redemption.serviceId}] ` + cleanNotes;
+        cleanNotes = `[PKG:${redemption.customerPackageId}:${redemption.serviceId}] ` + cleanNotes;
 
     } else if (oldCustPkgId && oldServiceId) {
-        // Se in modifica l'utente ha tolto il pacchetto (selezionato "Nessun riscatto"), ripristina la seduta (+1)
+        // Ripristino (+1) se è stato rimosso il pacchetto
         try {
             const oldPkg = await localDb.customer_packages.get(oldCustPkgId);
             if (oldPkg) {
@@ -9948,45 +9947,52 @@ async function deletePackage(id) {
                 }
             }
         } catch(e) {}
-        notes = cleanNotes;
-    } else {
-        notes = cleanNotes;
+    }
+
+    // Se c'è una postazione selezionata, aggiungi il tag alle note
+    if (selectedWsId) {
+        cleanNotes = cleanNotes + ` [WS:${selectedWsId}]`;
     }
 
     const data = { 
+        id: targetAppointmentId,
         cust_name: custName, 
         date, 
         time: start, 
         end_time: end, 
         service: finalService, 
         price: totalPrice, 
-        notes, 
+        notes: cleanNotes.trim(), 
         assigned_user: assignedUser 
     };
     
-    if (id === "-1") {
+    // 4. SCRITTURA APPUNTAMENTO
+    let savedAppointmentId = targetAppointmentId;
+
+    if (isNewAppointment) {
         const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data });
-        const newId = res && res.lastInsertRowid ? res.lastInsertRowid : crypto.randomUUID(); 
-        allAppointments.push({ ...data, id: newId });
+        if (res && (res.lastInsertRowid || res.id)) {
+            savedAppointmentId = res.lastInsertRowid || res.id;
+        }
+        allAppointments.push({ ...data, id: savedAppointmentId });
     } else {
         const oldAppIndex = allAppointments.findIndex(a => a.id === id);
         if (oldAppIndex !== -1) {
             allAppointments[oldAppIndex] = { ...allAppointments[oldAppIndex], ...data };
         }
         await window.universalQuery({ action: 'UPDATE', table: 'appointments', data: data, id: id });
+        savedAppointmentId = id;
     }
 
-    // Se c'è una postazione selezionata, registra/aggiorna il blocco atomico
+    // 🏢 5. PRENOTAZIONE ATOMICA DELLA POSTAZIONE FISICA CONDIVISA
     if (selectedWsId) {
-        const appointmentRecordId = (id === "-1") ? newId : id;
-        
-        // Rilascia eventuale blocco precedente su quell'appuntamento
+        // Rilascia eventuale blocco precedente su questo appuntamento
         await window.universalQuery({
             action: 'RELEASE_WORKSTATION_BOOKING',
-            data: { appointmentId: appointmentRecordId }
+            data: { appointmentId: savedAppointmentId }
         });
 
-        // Riserva la postazione linkata a questo appuntamento
+        // Riserva la postazione con lock di concorrenza
         await window.universalQuery({
             action: 'BOOK_WORKSTATION_ATOMIC',
             data: {
@@ -9994,16 +10000,20 @@ async function deletePackage(id) {
                 date: date,
                 startTime: start,
                 endTime: end,
-                appointmentId: appointmentRecordId,
+                appointmentId: savedAppointmentId,
                 operatorName: assignedUser,
                 notes: `Appuntamento: ${custName} (${finalService})`
             }
         });
-
-        // Aggiunge tag tecnico alle note per tracciare la postazione associata
-        notes = cleanNotes + ` [WS:${selectedWsId}]`;
+    } else if (!isNewAppointment) {
+        // Se in modifica l'utente ha tolto la postazione, rilascia il vecchio blocco
+        await window.universalQuery({
+            action: 'RELEASE_WORKSTATION_BOOKING',
+            data: { appointmentId: savedAppointmentId }
+        });
     }
 
+    // Reset selettori temporanei
     window._selectedPackageRedemption = null;
 
     await refreshAllData();
@@ -10032,7 +10042,7 @@ async function deletePackage(id) {
                 end_time: targetEndTime,
                 service: finalService,
                 assigned_user: assignedUser,
-                notes: notes,
+                notes: cleanNotes,
                 selectedServices: selectedServiceNames 
             };
 
