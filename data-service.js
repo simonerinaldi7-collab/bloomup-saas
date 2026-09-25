@@ -1035,12 +1035,13 @@ async function checkLocalWorkstationAvailability(workstationId, dateStr, startTi
 
         if (conflict) {
             const isMine = String(conflict.salon_id).trim().toLowerCase() === currentSalon;
+            const conflictSalonId = conflict.salon_id ? String(conflict.salon_id).trim() : 'Altro Salone';
             return {
                 available: false,
                 conflictBooking: conflict,
                 message: isMine 
                     ? `Hai già occupato questa postazione dalle ${conflict.start_time.substring(0, 5)} alle ${conflict.end_time.substring(0, 5)}.`
-                    : `Postazione già occupata da un salone partner dalle ${conflict.start_time.substring(0, 5)} alle ${conflict.end_time.substring(0, 5)}.`
+                    : `Postazione già occupata da "${conflictSalonId}" dalle ${conflict.start_time.substring(0, 5)} alle ${conflict.end_time.substring(0, 5)}.`
             };
         }
 

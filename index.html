@@ -10671,28 +10671,31 @@ async function renderWorkstationsView() {
                     </div>
                 `;
             } else {
-                // 🔒 Occupazione salone partner (GDPR SHIELD: Mascherata)
+                // 🔒 Occupazione salone esterno: mostra esplicitamente il SALON_ID
+                const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'Altro Salone';
+                
                 blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
                 blockContent = `
                     <div style="font-weight: bold; font-size: 11px;">
                         ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
                     </div>
-                    <div style="font-weight: 800; font-size: 11px; color: #fef08a;">
-                        🔒 Occupato (Partner)
+                    <div style="font-weight: 800; font-size: 11px; color: #fef08a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🔒 Occupato - ${occupyingSalonId}
                     </div>
-                    <div style="font-size: 9.5px; opacity: 0.85;">
-                        Risorsa non disponibile
+                    <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        Sede: <b>${occupyingSalonId}</b>
                     </div>
                 `;
             }
 
             const clickAction = isMine ? `onclick="openWorkstationBookingDirectModal('${ws.id}', '${b.date}', '${b.start_time}', '${b.id}')"` : '';
+            const occupyingSalonText = b.salon_id ? String(b.salon_id).trim() : 'Salone Esterno';
 
             html += `
                 <div class="absolute-event" 
                      style="top: ${topPx}px; height: ${heightPx}px; width: 94%; left: 3%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
                      ${clickAction}
-                     title="${isMine ? `Tua prenotazione (${b.start_time} - ${b.end_time})` : `Postazione occupata dal salone partner`}">
+                     title="${isMine ? `Tua prenotazione (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonText} (${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)})`}">
                     ${blockContent}
                 </div>
             `;
