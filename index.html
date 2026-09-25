@@ -4368,11 +4368,23 @@ async function onPackageServiceSelected(val) {
     const select = document.getElementById('f-a-package-service-select');
     const selectedOption = select.options[select.selectedIndex];
     
-    // Leggiamo il nome del pacchetto dall'attributo data-pkgname
-    const pkgName = selectedOption.getAttribute('data-pkgname') || 'Pacchetto';
-    const selectedOptionText = selectedOption.text || '';
+    // 1. Recupero robusto del nome pacchetto (con fallback sulla configurazione del DB)
+    let pkgName = selectedOption.getAttribute('data-pkgname');
 
-    // Cerchiamo il nome del servizio in locale oppure estraiamolo dal testo della tendina
+    if (!pkgName || pkgName === 'Pacchetto') {
+        const allLocalConfigs = (localDb && localDb.packages_config) ? await localDb.packages_config.toArray() : [];
+        const targetCustPkg = (localDb && localDb.customer_packages) ? await localDb.customer_packages.get(custPkgId) : null;
+        if (targetCustPkg) {
+            const foundCfg = allLocalConfigs.find(p => String(p.id).trim() === String(targetCustPkg.package_id).trim());
+            if (foundCfg && foundCfg.name) {
+                pkgName = foundCfg.name;
+            }
+        }
+    }
+    if (!pkgName) pkgName = 'Pacchetto';
+
+    // 2. Recupero del nome servizio
+    const selectedOptionText = selectedOption.text || '';
     const allLocalInventory = (localDb && localDb.inventory) ? await localDb.inventory.toArray() : (allInventory || []);
     const servObj = allLocalInventory.find(i => String(i.id).trim() === String(serviceId).trim());
     
@@ -4380,7 +4392,6 @@ async function onPackageServiceSelected(val) {
     if (servObj && servObj.name) {
         servName = servObj.name;
     } else {
-        // Estrazione di sicurezza dal testo dell'opzione: "🎁 [NomePacchetto] NomeServizio (X su Y...)"
         const matchText = selectedOptionText.match(/\]\s*([^(]+)/);
         if (matchText && matchText[1]) {
             servName = matchText[1].trim();
@@ -4396,10 +4407,10 @@ async function onPackageServiceSelected(val) {
 
     const uniqueInstanceId = 'srv_pkg_' + Math.random().toString(36).substring(2, 9);
     
-    // Rimuove eventuali doppioni dello stesso servizio a pagamento
+    // Rimuove eventuali doppioni a pagamento
     currentSelectedServices = currentSelectedServices.filter(s => String(s.id).trim() !== String(serviceId).trim());
     
-    // Aggiunge la pillola con il nome esatto del pacchetto a costo zero
+    // 🏷️ Inserisce il nome reale del pacchetto nella pillola a costo zero
     currentSelectedServices.push({
         uid: uniqueInstanceId,
         id: serviceId,

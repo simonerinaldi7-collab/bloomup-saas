@@ -229,6 +229,50 @@ async function getVisibleAppointmentsForSalon(salonId) {
 }
 
 
+// 🎁 Estrae le configurazioni pacchetto (proprie + condivise con questo salone)
+async function getVisiblePackagesConfigForSalon(salonId) {
+    const salonIdLower = String(salonId).trim().toLowerCase();
+    const allConfigs = await localDb.packages_config.toArray() || [];
+
+    return allConfigs.filter(pkg => {
+        const isOwner = String(pkg.salon_id || '').trim().toLowerCase() === salonIdLower;
+        let sharedArr = pkg.shared_salons;
+        if (typeof sharedArr === 'string') {
+            try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = sharedArr.split(',').map(s => s.trim()); }
+        }
+        const isShared = Array.isArray(sharedArr) && sharedArr.some(s => String(s).trim().toLowerCase() === salonIdLower);
+        return isOwner || isShared;
+    });
+}
+
+// 📦 Estrae i servizi/items dei pacchetti accessibili a questo salone
+async function getVisiblePackageItemsForSalon(salonId) {
+    const visibleConfigs = await getVisiblePackagesConfigForSalon(salonId);
+    const visibleConfigIds = new Set(visibleConfigs.map(p => String(p.id).trim()));
+    const allItems = await localDb.package_items.toArray() || [];
+
+    return allItems.filter(it => visibleConfigIds.has(String(it.package_id).trim()));
+}
+
+// 💳 Estrae i crediti/pacchetti clienti accessibili a questo salone
+async function getVisibleCustomerPackagesForSalon(salonId) {
+    const salonIdLower = String(salonId).trim().toLowerCase();
+    const allCustPkgs = await localDb.customer_packages.toArray() || [];
+    const visibleConfigs = await getVisiblePackagesConfigForSalon(salonId);
+    const visibleConfigIds = new Set(visibleConfigs.map(p => String(p.id).trim()));
+
+    return allCustPkgs.filter(cp => {
+        const isOwner = String(cp.salon_id || '').trim().toLowerCase() === salonIdLower;
+        let allocs = cp.revenue_allocations;
+        if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+        const hasQuota = allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === salonIdLower && parseFloat(allocs[k]) > 0);
+        const isSharedPkg = visibleConfigIds.has(String(cp.package_id).trim());
+
+        return isOwner || hasQuota || isSharedPkg;
+    });
+}
+
+
 // Aggiunta/Modifica nel file data-service.js dentro window.appDataService
 window.appDataService = async function(action, table, data = null, id = null) {
     const isOnline = navigator.onLine;
@@ -281,14 +325,26 @@ window.appDataService = async function(action, table, data = null, id = null) {
             console.warn(`Pull background fallito per ${table}:`, e);
         }
 
-if (table === 'customers') {
+        if (table === 'customers') {
             return await getVisibleCustomersForSalon(salonId);
         }
         if (table === 'appointments') {
             return await getVisibleAppointmentsForSalon(salonId);
         }
 
+        // 🌟 GESTIONE PACCHETTI E SERVIZI CONDIVISI
+        if (table === 'packages_config') {
+            return await getVisiblePackagesConfigForSalon(salonId);
+        }
+        if (table === 'package_items') {
+            return await getVisiblePackageItemsForSalon(salonId);
+        }
+        if (table === 'customer_packages') {
+            return await getVisibleCustomerPackagesForSalon(salonId);
+        }
+
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
+    
         
         const currentSalonLower = String(salonId).trim().toLowerCase();
 
