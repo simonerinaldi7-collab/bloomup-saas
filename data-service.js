@@ -316,6 +316,9 @@ window.appDataService = async function(action, table, data = null, id = null) {
         'UPSERT_SETTING',
         'RESET_PASSWORD',
         'SAVE_USER',
+        'CHECK_WORKSTATION_AVAILABILITY',
+        'BOOK_WORKSTATION_ATOMIC',
+        'RELEASE_WORKSTATION_BOOKING',
         'VOID_SALE'
         ].includes(action)) {
         return await handleSpecialAction(action, data, id);
@@ -1005,6 +1008,90 @@ function computeItemSalonCompetence(si, saleDate, inventory, productSuppliers, p
     return finalItemRev;
 }
 
+
+// 🏢 CONTROLLO DISPONIBILITÀ POSTAZIONE IN LOCALE (Zero Latenza)
+async function checkLocalWorkstationAvailability(workstationId, dateStr, startTimeStr, endTimeStr, excludeBookingId = null) {
+    if (!workstationId || !dateStr || !startTimeStr || !endTimeStr) {
+        return { available: true };
+    }
+
+    try {
+        const bookings = await localDb.workstation_bookings.toArray() || [];
+        const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+        // Filtra le occupazioni per questa postazione e data
+        const dayBookings = bookings.filter(b => 
+            String(b.workstation_id).trim() === String(workstationId).trim() &&
+            b.date === dateStr &&
+            (!excludeBookingId || String(b.id) !== String(excludeBookingId))
+        );
+
+        // Verifica sovrapposizione temporale: (Start1 < End2) AND (End1 > Start2)
+        const conflict = dayBookings.find(b => {
+            const bStart = b.start_time ? b.start_time.substring(0, 5) : '00:00';
+            const bEnd = b.end_time ? b.end_time.substring(0, 5) : '23:59';
+            return (startTimeStr < bEnd) && (endTimeStr > bStart);
+        });
+
+        if (conflict) {
+            const isMine = String(conflict.salon_id).trim().toLowerCase() === currentSalon;
+            return {
+                available: false,
+                conflictBooking: conflict,
+                message: isMine 
+                    ? `Hai già occupato questa postazione dalle ${conflict.start_time.substring(0, 5)} alle ${conflict.end_time.substring(0, 5)}.`
+                    : `Postazione già occupata da un salone partner dalle ${conflict.start_time.substring(0, 5)} alle ${conflict.end_time.substring(0, 5)}.`
+            };
+        }
+
+        return { available: true };
+
+    } catch (err) {
+        console.error("Errore verifica disponibilità locale postazione:", err);
+        return { available: true }; // Fallback di continuità
+    }
+}
+
+// 🏢 RILASCIO LOCALE E CLOUD PRENOTAZIONE POSTAZIONE LINKATA AD APPUNTAMENTO
+async function releaseWorkstationByAppointment(appointmentId, salonId) {
+    if (!appointmentId) return;
+    try {
+        const currentSalon = String(salonId || (currentUser ? currentUser.salon_id : 'SALON_001')).trim();
+
+        // 1. Rilascio su Dexie locale
+        const localBookings = await localDb.workstation_bookings.toArray() || [];
+        const toDelete = localBookings.filter(b => 
+            String(b.appointment_id) === String(appointmentId) &&
+            String(b.salon_id).trim().toLowerCase() === currentSalon.toLowerCase()
+        );
+
+        for (let b of toDelete) {
+            await localDb.workstation_bookings.delete(b.id);
+        }
+
+        // 2. Rilascio su Supabase tramite RPC o chiamata DELETE
+        if (navigator.onLine && window.SUPABASE_CONFIG) {
+            await fetch(`${SUPABASE_URL}/rest/v1/rpc/release_workstation_booking`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    p_appointment_id: appointmentId,
+                    p_salon_id: currentSalon
+                })
+            }).catch(e => console.warn("Errore rilascio remoto postazione:", e));
+        }
+
+        console.log(`🏢 [POSTAZIONI] Rilasciata postazione per appuntamento ID: ${appointmentId}`);
+    } catch (err) {
+        console.error("Errore rilascio postazione:", err);
+    }
+}
+
+
 async function handleSpecialAction(action, data, id) {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
@@ -1230,6 +1317,152 @@ async function handleSpecialAction(action, data, id) {
 
             return { status: 'ok' };
         }
+
+
+// --- 🏢 13. CHECK_WORKSTATION_AVAILABILITY (Controllo Ibrido: Locale + Cloud) ---
+        if (action === 'CHECK_WORKSTATION_AVAILABILITY') {
+            const { workstationId, date, startTime, endTime, excludeBookingId } = data;
+            
+            // A. Verifica locale istantanea
+            const localCheck = await checkLocalWorkstationAvailability(workstationId, date, startTime, endTime, excludeBookingId);
+            if (!localCheck.available) {
+                return localCheck;
+            }
+
+            // B. Se online, verifica anche su Supabase
+            if (navigator.onLine && window.SUPABASE_CONFIG) {
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_workstation_bookings_protected`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            p_salon_id: salonId,
+                            p_date_from: date,
+                            p_date_to: date
+                        })
+                    });
+
+                    if (res.ok) {
+                        const cloudBookings = await res.json();
+                        const conflict = cloudBookings.find(b => 
+                            String(b.workstation_id).trim() === String(workstationId).trim() &&
+                            b.date === date &&
+                            (!excludeBookingId || String(b.id) !== String(excludeBookingId)) &&
+                            (startTime < b.end_time.substring(0, 5) && endTime > b.start_time.substring(0, 5))
+                        );
+
+                        if (conflict) {
+                            return {
+                                available: false,
+                                conflictBooking: conflict,
+                                message: conflict.is_mine 
+                                    ? `Hai già una prenotazione per questa postazione (${conflict.start_time.substring(0, 5)} - ${conflict.end_time.substring(0, 5)}).`
+                                    : `La postazione è già occupata da un altro salone (${conflict.start_time.substring(0, 5)} - ${conflict.end_time.substring(0, 5)}).`
+                            };
+                        }
+                    }
+                } catch (cloudErr) {
+                    console.warn("Verifica cloud postazione rimandata al fallback locale:", cloudErr);
+                }
+            }
+
+            return { available: true };
+        }
+
+        // --- 🏢 14. BOOK_WORKSTATION_ATOMIC (Prenotazione Atomica con Concorrenza Protetta) ---
+        if (action === 'BOOK_WORKSTATION_ATOMIC') {
+            const { workstationId, date, startTime, endTime, appointmentId, operatorName, notes, excludeBookingId } = data;
+            const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+
+            // 1. Esecuzione Atomica su Supabase se online
+            if (navigator.onLine && window.SUPABASE_CONFIG) {
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/book_workstation_atomic`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            p_workstation_id: workstationId,
+                            p_salon_id: currentSalon,
+                            p_appointment_id: appointmentId || null,
+                            p_date: date,
+                            p_start_time: startTime,
+                            p_end_time: endTime,
+                            p_operator_name: operatorName || null,
+                            p_notes: notes || null,
+                            p_exclude_booking_id: excludeBookingId || null
+                        })
+                    });
+
+                    if (res.ok) {
+                        const result = await res.json();
+                        if (result && result.success) {
+                            // Salvataggio locale immediato
+                            const bookingRecord = {
+                                id: result.booking_id,
+                                workstation_id: workstationId,
+                                salon_id: currentSalon,
+                                appointment_id: appointmentId || null,
+                                date: date,
+                                start_time: startTime,
+                                end_time: endTime,
+                                operator_name: operatorName || 'Operatore',
+                                notes: notes || '',
+                                is_mine: true,
+                                updated_at: new Date().toISOString()
+                            };
+                            await localDb.workstation_bookings.put(bookingRecord);
+                            return result;
+                        } else {
+                            return result; // Restituisce l'avviso di collisione
+                        }
+                    }
+                } catch (netErr) {
+                    console.warn("Errore chiamata atomica cloud, fallback su coda offline:", netErr);
+                }
+            }
+
+            // 2. Fallback Offline: verifica locale e accodamento in sync_queue
+            const localCheck = await checkLocalWorkstationAvailability(workstationId, date, startTime, endTime, excludeBookingId);
+            if (!localCheck.available) {
+                return { success: false, message: localCheck.message };
+            }
+
+            const fallbackId = crypto.randomUUID();
+            const localBooking = {
+                id: fallbackId,
+                workstation_id: workstationId,
+                salon_id: currentSalon,
+                appointment_id: appointmentId || null,
+                date: date,
+                start_time: startTime,
+                end_time: endTime,
+                operator_name: operatorName || 'Operatore',
+                notes: notes || '',
+                is_mine: true,
+                updated_at: new Date().toISOString()
+            };
+
+            await localDb.workstation_bookings.put(localBooking);
+            await localDb.sync_queue.add({ action: 'INSERT', table_name: 'workstation_bookings', data: localBooking, target_id: fallbackId });
+
+            return { success: true, booking_id: fallbackId, message: "Prenotazione registrata in locale (Offline)." };
+        }
+
+        // --- 🏢 15. RELEASE_WORKSTATION_BOOKING ---
+        if (action === 'RELEASE_WORKSTATION_BOOKING') {
+            await releaseWorkstationByAppointment(data.appointmentId, salonId);
+            return { status: 'ok' };
+        }
+
+
 
          if (action === 'UPDATE_PASSWORD') {
             const { id: userId, pass } = data;
