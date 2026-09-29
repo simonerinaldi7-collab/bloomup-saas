@@ -1318,52 +1318,91 @@
 
 
 <!-- ======================================================== -->
-    <!-- 🏢 VISTA AGENDA RISORSE & POSTAZIONI (MOBILE-OPTIMIZED)   -->
-    <!-- ======================================================== -->
-    <section id="v-workstations" class="view" style="padding: 0;">
-        <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+<!-- 🏢 VISTA AGENDA RISORSE & POSTAZIONI (TOOLBAR MOBILE SAFE) -->
+<!-- ======================================================== -->
+<section id="v-workstations" class="view" style="padding: 0;">
+    <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+        
+        <!-- HEADER TOOLBAR RESPONSIVA CON TASTI MAI TRONCATI -->
+        <div class="cal-header" style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
             
-            <!-- HEADER TOOLBAR COMPATTO (SENZA SPRECO DI SPAZIO VERTICALE) -->
-            <div class="cal-header" style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+            <!-- RIGA 1: Data, Navigazione, Switch Vista e Tutti i Tasti d'Azione -->
+            <div id="ws-toolbar-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;">
                 
-                <!-- RIGA 1: Data, Switch Giorno/Settimana e Azioni -->
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%;">
-                    
-                    <!-- Frecce + Label Data + DatePicker compatto -->
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <div style="display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px;">
-                            <button class="btn" style="padding: 3px 6px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="moveWorkstationDate(-1)" title="Precedente">◀</button>
-                            <button class="btn" style="padding: 3px 8px; min-height: unset; background: white; border: none; font-size: 10.5px; font-weight: bold; border-radius: 4px;" onclick="moveWorkstationDate(0)">Oggi</button>
-                            <button class="btn" style="padding: 3px 6px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="moveWorkstationDate(1)" title="Successivo">▶</button>
-                        </div>
-                        <h2 id="ws-cal-label" style="margin: 0; font-size: 13px; font-weight: 800; color: #1e1b4b; white-space: nowrap;">Postazioni</h2>
-                        <input type="date" id="ws-date-picker" onchange="onWorkstationDatePicked(this.value)" style="margin: 0; padding: 2px 4px; font-size: 11px; width: 105px; background: #f8fafc; border-radius: 6px; border: 1px solid #cbd5e1;">
+                <!-- GRUPPO SINISTRO: Frecce + Data Navigabile + DatePicker Compatto -->
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px;">
+                        <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(-1)" title="Precedente">◀</button>
+                        <button class="btn" style="padding: 4px 10px; min-height: unset; background: white; border: none; font-size: 11px; font-weight: 800; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onclick="moveWorkstationDate(0)">Oggi</button>
+                        <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(1)" title="Successivo">▶</button>
                     </div>
 
-                    <!-- Switch Giorno / Settimana + Tasti Rapidi -->
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <div style="display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px; gap: 2px;">
-                            <button class="btn" id="btn-ws-view-day" style="padding: 3px 8px; min-height: unset; border: none; font-size: 11px; font-weight: bold; background: var(--p); color: white; border-radius: 4px;" onclick="setWorkstationViewMode('day')">Giorno</button>
-                            <button class="btn" id="btn-ws-view-week" style="padding: 3px 8px; min-height: unset; border: none; font-size: 11px; font-weight: normal; background: transparent; color: #475569; border-radius: 4px;" onclick="setWorkstationViewMode('week')">Sett</button>
-                        </div>
-                        <button class="btn" style="padding: 4px 8px; font-size: 11px; min-height: unset; background: #f8fafc; border: 1px solid var(--border);" onclick="openWorkstationBookingDirectModal()" title="Riserva slot veloce">⏱️</button>
-                        <button class="btn btn-p" style="padding: 4px 8px; font-size: 11px; min-height: unset;" onclick="openWorkstationConfigModal()" title="Gestione postazioni">+</button>
+                    <div style="display: flex; align-items: center; gap: 4px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 2px 6px;">
+                        <h2 id="ws-cal-label" style="margin: 0; font-size: 12px; font-weight: 800; color: #1e1b4b; white-space: nowrap;">Postazioni</h2>
+                        <input type="date" id="ws-date-picker" onchange="onWorkstationDatePicked(this.value)" style="margin: 0; padding: 2px; font-size: 11px; width: 88px; background: transparent; border: none; font-weight: 600; color: #475569; outline: none;">
                     </div>
                 </div>
 
-                <!-- RIGA 2: FILTRO PILLOLE ORIZZONTALE (INTEGRATO NELLA STESSA SCHERMATA SENZA SCROLL) -->
-                <div id="ws-pills-container" style="display: flex; gap: 4px; align-items: center; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 0;">
-                    <!-- Generato dinamicamente da renderWorkstationFilterPills() -->
+                <!-- GRUPPO DESTRO: Switch Giorno/Settimana + Tasti Azione (CON FLEX-SHRINK: 0 ANTI-TRONCAMENTO) -->
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto;">
+                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px; gap: 2px;">
+                        <button class="btn" id="btn-ws-view-day" style="padding: 4px 10px; min-height: unset; border: none; font-size: 11px; font-weight: bold; background: var(--p); color: white; border-radius: 6px;" onclick="setWorkstationViewMode('day')">Giorno</button>
+                        <button class="btn" id="btn-ws-view-week" style="padding: 4px 10px; min-height: unset; border: none; font-size: 11px; font-weight: normal; background: transparent; color: #475569; border-radius: 6px;" onclick="setWorkstationViewMode('week')">Sett</button>
+                    </div>
+
+                    <!-- Tasto Riserva Slot Diretto -->
+                    <button class="btn" style="padding: 5px 10px; font-size: 11px; min-height: unset; background: #f8fafc; border: 1.5px solid #cbd5e1; font-weight: 700; border-radius: 8px; flex-shrink: 0;" onclick="openWorkstationBookingDirectModal()" title="Riserva slot postazione">
+                        ⏱️ Riserva
+                    </button>
+
+                    <!-- Tasto Nuova Postazione / Configurazione (+) -->
+                    <button class="btn btn-p" style="padding: 5px 12px; font-size: 13px; font-weight: 800; min-height: unset; border-radius: 8px; flex-shrink: 0;" onclick="openWorkstationConfigModal()" title="Gestione & Nuova Postazione">
+                        +
+                    </button>
+
+                    <!-- Tasto Report Coworking -->
+                    <button class="btn" style="padding: 5px 9px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; font-weight: bold; border-radius: 8px; flex-shrink: 0;" onclick="openCoworkingAnalyticsModal()" title="Report e Compensi Coworking">
+                        📊
+                    </button>
                 </div>
             </div>
 
-            <!-- GRIGLIA ORARIA (AREA CON RICONOSCIMENTO GESTO SWIPE) -->
-            <div class="cal-scroll-area" id="ws-grid-scroll-area" style="flex-grow: 1; overflow-y: auto; overflow-x: auto; background: #fff; position: relative;">
-                <!-- Generato da renderWorkstationDayView() o renderWorkstationWeekView() -->
+            <!-- RIGA 2: FILTRO PILLOLE ORIZZONTALE AD ALTO SCORRIMENTO -->
+            <div id="ws-pills-container" style="display: flex; gap: 6px; align-items: center; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 0;">
+                <!-- Popolato da renderWorkstationFilterPills() -->
             </div>
-
         </div>
-    </section>
+
+        <!-- GRIGLIA ORARIA CON SCORRIMENTO COLONNE NATURALE (SENZA CONFLITTI DI DATA) -->
+        <div class="cal-scroll-area" id="ws-grid-scroll-area" style="flex-grow: 1; overflow-y: auto; overflow-x: auto; background: #fff; position: relative;">
+            <!-- Generato da renderWorkstationDayView() o renderWorkstationWeekView() -->
+        </div>
+
+    </div>
+</section>
+
+<!-- ======================================================== -->
+<!-- 🔒 MODALE DETTAGLI OCCUPAZIONE SALONE PARTNER (GDPR SAFE) -->
+<!-- ======================================================== -->
+<div id="mod-workstation-other-salon" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 440px; max-width: 95vw; border-top: 6px solid var(--p);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">🔒</span>
+                <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Dettaglio Spazio Occupato</h3>
+            </div>
+            <button onclick="closeMod()" style="border: none; background: none; font-size: 18px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div id="other-salon-modal-content">
+            <!-- Popolato dinamicamente da openOtherSalonWorkstationModal() -->
+        </div>
+
+        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--border); text-align: right;">
+            <button class="btn btn-p" style="padding: 10px 20px; font-size: 13px;" onclick="closeMod()">Ho Capito / Chiudi</button>
+        </div>
+    </div>
+</div>
 
     <!-- STILI CSS PER LE PILLOLE FILTRO DELLE POSTAZIONI -->
     <style>
@@ -10698,10 +10737,7 @@ async function renderWorkstationsView() {
     initWorkstationSwipe();
 }
 
-// =========================================================================
-// ☀️ VISTA GIORNO (COLONNE COMPATTE E SALON_ID IN PRIMO PIANO)
-// =========================================================================
-async function renderWorkstationDayView() {
+renderWorkstationDayView() {
     const area = document.getElementById('ws-grid-scroll-area');
     const label = document.getElementById('ws-cal-label');
     const datePicker = document.getElementById('ws-date-picker');
@@ -10716,7 +10752,7 @@ async function renderWorkstationDayView() {
         : cachedAccessibleWorkstations.filter(w => String(w.id).trim() === String(selectedWorkstationFilter).trim());
 
     if (stationsToDisplay.length === 0) {
-        area.innerHTML = `<div style="text-align: center; padding: 40px; color: #888;">Nessuna postazione trovata con questo filtro.</div>`;
+        area.innerHTML = `<div style="text-align: center; padding: 40px; color: #888;">Nessuna postazione trovata per il filtro selezionato.</div>`;
         return;
     }
 
@@ -10725,22 +10761,22 @@ async function renderWorkstationDayView() {
     const dayBookings = allBookings.filter(b => b.date === dateStr);
 
     const colsCount = stationsToDisplay.length;
-    
-    // 📱 Adattamento Responsivo: se 1 o 2 colonne occupano il 100% senza scroll; se 3+ usano larghezza snella da 125px
-    const minGridWidth = (colsCount <= 2) ? '100%' : `${colsCount * 125 + 45}px`;
-    const colTemplate = (colsCount <= 2) ? `45px repeat(${colsCount}, 1fr)` : `45px repeat(${colsCount}, minmax(120px, 1fr))`;
+    // Se 1 o 2 colonne, occupano l'intera larghezza; altrimenti 135px a colonna con scroll pulito
+    const minGridWidth = (colsCount <= 2) ? '100%' : `${colsCount * 135 + 50}px`;
+    const colTemplate = (colsCount <= 2) ? `50px repeat(${colsCount}, 1fr)` : `50px repeat(${colsCount}, minmax(130px, 1fr))`;
 
     let html = `<div style="display:flex; flex-direction:column; min-width: ${minGridWidth}; width: 100%; min-height: 100%;">`;
 
-    // HEADER COLONNE POSTAZIONI
-    html += `<div style="display: grid; grid-template-columns: ${colTemplate}; position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
-    html += `<div style="padding: 6px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
+    // 1. HEADER DELLE POSTAZIONI (STICKY IN ALTO)
+    html += `<div style="display: grid; grid-template-columns: ${colTemplate}; position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1.5px solid #cbd5e1;">`;
+    html += `<div style="padding: 8px; background: #f8fafc; border-right: 1px solid #cbd5e1;"></div>`;
 
     stationsToDisplay.forEach(ws => {
+        const wsColor = ws.color || '#6C5CE7';
         html += `
-            <div style="padding: 6px 4px; text-align: center; background: #fff; border-right: 1px solid #dadce0; overflow: hidden;">
-                <div style="font-weight: 800; font-size: 11.5px; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${ws.color || '#6C5CE7'}; flex-shrink: 0;"></span>
+            <div style="padding: 8px 6px; text-align: center; background: #fff; border-right: 1px solid #cbd5e1; border-top: 3px solid ${wsColor}; overflow: hidden;">
+                <div style="font-weight: 800; font-size: 12px; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                    <span style="width: 9px; height: 9px; border-radius: 50%; background: ${wsColor}; flex-shrink: 0;"></span>
                     <span style="overflow: hidden; text-overflow: ellipsis;">${ws.name}</span>
                 </div>
             </div>
@@ -10748,18 +10784,19 @@ async function renderWorkstationDayView() {
     });
     html += `</div>`;
 
-    // CORPO TEMPORALE
+    // 2. CORPO DELLA GRIGLIA TEMPORALE
     html += `<div style="display: grid; grid-template-columns: ${colTemplate}; position: relative;">`;
 
-    // Colonna Ore fissa a sinistra (Snellita a 45px)
-    html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #dadce0;">`;
+    // Colonna Ore fissa a sinistra (Sticky Left a 50px)
+    html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #cbd5e1;">`;
     for (let h = 7; h < 22; h++) {
-        html += `<div class="time-label" style="font-size: 9px; padding-right: 4px;">${String(h).padStart(2, '0')}:00</div>`;
+        html += `<div class="time-label" style="font-size: 9.5px; padding-right: 5px;">${String(h).padStart(2, '0')}:00</div>`;
     }
     html += `</div>`;
 
     // Colonne Postazioni
     stationsToDisplay.forEach(ws => {
+        const wsColor = ws.color || '#6C5CE7';
         const wsBookings = dayBookings.filter(b => String(b.workstation_id).trim() === String(ws.id).trim());
 
         const mappedBookings = wsBookings.map(b => ({
@@ -10774,20 +10811,21 @@ async function renderWorkstationDayView() {
 
         html += `<div class="day-column" style="border-right: 1px solid #f1f3f4; position: relative;">`;
 
+        // Slot da 15 minuti cliccabili
         for (let h = 7; h < 22; h++) {
             for (let m = 0; m < 60; m += 15) {
                 const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 html += `
                     <div class="day-hour-slot" 
                          style="height: 15px; min-height: 15px; box-sizing: border-box;" 
-                         onclick="openWorkstationBookingDirectModal('${ws.id}', '${dateStr}', '${timeStr}')"
+                         onclick="onWorkstationSlotClick(null, '${ws.id}', '${dateStr}', '${timeStr}')"
                          title="Riserva ${ws.name} alle ${timeStr}">
                     </div>
                 `;
             }
         }
 
-        // Blocchi Occupazione
+        // Renderizzazione Card Occupazioni con Colore Postazione Esplicito
         processedBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
             const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'SALONE';
@@ -10800,36 +10838,43 @@ async function renderWorkstationDayView() {
             let blockStyle = '';
             let blockContent = '';
 
-            // 🌟 REGOLA: IL SALON_ID È L'INFORMAZIONE FONDAMENTALE SEMPRE IN PRIMO PIANO
             if (isMine) {
-                blockStyle = `background: ${ws.color || '#6C5CE7'}; color: white; border-left: 3px solid #312e81;`;
+                // Card del salone corrente: colore pieno della postazione + forte contrasto
+                blockStyle = `background: ${wsColor} !important; color: #ffffff !important; border-left: 5px solid #1e1b4b !important; box-shadow: 0 2px 5px rgba(0,0,0,0.15);`;
                 blockContent = `
-                    <div style="font-weight: 900; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ffffff;">
-                        🏢 ${occupyingSalonId}
+                    <div style="font-weight: 900; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;">
+                        <span>🏢 ${occupyingSalonId}</span>
+                        <span style="font-size: 8.5px; opacity: 0.9;">(Tu)</span>
                     </div>
                     <div style="font-size: 9px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                        ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
                     </div>
+                    ${b.operator_name ? `<div style="font-size: 8.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${b.operator_name}</div>` : ''}
                 `;
             } else {
-                blockStyle = `background: #475569; color: white; border-left: 3px solid #0f172a; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 4px, transparent 4px, transparent 8px);`;
+                // Card di un altro salone: bordo massiccio e dot con il colore della postazione wsColor
+                blockStyle = `background: #1e293b !important; color: #ffffff !important; border-left: 5px solid ${wsColor} !important; border-right: 1.5px solid ${wsColor} !important; box-shadow: 0 2px 6px rgba(0,0,0,0.25);`;
                 blockContent = `
-                    <div style="font-weight: 900; font-size: 10px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        🔒 ${occupyingSalonId}
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 2px;">
+                        <span style="font-weight: 900; font-size: 10px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            🔒 ${occupyingSalonId}
+                        </span>
+                        <span style="width: 7px; height: 7px; border-radius: 50%; background: ${wsColor}; flex-shrink: 0;" title="Postazione: ${ws.name}"></span>
                     </div>
-                    <div style="font-size: 9px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    <div style="font-size: 9px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🕒 ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
+                    </div>
+                    <div style="font-size: 8px; color: ${wsColor}; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ● ${ws.name}
                     </div>
                 `;
             }
 
-            const clickAction = isMine ? `onclick="openWorkstationBookingDirectModal('${ws.id}', '${b.date}', '${b.start_time}', '${b.id}')"` : '';
-
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 4px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
-                     ${clickAction}
-                     title="${isMine ? `Tua prenotazione [${occupyingSalonId}] (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 4px; box-sizing: border-box; cursor: pointer !important; ${blockStyle}" 
+                     onclick="event.stopPropagation(); onWorkstationSlotClick('${b.id}', '${ws.id}', '${b.date}', '${b.start_time}')"
+                     title="Clicca per visualizzare i dettagli di occupazione">
                     ${blockContent}
                 </div>
             `;
@@ -10843,8 +10888,9 @@ async function renderWorkstationDayView() {
 }
 
 // =========================================================================
-// 📅 VISTA SETTIMANA (7 GIORNI SNELLI CON SALON_ID SEMPRE VISIBILE)
+// 📅 STEP 3: VISTA SETTIMANA (CON COLORI POSTAZIONE ESPLICITI)
 // =========================================================================
+
 async function renderWorkstationWeekView() {
     const area = document.getElementById('ws-grid-scroll-area');
     const label = document.getElementById('ws-cal-label');
@@ -10870,12 +10916,11 @@ async function renderWorkstationWeekView() {
         return inDate && matchWs;
     });
 
-    // 📱 Larghezza settimana ottimizzata: 45px ore + 7 colonne da 70px = 535px (leggibile e fluido)
-    let html = `<div style="display:flex; flex-direction:column; min-width: 535px; width: 100%; min-height: 100%;">`;
+    let html = `<div style="display:flex; flex-direction:column; min-width: 580px; width: 100%; min-height: 100%;">`;
 
-    // HEADER DEI 7 GIORNI
-    html += `<div style="display: grid; grid-template-columns: 45px repeat(7, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
-    html += `<div style="padding: 6px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
+    // 1. HEADER 7 GIORNI
+    html += `<div style="display: grid; grid-template-columns: 50px repeat(7, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1.5px solid #cbd5e1;">`;
+    html += `<div style="padding: 8px; background: #f8fafc; border-right: 1px solid #cbd5e1;"></div>`;
 
     for (let c = 0; c < 7; c++) {
         const t = new Date(monday);
@@ -10883,25 +10928,25 @@ async function renderWorkstationWeekView() {
         const dStr = t.toLocaleDateString('en-CA');
         const isToday = new Date().toLocaleDateString('en-CA') === dStr;
         html += `
-            <div style="padding: 6px 2px; text-align: center; background: #fff; border-right: 1px solid #dadce0; ${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">
+            <div style="padding: 6px 2px; text-align: center; background: #fff; border-right: 1px solid #cbd5e1; ${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">
                 <div style="font-size: 10px; text-transform: uppercase;">${t.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
-                <div style="font-size: 11px; font-weight: 800;">${t.getDate()}</div>
+                <div style="font-size: 12px; font-weight: 800;">${t.getDate()}</div>
             </div>
         `;
     }
     html += `</div>`;
 
-    // CORPO TEMPORALE
-    html += `<div style="display: grid; grid-template-columns: 45px repeat(7, 1fr); position: relative;">`;
+    // 2. CORPO DELLA GRIGLIA
+    html += `<div style="display: grid; grid-template-columns: 50px repeat(7, 1fr); position: relative;">`;
 
-    // Ore fisse a sinistra (45px)
-    html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #dadce0;">`;
+    // Ore fisse a sinistra
+    html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #cbd5e1;">`;
     for (let h = 7; h < 22; h++) {
-        html += `<div class="time-label" style="font-size: 9px; padding-right: 4px;">${String(h).padStart(2, '0')}:00</div>`;
+        html += `<div class="time-label" style="font-size: 9.5px; padding-right: 5px;">${String(h).padStart(2, '0')}:00</div>`;
     }
     html += `</div>`;
 
-    // Colonne 7 Giorni
+    // Colonne Giorni
     for (let c = 0; c < 7; c++) {
         const t = new Date(monday);
         t.setDate(monday.getDate() + c);
@@ -10927,19 +10972,20 @@ async function renderWorkstationWeekView() {
                 html += `
                     <div class="day-hour-slot" 
                          style="height: 15px; min-height: 15px; box-sizing: border-box;" 
-                         onclick="openWorkstationBookingDirectModal('${preselectedWs}', '${dStr}', '${timeStr}')">
+                         onclick="onWorkstationSlotClick(null, '${preselectedWs}', '${dStr}', '${timeStr}')">
                     </div>
                 `;
             }
         }
 
-        // Blocchi Settimana
+        // Blocchi Occupazione Settimana con Colore Postazione Evidente
         processedWeekBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
             const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'SALONE';
 
             const wsObj = cachedAccessibleWorkstations.find(w => String(w.id).trim() === String(b.workstation_id).trim());
             const wsColor = wsObj ? (wsObj.color || '#6C5CE7') : '#6C5CE7';
+            const wsName = wsObj ? wsObj.name : 'Postazione';
 
             const topPx = b.topPx;
             const heightPx = Math.max(b.heightPx, 22);
@@ -10949,36 +10995,42 @@ async function renderWorkstationWeekView() {
             let blockStyle = '';
             let blockContent = '';
 
-            // 🌟 SALON_ID IN PRIMO PIANO
             if (isMine) {
-                blockStyle = `background: ${wsColor}; color: white; border-left: 3px solid #312e81;`;
+                blockStyle = `background: ${wsColor} !important; color: white !important; border-left: 5px solid #1e1b4b !important; box-shadow: 0 2px 4px rgba(0,0,0,0.15);`;
                 blockContent = `
                     <div style="font-weight: 900; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         🏢 ${occupyingSalonId}
                     </div>
                     <div style="font-size: 8.5px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                        ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
+                    </div>
+                    <div style="font-size: 8px; opacity: 0.9; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${wsName}
                     </div>
                 `;
             } else {
-                blockStyle = `background: #475569; color: white; border-left: 3px solid #0f172a; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 4px, transparent 4px, transparent 8px);`;
+                blockStyle = `background: #1e293b !important; color: white !important; border-left: 5px solid ${wsColor} !important; border-right: 1.5px solid ${wsColor} !important; box-shadow: 0 2px 5px rgba(0,0,0,0.25);`;
                 blockContent = `
-                    <div style="font-weight: 900; font-size: 9.5px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        🔒 ${occupyingSalonId}
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 900; font-size: 9px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            🔒 ${occupyingSalonId}
+                        </span>
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: ${wsColor}; flex-shrink: 0;"></span>
                     </div>
-                    <div style="font-size: 8.5px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    <div style="font-size: 8.5px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}
+                    </div>
+                    <div style="font-size: 8px; color: ${wsColor}; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${wsName}
                     </div>
                 `;
             }
 
-            const clickAction = isMine ? `onclick="openWorkstationBookingDirectModal('${b.workstation_id}', '${b.date}', '${b.start_time}', '${b.id}')"` : '';
-
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 3px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
-                     ${clickAction}
-                     title="${isMine ? `Tua prenotazione [${occupyingSalonId}] (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 3px; box-sizing: border-box; cursor: pointer !important; ${blockStyle}" 
+                     onclick="event.stopPropagation(); onWorkstationSlotClick('${b.id}', '${b.workstation_id}', '${b.date}', '${b.start_time}')" 
+                     title="Clicca per visualizzare i dettagli di occupazione">
                     ${blockContent}
                 </div>
             `;
@@ -10992,25 +11044,123 @@ async function renderWorkstationWeekView() {
 }
 
 // =========================================================================
-// 📱 GESTO TOUCH SWIPE PER SPOSTARSI TRA GIORNI E SETTIMANE
+// 🎯 GESTORE CLICK UNIFICATO SULLE CARD (PROPRIE ED ESTERNE)
 // =========================================================================
+
+async function onWorkstationSlotClick(bookingId, wsId, dateStr, timeStr) {
+    // 1. Se lo slot è vuoto, apri la prenotazione diretta
+    if (!bookingId || bookingId === "-1") {
+        return openWorkstationBookingDirectModal(wsId, dateStr, timeStr);
+    }
+
+    // 2. Recupero del record della prenotazione da Dexie
+    const allBookings = (localDb && localDb.workstation_bookings) 
+        ? await localDb.workstation_bookings.toArray() 
+        : [];
+    const booking = allBookings.find(b => String(b.id) === String(bookingId));
+
+    if (!booking) {
+        return openWorkstationBookingDirectModal(wsId, dateStr, timeStr, bookingId);
+    }
+
+    const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const isMine = (booking.is_mine !== undefined) 
+        ? booking.is_mine 
+        : (String(booking.salon_id || '').trim().toLowerCase() === currentSalon);
+
+    if (isMine) {
+        // Appartenente al salone corrente: modale di modifica/cancellazione
+        openWorkstationBookingDirectModal(wsId, dateStr, timeStr, bookingId);
+    } else {
+        // Appartenente a un altro salone: visualizzazione dettagli protetta
+        openOtherSalonWorkstationModal(booking, wsId || booking.workstation_id);
+    }
+}
+
+function openOtherSalonWorkstationModal(booking, wsId) {
+    const ws = (window.cachedAccessibleWorkstations || []).find(w => String(w.id).trim() === String(wsId).trim());
+    const wsName = ws ? ws.name : 'Postazione Condivisa';
+    const wsColor = ws ? (ws.color || '#6C5CE7') : '#6C5CE7';
+    const wsDesc = ws ? (ws.description || 'Nessuna specifica aggiuntiva') : '';
+
+    const salonId = booking.salon_id ? String(booking.salon_id).trim() : 'SALON_PARTNER';
+    const dateFormatted = typeof formatDateIt === 'function' ? formatDateIt(booking.date) : booking.date;
+    const start = booking.start_time ? booking.start_time.substring(0, 5) : '--:--';
+    const end = booking.end_time ? booking.end_time.substring(0, 5) : '--:--';
+
+    // Calcolo della durata temporale esatta
+    const [sH, sM] = start.split(':').map(Number);
+    const [eH, eM] = end.split(':').map(Number);
+    let durMin = (eH * 60 + eM) - (sH * 60 + sM);
+    if (isNaN(durMin) || durMin <= 0) durMin = 60;
+    const durHours = Math.floor(durMin / 60);
+    const durRestMin = durMin % 60;
+    const durationText = durHours > 0 ? `${durHours}h ${durRestMin > 0 ? durRestMin + 'm' : ''}` : `${durRestMin} min`;
+
+    const modalBody = document.getElementById('other-salon-modal-content');
+    if (modalBody) {
+        modalBody.innerHTML = `
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-left: 6px solid ${wsColor}; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">🏢 Postazione Riservata</span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: bold; background: white; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${wsColor};"></span>
+                        ${wsName}
+                    </span>
+                </div>
+                ${wsDesc ? `<div style="font-size: 11px; color: #64748b; margin-bottom: 8px; line-height: 1.4;">${wsDesc}</div>` : ''}
+
+                <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+                    <span style="font-size: 12px; color: #64748b; font-weight: 600;">Salone Occupante:</span>
+                    <span style="font-size: 13px; font-weight: 900; background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px;">
+                        🏢 ${salonId}
+                    </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; background: white; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div>📅 Data: <b>${dateFormatted}</b></div>
+                    <div>⏱️ Durata: <b>${durationText}</b></div>
+                    <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 13px;">
+                        🕒 Orario Blocco: <b style="color: var(--p);">${start} - ${end}</b>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; padding: 10px 12px; border-radius: 8px; font-size: 11.5px; line-height: 1.45;">
+                🛡️ <b>Privacy Multi-Tenant GDPR:</b> In conformità alle policy di isolamento dei dati, le note confidenziali e i dati anagrafici del cliente finale non sono accessibili ad altri saloni.
+            </div>
+        `;
+    }
+
+    const modal = document.getElementById('mod-workstation-other-salon');
+    if (modal) modal.classList.add('active');
+}
+
+// =========================================================================
+// 📱 GESTIONE SWIPE SEPARATA DALLO SCROLL COLONNE (ZERO FALSI POSITIVI)
+// =========================================================================
+
 let wsTouchStartX = 0;
 let wsTouchStartY = 0;
+let wsTouchStartTime = 0;
 let isWsSwiping = false;
 
 function initWorkstationSwipe() {
-    const area = document.getElementById('ws-grid-scroll-area');
-    if (!area || area._swipeAttached) return;
-    area._swipeAttached = true;
+    // 🛑 RIMOSSO LO SWIPE DALLA GRIGLIA: La griglia delle colonne scorre in modo 100% libero e naturale!
+    // Lo swipe orizzontale viene ascoltato ESCLUSIVAMENTE sulla barra della data in alto
+    const headerNav = document.getElementById('ws-toolbar-top');
+    if (!headerNav || headerNav._swipeAttached) return;
+    headerNav._swipeAttached = true;
 
-    area.addEventListener('touchstart', (e) => {
+    headerNav.addEventListener('touchstart', (e) => {
         if (e.touches.length > 1 || document.querySelector('.modal.active')) return;
         wsTouchStartX = e.touches[0].clientX;
         wsTouchStartY = e.touches[0].clientY;
+        wsTouchStartTime = Date.now();
         isWsSwiping = true;
     }, { passive: true });
 
-    area.addEventListener('touchend', (e) => {
+    headerNav.addEventListener('touchend', (e) => {
         if (!isWsSwiping || document.querySelector('.modal.active')) return;
         isWsSwiping = false;
 
@@ -11018,19 +11168,21 @@ function initWorkstationSwipe() {
         const touchEndY = e.changedTouches[0].clientY;
         const diffX = touchEndX - wsTouchStartX;
         const diffY = touchEndY - wsTouchStartY;
+        const timeElapsed = Date.now() - wsTouchStartTime;
 
-        // Se lo scorrimento è prevalentemente orizzontale e supera i 40px
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+        // Regole per un vero gesto swipe intenzionale:
+        // 1. Spostamento prevalente orizzontale e maggiore di 50px
+        // 2. Movimento rapido e deciso (flick entro 350ms): se l'utente sposta piano piano non scatta nulla!
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50 && timeElapsed < 350) {
             if (diffX < 0) {
-                // Swipe a sinistra ➔ Avanza (Giorno successivo o Settimana successiva)
-                moveWorkstationDate(1);
+                moveWorkstationDate(1); // Gesto verso sinistra ➔ Avanti
             } else {
-                // Swipe a destra ➔ Indietreggia (Giorno precedente o Settimana precedente)
-                moveWorkstationDate(-1);
+                moveWorkstationDate(-1); // Gesto verso destra ➔ Indietro
             }
         }
     }, { passive: true });
 }
+
 
 // 3. Popolamento Tendina Postazioni nel Modale Appuntamenti (#mod-cale)
 async function populateWorkstationDropdownInAppointmentModal(selectedWsId = '') {
