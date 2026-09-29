@@ -15484,8 +15484,29 @@ async function checkExpiringCustomerPackages() {
 
         const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
 
-        // 🌟 Recuperiamo l'elenco dei pacchetti già gestiti/avvisati
-        const dismissedExpiryAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
+        // 🌟 1. RECUPERO DISMISSIONI CONDIVISE DAL CLOUD (TABELLA SETTINGS)
+        let cloudDismissedMap = {};
+        try {
+            if (localDb && localDb.settings) {
+                const settingRow = await localDb.settings.get('dismissed_pkg_alerts');
+                if (settingRow && settingRow.value) {
+                    cloudDismissedMap = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value;
+                }
+            }
+        } catch (e) {
+            cloudDismissedMap = {};
+        }
+
+        // Fallback con localStorage per retrocompatibilità
+        let localDismissedMap = {};
+        try {
+            localDismissedMap = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
+        } catch (e) {}
+
+        const mergedDismissed = { ...localDismissedMap, ...cloudDismissedMap };
+
+        // 🌟 2. RECUPERO DEI LOG DI INVIO WHATSAPP DA MESSAGE_LOGS (CONDIVISI CLOUD)
+        const allLogs = (localDb && localDb.message_logs) ? await localDb.message_logs.toArray() : [];
 
         cachedExpiringPackages = [];
 
@@ -15515,9 +15536,16 @@ async function checkExpiringCustomerPackages() {
                     remainingSessions += (parseInt(s.remaining) || 0);
                 });
 
-                // Verifica se già gestito per la data di scadenza corrente
                 const alertKey = `${cp.id}_${cp.expiry_date}`;
-                const isDismissed = Boolean(dismissedExpiryAlerts[alertKey]);
+
+                // 🛡️ CONTROLLO A DOPPIO LIVELLO: Verificato su Cloud Settings OPPURE su Message Logs
+                const isExplicitlyDismissed = Boolean(mergedDismissed[alertKey]);
+                const isAlreadySentOnWhatsApp = allLogs.some(l => 
+                    l.msg_type === 'WA_PACKAGE_EXPIRY' && 
+                    (l.appointment_info || '').includes(String(cp.id))
+                );
+
+                const isDismissed = isExplicitlyDismissed || isAlreadySentOnWhatsApp;
 
                 cachedExpiringPackages.push({
                     cpId: cp.id,
@@ -15536,11 +15564,11 @@ async function checkExpiringCustomerPackages() {
 
         cachedExpiringPackages.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
 
-        // 🌟 IL CONTATORE CONTA SOLO QUELLI NON ANCORA GESTITI
+        // 🌟 IL CONTATORE SCARTA RIGOROSAMENTE I PACCHETTI GIÀ GESTITI / AVVISATI
         const activeAlerts = cachedExpiringPackages.filter(p => !p.isDismissed);
         const count = activeAlerts.length;
 
-        // Aggiornamento Badge Header
+        // Aggiornamento Badge Header (scompare se count === 0)
         const headerBadge = document.getElementById('pkg-expiry-alert');
         const badgeCount = document.getElementById('pkg-expiry-badge-count');
         if (headerBadge && badgeCount) {
@@ -15548,11 +15576,11 @@ async function checkExpiringCustomerPackages() {
                 badgeCount.innerText = count;
                 headerBadge.style.display = 'inline-flex';
             } else {
-                headerBadge.style.display = 'none'; // SI TOGLIE SE SONO TUTTI GESTITI
+                headerBadge.style.display = 'none';
             }
         }
 
-        // Aggiornamento Banner Dashboard
+        // Aggiornamento Banner Dashboard (scompare se count === 0)
         const dashBanner = document.getElementById('dashboard-pkg-expiry-banner');
         const dashText = document.getElementById('dashboard-pkg-expiry-text');
         if (dashBanner && dashText) {
@@ -15561,7 +15589,7 @@ async function checkExpiringCustomerPackages() {
                 dashText.innerHTML = `Ci sono <b>${count} clienti</b> con pacchetto in scadenza (${urgentWithSessions} con ancora sedute residue).`;
                 dashBanner.style.display = 'flex';
             } else {
-                dashBanner.style.display = 'none'; // SI TOGLIE SE SONO TUTTI GESTITI
+                dashBanner.style.display = 'none';
             }
         }
 
@@ -15570,15 +15598,38 @@ async function checkExpiringCustomerPackages() {
     }
 }
 
-// Segna il pacchetto come gestito (rimuove l'alert senza mandare messaggio)
 async function dismissPackageExpiryAlert(custPkgId, expiryDate) {
     const alertKey = `${custPkgId}_${expiryDate}`;
-    const dismissedExpiryAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
-    
-    dismissedExpiryAlerts[alertKey] = true;
-    localStorage.setItem('VaiMUp_dismissed_pkg_alerts', JSON.stringify(dismissedExpiryAlerts));
 
-    // Ricalcola subito gli alert e aggiorna l'interfaccia
+    // 1. Salvataggio locale immediato
+    const localDismissed = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
+    localDismissed[alertKey] = true;
+    localStorage.setItem('VaiMUp_dismissed_pkg_alerts', JSON.stringify(localDismissed));
+
+    // 2. 🌟 SALVATAGGIO CLOUD CENTRALIZZATO (TABELLA SETTINGS DI SUPABASE)
+    try {
+        let cloudMap = {};
+        if (localDb && localDb.settings) {
+            const settingRow = await localDb.settings.get('dismissed_pkg_alerts');
+            if (settingRow && settingRow.value) {
+                cloudMap = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value;
+            }
+        }
+        cloudMap[alertKey] = true;
+
+        await window.universalQuery({
+            action: 'UPSERT_SETTING',
+            data: {
+                key: 'dismissed_pkg_alerts',
+                value: JSON.stringify(cloudMap)
+            }
+        });
+        console.log("☁️ [MULTI-DEVICE] Stato dismissione pacchetto salvato su Cloud Supabase!");
+    } catch (err) {
+        console.warn("Sync cloud dismiss fallita, salvato in locale:", err);
+    }
+
+    // 3. Ricalcola subito gli allarmi e aggiorna la UI
     await checkExpiringCustomerPackages();
     renderExpiringPackagesModalList();
 }
@@ -15608,6 +15659,7 @@ function renderExpiringPackagesModalList() {
 
         if (statusFilter === 'with_sessions' && item.remainingSessions <= 0) return false;
         if (statusFilter === 'exhausted' && item.remainingSessions > 0) return false;
+        if (statusFilter === 'to_handle' && item.isDismissed) return false; // Solo quelli da gestire
 
         return true;
     });
@@ -15615,7 +15667,7 @@ function renderExpiringPackagesModalList() {
     if (filtered.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; color: #64748b; font-size: 13px; padding: 35px 20px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #cbd5e1;">
-                ✨ Nessun pacchetto in scadenza trovato.
+                ✨ Nessun pacchetto da gestire per questo filtro.
             </div>
         `;
         return;
@@ -15636,11 +15688,11 @@ function renderExpiringPackagesModalList() {
         const hasPhone = Boolean(item.customerPhone && item.customerPhone.trim().length >= 6);
 
         return `
-            <div style="background: white; border: 1.5px solid ${item.isDismissed ? '#cbd5e1' : (item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0')}; opacity: ${item.isDismissed ? '0.7' : '1'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="background: white; border: 1.5px solid ${item.isDismissed ? '#cbd5e1' : (item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0')}; opacity: ${item.isDismissed ? '0.65' : '1'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <div style="flex: 1; min-width: 220px;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                         <span style="font-size: 14px; font-weight: 800; color: #1e1b4b;">👤 ${item.customerName}</span>
-                        ${item.isDismissed ? '<span style="background: #dcfce7; color: #16a34a; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Avvisato ✓</span>' : ''}
+                        ${item.isDismissed ? '<span style="background: #dcfce7; color: #16a34a; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Avvisato / Gestito ✓</span>' : ''}
                         ${item.customerPhone ? `<small style="color: #64748b; font-size: 11px;">(${item.customerPhone})</small>` : '<small style="color: #dc2626; font-size: 10px;">(Tel mancante)</small>'}
                     </div>
                     <div style="font-size: 13px; font-weight: 600; color: #4338ca;">
@@ -15660,7 +15712,7 @@ function renderExpiringPackagesModalList() {
                     ` : ''}
 
                     ${!item.isDismissed ? `
-                        <button class="btn" style="padding: 7px 10px; font-size: 11px; background: #f1f5f9; color: #475569; font-weight: bold; border-radius: 8px;" onclick="dismissPackageExpiryAlert('${item.cpId}', '${item.expiryDate}')" title="Segna come già gestito/avvisato">
+                        <button class="btn" style="padding: 7px 10px; font-size: 11px; background: #f1f5f9; color: #475569; font-weight: bold; border-radius: 8px;" onclick="dismissPackageExpiryAlert('${item.cpId}', '${item.expiryDate}')" title="Segna come già gestito">
                             ✓ Fatto
                         </button>
                     ` : ''}
@@ -15676,7 +15728,6 @@ function renderExpiringPackagesModalList() {
     }).join('');
 }
 
-// 3. Generazione e Invio Diretto del Messaggio WhatsApp con Sincronizzazione Storico Immediata
 async function sendPackageRenewalWhatsApp(custPkgId) {
     const item = cachedExpiringPackages.find(p => p.cpId === custPkgId);
     if (!item) return alert("Dati del pacchetto non trovati.");
@@ -15685,7 +15736,6 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
         return alert("Questo cliente non ha un numero di telefono registrato.");
     }
 
-    // 1. Template predefinito configurabile
     let template = sysSettings['template_package_expiry'] || 
         "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in salone per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
 
@@ -15697,7 +15747,6 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
 
     const formattedExpiry = typeof formatDateIt === 'function' ? formatDateIt(item.expiryDate) : item.expiryDate;
 
-    // 2. Compilazione dinamica dei tag
     const message = template
         .replace(/{{NOME}}/g, firstName)
         .replace(/{{COGNOME}}/g, lastName)
@@ -15706,7 +15755,6 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
         .replace(/{{DATA_SCADENZA}}/g, formattedExpiry)
         .replace(/{{SEDUTE_RESIDUE}}/g, item.remainingSessions);
 
-    // 3. Normalizzazione numero WhatsApp
     const cleanPhone = formatPhoneNumberForWhatsApp(item.customerPhone);
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
@@ -15714,35 +15762,33 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
     const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
     const nowTimeStr = getNowLocal();
 
-    // 4. Registrazione nello storico comunicazioni (message_logs)
+    // 🌟 INSERIMENTO DEL TAG UNIVOCO [CP:ID:EXPIRY] NEL LOG CONDIVISO SU CLOUD
     const logData = {
         id: crypto.randomUUID(),
         salon_id: currentSalon,
         cust_name: item.customerName,
         phone: item.customerPhone,
         msg_type: 'WA_PACKAGE_EXPIRY',
-        appointment_info: `Scadenza Pacchetto: ${item.packageName} (Scad: ${formattedExpiry} - ${item.remainingSessions} sedute rimaste)`,
+        appointment_info: `Scadenza Pacchetto: ${item.packageName} [CP:${item.cpId}:${item.expiryDate}] (Scad: ${formattedExpiry})`,
         sent_at: nowTimeStr,
         created_by: currentUser ? currentUser.username : 'Admin',
         updated_at: nowTimeStr
     };
 
-    // Scrittura locale e cloud
+    // Scrittura nel DB locale e Cloud Supabase
     await window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData });
 
-    // 🌟 AGGIORNAMENTO ISTANTANEO IN MEMORIA (IN CIMA ALLA LISTA)
     if (Array.isArray(allLogs)) {
         allLogs.unshift(logData);
     }
-
-    // 🌟 REFRESH IMMEDIATO DELLA TABELLA STORICO SE APERTA
     if (typeof renderLogs === 'function') {
         await renderLogs();
     }
 
-dismissPackageExpiryAlert(item.cpId, item.expiryDate);
+    // 🌟 DISMISSIONE MULTI-DISPOSITIVO SINCRONIZZATA
+    await dismissPackageExpiryAlert(item.cpId, item.expiryDate);
 
-    // 5. Apertura WhatsApp
+    // Apertura WhatsApp
     if (window.api && typeof window.api.openExternal === 'function') {
         window.api.openExternal(waUrl);
     } else {
