@@ -2995,21 +2995,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 3. POPOLAMENTO DELLA UI MINIMALE
         if (appointmentFound) {
             const now = new Date();
-            const appDateTime = new Date(`${appointmentFound.date}T${appointmentFound.time}:00`);
-            const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
+              // 🛑 SE L'APPUNTAMENTO PER CUI ERA STATO CLICCATO IL PUSH È GIÀ CONCLUSO/PASSATO:
+        if (isAppointmentPassed(appointmentFound, now)) {
+            console.log("🛑 [QUICK ALARM CANCELLED] L'appuntamento è già passato. Apertura normale dell'agenda.");
+            window._isQuickAlarmMode = false;
+            
+            const quickScreen = document.getElementById('quick-alarm-screen');
+            if (quickScreen) quickScreen.style.display = 'none';
 
-            document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
-            document.getElementById('qa-cust-name').innerText = `👤 ${appointmentFound.cust_name}`;
-            document.getElementById('qa-service-name').innerText = `✂️ ${appointmentFound.service || 'Trattamento'}`;
-            document.getElementById('qa-time-details').innerText = `🕒 Data: ${appointmentFound.date} alle ${appointmentFound.time.substring(0, 5)}`;
-        } else {
-            document.getElementById('qa-time-title').innerText = "Appuntamento imminente";
-            document.getElementById('qa-cust-name').innerText = "👤 Promemoria attivo in agenda";
-            document.getElementById('qa-service-name').innerText = "✂️ Controlla l'agenda principale";
-            document.getElementById('qa-time-details').innerText = `ID Rif: ${alertAppId}`;
+            const appShell = document.getElementById('app-shell');
+            if (appShell) appShell.style.display = 'flex';
+
+            if (typeof changePage === 'function') changePage('calendar');
+            return;
         }
+
+        // Se è ancora nel futuro, mostra regolarmente i minuti mancanti
+        const timeClean = (appointmentFound.time || '00:00').substring(0, 5);
+        const appDateTime = new Date(`${appointmentFound.date}T${timeClean}:00`);
+        const diffMinutes = Math.max(Math.ceil((appDateTime.getTime() - now.getTime()) / (1000 * 60)), 1);
+
+        document.getElementById('qa-time-title').innerText = `Tra ${diffMinutes} minut${diffMinutes === 1 ? 'o' : 'i'}`;
+        document.getElementById('qa-cust-name').innerText = `👤 ${appointmentFound.cust_name}`;
+        document.getElementById('qa-service-name').innerText = `✂️ ${appointmentFound.service || 'Trattamento'}`;
+        document.getElementById('qa-time-details').innerText = `🕒 Data: ${appointmentFound.date} alle ${timeClean}`;
         return;
     }
+}
 });
 
 // 🛡️ FILTRO CONSOLE: Ignora i log di telemetria interna di terze parti (WhatsApp/Meta)
@@ -3143,35 +3155,34 @@ if ('navigator' in window && navigator.serviceWorker) {
     });
 }
 
-// Funzione dedicata per recuperare l'appuntamento e mostrare il modale all'istante
 async function forceOpenAlarmModalById(appId) {
     try {
-        // Cerchiamo prima nell'array globale in memoria
         let app = (window.allAppointments || []).find(a => a.id === appId);
-        
-        // Se per qualche motivo l'array globale non è ancora pronto, lo peschiamo direttamente da Dexie/DB locale
         if (!app && window.localDb) {
             app = await window.localDb.appointments.get(appId);
         }
         
-        // Se lo troviamo, attiviamo il modale di allarme professionale in meno di un secondo
         if (app) {
             const now = new Date();
-            const appDateTime = new Date(`${app.date}T${app.time}:00`);
-            const diffMinutes = Math.max(Math.floor((appDateTime - now) / (1000 * 60)), 0);
-            
-            // Spegniamo eventuali schermate di caricamento o login residue
+
+            // 🛑 BLOCCO: Non aprire il modale d'allarme se l'appuntamento è già trascorso
+            if (isAppointmentPassed(app, now)) {
+                console.log("🛑 [ALARM BLOCKED] Allarme non mostrato per ID " + appId + ": appuntamento già passato.");
+                return;
+            }
+
+            const timeClean = (app.time || '00:00').substring(0, 5);
+            const appDateTime = new Date(`${app.date}T${timeClean}:00`);
+            const diffMinutes = Math.max(Math.ceil((appDateTime.getTime() - now.getTime()) / (1000 * 60)), 1);
+
             const loginScreen = document.getElementById('login-screen');
             if (loginScreen) loginScreen.classList.add('hidden');
             const appShell = document.getElementById('app-shell');
             if (appShell) appShell.style.display = 'flex';
 
-            // Mostriamo il modale d'allarme all'istante!
             if (typeof triggerProfessionalAlarmModal === 'function') {
                 triggerProfessionalAlarmModal(app, diffMinutes);
             }
-        } else {
-            console.warn("Impossibile trovare l'appuntamento associato all'ID notifica:", appId);
         }
     } catch (err) {
         console.error("Errore durante l'apertura rapida dell'allarme:", err);
@@ -11577,6 +11588,7 @@ function startProfessionalOperatorAlertSystem() {
 
 // --- CENTRO ALLARMI IMMINENTI OTTIMIZZATO (UNA SOLA NOTIFICA PER APPUNTAMENTO) ---
 
+// --- CENTRO ALLARMI IMMINENTI CON BLOCCO ASSOLUTO APPUNTAMENTI PASSATI ---
 async function checkImminentAppointmentsNow() {
     if (!currentUser || !currentUser.username) return;
 
@@ -11585,11 +11597,11 @@ async function checkImminentAppointmentsNow() {
         if (!Array.isArray(apps) || apps.length === 0) return;
 
         const now = new Date();
+        const todayStr = now.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
         const currentUsername = currentUser.username.trim().toLowerCase();
-        const leadTimeMinutes = getOperatorImminentLeadTime(); // Di solito 15 min
+        const leadTimeMinutes = getOperatorImminentLeadTime(); // Di norma 15 min
 
-        // Recuperiamo lo storico persistente delle notifiche già inviate oggi
-        const todayKeyDate = now.toISOString().split('T')[0];
+        // Recuperiamo lo storico persistente delle notifiche già mostrate
         let notifiedHistory = {};
         try {
             notifiedHistory = JSON.parse(localStorage.getItem('VaiMUp_permanent_notified') || '{}');
@@ -11597,6 +11609,8 @@ async function checkImminentAppointmentsNow() {
             notifiedHistory = {};
         }
 
+        // Recuperiamo eventuali dismissioni manuali ("Ho capito")
+        const dismissedAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_alerts') || '{}');
         let hasNewNotifications = false;
 
         apps.forEach(app => {
@@ -11604,36 +11618,50 @@ async function checkImminentAppointmentsNow() {
             const assigned = (app.assigned_user || 'admin').trim().toLowerCase();
             if (assigned !== currentUsername) return;
 
-            // 2. Esclusione pause, chiusure e ferie
+            // 2. Esclusione pause pranzo, chiusure e ferie
             const srv = (app.service || '').toLowerCase();
             const cust = (app.cust_name || '').toLowerCase();
             if (srv.includes('pausa') || srv.includes('pranzo') || srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura')) return;
             if (!app.date || !app.time) return;
 
-            // 3. 🛑 REGOLA D'ORO: Unicità assoluta per appuntamento e per giorno
             const uniqueKey = `${app.id}_${app.date}`;
-            if (notifiedHistory[uniqueKey] === true) {
-                return; // Già notificato in precedenza, scartato categoricamente!
+
+            // 🛑 3. BLOCCO RIGIDO: Se l'appuntamento è già passato, scartalo ed eliminalo dai futuri allarmi
+            if (isAppointmentPassed(app, now)) {
+                if (!notifiedHistory[uniqueKey]) {
+                    notifiedHistory[uniqueKey] = true;
+                    hasNewNotifications = true;
+                }
+                return;
             }
 
-            // Calcolo minuti mancanti
+            // 4. Se l'appuntamento non è previsto per la giornata di OGGI, esci
+            if (app.date !== todayStr) return;
+
+            // 5. Se l'operatore lo ha già dismesso oggi con "Ho capito", non riproporlo
+            if (dismissedAlerts[uniqueKey]) return;
+
+            // 6. Se è già stato notificato in precedenza oggi, non ripeterlo
+            if (notifiedHistory[uniqueKey] === true) return;
+
+            // 7. Calcolo minuti mancanti nel futuro
             const timeClean = app.time.substring(0, 5);
             const appDateTime = new Date(`${app.date}T${timeClean}:00`);
-            const diffMs = appDateTime - now;
+            const diffMs = appDateTime.getTime() - now.getTime();
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-            // 4. Finestra temporale rigorosa (es. scatta esattamente quando mancano tra -2 e N minuti)
-            if (diffMinutes >= -2 && diffMinutes <= leadTimeMinutes) {
-                // Segnamo subito come notificato per bloccare qualsiasi loop futuro
+            // 8. SCATTA SOLO SE L'APPUNTAMENTO È EFFETTIVAMENTE NEL FUTURO (diffMs > 0)
+            // ed entra nella finestra di preavviso (es. mancano tra 1 e 15 minuti)
+            if (diffMs > 0 && diffMinutes <= leadTimeMinutes) {
                 notifiedHistory[uniqueKey] = true;
                 hasNewNotifications = true;
 
-                // Mostriamo l'allarme visivo e sonoro una sola volta
-                triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 0));
+                // Mostriamo l'allarme per l'appuntamento in arrivo
+                triggerProfessionalAlarmModal(app, Math.max(diffMinutes, 1));
             }
         });
 
-        // Salvataggio persistente dello stato notifiche inviate
+        // Salvataggio persistente per evitare allarmi doppi
         if (hasNewNotifications) {
             localStorage.setItem('VaiMUp_permanent_notified', JSON.stringify(notifiedHistory));
         }
@@ -12797,7 +12825,43 @@ async function editCust(id) {
     document.getElementById('mod-cust').classList.add('active'); 
 }
 
+// 🛡️ CONTROLLO DETERMINISTICO: Verifica se un appuntamento è già passato
+function isAppointmentPassed(app, now = new Date()) {
+    if (!app || !app.date) return true;
 
+    // Normalizziamo la data odierna in formato YYYY-MM-DD
+    const todayStr = now.toLocaleDateString('en-CA');
+
+    // 1. Data precedente a oggi -> Sicuramente nel passato
+    if (app.date < todayStr) return true;
+
+    // 2. Data futura rispetto a oggi -> È nei prossimi giorni (non ancora passato)
+    if (app.date > todayStr) return false;
+
+    // 3. Se la data è OGGI: verifichiamo l'orario di inizio e fine
+    const timeStr = (app.time || '00:00').substring(0, 5);
+    const [appH, appM] = timeStr.split(':').map(Number);
+    const appMinutes = (appH * 60) + appM;
+
+    const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+
+    // Se l'ora di inizio è già stata superata rispetto all'ora attuale
+    if (nowMinutes >= appMinutes) {
+        return true;
+    }
+
+    // Se è specificato un end_time, verifichiamo che non sia già concluso
+    if (app.end_time) {
+        const endStr = app.end_time.substring(0, 5);
+        const [endH, endM] = endStr.split(':').map(Number);
+        const endMinutes = (endH * 60) + endM;
+        if (nowMinutes >= endMinutes) {
+            return true;
+        }
+    }
+
+    return false;
+}
 // =========================================================================
 // 🎁 TAB PACCHETTI: CARICAMENTO E FILTRI
 // =========================================================================
