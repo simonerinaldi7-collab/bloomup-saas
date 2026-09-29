@@ -992,12 +992,18 @@
                     <div id="reminder-alert" style="color:var(--d); font-size:12px; font-weight:bold; cursor:pointer; background: #fff1f0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--d);" onclick="changePage('logs')" class="hidden"></div>
                     <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="if(typeof window.api.checkReminders === 'function') window.api.checkReminders()">🔄 Verifica Reminders</button>
                 </div>
-                <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
-<div style="display:flex; align-items:center; gap:8px;">
+               <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
+<!-- <div style="display:flex; align-items:center; gap:8px;">
     <button class="btn" style="padding: 6px 14px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="toggleAiDrawer(true)" title="Apri Assistente IA">
     🤖 Assistente IA
 </button>
+</div> */-->
+
+<!-- Inserire all'interno di <header class="header"> nel div con i tasti di destra: -->
+<div id="pkg-expiry-alert" style="display: none; color: #6d28d9; font-size: 12px; font-weight: bold; cursor: pointer; background: #ede9fe; padding: 6px 12px; border-radius: 8px; border: 1px solid #c4b5fd; align-items: center; gap: 6px;" onclick="openPackageExpiryModal()" title="Clienti con pacchetti in scadenza">
+    🎁 <span id="pkg-expiry-badge-count">0</span> Pacchetti in Scadenza
 </div>
+
             </header>
 
             <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -1005,6 +1011,21 @@
             <div class="content">
     
     <section id="v-dashboard" class="view active">
+
+        <!-- All'inizio di <section id="v-dashboard"> subito sopra la classe .stat-grid: -->
+        <div id="dashboard-pkg-expiry-banner" style="display: none; background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%); border: 1.5px solid #c4b5fd; border-left: 6px solid var(--p); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.08);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 26px;">🎁</span>
+                <div>
+                    <h4 style="margin: 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Attenzione: Pacchetti & Carnet in Scadenza!</h4>
+                    <p id="dashboard-pkg-expiry-text" style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Ci sono clienti con pacchetti vicini alla data di scadenza.</p>
+                </div>
+            </div>
+            <button class="btn btn-p" style="padding: 8px 16px; font-size: 12px;" onclick="openPackageExpiryModal()">
+                Visualizza ed Invia WhatsApp ➔
+            </button>
+        </div>
+
         <!-- Statistica Rapida (KPI Globali) -->
         <div class="stat-grid" style="margin-bottom: 25px;">
             <div class="stat-card"><h4>Clienti</h4><p id="st-c">0</p></div>
@@ -2040,6 +2061,28 @@
 <input type="number" id="set-imminent-lead" min="1" max="120">
 <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
             
+
+<!-- Nel form di v-settings, aggiungere questa sezione per i pacchetti: -->
+<div style="margin: 25px 0 15px 0; padding-top: 15px; border-top: 1px dashed var(--border);">
+    <label style="color: var(--p); font-size: 12px; font-weight: 800;">🎁 Notifiche Scadenza Pacchetti & Rinnovo</label>
+    
+    <label style="margin-top: 10px;">Giorni di Anticipo Alert Scadenza (Preavviso)</label>
+    <input type="number" id="set-pkg-expiry-days" min="1" max="90" placeholder="Es. 15" style="margin: 4px 0 14px 0;">
+    <small style="color: #64748b; display: block; margin-top: -10px; margin-bottom: 14px;">Quanti giorni prima della data di scadenza del pacchetto mostrare l'alert.</small>
+
+    <label>Template Messaggio WhatsApp (Invito al Rinnovo)</label>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+        <span style="font-size: 10px; color: #666; align-self: center; font-weight: bold;">Inserisci tag:</span>
+        <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{NOME}}')">{{NOME}}</button>
+        <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{COGNOME}}')">{{COGNOME}}</button>
+        <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{PACCHETTO}}')">{{PACCHETTO}}</button>
+        <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{DATA_SCADENZA}}')">{{DATA_SCADENZA}}</button>
+        <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{SEDUTE_RESIDUE}}')">{{SEDUTE_RESIDUE}}</button>
+    </div>
+    <textarea id="set-msg-pkg-expiry" rows="3" placeholder="Scrivi il messaggio di invito al rinnovo pacchetto..."></textarea>
+</div>
+
+
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
@@ -6610,7 +6653,10 @@ async function quickAlarmAction(actionType) {
             } else {
                 console.warn("Nessuna impostazione trovata o errore nel caricamento.");
             }
-            
+            // In coda a updateStats() o refreshAllData():
+if (typeof checkExpiringCustomerPackages === 'function') {
+    await checkExpiringCustomerPackages();
+}
             updateStats(); 
             renderActiveView();
             if (document.getElementById('user-filter')) updateCalendarUI();
@@ -7125,7 +7171,13 @@ async function loadSettingsFields() {
         settingsTable.forEach(s => {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
+// Dentro loadSettingsFields():
+const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
+const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
 
+if (pkgExpiryDaysEl) pkgExpiryDaysEl.value = sysSettings['package_expiry_days'] || '15';
+if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'] || 
+    "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in salone per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
         // 2. Popoliamo i campi del form HTML con i dati trovati
         const remHoursEl = document.getElementById('set-rem-hours');
         const confirmMsgEl = document.getElementById('set-msg-confirm');
@@ -9352,7 +9404,10 @@ function closeDuplicateModal() {
                     { key: 'template_confirm', id: 'set-msg-confirm' },
                     { key: 'template_reminder', id: 'set-msg-reminder' },
                     { key: 'duplicate_check_days', id: 'set-duplicate-days' },
-                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' } // 👈 Già presente correttamente
+                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
+                    // 🎁 NUOVE CHIAVI SCADENZA PACCHETTI:
+                    { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
+                    { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' }
                 ];
                 
                 for (let f of fields) {
@@ -14160,6 +14215,11 @@ function addManualItemToCart() {
             subText.innerHTML = `Mese Corrente <span style="color: ${diffPct >= 0 ? '#00b894' : '#e17055'}">(${sign}${diffPct.toFixed(1)}% vs prec.)</span>`;
         }
     }
+
+    // In coda a updateStats() o refreshAllData():
+if (typeof checkExpiringCustomerPackages === 'function') {
+    await checkExpiringCustomerPackages();
+}
 }
            
     
@@ -15385,6 +15445,261 @@ async function sendAIQuery() {
     }
 
 
+// =========================================================================
+// 🎁 MOTORE DI RILEVAMENTO PACCHETTI IN SCADENZA & INVIO WHATSAPP RINNOVO
+// =========================================================================
+
+let cachedExpiringPackages = [];
+
+// 1. Scansiona i pacchetti e aggiorna il badge in Header e il banner in Dashboard
+async function checkExpiringCustomerPackages() {
+    try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const leadDays = parseInt(sysSettings['package_expiry_days']) || 15;
+
+        // Data massima limite (es. tra 15 giorni)
+        const maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + leadDays);
+        const maxDateStr = maxDate.toISOString().split('T')[0];
+
+        // Includiamo anche i pacchetti scaduti di recente (ultimi 7 giorni) per recuperare il rinnovo
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() - 7);
+        const minDateStr = minDate.toISOString().split('T')[0];
+
+        const allCustPkgs = (localDb && localDb.customer_packages)
+            ? await localDb.customer_packages.toArray()
+            : [];
+        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const customers = allCustomers || [];
+
+        const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+
+        cachedExpiringPackages = [];
+
+        for (let cp of allCustPkgs) {
+            // Verifica salon_id o spettanza quota
+            const isOwner = String(cp.salon_id || '').trim().toLowerCase() === currentSalon;
+            let allocs = cp.revenue_allocations;
+            if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch (e) { allocs = {}; } }
+            const hasQuota = allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === currentSalon && parseFloat(allocs[k]) > 0);
+
+            if (!isOwner && !hasQuota) continue;
+            if (!cp.expiry_date) continue;
+
+            // Filtro finestra temporale
+            if (cp.expiry_date >= minDateStr && cp.expiry_date <= maxDateStr) {
+                const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+                const cust = customers.find(c => String(c.id).trim() === String(cp.customer_id).trim());
+
+                // Calcolo sedute residue
+                let sessionsList = [];
+                if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
+                else if (typeof cp.sessions_state === 'string') {
+                    try { sessionsList = JSON.parse(cp.sessions_state); } catch (e) { sessionsList = []; }
+                }
+
+                let totalSessions = 0;
+                let remainingSessions = 0;
+                sessionsList.forEach(s => {
+                    totalSessions += (parseInt(s.total) || 0);
+                    remainingSessions += (parseInt(s.remaining) || 0);
+                });
+
+                cachedExpiringPackages.push({
+                    cpId: cp.id,
+                    customerId: cp.customer_id,
+                    customerName: cust ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() : (cp.customer_name || 'Cliente'),
+                    customerPhone: cust ? cust.phone : '',
+                    packageName: pkgConfig ? pkgConfig.name : 'Pacchetto Trattamenti',
+                    expiryDate: cp.expiry_date,
+                    totalSessions: totalSessions,
+                    remainingSessions: remainingSessions,
+                    isExpiredAlready: cp.expiry_date < todayStr
+                });
+            }
+        }
+
+        // Ordina dal più urgente (data più vicina o già scaduto)
+        cachedExpiringPackages.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+
+        const count = cachedExpiringPackages.length;
+
+        // 2. Aggiornamento Badge Header
+        const headerBadge = document.getElementById('pkg-expiry-alert');
+        const badgeCount = document.getElementById('pkg-expiry-badge-count');
+        if (headerBadge && badgeCount) {
+            if (count > 0) {
+                badgeCount.innerText = count;
+                headerBadge.style.display = 'inline-flex';
+            } else {
+                headerBadge.style.display = 'none';
+            }
+        }
+
+        // 3. Aggiornamento Banner Dashboard
+        const dashBanner = document.getElementById('dashboard-pkg-expiry-banner');
+        const dashText = document.getElementById('dashboard-pkg-expiry-text');
+        if (dashBanner && dashText) {
+            if (count > 0) {
+                const urgentWithSessions = cachedExpiringPackages.filter(p => p.remainingSessions > 0).length;
+                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con pacchetto in scadenza nei prossimi ${leadDays} giorni (${urgentWithSessions} con ancora sedute residue da consumare).`;
+                dashBanner.style.display = 'flex';
+            } else {
+                dashBanner.style.display = 'none';
+            }
+        }
+
+    } catch (err) {
+        console.error("Errore verifica pacchetti in scadenza:", err);
+    }
+}
+
+// 2. Apertura e renderizzazione del Modale
+function openPackageExpiryModal() {
+    renderExpiringPackagesModalList();
+    document.getElementById('mod-package-expiry-alerts').classList.add('active');
+}
+
+function renderExpiringPackagesModalList() {
+    const container = document.getElementById('pkg-expiry-list-container');
+    if (!container) return;
+
+    const search = (document.getElementById('filter-pkg-expiry-search')?.value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('filter-pkg-expiry-status')?.value || 'all';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const filtered = cachedExpiringPackages.filter(item => {
+        const matchText = item.customerName.toLowerCase().includes(search) || item.packageName.toLowerCase().includes(search);
+        if (!matchText) return false;
+
+        if (statusFilter === 'with_sessions' && item.remainingSessions <= 0) return false;
+        if (statusFilter === 'exhausted' && item.remainingSessions > 0) return false;
+
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: #64748b; font-size: 13px; padding: 35px 20px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #cbd5e1;">
+                ✨ Nessun pacchetto corrispondente ai filtri impostati.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = filtered.map(item => {
+        const isExpired = item.isExpiredAlready;
+        const daysDiff = Math.round((new Date(item.expiryDate) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+        
+        let timeLabel = '';
+        if (daysDiff < 0) {
+            timeLabel = `<span style="color: #dc2626; font-weight: 800;">⚠️ Scaduto da ${Math.abs(daysDiff)} giorni (${formatDateIt(item.expiryDate)})</span>`;
+        } else if (daysDiff === 0) {
+            timeLabel = `<span style="color: #ea580c; font-weight: 800;">🚨 Scade OGGI! (${formatDateIt(item.expiryDate)})</span>`;
+        } else {
+            timeLabel = `<span style="color: #4f46e5; font-weight: 700;">📅 Scade tra ${daysDiff} giorni (${formatDateIt(item.expiryDate)})</span>`;
+        }
+
+        const hasPhone = Boolean(item.customerPhone && item.customerPhone.trim().length >= 6);
+
+        return `
+            <div style="background: white; border: 1.5px solid ${item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="flex: 1; min-width: 220px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                        <span style="font-size: 14px; font-weight: 800; color: #1e1b4b;">👤 ${item.customerName}</span>
+                        ${item.customerPhone ? `<small style="color: #64748b; font-size: 11px;">(${item.customerPhone})</small>` : '<small style="color: #dc2626; font-size: 10px;">(Tel mancante)</small>'}
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #4338ca;">
+                        🎁 ${item.packageName}
+                    </div>
+                    <div style="font-size: 11.5px; margin-top: 4px; display: flex; align-items: center; gap: 12px;">
+                        <div>${timeLabel}</div>
+                        <div>Sedute: <b style="color: ${item.remainingSessions > 0 ? '#047857' : '#94a3b8'};">${item.remainingSessions} su ${item.totalSessions} residue</b></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    ${hasPhone ? `
+                        <button class="btn btn-w" style="padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="sendPackageRenewalWhatsApp('${item.cpId}')">
+                            💬 WhatsApp Rinnovo
+                        </button>
+                    ` : `
+                        <button class="btn" style="padding: 8px 12px; font-size: 11px; background: #f1f5f9; color: #94a3b8; cursor: not-allowed;" disabled>
+                            Nessun Tel
+                        </button>
+                    `}
+                    
+                    ${item.customerId ? `
+                        <button class="btn" style="padding: 8px 10px; font-size: 11px; background: #f8fafc; border: 1px solid var(--border);" onclick="closeMod(); editCust('${item.customerId}');" title="Apri scheda cliente">
+                            👤
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 3. Generazione e Invio Diretto del Messaggio WhatsApp con Placeholder Dinamici
+async function sendPackageRenewalWhatsApp(custPkgId) {
+    const item = cachedExpiringPackages.find(p => p.cpId === custPkgId);
+    if (!item) return alert("Dati del pacchetto non trovati.");
+
+    if (!item.customerPhone) {
+        return alert("Questo cliente non ha un numero di telefono registrato.");
+    }
+
+    // 1. Template predefinito configurabile
+    let template = sysSettings['template_package_expiry'] || 
+        "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in salone per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
+
+    let firstName = '';
+    let lastName = '';
+    const parts = item.customerName.trim().split(' ');
+    firstName = parts[0] || 'Cliente';
+    lastName = parts.slice(1).join(' ') || '';
+
+    const formattedExpiry = typeof formatDateIt === 'function' ? formatDateIt(item.expiryDate) : item.expiryDate;
+
+    // 2. Compilazione dinamica dei tag
+    const message = template
+        .replace(/{{NOME}}/g, firstName)
+        .replace(/{{COGNOME}}/g, lastName)
+        .replace(/{{CLIENTE}}/g, item.customerName)
+        .replace(/{{PACCHETTO}}/g, item.packageName)
+        .replace(/{{DATA_SCADENZA}}/g, formattedExpiry)
+        .replace(/{{SEDUTE_RESIDUE}}/g, item.remainingSessions);
+
+    // 3. Normalizzazione numero WhatsApp
+    const cleanPhone = formatPhoneNumberForWhatsApp(item.customerPhone);
+    const encodedText = encodeURIComponent(message);
+    const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
+
+    // 4. Registrazione nello storico comunicazioni (message_logs)
+    const logData = {
+        id: crypto.randomUUID(),
+        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+        cust_name: item.customerName,
+        phone: item.customerPhone,
+        msg_type: 'WA_PACKAGE_EXPIRY',
+        appointment_info: `Scadenza Pacchetto: ${item.packageName} (${formattedExpiry})`,
+        sent_at: getNowLocal(),
+        created_by: currentUser ? currentUser.username : 'Admin'
+    };
+    await window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData });
+
+    // 5. Apertura WhatsApp
+    if (window.api && typeof window.api.openExternal === 'function') {
+        window.api.openExternal(waUrl);
+    } else {
+        window.open(waUrl, '_blank');
+    }
+}
+
+
+
+
 function updatePackageCartPayment(index, field, val) {
     if (!cart[index]) return;
     const item = cart[index];
@@ -15919,6 +16234,50 @@ async function deleteExpense(id) {
         <button class="pwa-btn-install" id="pwa-install-trigger">Installa</button>
         <button class="pwa-btn-close" id="pwa-install-close">✕</button>
     </div>
+
+
+<!-- ======================================================== -->
+<!-- 🎁 MODALE GESTIONE PACCHETTI IN SCADENZA (WHATSAPP FAST) -->
+<!-- ======================================================== -->
+<div id="mod-package-expiry-alerts" class="modal" onclick="if(event.target==this) closeMod()">
+    <div class="modal-box" style="width: 700px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">🎁</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 18px; font-weight: 800;">Pacchetti in Scadenza & Inviti al Rinnovo</h3>
+                    <small style="color: #64748b;">Avvisa i clienti via WhatsApp prima che il loro pacchetto scada</small>
+                </div>
+            </div>
+            <button onclick="closeMod()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <!-- Filtri Rapidi -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; flex-shrink: 0;">
+            <input type="text" id="filter-pkg-expiry-search" placeholder="🔍 Cerca cliente o pacchetto..." onkeyup="renderExpiringPackagesModalList()" style="margin: 0; flex: 1; min-width: 180px; padding: 8px 12px; font-size: 13px;">
+            <select id="filter-pkg-expiry-status" onchange="renderExpiringPackagesModalList()" style="margin: 0; width: 180px; padding: 8px; font-size: 12px; background: white;">
+                <option value="all">Tutti in scadenza</option>
+                <option value="with_sessions" selected>Con Sedute Residue (>0)</option>
+                <option value="exhausted">Carnet Esaurito (0 sedute)</option>
+            </select>
+        </div>
+
+        <!-- Elenco Scrollabile -->
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            <div id="pkg-expiry-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Popolato da renderExpiringPackagesModalList() -->
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <small style="color: #64748b; font-size: 11px;">I messaggi inviati vengono memorizzati nello storico comunicazioni.</small>
+            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 16px;" onclick="closeMod()">Chiudi</button>
+        </div>
+    </div>
+</div>
 
     </body>
     </html>
