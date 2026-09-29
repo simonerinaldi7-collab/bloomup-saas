@@ -1318,67 +1318,46 @@
 
 
 <!-- ======================================================== -->
-    <!-- 🏢 VISTA AGENDA RISORSE & POSTAZIONI CONDIVISE (DAY/WEEK)  -->
+    <!-- 🏢 VISTA AGENDA RISORSE & POSTAZIONI (MOBILE-OPTIMIZED)   -->
     <!-- ======================================================== -->
     <section id="v-workstations" class="view" style="padding: 0;">
         <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
             
-            <!-- HEADER TOOLBAR AGENDA POSTAZIONI -->
-            <div class="cal-header" style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
+            <!-- HEADER TOOLBAR COMPATTO (SENZA SPRECO DI SPAZIO VERTICALE) -->
+            <div class="cal-header" style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; background: #ffffff; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
                 
-                <!-- RIGA 1: Data, Navigazione e Switch Giorno/Settimana -->
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;">
+                <!-- RIGA 1: Data, Switch Giorno/Settimana e Azioni -->
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%;">
                     
-                    <!-- Blocco Data e Frecce -->
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <h2 id="ws-cal-label" style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b; white-space: nowrap;">Agenda Postazioni</h2>
-                        <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px; gap: 2px;">
-                            <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(-1)" title="Precedente">◀</button>
-                            <button class="btn" style="padding: 4px 10px; min-height: unset; background: white; border: none; font-size: 11px; font-weight: bold; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onclick="moveWorkstationDate(0)">Oggi</button>
-                            <button class="btn" style="padding: 4px 8px; min-height: unset; background: transparent; border: none; font-size: 12px;" onclick="moveWorkstationDate(1)" title="Successivo">▶</button>
+                    <!-- Frecce + Label Data + DatePicker compatto -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px;">
+                            <button class="btn" style="padding: 3px 6px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="moveWorkstationDate(-1)" title="Precedente">◀</button>
+                            <button class="btn" style="padding: 3px 8px; min-height: unset; background: white; border: none; font-size: 10.5px; font-weight: bold; border-radius: 4px;" onclick="moveWorkstationDate(0)">Oggi</button>
+                            <button class="btn" style="padding: 3px 6px; min-height: unset; background: transparent; border: none; font-size: 11px;" onclick="moveWorkstationDate(1)" title="Successivo">▶</button>
                         </div>
-                        <input type="date" id="ws-date-picker" onchange="onWorkstationDatePicked(this.value)" style="margin: 0; padding: 4px 8px; font-size: 12px; width: 130px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <h2 id="ws-cal-label" style="margin: 0; font-size: 13px; font-weight: 800; color: #1e1b4b; white-space: nowrap;">Postazioni</h2>
+                        <input type="date" id="ws-date-picker" onchange="onWorkstationDatePicked(this.value)" style="margin: 0; padding: 2px 4px; font-size: 11px; width: 105px; background: #f8fafc; border-radius: 6px; border: 1px solid #cbd5e1;">
                     </div>
 
-                    <!-- Selettore Viste: GIORNO vs SETTIMANA -->
-                    <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 3px; gap: 4px;">
-                        <button class="btn" id="btn-ws-view-day" style="padding: 5px 12px; min-height: unset; border: none; font-size: 12px; font-weight: bold; background: var(--p); color: white; border-radius: 6px;" onclick="setWorkstationViewMode('day')">
-                            Giorno
-                        </button>
-                        <button class="btn" id="btn-ws-view-week" style="padding: 5px 12px; min-height: unset; border: none; font-size: 12px; font-weight: normal; background: transparent; color: #475569; border-radius: 6px;" onclick="setWorkstationViewMode('week')">
-                            Settimana
-                        </button>
-                    </div>
-
-                    <!-- Azioni: Riserva Rapida & Gestione -->
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="btn" style="padding: 6px 12px; font-size: 12px; min-height: unset; background: #f8fafc; border: 1px solid var(--border);" onclick="openWorkstationBookingDirectModal()">
-                            ⏱️ Riserva
-                        </button>
-                        <button class="btn btn-p" style="padding: 6px 12px; font-size: 12px; min-height: unset;" onclick="openWorkstationConfigModal()">
-                            + Postazioni
-                        </button>
+                    <!-- Switch Giorno / Settimana + Tasti Rapidi -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px; gap: 2px;">
+                            <button class="btn" id="btn-ws-view-day" style="padding: 3px 8px; min-height: unset; border: none; font-size: 11px; font-weight: bold; background: var(--p); color: white; border-radius: 4px;" onclick="setWorkstationViewMode('day')">Giorno</button>
+                            <button class="btn" id="btn-ws-view-week" style="padding: 3px 8px; min-height: unset; border: none; font-size: 11px; font-weight: normal; background: transparent; color: #475569; border-radius: 4px;" onclick="setWorkstationViewMode('week')">Sett</button>
+                        </div>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; min-height: unset; background: #f8fafc; border: 1px solid var(--border);" onclick="openWorkstationBookingDirectModal()" title="Riserva slot veloce">⏱️</button>
+                        <button class="btn btn-p" style="padding: 4px 8px; font-size: 11px; min-height: unset;" onclick="openWorkstationConfigModal()" title="Gestione postazioni">+</button>
                     </div>
                 </div>
 
-                <!-- RIGA 2: FILTRO RAPIDO A PILLOLE DELLE POSTAZIONI (SCROLLABILE SU MOBILE) -->
-                <div style="display: flex; align-items: center; gap: 6px; width: 100%; border-top: 1px dashed #e2e8f0; padding-top: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; white-space: nowrap; margin-right: 4px;">Filtra Spazi:</span>
-                    <div id="ws-pills-container" style="display: flex; gap: 6px; align-items: center;">
-                        <!-- Generato dinamicamente con le pillole cliccabili -->
-                    </div>
+                <!-- RIGA 2: FILTRO PILLOLE ORIZZONTALE (INTEGRATO NELLA STESSA SCHERMATA SENZA SCROLL) -->
+                <div id="ws-pills-container" style="display: flex; gap: 4px; align-items: center; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 0;">
+                    <!-- Generato dinamicamente da renderWorkstationFilterPills() -->
                 </div>
             </div>
 
-            <!-- LEGENDA STATO POSTAZIONI -->
-            <div style="background: #f8fafc; padding: 6px 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 15px; align-items: center; font-size: 11px; color: #64748b; flex-shrink: 0; overflow-x: auto;">
-                <span style="font-weight: bold; color: #1e1b4b;">Legenda:</span>
-                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: var(--p); border-radius: 3px; display: inline-block;"></span> <b>Tua Prenotazione (In Chiaro)</b></span>
-                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: repeating-linear-gradient(45deg, #64748b, #64748b 4px, #475569 4px, #475569 8px); border-radius: 3px; display: inline-block;"></span> <b>Occupato Partner (Con Sede)</b></span>
-                <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 3px; display: inline-block;"></span> <b>Slot Libero (Clicca per prenotare)</b></span>
-            </div>
-
-            <!-- GRIGLIA SCROLLABILE (GIORNO OPPURE SETTIMANA) -->
+            <!-- GRIGLIA ORARIA (AREA CON RICONOSCIMENTO GESTO SWIPE) -->
             <div class="cal-scroll-area" id="ws-grid-scroll-area" style="flex-grow: 1; overflow-y: auto; overflow-x: auto; background: #fff; position: relative;">
                 <!-- Generato da renderWorkstationDayView() o renderWorkstationWeekView() -->
             </div>
@@ -1388,42 +1367,37 @@
 
     <!-- STILI CSS PER LE PILLOLE FILTRO DELLE POSTAZIONI -->
     <style>
-        .ws-filter-pill {
-            background: #ffffff !important;
-            border: 1.5px solid #cbd5e1 !important;
-            color: #475569 !important;
-            padding: 4px 10px !important;
-            font-size: 11px !important;
-            font-weight: 600 !important;
-            border-radius: 20px !important;
-            cursor: pointer !important;
-            white-space: nowrap !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-            min-height: unset !important;
-            transition: all 0.15s ease !important;
-        }
-        .ws-filter-pill:hover {
-            border-color: var(--p) !important;
-            color: var(--p) !important;
-            background: #faf5ff !important;
-        }
-        .ws-filter-pill.active-pill {
-            background: var(--p) !important;
-            border-color: var(--p) !important;
-            color: #ffffff !important;
-            box-shadow: 0 2px 4px rgba(108, 92, 231, 0.25) !important;
-        }
-        .ws-color-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .ws-filter-pill.active-pill .ws-color-dot {
-            border: 1.5px solid #ffffff;
-        }
+        /* 📱 PILLOLE E LAYOUT COMPATTO AGENDA POSTAZIONI */
+    .ws-filter-pill {
+        background: #ffffff !important;
+        border: 1.5px solid #cbd5e1 !important;
+        color: #475569 !important;
+        padding: 3px 8px !important;
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+        border-radius: 16px !important;
+        cursor: pointer !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        min-height: unset !important;
+        flex-shrink: 0 !important;
+    }
+    .ws-filter-pill.active-pill {
+        background: var(--p) !important;
+        border-color: var(--p) !important;
+        color: #ffffff !important;
+    }
+    .ws-color-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .ws-filter-pill.active-pill .ws-color-dot {
+        border: 1px solid #ffffff;
+    }
     </style>
 
     
@@ -10685,14 +10659,14 @@ function onWorkstationDatePicked(dateVal) {
     renderWorkstationsView();
 }
 
-// 4. Renderizzazione Barra Filtri a Pillole
+// 4. Renderizzazione Barra Filtri a Pillole Compatta
 function renderWorkstationFilterPills() {
     const container = document.getElementById('ws-pills-container');
     if (!container) return;
 
     let html = `
         <button type="button" class="btn ws-filter-pill ${selectedWorkstationFilter === 'all' ? 'active-pill' : ''}" onclick="setWorkstationFilter('all')">
-            🏢 Tutte le Postazioni (${cachedAccessibleWorkstations.length})
+            🏢 Tutte (${cachedAccessibleWorkstations.length})
         </button>
     `;
 
@@ -10709,7 +10683,7 @@ function renderWorkstationFilterPills() {
     container.innerHTML = html;
 }
 
-// 5. Router di Renderizzazione (Giorno o Settimana)
+// 5. Router di Renderizzazione (Giorno o Settimana) con Aggancio Swipe
 async function renderWorkstationsView() {
     cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
     renderWorkstationFilterPills();
@@ -10719,10 +10693,13 @@ async function renderWorkstationsView() {
     } else {
         await renderWorkstationWeekView();
     }
+
+    // Attiva il supporto allo scorrimento touch (swipe)
+    initWorkstationSwipe();
 }
 
 // =========================================================================
-// ☀️ VISTA GIORNO: COLONNE = LE POSTAZIONI AFFIANCATE PER OGGI
+// ☀️ VISTA GIORNO (COLONNE COMPATTE E SALON_ID IN PRIMO PIANO)
 // =========================================================================
 async function renderWorkstationDayView() {
     const area = document.getElementById('ws-grid-scroll-area');
@@ -10731,7 +10708,7 @@ async function renderWorkstationDayView() {
     if (!area || !label) return;
 
     const dateStr = workstationViewDate.toLocaleDateString('en-CA');
-    label.innerText = `Giorno: ${formatDateIt(dateStr).toUpperCase()}`;
+    label.innerText = formatDateIt(dateStr);
     if (datePicker) datePicker.value = dateStr;
 
     const stationsToDisplay = (selectedWorkstationFilter === 'all') 
@@ -10748,33 +10725,36 @@ async function renderWorkstationDayView() {
     const dayBookings = allBookings.filter(b => b.date === dateStr);
 
     const colsCount = stationsToDisplay.length;
-    let html = `<div style="display:flex; flex-direction:column; min-width: ${Math.max(colsCount * 190 + 60, 650)}px; min-height: 100%;">`;
+    
+    // 📱 Adattamento Responsivo: se 1 o 2 colonne occupano il 100% senza scroll; se 3+ usano larghezza snella da 125px
+    const minGridWidth = (colsCount <= 2) ? '100%' : `${colsCount * 125 + 45}px`;
+    const colTemplate = (colsCount <= 2) ? `45px repeat(${colsCount}, 1fr)` : `45px repeat(${colsCount}, minmax(120px, 1fr))`;
 
-    // HEADER COLONNE
-    html += `<div style="display: grid; grid-template-columns: 60px repeat(${colsCount}, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
-    html += `<div style="padding: 10px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
+    let html = `<div style="display:flex; flex-direction:column; min-width: ${minGridWidth}; width: 100%; min-height: 100%;">`;
+
+    // HEADER COLONNE POSTAZIONI
+    html += `<div style="display: grid; grid-template-columns: ${colTemplate}; position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
+    html += `<div style="padding: 6px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
 
     stationsToDisplay.forEach(ws => {
-        const isOwner = String(ws.salon_id || '').trim().toLowerCase() === currentSalon;
         html += `
-            <div style="padding: 10px; text-align: center; background: #fff; border-right: 1px solid #dadce0;">
-                <div style="font-weight: 800; font-size: 13px; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    <span style="width: 10px; height: 10px; border-radius: 50%; background: ${ws.color || '#6C5CE7'}; display: inline-block;"></span>
-                    <span>${ws.name}</span>
+            <div style="padding: 6px 4px; text-align: center; background: #fff; border-right: 1px solid #dadce0; overflow: hidden;">
+                <div style="font-weight: 800; font-size: 11.5px; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${ws.color || '#6C5CE7'}; flex-shrink: 0;"></span>
+                    <span style="overflow: hidden; text-overflow: ellipsis;">${ws.name}</span>
                 </div>
-                <small style="color: #64748b; font-size: 10px;">${isOwner ? 'Tua Struttura' : `Sede Partner: ${ws.salon_id}`}</small>
             </div>
         `;
     });
     html += `</div>`;
 
     // CORPO TEMPORALE
-    html += `<div style="display: grid; grid-template-columns: 60px repeat(${colsCount}, 1fr); position: relative;">`;
+    html += `<div style="display: grid; grid-template-columns: ${colTemplate}; position: relative;">`;
 
-    // Ore fisse a sinistra
+    // Colonna Ore fissa a sinistra (Snellita a 45px)
     html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #dadce0;">`;
     for (let h = 7; h < 22; h++) {
-        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+        html += `<div class="time-label" style="font-size: 9px; padding-right: 4px;">${String(h).padStart(2, '0')}:00</div>`;
     }
     html += `</div>`;
 
@@ -10782,14 +10762,12 @@ async function renderWorkstationDayView() {
     stationsToDisplay.forEach(ws => {
         const wsBookings = dayBookings.filter(b => String(b.workstation_id).trim() === String(ws.id).trim());
 
-        // 🌟 MAPPARE PER L'ALGORITMO DI AFFIANCAMENTO
         const mappedBookings = wsBookings.map(b => ({
             ...b,
             time: (b.start_time || '09:00').substring(0, 5),
             end_time: (b.end_time || '10:00').substring(0, 5)
         }));
 
-        // Calcolo atomico delle larghezze e posizioni affiancate
         const processedBookings = (typeof calculateEventOverlapLayout === 'function') 
             ? calculateEventOverlapLayout(mappedBookings) 
             : mappedBookings.map(b => ({ ...b, topPx: 0, heightPx: 30, widthPct: 94, leftPct: 3 }));
@@ -10809,10 +10787,10 @@ async function renderWorkstationDayView() {
             }
         }
 
-        // Blocchi Occupazione Affiancati
+        // Blocchi Occupazione
         processedBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
-            const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'Altro Salone';
+            const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'SALONE';
 
             const topPx = b.topPx;
             const heightPx = Math.max(b.heightPx, 22);
@@ -10822,19 +10800,26 @@ async function renderWorkstationDayView() {
             let blockStyle = '';
             let blockContent = '';
 
+            // 🌟 REGOLA: IL SALON_ID È L'INFORMAZIONE FONDAMENTALE SEMPRE IN PRIMO PIANO
             if (isMine) {
-                blockStyle = `background: ${ws.color || '#6C5CE7'}; color: white; border-left: 4px solid #312e81;`;
+                blockStyle = `background: ${ws.color || '#6C5CE7'}; color: white; border-left: 3px solid #312e81;`;
                 blockContent = `
-                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${b.operator_name || 'Tuo Operatore'}</div>
-                    <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.notes || 'Riservato'}</div>
+                    <div style="font-weight: 900; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ffffff;">
+                        🏢 ${occupyingSalonId}
+                    </div>
+                    <div style="font-size: 9px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    </div>
                 `;
             } else {
-                blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
+                blockStyle = `background: #475569; color: white; border-left: 3px solid #0f172a; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 4px, transparent 4px, transparent 8px);`;
                 blockContent = `
-                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-weight: 800; font-size: 11px; color: #fef08a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🔒 Occupato - ${occupyingSalonId}</div>
-                    <div style="font-size: 9.5px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sede: ${occupyingSalonId}</div>
+                    <div style="font-weight: 900; font-size: 10px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🔒 ${occupyingSalonId}
+                    </div>
+                    <div style="font-size: 9px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    </div>
                 `;
             }
 
@@ -10842,9 +10827,9 @@ async function renderWorkstationDayView() {
 
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 4px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
                      ${clickAction}
-                     title="${isMine ? `Tua prenotazione (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
+                     title="${isMine ? `Tua prenotazione [${occupyingSalonId}] (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
                     ${blockContent}
                 </div>
             `;
@@ -10858,7 +10843,7 @@ async function renderWorkstationDayView() {
 }
 
 // =========================================================================
-// 📅 VISTA SETTIMANA (CON AFFIANCAMENTO AUTOMATICO SOVRAPPOSIZIONI)
+// 📅 VISTA SETTIMANA (7 GIORNI SNELLI CON SALON_ID SEMPRE VISIBILE)
 // =========================================================================
 async function renderWorkstationWeekView() {
     const area = document.getElementById('ws-grid-scroll-area');
@@ -10873,11 +10858,7 @@ async function renderWorkstationWeekView() {
     const startStr = monday.toLocaleDateString('en-CA');
     const endStr = sunday.toLocaleDateString('en-CA');
 
-    const filterWsName = (selectedWorkstationFilter === 'all')
-        ? 'Tutte le Postazioni'
-        : (cachedAccessibleWorkstations.find(w => String(w.id).trim() === String(selectedWorkstationFilter).trim())?.name || 'Postazione');
-
-    label.innerText = `Settimana: ${formatDateIt(startStr)} - ${formatDateIt(endStr)} (${filterWsName})`;
+    label.innerText = `${formatDateIt(startStr).substring(0, 5)} - ${formatDateIt(endStr).substring(0, 5)}`;
     if (datePicker) datePicker.value = startStr;
 
     const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
@@ -10889,11 +10870,12 @@ async function renderWorkstationWeekView() {
         return inDate && matchWs;
     });
 
-    let html = `<div style="display:flex; flex-direction:column; min-width: 850px; min-height: 100%;">`;
+    // 📱 Larghezza settimana ottimizzata: 45px ore + 7 colonne da 70px = 535px (leggibile e fluido)
+    let html = `<div style="display:flex; flex-direction:column; min-width: 535px; width: 100%; min-height: 100%;">`;
 
     // HEADER DEI 7 GIORNI
-    html += `<div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
-    html += `<div style="padding: 10px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
+    html += `<div style="display: grid; grid-template-columns: 45px repeat(7, 1fr); position: sticky; top: 0; z-index: 60; background: #fff; border-bottom: 1px solid #dadce0;">`;
+    html += `<div style="padding: 6px; background: #f8fafc; border-right: 1px solid #dadce0;"></div>`;
 
     for (let c = 0; c < 7; c++) {
         const t = new Date(monday);
@@ -10901,39 +10883,37 @@ async function renderWorkstationWeekView() {
         const dStr = t.toLocaleDateString('en-CA');
         const isToday = new Date().toLocaleDateString('en-CA') === dStr;
         html += `
-            <div style="padding: 10px; text-align: center; background: #fff; border-right: 1px solid #dadce0; ${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">
-                ${t.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
+            <div style="padding: 6px 2px; text-align: center; background: #fff; border-right: 1px solid #dadce0; ${isToday ? 'color:#1a73e8; font-weight:bold;' : ''}">
+                <div style="font-size: 10px; text-transform: uppercase;">${t.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
+                <div style="font-size: 11px; font-weight: 800;">${t.getDate()}</div>
             </div>
         `;
     }
     html += `</div>`;
 
-    // CORPO GRIGLIA TEMPORALE DEI 7 GIORNI
-    html += `<div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); position: relative;">`;
+    // CORPO TEMPORALE
+    html += `<div style="display: grid; grid-template-columns: 45px repeat(7, 1fr); position: relative;">`;
 
-    // Ore fisse a sinistra
+    // Ore fisse a sinistra (45px)
     html += `<div style="position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid #dadce0;">`;
     for (let h = 7; h < 22; h++) {
-        html += `<div class="time-label">${String(h).padStart(2, '0')}:00</div>`;
+        html += `<div class="time-label" style="font-size: 9px; padding-right: 4px;">${String(h).padStart(2, '0')}:00</div>`;
     }
     html += `</div>`;
 
-    // Colonne dei 7 Giorni
+    // Colonne 7 Giorni
     for (let c = 0; c < 7; c++) {
         const t = new Date(monday);
         t.setDate(monday.getDate() + c);
         const dStr = t.toLocaleDateString('en-CA');
-
         const dayBookingsForDay = weekBookings.filter(b => b.date === dStr);
 
-        // 🌟 MAPPARE PER L'ALGORITMO DI AFFIANCAMENTO DELLA SETTIMANA
         const mappedWeekBookings = dayBookingsForDay.map(b => ({
             ...b,
             time: (b.start_time || '09:00').substring(0, 5),
             end_time: (b.end_time || '10:00').substring(0, 5)
         }));
 
-        // Calcolo atomico delle colonne affiancate nel giorno della settimana
         const processedWeekBookings = (typeof calculateEventOverlapLayout === 'function') 
             ? calculateEventOverlapLayout(mappedWeekBookings) 
             : mappedWeekBookings.map(b => ({ ...b, topPx: 0, heightPx: 30, widthPct: 94, leftPct: 3 }));
@@ -10947,20 +10927,18 @@ async function renderWorkstationWeekView() {
                 html += `
                     <div class="day-hour-slot" 
                          style="height: 15px; min-height: 15px; box-sizing: border-box;" 
-                         onclick="openWorkstationBookingDirectModal('${preselectedWs}', '${dStr}', '${timeStr}')"
-                         title="Riserva slot ${timeStr} del ${formatDateIt(dStr)}">
+                         onclick="openWorkstationBookingDirectModal('${preselectedWs}', '${dStr}', '${timeStr}')">
                     </div>
                 `;
             }
         }
 
-        // Blocchi Occupazione Affiancati nella Settimana
+        // Blocchi Settimana
         processedWeekBookings.forEach(b => {
             const isMine = (b.is_mine !== undefined) ? b.is_mine : (String(b.salon_id || '').trim().toLowerCase() === currentSalon);
-            const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'Altro Salone';
+            const occupyingSalonId = b.salon_id ? String(b.salon_id).trim() : 'SALONE';
 
             const wsObj = cachedAccessibleWorkstations.find(w => String(w.id).trim() === String(b.workstation_id).trim());
-            const wsName = wsObj ? wsObj.name : 'Postazione';
             const wsColor = wsObj ? (wsObj.color || '#6C5CE7') : '#6C5CE7';
 
             const topPx = b.topPx;
@@ -10971,19 +10949,26 @@ async function renderWorkstationWeekView() {
             let blockStyle = '';
             let blockContent = '';
 
+            // 🌟 SALON_ID IN PRIMO PIANO
             if (isMine) {
-                blockStyle = `background: ${wsColor}; color: white; border-left: 4px solid #312e81;`;
+                blockStyle = `background: ${wsColor}; color: white; border-left: 3px solid #312e81;`;
                 blockContent = `
-                    <div style="font-weight: 800; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏢 ${wsName}</div>
-                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">👤 ${b.operator_name || 'Tuo Operatore'}</div>
+                    <div style="font-weight: 900; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🏢 ${occupyingSalonId}
+                    </div>
+                    <div style="font-size: 8.5px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    </div>
                 `;
             } else {
-                blockStyle = `background: #64748b; color: white; border-left: 4px solid #1e293b; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px);`;
+                blockStyle = `background: #475569; color: white; border-left: 3px solid #0f172a; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 4px, transparent 4px, transparent 8px);`;
                 blockContent = `
-                    <div style="font-weight: 800; font-size: 10px; color: #fef08a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏢 ${wsName}</div>
-                    <div style="font-weight: bold; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${b.start_time.substring(0, 5)} - ${b.end_time.substring(0, 5)}</div>
-                    <div style="font-size: 9.5px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🔒 Occupato - ${occupyingSalonId}</div>
+                    <div style="font-weight: 900; font-size: 9.5px; color: #fde047; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🔒 ${occupyingSalonId}
+                    </div>
+                    <div style="font-size: 8.5px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${b.start_time.substring(0, 5)}-${b.end_time.substring(0, 5)}
+                    </div>
                 `;
             }
 
@@ -10991,9 +10976,9 @@ async function renderWorkstationWeekView() {
 
             html += `
                 <div class="absolute-event" 
-                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 4px 6px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
+                     style="top: ${topPx}px; height: ${heightPx}px; width: ${widthPct}%; left: ${leftPct}%; padding: 2px 3px; box-sizing: border-box; cursor: ${isMine ? 'pointer' : 'not-allowed'}; ${blockStyle}" 
                      ${clickAction}
-                     title="${isMine ? `Tua prenotazione su ${wsName} (${b.start_time} - ${b.end_time})` : `Postazione ${wsName} occupata da ${occupyingSalonId}`}">
+                     title="${isMine ? `Tua prenotazione [${occupyingSalonId}] (${b.start_time} - ${b.end_time})` : `Postazione occupata da ${occupyingSalonId}`}">
                     ${blockContent}
                 </div>
             `;
@@ -11004,6 +10989,47 @@ async function renderWorkstationWeekView() {
 
     html += `</div></div>`;
     area.innerHTML = html;
+}
+
+// =========================================================================
+// 📱 GESTO TOUCH SWIPE PER SPOSTARSI TRA GIORNI E SETTIMANE
+// =========================================================================
+let wsTouchStartX = 0;
+let wsTouchStartY = 0;
+let isWsSwiping = false;
+
+function initWorkstationSwipe() {
+    const area = document.getElementById('ws-grid-scroll-area');
+    if (!area || area._swipeAttached) return;
+    area._swipeAttached = true;
+
+    area.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1 || document.querySelector('.modal.active')) return;
+        wsTouchStartX = e.touches[0].clientX;
+        wsTouchStartY = e.touches[0].clientY;
+        isWsSwiping = true;
+    }, { passive: true });
+
+    area.addEventListener('touchend', (e) => {
+        if (!isWsSwiping || document.querySelector('.modal.active')) return;
+        isWsSwiping = false;
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const diffX = touchEndX - wsTouchStartX;
+        const diffY = touchEndY - wsTouchStartY;
+
+        // Se lo scorrimento è prevalentemente orizzontale e supera i 40px
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+            if (diffX < 0) {
+                // Swipe a sinistra ➔ Avanza (Giorno successivo o Settimana successiva)
+                moveWorkstationDate(1);
+            } else {
+                // Swipe a destra ➔ Indietreggia (Giorno precedente o Settimana precedente)
+                moveWorkstationDate(-1);
+            }
+        }
+    }, { passive: true });
 }
 
 // 3. Popolamento Tendina Postazioni nel Modale Appuntamenti (#mod-cale)
