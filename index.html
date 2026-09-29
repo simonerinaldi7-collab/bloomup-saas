@@ -15462,17 +15462,16 @@ async function sendAIQuery() {
 let cachedExpiringPackages = [];
 
 // 1. Scansiona i pacchetti e aggiorna il badge in Header e il banner in Dashboard
+// 1. Scansiona i pacchetti escludendo quelli già gestiti/avvisati
 async function checkExpiringCustomerPackages() {
     try {
         const todayStr = new Date().toISOString().split('T')[0];
         const leadDays = parseInt(sysSettings['package_expiry_days']) || 15;
 
-        // Data massima limite (es. tra 15 giorni)
         const maxDate = new Date();
         maxDate.setDate(maxDate.getDate() + leadDays);
         const maxDateStr = maxDate.toISOString().split('T')[0];
 
-        // Includiamo anche i pacchetti scaduti di recente (ultimi 7 giorni) per recuperare il rinnovo
         const minDate = new Date();
         minDate.setDate(minDate.getDate() - 7);
         const minDateStr = minDate.toISOString().split('T')[0];
@@ -15485,10 +15484,12 @@ async function checkExpiringCustomerPackages() {
 
         const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
 
+        // 🌟 Recuperiamo l'elenco dei pacchetti già gestiti/avvisati
+        const dismissedExpiryAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
+
         cachedExpiringPackages = [];
 
         for (let cp of allCustPkgs) {
-            // Verifica salon_id o spettanza quota
             const isOwner = String(cp.salon_id || '').trim().toLowerCase() === currentSalon;
             let allocs = cp.revenue_allocations;
             if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch (e) { allocs = {}; } }
@@ -15497,12 +15498,10 @@ async function checkExpiringCustomerPackages() {
             if (!isOwner && !hasQuota) continue;
             if (!cp.expiry_date) continue;
 
-            // Filtro finestra temporale
             if (cp.expiry_date >= minDateStr && cp.expiry_date <= maxDateStr) {
                 const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
                 const cust = customers.find(c => String(c.id).trim() === String(cp.customer_id).trim());
 
-                // Calcolo sedute residue
                 let sessionsList = [];
                 if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
                 else if (typeof cp.sessions_state === 'string') {
@@ -15516,6 +15515,10 @@ async function checkExpiringCustomerPackages() {
                     remainingSessions += (parseInt(s.remaining) || 0);
                 });
 
+                // Verifica se già gestito per la data di scadenza corrente
+                const alertKey = `${cp.id}_${cp.expiry_date}`;
+                const isDismissed = Boolean(dismissedExpiryAlerts[alertKey]);
+
                 cachedExpiringPackages.push({
                     cpId: cp.id,
                     customerId: cp.customer_id,
@@ -15525,17 +15528,19 @@ async function checkExpiringCustomerPackages() {
                     expiryDate: cp.expiry_date,
                     totalSessions: totalSessions,
                     remainingSessions: remainingSessions,
-                    isExpiredAlready: cp.expiry_date < todayStr
+                    isExpiredAlready: cp.expiry_date < todayStr,
+                    isDismissed: isDismissed
                 });
             }
         }
 
-        // Ordina dal più urgente (data più vicina o già scaduto)
         cachedExpiringPackages.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
 
-        const count = cachedExpiringPackages.length;
+        // 🌟 IL CONTATORE CONTA SOLO QUELLI NON ANCORA GESTITI
+        const activeAlerts = cachedExpiringPackages.filter(p => !p.isDismissed);
+        const count = activeAlerts.length;
 
-        // 2. Aggiornamento Badge Header
+        // Aggiornamento Badge Header
         const headerBadge = document.getElementById('pkg-expiry-alert');
         const badgeCount = document.getElementById('pkg-expiry-badge-count');
         if (headerBadge && badgeCount) {
@@ -15543,20 +15548,20 @@ async function checkExpiringCustomerPackages() {
                 badgeCount.innerText = count;
                 headerBadge.style.display = 'inline-flex';
             } else {
-                headerBadge.style.display = 'none';
+                headerBadge.style.display = 'none'; // SI TOGLIE SE SONO TUTTI GESTITI
             }
         }
 
-        // 3. Aggiornamento Banner Dashboard
+        // Aggiornamento Banner Dashboard
         const dashBanner = document.getElementById('dashboard-pkg-expiry-banner');
         const dashText = document.getElementById('dashboard-pkg-expiry-text');
         if (dashBanner && dashText) {
             if (count > 0) {
-                const urgentWithSessions = cachedExpiringPackages.filter(p => p.remainingSessions > 0).length;
-                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con pacchetto in scadenza nei prossimi ${leadDays} giorni (${urgentWithSessions} con ancora sedute residue da consumare).`;
+                const urgentWithSessions = activeAlerts.filter(p => p.remainingSessions > 0).length;
+                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con pacchetto in scadenza (${urgentWithSessions} con ancora sedute residue).`;
                 dashBanner.style.display = 'flex';
             } else {
-                dashBanner.style.display = 'none';
+                dashBanner.style.display = 'none'; // SI TOGLIE SE SONO TUTTI GESTITI
             }
         }
 
@@ -15564,6 +15569,24 @@ async function checkExpiringCustomerPackages() {
         console.error("Errore verifica pacchetti in scadenza:", err);
     }
 }
+
+// Segna il pacchetto come gestito (rimuove l'alert senza mandare messaggio)
+async function dismissPackageExpiryAlert(custPkgId, expiryDate) {
+    const alertKey = `${custPkgId}_${expiryDate}`;
+    const dismissedExpiryAlerts = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
+    
+    dismissedExpiryAlerts[alertKey] = true;
+    localStorage.setItem('VaiMUp_dismissed_pkg_alerts', JSON.stringify(dismissedExpiryAlerts));
+
+    // Ricalcola subito gli alert e aggiorna l'interfaccia
+    await checkExpiringCustomerPackages();
+    renderExpiringPackagesModalList();
+}
+
+// In sendPackageRenewalWhatsApp, segna automaticamente come gestito all'invio del messaggio:
+// Subito dopo aver inviato il messaggio (punto 4), aggiungi questa riga:
+// dismissPackageExpiryAlert(item.cpId, item.expiryDate);
+
 
 // 2. Apertura e renderizzazione del Modale
 function openPackageExpiryModal() {
@@ -15592,32 +15615,32 @@ function renderExpiringPackagesModalList() {
     if (filtered.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; color: #64748b; font-size: 13px; padding: 35px 20px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #cbd5e1;">
-                ✨ Nessun pacchetto corrispondente ai filtri impostati.
+                ✨ Nessun pacchetto in scadenza trovato.
             </div>
         `;
         return;
     }
 
     container.innerHTML = filtered.map(item => {
-        const isExpired = item.isExpiredAlready;
         const daysDiff = Math.round((new Date(item.expiryDate) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
         
         let timeLabel = '';
         if (daysDiff < 0) {
-            timeLabel = `<span style="color: #dc2626; font-weight: 800;">⚠️ Scaduto da ${Math.abs(daysDiff)} giorni (${formatDateIt(item.expiryDate)})</span>`;
+            timeLabel = `<span style="color: #dc2626; font-weight: 800;">⚠️ Scaduto da ${Math.abs(daysDiff)} gg (${formatDateIt(item.expiryDate)})</span>`;
         } else if (daysDiff === 0) {
             timeLabel = `<span style="color: #ea580c; font-weight: 800;">🚨 Scade OGGI! (${formatDateIt(item.expiryDate)})</span>`;
         } else {
-            timeLabel = `<span style="color: #4f46e5; font-weight: 700;">📅 Scade tra ${daysDiff} giorni (${formatDateIt(item.expiryDate)})</span>`;
+            timeLabel = `<span style="color: #4f46e5; font-weight: 700;">📅 Scade tra ${daysDiff} gg (${formatDateIt(item.expiryDate)})</span>`;
         }
 
         const hasPhone = Boolean(item.customerPhone && item.customerPhone.trim().length >= 6);
 
         return `
-            <div style="background: white; border: 1.5px solid ${item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="background: white; border: 1.5px solid ${item.isDismissed ? '#cbd5e1' : (item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0')}; opacity: ${item.isDismissed ? '0.7' : '1'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <div style="flex: 1; min-width: 220px;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                         <span style="font-size: 14px; font-weight: 800; color: #1e1b4b;">👤 ${item.customerName}</span>
+                        ${item.isDismissed ? '<span style="background: #dcfce7; color: #16a34a; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Avvisato ✓</span>' : ''}
                         ${item.customerPhone ? `<small style="color: #64748b; font-size: 11px;">(${item.customerPhone})</small>` : '<small style="color: #dc2626; font-size: 10px;">(Tel mancante)</small>'}
                     </div>
                     <div style="font-size: 13px; font-weight: 600; color: #4338ca;">
@@ -15631,17 +15654,19 @@ function renderExpiringPackagesModalList() {
 
                 <div style="display: flex; gap: 6px; align-items: center;">
                     ${hasPhone ? `
-                        <button class="btn btn-w" style="padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="sendPackageRenewalWhatsApp('${item.cpId}')">
-                            💬 WhatsApp Rinnovo
+                        <button class="btn btn-w" style="padding: 7px 12px; font-size: 11.5px; font-weight: 700; border-radius: 8px;" onclick="sendPackageRenewalWhatsApp('${item.cpId}')">
+                            💬 WhatsApp
                         </button>
-                    ` : `
-                        <button class="btn" style="padding: 8px 12px; font-size: 11px; background: #f1f5f9; color: #94a3b8; cursor: not-allowed;" disabled>
-                            Nessun Tel
+                    ` : ''}
+
+                    ${!item.isDismissed ? `
+                        <button class="btn" style="padding: 7px 10px; font-size: 11px; background: #f1f5f9; color: #475569; font-weight: bold; border-radius: 8px;" onclick="dismissPackageExpiryAlert('${item.cpId}', '${item.expiryDate}')" title="Segna come già gestito/avvisato">
+                            ✓ Fatto
                         </button>
-                    `}
-                    
+                    ` : ''}
+
                     ${item.customerId ? `
-                        <button class="btn" style="padding: 8px 10px; font-size: 11px; background: #f8fafc; border: 1px solid var(--border);" onclick="closeMod(); editCust('${item.customerId}');" title="Apri scheda cliente">
+                        <button class="btn" style="padding: 7px 9px; font-size: 11px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;" onclick="closeMod(); editCust('${item.customerId}');" title="Apri scheda cliente">
                             👤
                         </button>
                     ` : ''}
@@ -15714,6 +15739,8 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
     if (typeof renderLogs === 'function') {
         await renderLogs();
     }
+
+dismissPackageExpiryAlert(item.cpId, item.expiryDate);
 
     // 5. Apertura WhatsApp
     if (window.api && typeof window.api.openExternal === 'function') {
