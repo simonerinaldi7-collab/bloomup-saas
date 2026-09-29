@@ -9077,106 +9077,116 @@ async function registerOperatorPushNotifications() {
 }
             // --- COMUNICAZIONI ---
             function getFriendlyType(t) {
-                if(t.includes('WA_CONFIRM')) return "WhatsApp: Conferma";
-                if(t.includes('SMS_CONFIRM')) return "SMS: Conferma";
-                if(t.includes('WA_REMINDER')) return "WhatsApp: Promemoria";
-                if(t.includes('SMS_REMINDER')) return "SMS: Promemoria";
+                if (!t) return "Messaggio";
+                if (t.includes('WA_CONFIRM')) return "WhatsApp: Conferma";
+                if (t.includes('SMS_CONFIRM')) return "SMS: Conferma";
+                if (t.includes('WA_REMINDER')) return "WhatsApp: Promemoria";
+                if (t.includes('SMS_REMINDER')) return "SMS: Promemoria";
+                if (t.includes('PACKAGE_EXPIRY') || t.includes('PACCHETTO')) return "WhatsApp: Rinnovo Pacchetto";
                 return t;
             }
 
-           function renderLogs() {
-        const tbody = document.getElementById('list-logs'), 
-            archive = document.getElementById('list-archive-logs');
-        const fCust = document.getElementById('filter-log-cust').value.toLowerCase();
-        const fDate = document.getElementById('filter-log-date').value;
-        const fStatus = document.getElementById('filter-log-status').value;
-        const targetHours = parseInt(sysSettings.reminder_hours) || 48;
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        
-        const targetDate = new Date();
-        targetDate.setHours(targetDate.getHours() + targetHours);
-        const dateStr = targetDate.toISOString().split('T')[0];
-        
-        // Aggiorna Intestazione Tabella Promemoria
-        document.querySelector('#v-logs table:first-of-type thead tr').innerHTML = `
-            <th style="width:40px"><input type="checkbox" onclick="toggleAllLogs(this.checked)"></th>
-            <th>Stato</th><th>Cliente</th><th>Tel</th><th>Appunt.</th><th>Azione</th>
-        `;
-        
-        let html = '';
-        
-        allAppointments.filter(a => {
-            // 🛡️ 1. DICHIARAZIONE CORRETTA DELLE VARIABILI (Risolve il ReferenceError)
-            const custNameLower = (a.cust_name || '').toLowerCase();
-            const serviceLower = (a.service || '').toLowerCase();
+     async function renderLogs() {
+    const tbody = document.getElementById('list-logs');
+    const archive = document.getElementById('list-archive-logs');
+    if (!tbody || !archive) return;
 
-            // 🛑 2. ESCLUSIONE RIGOROSA DI PAUSE, CHIUSURE E FERIE
-            const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa') || custNameLower.includes('pranzo');
-            const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || 
-                               custNameLower.includes('ferie') || serviceLower.includes('ferie');
-            
-            if (isPausa || isChiusura) return false; 
+    const fCust = (document.getElementById('filter-log-cust')?.value || '').toLowerCase().trim();
+    const fDate = document.getElementById('filter-log-date')?.value || '';
+    const fStatus = document.getElementById('filter-log-status')?.value || 'all';
+    const targetHours = parseInt(sysSettings.reminder_hours) || 48;
+    const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
 
-            // Filtri standard (data, operatore, ricerca cliente)
-            const matchDate = !fDate || a.date === fDate;
-            const matchCust = custNameLower.includes(fCust);
-            return a.date === dateStr && matchCust && matchDate;
-        }).forEach(a => {
-            const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
-            
-            const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
-            
-            // Ricerca sicura del telefono del cliente per l'appuntamento corrente
-            const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
-            const matchedCust = allCustomers.find(c => {
-                const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
-                const legacyName = (c.name || "").trim().toLowerCase();
-                return fullName === aCustNameClean || legacyName === aCustNameClean || fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName);
-            });
-            const custPhone = matchedCust ? matchedCust.phone : '-';
-
-            if (fStatus === 'all' || (fStatus === 'pending' && !alreadySent) || (fStatus === 'sent' && alreadySent)) {
-                if (!alreadySent) {
-                    html += `<tr>
-                        <td><input type="checkbox" class="log-cb" value="${a.id}"></td>
-                        <td><span class="badge-alert">DA INV</span></td>
-                        <td><b>${a.cust_name}</b></td>
-                        <td>${custPhone}</td>
-                        <td>${formatDateIt(a.date)} @ ${a.time}</td>
-                        <td>
-                            <button class="btn btn-w" onclick="sendIndividualRem('${a.id}', 'wa')">WA</button>
-                            <button class="btn" style="padding:5px 10px; background:#fff" onclick="sendIndividualRem('${a.id}', 'sms')">SMS</button>
-                        </td>
-                    </tr>`;
-                }
-            }
-        });
-        tbody.innerHTML = html;
-
-        // Aggiorna Intestazione Archivio
-        document.querySelector('#v-logs table:last-of-type thead tr').innerHTML = `
-            <th>Data Invio</th><th>Tipo</th><th>Cliente</th><th>Tel</th><th>Rif. Appuntamento</th><th>Autore</th>
-        `;
-
-        const sortedLogs = allLogs
-            .filter(l => (l.cust_name || '').toLowerCase().includes(fCust))
-            .sort((a, b) => {
-                const dateA = a.sent_at || '';
-                const dateB = b.sent_at || '';
-                return dateB.localeCompare(dateA);
-            });
-
-        archive.innerHTML = sortedLogs.map(l => `
-            <tr>
-                <td>${formatDateIt(l.sent_at)}</td>
-                <td><span class="badge-success">${getFriendlyType(l.msg_type)}</span></td>
-                <td><b>${l.cust_name}</b></td>
-                <td>${l.phone}</td>
-                <td>${l.appointment_info}</td>
-                <td>${l.created_by || 'Sistema'}</td>
-            </tr>`).join('');
+    // 🌟 RECUPERO DIRETTO DEI LOG FRESCHI DA DEXIE (CASE-INSENSITIVE)
+    try {
+        if (window.localDb && window.localDb.message_logs) {
+            const rawLogs = await window.localDb.message_logs.toArray() || [];
+            allLogs = rawLogs.filter(l => String(l.salon_id || '').trim().toLowerCase() === currentSalon);
+        } else {
+            allLogs = await window.universalQuery({ action: 'GET_ALL', table: 'message_logs' }) || [];
+        }
+    } catch (e) {
+        console.warn("Errore lettura diretta message_logs:", e);
     }
 
+    const targetDate = new Date();
+    targetDate.setHours(targetDate.getHours() + targetHours);
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    // TABELLA 1: Promemoria da inviare
+    let htmlPending = '';
+    (allAppointments || []).filter(a => {
+        const custNameLower = (a.cust_name || '').toLowerCase();
+        const serviceLower = (a.service || '').toLowerCase();
+        const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa') || custNameLower.includes('pranzo');
+        const isChiusura = custNameLower.includes('chiusura') || serviceLower.includes('chiusura') || custNameLower.includes('ferie');
+        if (isPausa || isChiusura) return false;
+
+        const matchDate = !fDate || a.date === fDate;
+        const matchCust = custNameLower.includes(fCust);
+        return a.date === dateStr && matchCust && matchDate;
+    }).forEach(a => {
+        const logKey = `${currentSalon} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
+        const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
+
+        const aCustNameClean = (a.cust_name || "").trim().toLowerCase();
+        const matchedCust = (allCustomers || []).find(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+            return fullName === aCustNameClean || fullName.includes(aCustNameClean);
+        });
+        const custPhone = matchedCust ? matchedCust.phone : '-';
+
+        if (fStatus === 'all' || (fStatus === 'pending' && !alreadySent) || (fStatus === 'sent' && alreadySent)) {
+            if (!alreadySent) {
+                htmlPending += `<tr>
+                    <td><input type="checkbox" class="log-cb" value="${a.id}"></td>
+                    <td><span class="badge-alert">DA INV</span></td>
+                    <td><b>${a.cust_name}</b></td>
+                    <td>${custPhone}</td>
+                    <td>${formatDateIt(a.date)} @ ${a.time ? a.time.substring(0, 5) : ''}</td>
+                    <td>
+                        <button class="btn btn-w" style="padding: 4px 8px; font-size: 11px;" onclick="sendIndividualRem('${a.id}', 'wa')">WA</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background:#fff" onclick="sendIndividualRem('${a.id}', 'sms')">SMS</button>
+                    </td>
+                </tr>`;
+            }
+        }
+    });
+    tbody.innerHTML = htmlPending;
+
+    // TABELLA 2: Storico Comunicazioni Completo (Ordinato dal più recente)
+    const sortedLogs = [...allLogs]
+        .filter(l => (l.cust_name || '').toLowerCase().includes(fCust))
+        .sort((a, b) => {
+            const dateA = a.sent_at || a.created_at || '';
+            const dateB = b.sent_at || b.created_at || '';
+            return dateB.localeCompare(dateA);
+        });
+
+    if (sortedLogs.length === 0) {
+        archive.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 20px;">Nessuna comunicazione registrata nello storico.</td></tr>`;
+        return;
+    }
+
+    archive.innerHTML = sortedLogs.map(l => {
+        const timeFormatted = l.sent_at && l.sent_at.includes(' ') 
+            ? l.sent_at.split(' ')[1].substring(0, 5) 
+            : (l.sent_at && l.sent_at.includes('T') ? l.sent_at.split('T')[1].substring(0, 5) : '');
+        const dateFormatted = formatDateIt(l.sent_at);
+        const displayDateTime = timeFormatted ? `${dateFormatted} alle ${timeFormatted}` : dateFormatted;
+
+        return `
+            <tr>
+                <td><b>${displayDateTime}</b></td>
+                <td><span class="badge-success">${getFriendlyType(l.msg_type)}</span></td>
+                <td><b>${l.cust_name}</b></td>
+                <td>${l.phone || '-'}</td>
+                <td style="font-size: 12px; color: #334155;">${l.appointment_info || '-'}</td>
+                <td><b>${l.created_by || 'Admin'}</b></td>
+            </tr>
+        `;
+    }).join('');
+}
 
 
 
@@ -15641,7 +15651,7 @@ function renderExpiringPackagesModalList() {
     }).join('');
 }
 
-// 3. Generazione e Invio Diretto del Messaggio WhatsApp con Placeholder Dinamici
+// 3. Generazione e Invio Diretto del Messaggio WhatsApp con Sincronizzazione Storico Immediata
 async function sendPackageRenewalWhatsApp(custPkgId) {
     const item = cachedExpiringPackages.find(p => p.cpId === custPkgId);
     if (!item) return alert("Dati del pacchetto non trovati.");
@@ -15676,18 +15686,34 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
 
+    const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+    const nowTimeStr = getNowLocal();
+
     // 4. Registrazione nello storico comunicazioni (message_logs)
     const logData = {
         id: crypto.randomUUID(),
-        salon_id: currentUser ? currentUser.salon_id : 'SALON_001',
+        salon_id: currentSalon,
         cust_name: item.customerName,
         phone: item.customerPhone,
         msg_type: 'WA_PACKAGE_EXPIRY',
-        appointment_info: `Scadenza Pacchetto: ${item.packageName} (${formattedExpiry})`,
-        sent_at: getNowLocal(),
-        created_by: currentUser ? currentUser.username : 'Admin'
+        appointment_info: `Scadenza Pacchetto: ${item.packageName} (Scad: ${formattedExpiry} - ${item.remainingSessions} sedute rimaste)`,
+        sent_at: nowTimeStr,
+        created_by: currentUser ? currentUser.username : 'Admin',
+        updated_at: nowTimeStr
     };
+
+    // Scrittura locale e cloud
     await window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData });
+
+    // 🌟 AGGIORNAMENTO ISTANTANEO IN MEMORIA (IN CIMA ALLA LISTA)
+    if (Array.isArray(allLogs)) {
+        allLogs.unshift(logData);
+    }
+
+    // 🌟 REFRESH IMMEDIATO DELLA TABELLA STORICO SE APERTA
+    if (typeof renderLogs === 'function') {
+        await renderLogs();
+    }
 
     // 5. Apertura WhatsApp
     if (window.api && typeof window.api.openExternal === 'function') {
