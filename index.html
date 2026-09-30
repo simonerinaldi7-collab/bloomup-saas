@@ -639,6 +639,111 @@
         .pwa-btn-close { background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 0 4px; }
 
 
+
+
+        /* ======================================================== */
+/* 🎨 THEME ENGINE: FEMMINILE (BEAUTY) vs MASCHILE (BARBER) */
+/* ======================================================== */
+
+/* 🌸 TEMA 1: BEAUTY & GLAMOUR (Predefinito / Femminile) */
+:root, [data-theme="beauty"] {
+    --p: #6C5CE7;
+    --p-light: #ede9fe;
+    --p-border: #c4b5fd;
+    --p-hover: #5b4bc4;
+    --s: #00B894;
+    --d: #E17055;
+    --bg: #F4F7FE;
+    --txt: #2D3436;
+    --border: #DFE6E9;
+    --sidebar: #2D3436;
+}
+
+/* 💈 TEMA 2: BARBER & EXECUTIVE (Maschile / Grooming) */
+[data-theme="barber"] {
+    --p: #D97706; /* Ambra / Cuoio / Ottone Barber */
+    --p-light: #fef3c7;
+    --p-border: #fde68a;
+    --p-hover: #b45309;
+    --s: #10B981;
+    --d: #EF4444;
+    --bg: #f1f5f9; /* Slate 100 - Texture tecnica pulita */
+    --txt: #0f172a; /* Slate 900 */
+    --border: #cbd5e1;
+    --sidebar: #0f172a; /* Nero Antracite / Notte profondo */
+}
+
+/* Adattamenti specifici per il Tema Maschile Barber */
+[data-theme="barber"] #login-screen {
+    background: linear-gradient(135deg, #090d16 0%, #1e293b 60%, #334155 100%) !important;
+}
+
+[data-theme="barber"] .login-icon-badge {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+}
+
+[data-theme="barber"] .login-card input:focus {
+    border-color: #d97706 !important;
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.15) !important;
+}
+
+[data-theme="barber"] .login-btn {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35) !important;
+}
+
+[data-theme="barber"] .btn-p {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
+    border: none !important;
+    color: white !important;
+}
+
+[data-theme="barber"] .nav-item.active {
+    background: #d97706 !important;
+    border-left-color: #ffffff !important;
+}
+
+[data-theme="barber"] .sidebar-brand {
+    color: #d97706 !important;
+}
+
+/* Card di selezione tema nelle impostazioni */
+.theme-selector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.theme-card {
+    border: 2px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    user-select: none;
+}
+
+.theme-card:hover {
+    border-color: #94a3b8;
+    transform: translateY(-2px);
+}
+
+.theme-card.active-theme {
+    border-color: var(--p) !important;
+    background: var(--p-light) !important;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+[data-theme="barber"] .theme-card.active-theme {
+    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2) !important;
+}
+
 /* 📱 RESPONSIVE AGENDA SETTIMANA SU MOBILE */
         @media screen and (max-width: 768px) {
             .time-grid-week {
@@ -2071,6 +2176,42 @@
     <section id="v-settings" class="view">
         <div class="card" style="max-width: 700px; margin: 0 auto;">
             <h3 style="margin-top:0; color:var(--p);">⚙️ Configurazione Sistema & Template</h3>
+
+<!-- Nel <section id="v-settings">, subito sotto <h3> Configurazione Sistema: -->
+<div style="background: #ffffff; border: 1.5px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 22px;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <label style="margin: 0; color: var(--p); font-size: 13px; font-weight: 800;">🎨 Stile Visivo & Identità Salone</label>
+            <small style="color: #64748b; font-size: 11.5px;">Scegli l'atmosfera grafica più adatta al tuo punto vendita (cambio istantaneo).</small>
+        </div>
+        <span id="current-theme-pill" style="font-size: 10.5px; font-weight: 800; background: var(--p-light); color: var(--p); padding: 3px 8px; border-radius: 6px;">Beauty Attivo</span>
+    </div>
+
+    <input type="hidden" id="set-app-theme" value="beauty">
+
+    <div class="theme-selector-grid">
+        <!-- TEMA FEMMINILE / BEAUTY -->
+        <div class="theme-card active-theme" id="theme-card-beauty" onclick="chooseAppTheme('beauty')">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 20px;">🌸</span>
+                <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #6C5CE7; border: 2px solid white; box-shadow: 0 0 0 1px #6C5CE7;"></span>
+            </div>
+            <b style="font-size: 13px; color: #1e1b4b;">Beauty & Glamour</b>
+            <small style="font-size: 11px; color: #64748b; line-height: 1.3;">Stile sofisticato con sfumature viola, lavanda e indaco. Ideale per saloni donna, hair spa ed estetica.</small>
+        </div>
+
+        <!-- TEMA MASCHILE / BARBER -->
+        <div class="theme-card" id="theme-card-barber" onclick="chooseAppTheme('barber')">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 20px;">💈</span>
+                <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #D97706; border: 2px solid white; box-shadow: 0 0 0 1px #0f172a;"></span>
+            </div>
+            <b style="font-size: 13px; color: #1e1b4b;">Barber & Executive</b>
+            <small style="font-size: 11px; color: #64748b; line-height: 1.3;">Stile deciso con finiture nero antracite, ardesia e cuoio dorato. Ideale per barber shop e grooming.</small>
+        </div>
+    </div>
+</div>
+
             
             <label>Ore d'anticipo Reminder</label>
             <input type="number" id="set-rem-hours">
@@ -7464,6 +7605,11 @@ if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'
         const reminderMsgEl = document.getElementById('set-msg-reminder');
         const imminentLeadEl = document.getElementById('set-imminent-lead');
 
+
+// Dentro loadSettingsFields():
+const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
+applyAppTheme(currentTheme);
+
         if (remHoursEl) remHoursEl.value = sysSettings['reminder_hours'] || '48';
         if (confirmMsgEl) confirmMsgEl.value = sysSettings['template_confirm'] || '';
         if (reminderMsgEl) reminderMsgEl.value = sysSettings['template_reminder'] || '';
@@ -9954,7 +10100,9 @@ function closeDuplicateModal() {
                     { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
                     // 🎁 NUOVE CHIAVI SCADENZA PACCHETTI:
                     { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
-                    { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' }
+                    { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
+    // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
+    { key: 'app_theme', id: 'set-app-theme' }
                 ];
                 
                 for (let f of fields) {
@@ -10620,7 +10768,52 @@ const prevRenderProducts = window.renderProducts;
 
 
 
+// =========================================================================
+// 🎨 MOTORE TEMI ISTANTANEO (BEAUTY vs BARBER)
+// =========================================================================
 
+// 1. APPLICA IL TEMA ALL'ELEMENTO RADICE HTML (ZERO RELOAD)
+function applyAppTheme(themeName) {
+    const validTheme = (themeName === 'barber') ? 'barber' : 'beauty';
+    
+    // Imposta l'attributo sull'elemento root HTML
+    document.documentElement.setAttribute('data-theme', validTheme);
+    
+    // Salva in locale per evitare sfarfallii all'avvio
+    localStorage.setItem('VaiMUp_app_theme', validTheme);
+    
+    // Aggiorna l'interfaccia delle card nelle impostazioni se visibile
+    const cardBeauty = document.getElementById('theme-card-beauty');
+    const cardBarber = document.getElementById('theme-card-barber');
+    const hiddenInput = document.getElementById('set-app-theme');
+    const statusPill = document.getElementById('current-theme-pill');
+
+    if (cardBeauty && cardBarber) {
+        if (validTheme === 'barber') {
+            cardBarber.classList.add('active-theme');
+            cardBeauty.classList.remove('active-theme');
+            if (statusPill) statusPill.innerText = "Barber Attivo";
+        } else {
+            cardBeauty.classList.add('active-theme');
+            cardBarber.classList.remove('active-theme');
+            if (statusPill) statusPill.innerText = "Beauty Attivo";
+        }
+    }
+    if (hiddenInput) hiddenInput.value = validTheme;
+
+    console.log(`🎨 [THEME ENGINE] Tema applicato: ${validTheme.toUpperCase()}`);
+}
+
+// 2. SCELTA TEMA DALL'INTERFACCIA IMPOSTAZIONI
+function chooseAppTheme(themeName) {
+    applyAppTheme(themeName);
+}
+
+// 3. APPLICAZIONE AUTOMATICA ALL'AVVIO PRIMA DEL RENDERING (ZERO FOUC)
+(function() {
+    const savedTheme = localStorage.getItem('VaiMUp_app_theme') || 'beauty';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+})();
 
 
 
