@@ -9469,6 +9469,109 @@ async function registerOperatorPushNotifications() {
 }
 
 
+
+// =========================================================================
+// 🤖 MOTORE AUTONOMO IA CON WEB GROUNDING (USA LA CHIAVE SICURA DA SUPABASE)
+// =========================================================================
+
+async function resolveBarcodeAutonomouslyWithAi(barcode) {
+    const cleanBarcode = String(barcode).trim();
+
+    // 1. Assicuriamoci che la chiave salvata su Supabase sia caricata in memoria
+    if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
+        await loadSecureAiKey();
+    }
+    const apiKey = window._runtimeAiKey;
+
+    if (!apiKey) {
+        console.warn("⚠️ Nessuna chiave IA trovata nella tabella settings di Supabase.");
+        return null;
+    }
+
+    const isGoogleKey = apiKey.startsWith("AIza");
+    console.log(`🤖 [AI WEB SEARCH] Ricerca autonoma sul web per barcode: ${cleanBarcode} (Provider: ${isGoogleKey ? 'Google Gemini Native' : 'OpenRouter'})...`);
+
+    const promptText = `Identifica l'articolo o prodotto associato al codice a barre EAN/UPC: ${cleanBarcode}.
+Effettua una ricerca sul web e trova la Marca/Brand, il Nome del prodotto commerciale e il Formato o Taglia (es. 1.5L, 500ml, pacchetto da 20, 250ml, S, M, L).
+Rispondi ESCLUSIVAMENTE con un JSON valido (senza testo extra, spiegazioni o markdown):
+{
+  "name": "Nome Prodotto Completo",
+  "model": "Marca o Linea",
+  "size": "Formato o Taglia",
+  "unit": "ml" o "L" o "Pezzi" o "g"
+}`;
+
+    try {
+        // CASO A: Chiave Google Gemini da Supabase (AIza...) con Google Search nativo attivo
+        if (isGoogleKey) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    tools: [{ google_search: {} }] // 🌟 Ricerca Google attiva in tempo reale
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                return cleanJsonFromAi(text, cleanBarcode);
+            }
+        } 
+        // CASO B: Chiave OpenRouter da Supabase (sk-or-...) con Web Plugin attivo
+        else {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'VaiMUp AI Barcode Grounding'
+                },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-001:online",
+                    plugins: [{ id: "web" }],
+                    messages: [{ role: "user", content: promptText }],
+                    temperature: 0.1
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.choices?.[0]?.message?.content || "";
+                return cleanJsonFromAi(text, cleanBarcode);
+            }
+        }
+    } catch (err) {
+        console.error("Errore chiamata IA autonoma:", err);
+    }
+    return null;
+}
+
+function cleanJsonFromAi(rawText, barcode) {
+    try {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) {
+            const p = JSON.parse(match[0]);
+            if (p.name && p.name.trim().length > 1) {
+                return {
+                    barcode: barcode,
+                    name: p.name.trim(),
+                    model: p.model ? p.model.trim() : '',
+                    size: p.size ? p.size.trim() : '',
+                    unit: p.unit ? p.unit.trim() : 'Pezzi',
+                    detected_source: 'Intelligenza Artificiale (Ricerca Web in Tempo Reale)'
+                };
+            }
+        }
+    } catch(e) {}
+    return null;
+}
+
+
+
 // =========================================================================
 // 🔍 MOTORE RICERCA BARCODE & FILTRI PRODOTTI (REGISTRATO SU WINDOW)
 // =========================================================================
@@ -13118,7 +13221,10 @@ function handleFastBarcodeManualKey(e) {
     }
 }
 
-// 4. RICERCA A CASCATA: LOCALE ➔ CLOUD ➔ OPEN BEAUTY FACTS ➔ IA
+// =========================================================================
+// ⚡ SCANSIONE BARCODE A CASCATA (LOCALE ➔ OPEN*FACTS ➔ IA SUL WEB)
+// =========================================================================
+
 async function processScannedBarcode(barcode) {
     const cleanBarcode = String(barcode).trim();
     const input = document.getElementById('fast-scan-barcode-input');
@@ -13126,94 +13232,77 @@ async function processScannedBarcode(barcode) {
     const resultPane = document.getElementById('fast-scan-result-pane');
     
     if (input) input.value = cleanBarcode;
-    if (spinner) spinner.style.display = 'inline';
-
-    console.log(`🔍 [LOOKUP BARCODE] Avvio ricerca per codice: ${cleanBarcode}...`);
+    if (spinner) {
+        spinner.innerText = "🔍 Ricerca automatica in corso...";
+        spinner.style.display = 'inline';
+    }
 
     try {
-        // TIER 1: Ricerca in locale (Esiste già nel magazzino del salone?)
+        // 1. Prodotto già presente nel magazzino del tuo salone
         const localProduct = (allInventory || []).find(p => p.barcode && String(p.barcode).trim() === cleanBarcode);
-
         if (localProduct) {
             playWarehouseAudioFeedback('success');
-            console.log("✅ [TIER 1] Prodotto già esistente in locale:", localProduct.name);
             await displayFastScanProduct(localProduct, 'local');
             return;
         }
 
-        // TIER 2: Ricerca nel Master Catalog Condiviso di Supabase
-        if (navigator.onLine && window.SUPABASE_CONFIG) {
-            try {
-                const resMaster = await fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/master_catalog_products?barcode=eq.${cleanBarcode}&select=*`, {
-                    headers: { 'apikey': window.SUPABASE_CONFIG.key, 'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key }
-                });
-                if (resMaster.ok) {
-                    const masterRows = await resMaster.json();
-                    if (masterRows && masterRows.length > 0) {
-                        playWarehouseAudioFeedback('new_product');
-                        console.log("✅ [TIER 2] Trovato nel Master Catalog VaiMUp:", masterRows[0]);
-                        await displayFastScanProduct(masterRows[0], 'master_catalog');
-                        return;
-                    }
-                }
-            } catch (errMaster) {
-                console.warn("Master catalog lookup fallito:", errMaster);
-            }
-        }
-
-        // TIER 3: Ricerca API Open Beauty Facts (Database mondiale Cosmetica / Haircare)
+        // 2. Rete Open*Facts gratuita (Open Food Facts trova subito l'acqua, Open Beauty i cosmetici)
         if (navigator.onLine) {
-            try {
-                const obfRes = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${cleanBarcode}.json`);
-                if (obfRes.ok) {
-                    const obfData = await obfRes.json();
-                    if (obfData.status === 1 && obfData.product) {
-                        const prod = obfData.product;
-                        const brand = prod.brands || '';
-                        const nameOnly = prod.product_name_it || prod.product_name || '';
-                        const fullName = brand ? `${brand} - ${nameOnly}`.trim() : nameOnly;
-                        const size = prod.quantity || '';
+            const dbs = [
+                { url: `https://world.openfoodfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Food Facts (Bevande/Acqua)' },
+                { url: `https://world.openbeautyfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Beauty Facts (Cosmesi)' },
+                { url: `https://world.openproductsfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Products Facts (Retail/Tabacchi)' }
+            ];
 
-                        const candidate = {
-                            barcode: cleanBarcode,
-                            name: fullName || 'Prodotto Cosmetico',
-                            model: brand || '',
-                            size: size,
-                            unit: (size.toLowerCase().includes('ml') || size.toLowerCase().includes('l')) ? 'ml' : 'Pezzi'
-                        };
+            for (let db of dbs) {
+                try {
+                    const res = await fetch(db.url);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.status === 1 && json.product) {
+                            const p = json.product;
+                            const brand = p.brands || p.brand || '';
+                            const nameOnly = p.product_name_it || p.product_name || p.generic_name_it || '';
+                            const fullName = brand && nameOnly && !nameOnly.toLowerCase().includes(brand.toLowerCase())
+                                ? `${brand} - ${nameOnly}`.trim() : (nameOnly || brand);
+                            const size = p.quantity || '';
+                            let unit = 'Pezzi';
+                            if (size.toLowerCase().includes('ml')) unit = 'ml';
+                            else if (size.toLowerCase().includes('l')) unit = 'L';
+                            else if (size.toLowerCase().includes('g')) unit = 'g';
 
-                        playWarehouseAudioFeedback('new_product');
-                        console.log("✅ [TIER 3] Trovato in Open Beauty Facts:", candidate);
-                        await displayFastScanProduct(candidate, 'open_beauty_facts');
-                        return;
+                            const found = {
+                                barcode: cleanBarcode,
+                                name: fullName || 'Articolo Rilevato',
+                                model: brand || '',
+                                size: size,
+                                unit: unit,
+                                detected_source: db.label
+                            };
+                            playWarehouseAudioFeedback('new_product');
+                            await displayFastScanProduct(found, 'external_db');
+                            return;
+                        }
                     }
-                }
-            } catch (errObf) {
-                console.warn("Open Beauty Facts lookup fallito:", errObf);
+                } catch(e) {}
             }
         }
 
-        // TIER 4: Fallback con Intelligenza Artificiale (Per abbigliamento, formati salone o novità)
-        if (window._runtimeAiKey || (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey)) {
-            try {
-                const aiResult = await fetchBarcodeViaAiAgent(cleanBarcode);
-                if (aiResult && aiResult.name) {
-                    playWarehouseAudioFeedback('new_product');
-                    console.log("✅ [TIER 4] Risolto tramite AI Fallback:", aiResult);
-                    await displayFastScanProduct(aiResult, 'ai_agent');
-                    return;
-                }
-            } catch (errAi) {
-                console.warn("AI Barcode lookup fallito:", errAi);
-            }
+        // 3. 🤖 SE NON È NEI DATABASE, L'IA CERCA AUTONOMAMENTE SUL WEB
+        if (spinner) spinner.innerText = "🤖 Ricerca autonoma IA sul Web...";
+        const aiFound = await resolveBarcodeAutonomouslyWithAi(cleanBarcode);
+        if (aiFound && aiFound.name) {
+            playWarehouseAudioFeedback('new_product');
+            await displayFastScanProduct(aiFound, 'ai_agent');
+            return;
         }
 
-        // Se non trovato in nessuna fonte: Pre-imposta per creazione manuale veloce
+        // 4. Non trovato: compila manualmente
         playWarehouseAudioFeedback('error');
         await displayFastScanProduct({ barcode: cleanBarcode, name: '', model: '', size: '', unit: 'Pezzi' }, 'not_found');
 
     } catch (err) {
-        console.error("Errore processo scansione barcode:", err);
+        console.error("Errore scansione barcode:", err);
         playWarehouseAudioFeedback('error');
     } finally {
         if (spinner) spinner.style.display = 'none';
