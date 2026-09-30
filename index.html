@@ -943,7 +943,7 @@
             Inserisci l'indirizzo email associato al tuo account. Ti invieremo un link sicuro per reimpostare la password in autonomia.
         </p>
         <label>Email dell'Account</label>
-        <input type="email" id="reset-email-input" placeholder="tuamail@salone.it">
+        <input type="email" id="reset-email-input" placeholder="tuamail@negozio.it">
         <button class="btn btn-p" style="width:100%; justify-content:center; margin-top:10px; padding:14px;" onclick="submitPasswordReset()">Invia Link di Recupero</button>
     </div>
 </div>
@@ -1709,7 +1709,7 @@
                     <th>Nome Pacchetto</th>
                     <th>Prezzo Listino</th>
                     <th>Servizi Inclusi & Sedute</th>
-                    <th>Saloni Condivisi</th>
+                    <th>Venditori Condivisi</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
             </thead>
@@ -1755,23 +1755,23 @@
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" id="f-pkg-is-shared" onchange="togglePackageSharingSection(this.checked)" style="width: 18px; height: 18px; accent-color: var(--p); margin: 0; cursor: pointer;">
                     <label for="f-pkg-is-shared" style="margin: 0; font-weight: bold; color: var(--p); font-size: 13px; text-transform: none; cursor: pointer;">
-                        🤝 Condividi questo pacchetto con altri saloni partner (Multi-Salon)
+                        🤝 Condividi questo pacchetto con altri partner (Multi-Salon)
                     </label>
                 </div>
 
                 <!-- Sezione visibile SOLO se la spunta è attiva -->
                 <div id="package-sharing-details" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
                     <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4; margin-bottom: 10px;">
-                        <b>💡 Nota bene:</b> Inserisci gli ID esatti dei saloni partner abilitati (separati da virgola). Se il pacchetto è venduto solo nel tuo salone, lascia la spunta sopra disattivata.
+                        <b>💡 Nota bene:</b> Inserisci gli ID esatti dei partner abilitati (separati da virgola). Se il pacchetto è venduto solo da te, lascia la spunta sopra disattivata.
                     </div>
 
-                    <label style="margin-top:0;">ID dei saloni partner abilitati (separa con virgola)</label>
+                    <label style="margin-top:0;">ID dei partner abilitati (separa con virgola)</label>
                     <input type="text" id="f-pkg-shared-salons" placeholder="Es. salon_partner_roma, salon_partner_milano" oninput="generateSalonSplitFields()" style="margin: 0 0 12px 0; background: white; font-size: 13px;">
 
                     <!-- Contenitore quote adattive -->
                     <div style="background: #ffffff; border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <label style="margin:0; font-size: 11px; color: #4338ca;">Ripartizione quote per Salone</label>
+                            <label style="margin:0; font-size: 11px; color: #4338ca;">Ripartizione quote per Venditore</label>
                             <select id="f-pkg-split-type" onchange="generateSalonSplitFields()" style="margin:0; width: 130px; padding: 4px; font-size: 11px;">
                                 <option value="percent">Percentuale (%)</option>
                                 <option value="fixed">Valore (€)</option>
@@ -1899,7 +1899,7 @@
     <section id="v-users" class="view">
     <div class="card">
         <h3>Gestione Utenti & Operatori</h3>
-        <p style="color:#666; font-size:13px; margin-bottom:20px;">Crea o modifica gli operatori del salone, assegna i ruoli e il colore identificativo per l'agenda.</p>
+        <p style="color:#666; font-size:13px; margin-bottom:20px;">Crea o modifica gli operatori dell'attività, assegna i ruoli e il colore identificativo per l'agenda.</p>
         
         <!-- Form di Creazione / Modifica Utente -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; align-items: end; background: #f8f9fa; padding: 20px; border-radius: 16px; border: 1px solid var(--border);">
@@ -2011,12 +2011,12 @@
             <h3 style="margin:0; color:var(--p);">🤖 VaiMUp AI Business Coach & Guide</h3>
             <button class="btn" style="padding: 6px 12px; font-size: 11px; background: #f1f5f9;" onclick="toggleAiDrawer(false)">✕ Chiudi</button>
         </div>
-        <p style="color:#64748b; font-size:13px; margin-top:0;">Chiedi informazioni su come utilizzare le funzioni del gestionale o analizza in tempo reale i dati del tuo salone.</p>
+        <p style="color:#64748b; font-size:13px; margin-top:0;">Chiedi informazioni su come utilizzare le funzioni del gestionale o analizza in tempo reale i dati della tua attività.</p>
         
         <!-- Box della chat scrollabile -->
         <div id="ai-chat-messages" style="flex-grow: 1; overflow-y: auto; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
             <div style="background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 85%; font-size: 13px; line-height: 1.4;">
-                👋 Ciao! Sono il tuo assistente virtuale di VaiMUp. Posso guidarti nell'uso dell'app (es. <i>"Come faccio uno storno?"</i>, <i>"Come carico merce?"</i>) oppure analizzare i dati del tuo salone. Come posso aiutarti?
+                👋 Ciao! Sono il tuo assistente virtuale di VaiMUp. Posso guidarti nell'uso dell'app (es. <i>"Come faccio uno storno?"</i>, <i>"Come carico merce?"</i>) oppure analizzare i dati della tua attività. Come posso aiutarti?
             </div>
         </div>
 
@@ -2049,7 +2049,7 @@
     <!-- Contenuto Chat del Drawer -->
     <div id="ai-drawer-messages" style="flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc;">
         <div style="background: white; padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 90%; font-size: 13px; line-height: 1.4;">
-            👋 Ciao! Sono pronto ad aiutarti. Chiedimi pure una guida sulle operazioni del salone o un'analisi sull'incasso.
+            👋 Ciao! Sono pronto ad aiutarti. Chiedimi pure una guida sulle operazioni dell'attività o un'analisi sull'incasso.
         </div>
     </div>
 
@@ -2872,7 +2872,7 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; margin-bottom: 10px;">
                     <div>
-                        <label style="margin: 0 0 4px 0;">Saloni Partner Abilitati (separa con virgola)</label>
+                        <label style="margin: 0 0 4px 0;">Partner Abilitati (separa con virgola)</label>
                         <input type="text" id="f-ws-salons" placeholder="Es. salon_001, salon_002" style="margin: 0;">
                     </div>
                     <div>
@@ -2927,7 +2927,7 @@
         <label>Operatore Assegnato</label>
         <input type="text" id="f-wb-operator" placeholder="Nome operatore">
 
-        <label>Note / Motivazione (Visibili solo al tuo salone)</label>
+        <label>Note / Motivazione (Visibili solo al tuo negozio)</label>
         <input type="text" id="f-wb-notes" placeholder="Es. Trattamento corpo con macchinario">
 
         <!-- Banner Alert Conflitto -->
@@ -4241,7 +4241,7 @@ async function submitPasswordReset() {
                 let waButtonHtml = '';
                 if (phone && typeof formatPhoneNumberForWhatsApp === 'function') {
                     const cleanPhone = formatPhoneNumberForWhatsApp(phone);
-                    const msg = encodeURIComponent(`Ciao ${c.first_name || ''}! È un po' che non ci vieni a trovare in salone, ti aspettiamo presto per coccolarti un po'! ✨`);
+                    const msg = encodeURIComponent(`Ciao ${c.first_name || ''}! È un po' che non ci vieni a trovare in negozio, ti aspettiamo presto per coccolarti un po'! ✨`);
                     waButtonHtml = `<a href="https://wa.me/${cleanPhone}?text=${msg}" target="_blank" class="btn btn-w" style="padding:4px 10px; font-size:11px; margin-top:8px; text-decoration:none;">💬 Invia WhatsApp "Ci manchi"</a>`;
                 }
 
@@ -5981,7 +5981,7 @@ function formatDeterministicResponse(payload) {
         return `📅 **Panoramica Odierna:**\n- Appuntamenti programmati oggi: **${data.appuntamenti_oggi}**\n- Anagrafica clienti totale: **${data.clienti_totali}**\n\n${data.lista_oggi.length > 0 ? "Prossimi passaggi:\n" + data.lista_oggi.join('\n') : "Nessun appuntamento rimasto per oggi."}`;
     }
 
-    return `🤖 Analisi del salone completata con successo. Come posso aiutarti ulteriormente?`;
+    return `🤖 Analisi dell'attività completata con successo. Come posso aiutarti ulteriormente?`;
 }
 
 
@@ -7131,7 +7131,7 @@ async function renderPackages() {
         const filtered = salonConfigs.filter(pkg => (pkg.name || '').toLowerCase().includes(f));
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:25px;">Nessun pacchetto disponibile per questo salone.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:25px;">Nessun pacchetto disponibile per questo venditore.</td></tr>`;
             return;
         }
 
@@ -7144,7 +7144,7 @@ async function renderPackages() {
                 return `• ${srv ? srv.name : 'Servizio'} (<b>${it.total_sessions}</b> sedute)`;
             }).join('<br>') || '<span style="color:#e17055;">Nessun servizio associato</span>';
 
-            let splitDetailsHtml = '<span style="color: #64748b;">Esclusivo (100% al salone)</span>';
+            let splitDetailsHtml = '<span style="color: #64748b;">Esclusivo (100% al venditore)</span>';
             if (pkg.revenue_splits && pkg.revenue_splits.allocations) {
                 const splitType = pkg.revenue_splits.type || 'percent';
                 const allocations = pkg.revenue_splits.allocations;
@@ -7457,7 +7457,7 @@ const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
 
 if (pkgExpiryDaysEl) pkgExpiryDaysEl.value = sysSettings['package_expiry_days'] || '15';
 if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'] || 
-    "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in salone per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
+    "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in negozio per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
         // 2. Popoliamo i campi del form HTML con i dati trovati
         const remHoursEl = document.getElementById('set-rem-hours');
         const confirmMsgEl = document.getElementById('set-msg-confirm');
@@ -10123,7 +10123,7 @@ function generateSalonSplitFields(existingSplits = null) {
     const allSalons = [currentSalon, ...partnerSalons];
 
     if (allSalons.length === 1) {
-        wrapper.innerHTML = `<span style="color: #64748b; font-size: 12px; font-style: italic;">Digita almeno un ID salone partner sopra per impostare la suddivisione.</span>`;
+        wrapper.innerHTML = `<span style="color: #64748b; font-size: 12px; font-style: italic;">Digita almeno un ID di un partner sopra per impostare la suddivisione.</span>`;
         return;
     }
 
@@ -10138,7 +10138,7 @@ function generateSalonSplitFields(existingSplits = null) {
 
         html += `
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
-                <span style="font-weight: 600; font-size: 13px; color: var(--txt);">${sId} ${sId === currentSalon ? '(Tu / Salone Proprietario)' : '(Partner)'}</span>
+                <span style="font-weight: 600; font-size: 13px; color: var(--txt);">${sId} ${sId === currentSalon ? '(Tu / Proprietario)' : '(Partner)'}</span>
                 <div style="display: flex; align-items: center; gap: 4px; width: 140px;">
                     <input type="number" step="0.01" min="0" class="salon-split-val" data-salon="${sId}" value="${val}" style="margin: 0; padding: 6px; text-align: right; font-weight: bold; background: white; border: 1px solid #cbd5e1; border-radius: 6px;">
                     <span style="font-size: 12px; font-weight: bold; color: #666;">${splitType === 'percent' ? '%' : '€'}</span>
@@ -10250,7 +10250,7 @@ async function renderSalonSplitInputs(pkgConfig = null) {
     
     container.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd;">
-            <span>Salone Primario (${currentSalon})</span>
+            <span>Venditore Primario (${currentSalon})</span>
             <span style="font-weight: bold; color: var(--p);">100% Incasso</span>
         </div>
     `;
@@ -10288,7 +10288,7 @@ async function savePackageConfig() {
             : [];
         
         if (partners.length === 0) {
-            return alert("Hai attivato la condivisione: inserisci almeno un ID di un salone partner (separato da virgola).");
+            return alert("Hai attivato la condivisione: inserisci almeno un ID di un partner (separato da virgola).");
         }
 
         sharedSalonsArray = [currentSalonId, ...partners];
@@ -11179,7 +11179,7 @@ function toggleClosureMode(isClosure) {
         }
         if (timeInput) timeInput.value = "07:00"; // Inizio giornata agenda
         if (endInput) endInput.value = "22:00";   // Fine giornata agenda
-        if (notesInput && !notesInput.value) notesInput.value = "Giornata di chiusura / ferie del salone";
+        if (notesInput && !notesInput.value) notesInput.value = "Giornata di chiusura / ferie del negozio";
         
         // Disabilitiamo temporaneamente la ricerca cliente per evitare confusione
         if (searchInput) searchInput.disabled = true;
@@ -11188,7 +11188,7 @@ function toggleClosureMode(isClosure) {
             searchInput.disabled = false;
             searchInput.value = searchInput.dataset.prevVal || "";
         }
-        if (notesInput && notesInput.value === "Giornata di chiusura / ferie del salone") {
+        if (notesInput && notesInput.value === "Giornata di chiusura / ferie del negozio") {
             notesInput.value = "";
         }
     }
@@ -12501,7 +12501,7 @@ async function triggerProfessionalAlarmModal(app, minutesLeft) {
                 ⏰
             </div>
             <h3 style="margin: 0 0 5px 0; font-size: 20px; font-weight: 800; color: #1e1b4b;">Appuntamento tra ${minutesLeft} min</h3>
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Un tuo cliente sta per arrivare in salone.</p>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Un tuo cliente sta per arrivare in negozio.</p>
             
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 20px; text-align: left;">
                 <div style="font-size: 14px; font-weight: 700; color: #4f46e5; margin-bottom: 4px;">👤 ${app.cust_name}</div>
@@ -17011,7 +17011,7 @@ async function sendAIQuery() {
                 html += cardInsight(
                     'Pianificazione Operativa Adattiva', 
                     '🔥 Core Business in Evidenza', 
-                    `Il servizio di punta stimato per il mese entrante è <b>${topService.name}</b> (~${topService.demand} richieste). L'algoritmo si è tarato sui volumi tipici del tuo salone.`, 
+                    `Il servizio di punta stimato per il mese entrante è <b>${topService.name}</b> (~${topService.demand} richieste). L'algoritmo si è tarato sui volumi tipici della tua attività.`, 
                     '#6C5CE7'
                 );
             }
@@ -17037,7 +17037,7 @@ async function sendAIQuery() {
             }
 
             if (html === '') {
-                container.innerHTML = `<div class="card" style="text-align:center; color:var(--s); padding:15px; font-size:13px; margin:0;">✅ Sistema di monitoraggio adattivo attivo: scorte e flussi perfettamente allineati ai volumi tipici del tuo salone.</div>`;
+                container.innerHTML = `<div class="card" style="text-align:center; color:var(--s); padding:15px; font-size:13px; margin:0;">✅ Sistema di monitoraggio adattivo attivo: scorte e flussi perfettamente allineati ai volumi tipici della tua attività.</div>`;
             } else {
                 container.innerHTML = html;
             }
@@ -17312,7 +17312,7 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
     }
 
     let template = sysSettings['template_package_expiry'] || 
-        "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in salone per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
+        "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in negozio per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
 
     let firstName = '';
     let lastName = '';
@@ -17901,7 +17901,7 @@ async function deleteExpense(id) {
         <div style="font-size: 24px;">📱</div>
         <div class="pwa-install-info">
             <h4>Installa VaiMUp</h4>
-            <p>Accedi rapidamente dai dispositivi del salone.</p>
+            <p>Accedi rapidamente dai dispositivi del negozio.</p>
         </div>
         <button class="pwa-btn-install" id="pwa-install-trigger">Installa</button>
         <button class="pwa-btn-close" id="pwa-install-close">✕</button>
