@@ -2824,10 +2824,14 @@
                         <label>Soglia Scorta Minima (Alert)</label>
                         <input type="number" id="f-p-min" placeholder="Es. 5">
                     </div>
-                    <div>
-                        <label>Codice identificativo</label>
-                        <input type="text" id="f-p-barcode" placeholder="Es. 80234...">
-                    </div>
+                    <!-- Dentro #mod-inv, sostituire il blocco del campo barcode con: -->
+                        <div>
+                            <label>Codice identificativo (Barcode)</label>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <input type="text" id="f-p-barcode" placeholder="Es. 80234..." style="margin: 0; flex-grow: 1;">
+                                <button type="button" class="btn" style="padding: 10px 12px; font-size: 14px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="triggerBarcodePromptIntoProductForm()" title="Acquisisci Barcode da Lettore o Fotocamera">⚡</button>
+                            </div>
+                        </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -12547,7 +12551,42 @@ Rispondi con un oggetto JSON valido (senza markdown o spiegazioni):
     return match ? JSON.parse(match[0]) : null;
 }
 
-// 6. POPOLAMENTO DELLA SCHEDA DI CARICO MERCI
+
+// =========================================================================
+// ⚡ ESTENSIONE FAST-TRACK: SWITCH CARICO/SCARICO, ASSOCIAZIONE & SCARICO FIFO
+// =========================================================================
+
+let currentFastScanMode = 'carico'; // 'carico' oppure 'scarico'
+
+// 1. SWITCH MODALITÀ CARICO / SCARICO
+function setFastScanMode(mode) {
+    currentFastScanMode = mode;
+    const btnCarico = document.getElementById('btn-mode-carico');
+    const btnScarico = document.getElementById('btn-mode-scarico');
+    const modeStatusText = document.getElementById('scan-mode-status-text');
+    const caricoControls = document.getElementById('fs-carico-controls');
+    const scaricoControls = document.getElementById('fs-scarico-controls');
+    const input = document.getElementById('fast-scan-barcode-input');
+
+    if (mode === 'carico') {
+        if (btnCarico) { btnCarico.style.background = '#10b981'; btnCarico.style.color = '#fff'; }
+        if (btnScarico) { btnScarico.style.background = 'transparent'; btnScarico.style.color = '#475569'; }
+        if (modeStatusText) modeStatusText.innerHTML = `MODALITÀ ATTIVA: <span style="color:#10b981;">CARICO MERCI</span>`;
+        if (caricoControls) caricoControls.style.display = 'block';
+        if (scaricoControls) scaricoControls.style.display = 'none';
+    } else {
+        if (btnScarico) { btnScarico.style.background = '#dc2626'; btnScarico.style.color = '#fff'; }
+        if (btnCarico) { btnCarico.style.background = 'transparent'; btnCarico.style.color = '#475569'; }
+        if (modeStatusText) modeStatusText.innerHTML = `MODALITÀ ATTIVA: <span style="color:#dc2626;">SCARICO MERCI (USO INTERNO / ROTTURE)</span>`;
+        if (caricoControls) caricoControls.style.display = 'none';
+        if (scaricoControls) scaricoControls.style.display = 'block';
+    }
+
+    if (input) input.focus();
+}
+
+
+// 2. AGGIORNAMENTO DI DISPLAY FAST SCAN PER SUPPORTARE LO SCARICO E L'ASSOCIAZIONE
 async function displayFastScanProduct(prod, source) {
     const isLocal = (source === 'local');
     const badge = document.getElementById('fast-scan-source-badge');
@@ -12560,6 +12599,8 @@ async function displayFastScanProduct(prod, source) {
     const priceInput = document.getElementById('fs-listing-price');
     const suppSelect = document.getElementById('fs-supplier-select');
     const consignmentSelect = document.getElementById('fs-is-consignment');
+    const linkExistingBox = document.getElementById('fs-link-existing-wrapper');
+    const currentStockLabel = document.getElementById('fs-current-stock-label');
 
     isNewInput.value = isLocal ? "0" : "1";
     prodIdInput.value = isLocal ? prod.id : crypto.randomUUID();
@@ -12569,11 +12610,26 @@ async function displayFastScanProduct(prod, source) {
     sizeInput.value = prod.size || '';
     if (unitSelect) unitSelect.value = prod.unit || 'Pezzi';
 
+    // Gestione visualizzazione giacenza attuale per lo scarico
+    if (currentStockLabel) {
+        currentStockLabel.innerText = `${prod.stock || 0} ${prod.unit || 'Pz'}`;
+    }
+
+    // 🌟 SE IL PRODOTTO NON È LOCALE, MOSTRIAMO L'OPZIONE PER ASSOCIARE A UN PRODOTTO ESISTENTE
+    if (!isLocal) {
+        if (linkExistingBox) {
+            linkExistingBox.style.display = 'block';
+            populateLinkExistingDropdown();
+        }
+    } else {
+        if (linkExistingBox) linkExistingBox.style.display = 'none';
+    }
+
     if (badge) {
         if (source === 'local') {
             badge.style.background = '#dcfce7';
             badge.style.color = '#16a34a';
-            badge.innerHTML = `✓ Prodotto già a listino nel tuo salone (Giacenza attuale: <b>${prod.stock || 0} ${prod.unit || 'Pz'}</b>)`;
+            badge.innerHTML = `✓ Prodotto presente in magazzino (Giacenza: <b>${prod.stock || 0} ${prod.unit || 'Pz'}</b>)`;
         } else if (source === 'open_beauty_facts') {
             badge.style.background = '#ede9fe';
             badge.style.color = '#6d28d9';
@@ -12589,11 +12645,10 @@ async function displayFastScanProduct(prod, source) {
         } else {
             badge.style.background = '#fee2e2';
             badge.style.color = '#dc2626';
-            badge.innerHTML = `⚠️ Codice nuovo non presente nei database: inserisci il nome`;
+            badge.innerHTML = `⚠️ Barcode nuovo: compila il nome o associalo a un prodotto esistente`;
         }
     }
 
-    // Se esiste in locale, carica l'ultimo prezzo di vendita e fornitore
     if (isLocal) {
         const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
         priceInput.value = pInfo ? pInfo.price : 0;
@@ -12604,22 +12659,47 @@ async function displayFastScanProduct(prod, source) {
         if (consignmentSelect) consignmentSelect.value = "0";
     }
 
-    // Default carico merce
     document.getElementById('fs-load-qty').value = "1";
+    document.getElementById('fs-unload-qty').value = "1";
     document.getElementById('fs-total-cost').value = "";
     document.getElementById('fs-calculated-unit-cost').innerText = "€ 0.00";
 
     toggleFastScanConsignment();
 
-    // Focus rapido per confermare quantità o prezzo
+    // Se siamo in modalità SCARICO e il prodotto non esiste a magazzino, avvisiamo subito
+    if (currentFastScanMode === 'scarico' && !isLocal) {
+        playWarehouseAudioFeedback('error');
+        alert("⚠️ Questo barcode non appartiene ad alcun prodotto a magazzino. Impossibile effettuare lo scarico.");
+        return;
+    }
+
     setTimeout(() => {
-        if (isLocal) {
+        if (currentFastScanMode === 'scarico') {
+            document.getElementById('fs-unload-qty').focus();
+        } else if (isLocal) {
             document.getElementById('fs-load-qty').focus();
         } else {
             if (!nameInput.value) nameInput.focus();
             else priceInput.focus();
         }
     }, 100);
+}
+
+
+// 3. POPOLAMENTO TENDINA "ASSOCIA A PRODOTTO ESISTENTE"
+function populateLinkExistingDropdown() {
+    const select = document.getElementById('fs-existing-product-select');
+    if (!select) return;
+
+    // Elenchiamo i prodotti già a listino, privilegiando quelli senza barcode o dello stesso brand
+    const sorted = [...(allInventory || [])].filter(p => p.type === 'prodotto').sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+
+    select.innerHTML = '<option value="">-- Seleziona un prodotto dal tuo listino --</option>' +
+        sorted.map(p => {
+            const hasBarcode = p.barcode ? `[Ha già barcode: ${p.barcode}]` : '[SENZA BARCODE]';
+            const sizeInfo = p.size ? `(${p.size})` : '';
+            return `<option value="${p.id}">${p.name} ${sizeInfo} ${hasBarcode}</option>`;
+        }).join('');
 }
 
 function calculateFastScanUnitCost() {
@@ -12647,6 +12727,144 @@ function toggleFastScanConsignment() {
         calculateFastScanUnitCost();
     }
 }
+
+
+function toggleLinkExistingDropdown() {
+    const box = document.getElementById('fs-link-existing-dropdown-box');
+    if (box) box.style.display = (box.style.display === 'none') ? 'block' : 'none';
+}
+
+// 4. ESECUZIONE ASSOCIAZIONE BARCODE A PRODOTTO ESISTENTE
+async function executeLinkBarcodeToExistingProduct() {
+    const targetProdId = document.getElementById('fs-existing-product-select').value;
+    const barcode = document.getElementById('fast-scan-barcode-input').value.trim();
+
+    if (!targetProdId) return alert("Seleziona il prodotto a cui assegnare il barcode!");
+    if (!barcode) return alert("Nessun codice a barre scansionato!");
+
+    const prod = allInventory.find(p => p.id === targetProdId);
+    if (!prod) return alert("Prodotto selezionato non trovato.");
+
+    if (prod.barcode && prod.barcode !== barcode) {
+        if (!confirm(`Questo prodotto ha già associato il barcode ${prod.barcode}.\nVuoi sostituirlo con il nuovo barcode ${barcode}?`)) {
+            return;
+        }
+    }
+
+    try {
+        // Aggiorna il barcode nel prodotto esistente
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { barcode: barcode, updated_at: new Date().toISOString() },
+            id: prod.id
+        });
+
+        prod.barcode = barcode;
+        playWarehouseAudioFeedback('success');
+
+        alert(`✅ Barcode ${barcode} associato con successo a "${prod.name}"!`);
+
+        // Ricarica la scheda come prodotto locale esistente pronto per il carico
+        await displayFastScanProduct(prod, 'local');
+
+    } catch (err) {
+        console.error("Errore associazione barcode:", err);
+        alert("Errore durante l'associazione del barcode.");
+    }
+}
+
+
+// 5. ESECUZIONE SCARICO MERCI FIFO (USO INTERNO / ROTTURE / SCADUTO)
+async function executeFastBarcodeUnload() {
+    const prodId = document.getElementById('fs-prod-id').value;
+    const isNew = document.getElementById('fs-is-new-product').value === "1";
+    const qtyToUnload = parseFloat(document.getElementById('fs-unload-qty').value) || 0;
+    const reason = document.getElementById('fs-unload-reason').value;
+
+    if (isNew || !prodId || prodId === "-1") {
+        return alert("Impossibile scaricare: il prodotto non esiste a magazzino!");
+    }
+    if (qtyToUnload <= 0) {
+        return alert("Inserisci una quantità valida da scaricare maggiore di zero!");
+    }
+
+    const prod = allInventory.find(p => p.id === prodId);
+    if (!prod) return alert("Prodotto non trovato.");
+
+    const currentStock = parseFloat(prod.stock) || 0;
+    if (qtyToUnload > currentStock) {
+        if (!confirm(`⚠️ Attenzione: stai tentando di scaricare ${qtyToUnload} ${prod.unit || 'Pz'}, ma la giacenza attuale è di soli ${currentStock} ${prod.unit || 'Pz'}.\nVuoi procedere comunque mandando la giacenza in negativo?`)) {
+            return;
+        }
+    }
+
+    try {
+        // Scarico FIFO sui lotti (stock_lots)
+        const allLots = await window.universalQuery({ action: 'GET_ALL', table: 'stock_lots' }) || [];
+        const prodLots = allLots
+            .filter(l => l.product_id === prod.id && (parseFloat(l.qty_remaining) || 0) > 0)
+            .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')); // FIFO
+
+        let remainingToDeduct = qtyToUnload;
+
+        for (let lot of prodLots) {
+            if (remainingToDeduct <= 0) break;
+            const lotRem = parseFloat(lot.qty_remaining) || 0;
+            const take = Math.min(lotRem, remainingToDeduct);
+
+            lot.qty_remaining = lotRem - take;
+            remainingToDeduct -= take;
+
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'stock_lots',
+                data: { qty_remaining: lot.qty_remaining },
+                id: lot.id
+            });
+        }
+
+        // Aggiorna giacenza totale in inventory
+        const newStock = Math.max(currentStock - qtyToUnload, 0);
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { stock: newStock, updated_at: new Date().toISOString() },
+            id: prod.id
+        });
+
+        prod.stock = newStock;
+        playWarehouseAudioFeedback('success');
+
+        console.log(`📉 [SCARICO COMPLETATO] ${prod.name}: -${qtyToUnload} Pz (Causale: ${reason}) | Nuova Giacenza: ${newStock}`);
+
+        // Reset per la prossima scansione
+        document.getElementById('fast-scan-barcode-input').value = '';
+        document.getElementById('fast-scan-result-pane').style.display = 'none';
+        document.getElementById('fast-scan-barcode-input').focus();
+
+        await refreshAllData();
+        if (typeof renderProducts === 'function') renderProducts();
+
+    } catch (err) {
+        console.error("Errore scarico merci:", err);
+        playWarehouseAudioFeedback('error');
+        alert("Errore durante lo scarico merce: " + err.message);
+    }
+}
+
+// 6. ATTIVAZIONE RAPIDA DELLO SCANNER DALLA SCHEDA PRODOTTO NORMALE (#mod-inv)
+function triggerBarcodePromptIntoProductForm() {
+    const inputBarcode = document.getElementById('f-p-barcode');
+    if (!inputBarcode) return;
+
+    const scanned = prompt("Spara il codice col lettore laser o digitalo:");
+    if (scanned && scanned.trim().length >= 4) {
+        inputBarcode.value = scanned.trim();
+        playWarehouseAudioFeedback('success');
+    }
+}
+
 
 // 7. TRANSAZIONE ATOMICA: CREA PRODOTTO + CARICO MERCE FIFO
 async function executeFastBarcodeLoad() {
@@ -13665,6 +13883,11 @@ async function filterCustomerPackagesTab() {
         `;
     }).join('');
 }
+
+
+
+
+
 
 
 
@@ -16922,66 +17145,90 @@ async function deleteExpense(id) {
 
 
 <!-- ======================================================== -->
-<!-- ⚡ MODALE SCANNER CONTINUO & CARICO MERCI ULTRA-RAPIDO   -->
+<!-- ⚡ SCANNER MAGAZZINO: CARICO, SCARICO & ASSOCIAZIONE    -->
 <!-- ======================================================== -->
 <div id="mod-fast-scan-load" class="modal" onclick="if(event.target==this) closeFastScanModal()">
-    <div class="modal-box" style="width: 620px; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; padding: 22px;">
+    <div class="modal-box" style="width: 640px; max-width: 96vw; max-height: 94vh; display: flex; flex-direction: column; padding: 20px;">
         
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+        <!-- Header con Switch Carico / Scarico -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 24px;">⚡</span>
                 <div>
-                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Scansione & Carico Merci Rapido</h3>
-                    <small style="color: #64748b;">Pistola Laser attiva ovunque o usa la fotocamera del telefono</small>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Scanner Rapido di Magazzino</h3>
+                    <small style="color: #64748b;">Pistola laser o fotocamera smartphone</small>
                 </div>
             </div>
+
+            <!-- TOGGLE MODALITÀ: CARICO VS SCARICO -->
+            <div style="display: flex; background: #f1f5f9; border-radius: 8px; padding: 2px; gap: 2px;">
+                <button type="button" id="btn-mode-carico" class="btn" style="padding: 4px 10px; font-size: 11.5px; font-weight: 800; min-height: unset; background: #10b981; color: white; border: none; border-radius: 6px;" onclick="setFastScanMode('carico')">
+                    🟢 Carico Merci
+                </button>
+                <button type="button" id="btn-mode-scarico" class="btn" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; min-height: unset; background: transparent; color: #475569; border: none; border-radius: 6px;" onclick="setFastScanMode('scarico')">
+                    🔴 Scarico Merci
+                </button>
+            </div>
+
             <button onclick="closeFastScanModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
         </div>
 
-        <!-- Sezione Selezione Modalità Scanner (Laser vs Fotocamera) -->
-        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span id="scan-hardware-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; display: inline-block; animation: pulseAlarm 2s infinite;"></span>
-                <span style="font-size: 12px; font-weight: 700; color: #334155;">Pistola Laser / Barcode Scanner: <span style="color: #10b981;">PRONTA</span></span>
+        <!-- Sezione Stato Lettore & Tasto Fotocamera -->
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="scan-hardware-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                <span id="scan-mode-status-text" style="font-size: 11.5px; font-weight: 800; color: #334155;">MODALITÀ ATTIVA: CARICO MERCI</span>
             </div>
-            <button type="button" id="btn-toggle-camera-scanner" class="btn" style="padding: 5px 12px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="toggleCameraScanner()">
-                📷 Attiva Fotocamera
+            <button type="button" id="btn-toggle-camera-scanner" class="btn" style="padding: 4px 10px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="toggleCameraScanner()">
+                📷 Fotocamera
             </button>
         </div>
 
-        <!-- Viewfinder Fotocamera Smartphone (Nascosto di default, attivabile con un tocco) -->
-        <div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 210px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; flex-shrink: 0;">
+        <!-- Viewfinder Fotocamera Mobile -->
+        <div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 180px; background: #000; border-radius: 10px; overflow: hidden; margin-bottom: 10px; flex-shrink: 0;">
             <video id="camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-            <!-- Linea guida rossa di puntamento -->
-            <div style="position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
-            <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer;">✕</button>
+            <div style="position: absolute; top: 50%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
+            <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-weight: bold; cursor: pointer;">✕</button>
         </div>
 
-        <!-- Input Barcode Manuale / Buffer Ricezione Laser -->
-        <div style="position: relative; margin-bottom: 12px; flex-shrink: 0;">
-            <input type="text" id="fast-scan-barcode-input" placeholder="Inquadra o spara il codice a barre col lettore..." autocomplete="off" style="margin: 0; padding: 12px 14px; font-size: 16px; font-weight: 800; letter-spacing: 1px; border: 2px solid var(--p); background: #ffffff;" onkeydown="handleFastBarcodeManualKey(event)">
-            <span id="fast-scan-loader-spinner" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 14px;">⏳ Ricerca database...</span>
+        <!-- Input Barcode Ricezione Laser / Manuale -->
+        <div style="position: relative; margin-bottom: 10px; flex-shrink: 0;">
+            <input type="text" id="fast-scan-barcode-input" placeholder="Inquadra o spara il codice a barre..." autocomplete="off" style="margin: 0; padding: 10px 12px; font-size: 15px; font-weight: 800; letter-spacing: 1px; border: 2px solid var(--p); background: #ffffff;" onkeydown="handleFastBarcodeManualKey(event)">
+            <span id="fast-scan-loader-spinner" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 13px;">⏳ Ricerca in corso...</span>
         </div>
 
-        <!-- Area Scrollabile Risultato Prodotto & Form Carico Contestuale -->
+        <!-- RISULTATO SCANSIONE E SCHEDA OPERATIVA -->
         <div id="fast-scan-result-pane" style="flex-grow: 1; overflow-y: auto; padding-right: 4px; display: none;">
             
-            <!-- Badge Stato Riconoscimento (Esistente vs Nuovo da Database) -->
-            <div id="fast-scan-source-badge" style="padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-bottom: 10px; display: inline-block;"></div>
+            <div id="fast-scan-source-badge" style="padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-bottom: 8px; display: inline-block;"></div>
 
-            <!-- Dati Anagrafici (Auto-compilati da database o esistenti) -->
-            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+            <!-- OPZIONE: ASSOCIA BARCODE A PRODOTTO ESISTENTE (Mostrato se il barcode è nuovo) -->
+            <div id="fs-link-existing-wrapper" style="display: none; background: #fffbeb; border: 1.5px solid #fef3c7; border-radius: 10px; padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <b style="font-size: 12px; color: #b45309;">🔗 Questo prodotto è già presente in magazzino senza barcode?</b>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #fde68a;" onclick="toggleLinkExistingDropdown()">Espandi Ricerca</button>
+                </div>
+                <div id="fs-link-existing-dropdown-box" style="display: none; margin-top: 6px;">
+                    <label style="margin: 0 0 2px 0; font-size: 10px;">Seleziona il prodotto esistente a cui assegnare questo barcode:</label>
+                    <select id="fs-existing-product-select" style="margin: 0 0 8px 0; background: white; font-size: 12px; font-weight: bold;"></select>
+                    <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; background: #b45309; color: white; border: none; font-weight: bold; border-radius: 6px;" onclick="executeLinkBarcodeToExistingProduct()">
+                        Assegna Barcode a questo Prodotto ed Esegui Carico ➔
+                    </button>
+                </div>
+            </div>
+
+            <!-- DATI ANAGRAFICI -->
+            <div id="fs-product-details-card" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px;">
                 <input type="hidden" id="fs-prod-id" value="-1">
                 <input type="hidden" id="fs-is-new-product" value="0">
 
                 <label style="margin: 0 0 2px 0;">Nome Prodotto *</label>
-                <input type="text" id="fs-prod-name" placeholder="Es. Shampoo Riparatore 250ml" style="margin: 0 0 8px 0; background: white; font-weight: bold;">
+                <input type="text" id="fs-prod-name" placeholder="Nome articolo" style="margin: 0 0 6px 0; background: white; font-weight: bold;">
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <div>
                         <label style="margin: 0 0 2px 0;">Marca / Linea</label>
-                        <input type="text" id="fs-prod-model" placeholder="Es. Kérastase / Serie Expert" style="margin: 0; background: white;">
+                        <input type="text" id="fs-prod-model" placeholder="Es. Kérastase" style="margin: 0; background: white;">
                     </div>
                     <div>
                         <label style="margin: 0 0 2px 0;">Taglia / Formato</label>
@@ -16990,31 +17237,30 @@ async function deleteExpense(id) {
                 </div>
             </div>
 
-            <!-- Dati di Listino & Carico Merci Contestuale -->
-            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <!-- SEZIONE 1: PANNELLO CARICO MERCI -->
+            <div id="fs-carico-controls" style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                     <div>
                         <label style="margin: 0 0 2px 0; color: var(--p);">Prezzo Listino Vendita (€) *</label>
-                        <input type="number" id="fs-listing-price" step="0.01" min="0" placeholder="Es. 28.00" style="margin: 0; background: white; font-size: 15px; font-weight: 800;">
+                        <input type="number" id="fs-listing-price" step="0.01" min="0" placeholder="0.00" style="margin: 0; background: white; font-size: 14px; font-weight: 800;">
                     </div>
                     <div>
-                        <label style="margin: 0 0 2px 0;">Gestione Articolo</label>
-                        <select id="fs-is-consignment" onchange="toggleFastScanConsignment()" style="margin: 0; background: white; font-weight: 600;">
-                            <option value="0">Proprietà (Acquisto)</option>
+                        <label style="margin: 0 0 2px 0;">Tipo Articolo</label>
+                        <select id="fs-is-consignment" onchange="toggleFastScanConsignment()" style="margin: 0; background: white;">
+                            <option value="0">Proprietà</option>
                             <option value="1">Conto Vendita</option>
                         </select>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                     <div>
                         <label style="margin: 0 0 2px 0;">Fornitore</label>
-                        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 12px;"></select>
+                        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 11.5px;"></select>
                     </div>
                     <div>
-                        <label style="margin: 0 0 2px 0;">Unità di Misura</label>
-                        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 12px;">
+                        <label style="margin: 0 0 2px 0;">Unità</label>
+                        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 11.5px;">
                             <option value="Pezzi">Pezzi</option>
                             <option value="ml">ml (Millilitri)</option>
                             <option value="L">L (Litri)</option>
@@ -17023,34 +17269,60 @@ async function deleteExpense(id) {
                     </div>
                 </div>
 
-                <!-- Box Parametri Quantità e Costo Carico -->
-                <div style="background: #f1f5f9; border-radius: 10px; padding: 10px; margin-top: 6px; display: grid; grid-template-columns: 110px 1fr 140px; gap: 8px; align-items: end;">
+                <div style="background: #f1f5f9; border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 100px 1fr 130px; gap: 8px; align-items: end;">
                     <div>
-                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800;">Quantità in Arrivo (+)</label>
-                        <input type="number" id="fs-load-qty" value="1" min="1" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 8px; font-size: 16px; font-weight: 900; text-align: center; background: white;">
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 800;">Quantità (+)</label>
+                        <input type="number" id="fs-load-qty" value="1" min="1" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 6px; font-size: 15px; font-weight: 900; text-align: center; background: white;">
                     </div>
                     <div>
-                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800;">Costo Totale Carico (€)</label>
-                        <input type="number" id="fs-total-cost" step="0.01" min="0" placeholder="0.00" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 8px; font-size: 14px; font-weight: 800; background: white;">
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 800;">Costo Totale (€)</label>
+                        <input type="number" id="fs-total-cost" step="0.01" min="0" placeholder="0.00" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 6px; font-size: 14px; font-weight: 800; background: white;">
                     </div>
                     <div>
-                        <small style="font-size: 9px; color: #64748b; display: block; margin-bottom: 2px; text-transform: uppercase;">Costo Unit. Calcolato:</small>
-                        <div id="fs-calculated-unit-cost" style="font-size: 14px; font-weight: 800; color: #047857; padding: 6px 0;">€ 0.00</div>
+                        <small style="font-size: 9px; color: #64748b; display: block; margin-bottom: 2px;">Costo Unitario:</small>
+                        <div id="fs-calculated-unit-cost" style="font-size: 13px; font-weight: 800; color: #047857;">€ 0.00</div>
                     </div>
                 </div>
 
+                <button type="button" id="btn-execute-fast-load" class="btn" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 13.5px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px;" onclick="executeFastBarcodeLoad()">
+                    🟢 REGISTRA CARICO MERCE (INVIO)
+                </button>
             </div>
 
-            <!-- Tasto Azione Unica: Crea / Aggiorna + Carica FIFO -->
-            <button type="button" id="btn-execute-fast-load" class="btn" style="width: 100%; padding: 14px; font-size: 14px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); cursor: pointer;" onclick="executeFastBarcodeLoad()">
-                ⚡ REGISTRA CARICO MERCE E CONTINUA (ENTER)
-            </button>
+            <!-- SEZIONE 2: PANNELLO SCARICO MERCI (USO INTERNO / ROTTURA) -->
+            <div id="fs-scarico-controls" style="display: none; background: #ffffff; border: 1.5px solid #fecaca; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
+                <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #991b1b; font-weight: bold;">Giacenza Attuale:</span>
+                    <b id="fs-current-stock-label" style="font-size: 14px; color: #991b1b;">0 Pz</b>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; color: #dc2626;">Quantità da Scaricare (-)</label>
+                        <input type="number" id="fs-unload-qty" value="1" min="1" style="margin: 0; padding: 8px; font-size: 16px; font-weight: 900; text-align: center; background: white;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Causale Scarico</label>
+                        <select id="fs-unload-reason" style="margin: 0; background: white; font-weight: bold;">
+                            <option value="Uso Interno / Lavatesta">✂️ Uso Interno / Lavatesta / Cabina</option>
+                            <option value="Prodotto Danneggiato / Scaduto">⚠️ Prodotto Danneggiato o Scaduto</option>
+                            <option value="Rettifica Inventario">📊 Rettifica Inventario</option>
+                            <option value="Reso Fornitore">🚚 Reso a Fornitore</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="button" id="btn-execute-fast-unload" class="btn btn-d" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 13.5px; font-weight: 800; justify-content: center; border-radius: 10px;" onclick="executeFastBarcodeUnload()">
+                    🔴 CONFERMA SCARICO MERCE (INVIO)
+                </button>
+            </div>
+
         </div>
 
         <!-- Footer -->
-        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-            <small style="color: #64748b; font-size: 11px;">Lo scanner rimane in ascolto continuo per il prossimo prodotto.</small>
-            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 6px 14px;" onclick="closeFastScanModal()">Esci</button>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <small style="color: #64748b; font-size: 11px;">Lo scanner resta attivo a ciclo continuo per il prossimo pezzo.</small>
+            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 5px 12px;" onclick="closeFastScanModal()">Esci</button>
         </div>
 
     </div>
