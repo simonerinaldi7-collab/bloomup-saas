@@ -15484,30 +15484,6 @@ async function checkExpiringCustomerPackages() {
 
         const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
 
-        // 🌟 1. RECUPERO DISMISSIONI CONDIVISE DAL CLOUD (TABELLA SETTINGS)
-        let cloudDismissedMap = {};
-        try {
-            if (localDb && localDb.settings) {
-                const settingRow = await localDb.settings.get('dismissed_pkg_alerts');
-                if (settingRow && settingRow.value) {
-                    cloudDismissedMap = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value;
-                }
-            }
-        } catch (e) {
-            cloudDismissedMap = {};
-        }
-
-        // Fallback con localStorage per retrocompatibilità
-        let localDismissedMap = {};
-        try {
-            localDismissedMap = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
-        } catch (e) {}
-
-        const mergedDismissed = { ...localDismissedMap, ...cloudDismissedMap };
-
-        // 🌟 2. RECUPERO DEI LOG DI INVIO WHATSAPP DA MESSAGE_LOGS (CONDIVISI CLOUD)
-        const allLogs = (localDb && localDb.message_logs) ? await localDb.message_logs.toArray() : [];
-
         cachedExpiringPackages = [];
 
         for (let cp of allCustPkgs) {
@@ -15519,6 +15495,7 @@ async function checkExpiringCustomerPackages() {
             if (!isOwner && !hasQuota) continue;
             if (!cp.expiry_date) continue;
 
+            // Finestra di scadenza
             if (cp.expiry_date >= minDateStr && cp.expiry_date <= maxDateStr) {
                 const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
                 const cust = customers.find(c => String(c.id).trim() === String(cp.customer_id).trim());
@@ -15536,16 +15513,14 @@ async function checkExpiringCustomerPackages() {
                     remainingSessions += (parseInt(s.remaining) || 0);
                 });
 
-                const alertKey = `${cp.id}_${cp.expiry_date}`;
+                // 🛑 REQUISITO FONDAMENTALE: Se il cliente ha 0 sedute rimanenti (carnet già consumato),
+                // non ha sedute a rischio perdita, quindi non deve suonare come allarme urgente!
+                if (remainingSessions <= 0) continue;
 
-                // 🛡️ CONTROLLO A DOPPIO LIVELLO: Verificato su Cloud Settings OPPURE su Message Logs
-                const isExplicitlyDismissed = Boolean(mergedDismissed[alertKey]);
-                const isAlreadySentOnWhatsApp = allLogs.some(l => 
-                    l.msg_type === 'WA_PACKAGE_EXPIRY' && 
-                    (l.appointment_info || '').includes(String(cp.id))
-                );
-
-                const isDismissed = isExplicitlyDismissed || isAlreadySentOnWhatsApp;
+                // 🌟 VERIFICA STATO "FATTO / AVVISATO" SINCRONIZZATO NEL RECORD DEL PACCHETTO
+                // Legge sia dal campo dedicato alert_dismissed_date, sia dal backup in allocs
+                const isDismissedOnCloud = (cp.alert_dismissed_date === cp.expiry_date) || 
+                                          (allocs && allocs._alert_dismissed === cp.expiry_date);
 
                 cachedExpiringPackages.push({
                     cpId: cp.id,
@@ -15557,18 +15532,18 @@ async function checkExpiringCustomerPackages() {
                     totalSessions: totalSessions,
                     remainingSessions: remainingSessions,
                     isExpiredAlready: cp.expiry_date < todayStr,
-                    isDismissed: isDismissed
+                    isDismissed: Boolean(isDismissedOnCloud)
                 });
             }
         }
 
         cachedExpiringPackages.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
 
-        // 🌟 IL CONTATORE SCARTA RIGOROSAMENTE I PACCHETTI GIÀ GESTITI / AVVISATI
+        // Conta SOLO quelli non ancora gestiti
         const activeAlerts = cachedExpiringPackages.filter(p => !p.isDismissed);
         const count = activeAlerts.length;
 
-        // Aggiornamento Badge Header (scompare se count === 0)
+        // Aggiorna Badge Header
         const headerBadge = document.getElementById('pkg-expiry-alert');
         const badgeCount = document.getElementById('pkg-expiry-badge-count');
         if (headerBadge && badgeCount) {
@@ -15580,13 +15555,12 @@ async function checkExpiringCustomerPackages() {
             }
         }
 
-        // Aggiornamento Banner Dashboard (scompare se count === 0)
+        // Aggiorna Banner Dashboard
         const dashBanner = document.getElementById('dashboard-pkg-expiry-banner');
         const dashText = document.getElementById('dashboard-pkg-expiry-text');
         if (dashBanner && dashText) {
             if (count > 0) {
-                const urgentWithSessions = activeAlerts.filter(p => p.remainingSessions > 0).length;
-                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con pacchetto in scadenza (${urgentWithSessions} con ancora sedute residue).`;
+                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con sedute residue in scadenza nei prossimi ${leadDays} giorni.`;
                 dashBanner.style.display = 'flex';
             } else {
                 dashBanner.style.display = 'none';
@@ -15599,37 +15573,35 @@ async function checkExpiringCustomerPackages() {
 }
 
 async function dismissPackageExpiryAlert(custPkgId, expiryDate) {
-    const alertKey = `${custPkgId}_${expiryDate}`;
-
-    // 1. Salvataggio locale immediato
-    const localDismissed = JSON.parse(localStorage.getItem('VaiMUp_dismissed_pkg_alerts') || '{}');
-    localDismissed[alertKey] = true;
-    localStorage.setItem('VaiMUp_dismissed_pkg_alerts', JSON.stringify(localDismissed));
-
-    // 2. 🌟 SALVATAGGIO CLOUD CENTRALIZZATO (TABELLA SETTINGS DI SUPABASE)
     try {
-        let cloudMap = {};
-        if (localDb && localDb.settings) {
-            const settingRow = await localDb.settings.get('dismissed_pkg_alerts');
-            if (settingRow && settingRow.value) {
-                cloudMap = typeof settingRow.value === 'string' ? JSON.parse(settingRow.value) : settingRow.value;
-            }
-        }
-        cloudMap[alertKey] = true;
+        const targetPkg = await localDb.customer_packages.get(custPkgId);
+        if (!targetPkg) return;
 
-        await window.universalQuery({
-            action: 'UPSERT_SETTING',
-            data: {
-                key: 'dismissed_pkg_alerts',
-                value: JSON.stringify(cloudMap)
-            }
-        });
-        console.log("☁️ [MULTI-DEVICE] Stato dismissione pacchetto salvato su Cloud Supabase!");
+        let allocs = targetPkg.revenue_allocations || {};
+        if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch (e) { allocs = {}; } }
+        
+        // Salviamo lo stato di dismissione all'interno del record
+        allocs._alert_dismissed = expiryDate;
+
+        const updatePayload = {
+            alert_dismissed_date: expiryDate,
+            revenue_allocations: allocs,
+            updated_at: getNowLocal()
+        };
+
+        // 1. Aggiorna in locale su IndexedDB
+        await localDb.customer_packages.update(custPkgId, updatePayload);
+
+        // 2. Invia immediatamente a Supabase Cloud con PATCH sul record del pacchetto
+        if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+            await sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, custPkgId);
+            console.log("☁️ [CLOUD SYNC] Pacchetto segnato come gestito su Supabase per tutti i dispositivi!");
+        }
+
     } catch (err) {
-        console.warn("Sync cloud dismiss fallita, salvato in locale:", err);
+        console.warn("Errore salvataggio dismissione su customer_packages:", err);
     }
 
-    // 3. Ricalcola subito gli allarmi e aggiorna la UI
     await checkExpiringCustomerPackages();
     renderExpiringPackagesModalList();
 }
@@ -15762,7 +15734,6 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
     const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
     const nowTimeStr = getNowLocal();
 
-    // 🌟 INSERIMENTO DEL TAG UNIVOCO [CP:ID:EXPIRY] NEL LOG CONDIVISO SU CLOUD
     const logData = {
         id: crypto.randomUUID(),
         salon_id: currentSalon,
@@ -15775,7 +15746,6 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
         updated_at: nowTimeStr
     };
 
-    // Scrittura nel DB locale e Cloud Supabase
     await window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData });
 
     if (Array.isArray(allLogs)) {
@@ -15785,7 +15755,7 @@ async function sendPackageRenewalWhatsApp(custPkgId) {
         await renderLogs();
     }
 
-    // 🌟 DISMISSIONE MULTI-DISPOSITIVO SINCRONIZZATA
+    // 🌟 DISMETTE IL PACCHETTO SUL CLOUD: Il telefono lo vedrà già avvisato!
     await dismissPackageExpiryAlert(item.cpId, item.expiryDate);
 
     // Apertura WhatsApp
