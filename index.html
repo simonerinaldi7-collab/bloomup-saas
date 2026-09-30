@@ -1556,47 +1556,61 @@
     </section>
 
    <section id="v-products" class="view">
-    <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;">
-    <div style="position: relative; display: flex; align-items: center;">
-        <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o barcode..." style="max-width: 230px; margin: 0; padding-right: 30px; font-weight: 600;">
-        <span id="src-prod-clear-btn" style="display: none; position: absolute; right: 8px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 14px;" onclick="clearProductSearchInput()">✕</span>
-    </div>
     
-    <!-- Tasto Scansione Fotocamera per Filtro Rapido -->
-    <button type="button" class="btn" style="padding: 10px 12px; font-size: 13px; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; border-radius: 8px;" onclick="toggleProductSearchCamera()" title="Scansiona Barcode con Fotocamera per filtrare">
-        📷
-    </button>
+    <!-- CARD TESTATA RESPONSIVA MAGAZZINO -->
+    <div class="products-header-card">
+        
+        <!-- RIGA 1: RICERCA CON FOTOCAMERA & TASTI AZIONE -->
+        <div class="prod-actions-row">
+            <!-- Barra di Ricerca Unificata con Fotocamera -->
+            <div class="prod-search-wrapper">
+                <span class="prod-search-icon">🔍</span>
+                <input type="text" id="src-prod" onkeyup="renderProducts()" placeholder="Cerca per nome, modello o barcode..." autocomplete="off">
+                <span id="src-prod-clear-btn" onclick="clearProductSearchInput()" title="Pulisci ricerca">✕</span>
+                <button type="button" class="prod-search-cam-btn" onclick="toggleProductSearchCamera()" title="Scansiona Barcode con Fotocamera per filtrare">
+                    📷
+                </button>
+            </div>
 
-        <!-- 2. Filtro per Fornitore -->
-        <select id="filter-prod-supplier" onchange="renderProducts()" style="max-width:160px; margin:0;">
-            <option value="all">Tutti i Fornitori</option>
-        </select>
+            <!-- Gruppo Tasti Rapidi Azione -->
+            <div class="prod-btns-group">
+                <button type="button" class="btn btn-scan-fast" onclick="openFastBarcodeScanModal()">
+                    ⚡ Scan & Carico
+                </button>
+                <button type="button" class="btn btn-p btn-new-prod" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">
+                    + Nuovo
+                </button>
+            </div>
+        </div>
 
-        <!-- 3. NUOVO FILTRO: Taglia / Misura -->
-        <select id="filter-prod-size" onchange="renderProducts()" style="max-width:150px; margin:0;">
-            <option value="all">Tutte le Taglie</option>
-        </select>
+        <!-- RIGA 2: FILTRI COMPATTI & PILLOLE -->
+        <div class="prod-filters-grid">
+            <select id="filter-prod-supplier" onchange="renderProducts()">
+                <option value="all">🚚 Tutti i Fornitori</option>
+            </select>
+            <select id="filter-prod-size" onchange="renderProducts()">
+                <option value="all">📏 Tutte le Taglie</option>
+            </select>
+            <select id="filter-prod-type-sales" onchange="renderProducts()">
+                <option value="all">🏷️ Tutti (Proprietà & CV)</option>
+                <option value="proprieta">Solo Proprietà</option>
+                <option value="consignment">Solo Conto Vendita</option>
+            </select>
 
-        <!-- 4. Filtro Tipologia Conto Vendita -->
-        <select id="filter-prod-type-sales" onchange="renderProducts()" style="max-width:160px; margin:0;">
-            <option value="all">Tutti (Proprietà & CV)</option>
-            <option value="proprieta">Solo Proprietà</option>
-            <option value="consignment">Solo Conto Vendita</option>
-        </select>
-
-       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('filter-prod-size').value='all'; document.getElementById('filter-prod-type-sales').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset</button>
-            <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
-            <!-- Inserire nella barra dei pulsanti in cima a v-products, prima di "+ Nuovo Prodotto": -->
-            <button class="btn" style="padding: 10px 16px; font-size: 13px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);" onclick="openFastBarcodeScanModal()">
-                ⚡ Scan & Carico Rapido
-            </button>
-
-            <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
+            <div class="prod-pills-row">
+                <button type="button" id="btn-filter-lowstock" class="btn btn-pill-danger" onclick="toggleLowStockFilter()">
+                    ⚠️ Sottosoglia
+                </button>
+                <button type="button" class="btn btn-pill-reset" onclick="resetAllProductFilters()">
+                    ✕ Reset
+                </button>
+            </div>
         </div>
     </div>
-    <div class="card" style="padding:0; overflow-x: auto;">
-        <table>
+
+    <!-- TABELLA PRODOTTI (CON SCROLL ORIZZONTALE TOUCH FLUIDO) -->
+    <div class="card" style="padding:0; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table style="min-width: 780px;">
             <thead>
                 <tr>
                     <th>Prodotto / Linea</th>
@@ -1605,7 +1619,7 @@
                     <th>Taglia / Misura</th>
                     <th>Prezzo Listino</th>
                     <th>Ultimo Costo</th>
-                    <th>Giacenza (Modificabile)</th>
+                    <th>Giacenza</th>
                     <th>Fornitore</th>
                     <th style="text-align:right">Azioni</th>
                 </tr>
@@ -1615,9 +1629,7 @@
     </div>
 </section>
 
-<!-- ======================================================== -->
-<!-- 📷 MIRINO FOTOCAMERA PER RICERCA & FILTRO PRODOTTI       -->
-<!-- ======================================================== -->
+<!-- MODALE MIRINO FOTOCAMERA PER IL FILTRO DI RICERCA -->
 <div id="prod-search-camera-wrapper" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); z-index: 35000; align-items: center; justify-content: center; padding: 20px;">
     <div style="background: white; border-radius: 20px; padding: 18px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.4);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1630,11 +1642,10 @@
 
         <div style="position: relative; width: 100%; height: 220px; background: #000; border-radius: 12px; overflow: hidden;">
             <video id="prod-search-camera-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-            <!-- Linea guida laser rossa -->
             <div style="position: absolute; top: 50%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
         </div>
 
-        <p style="font-size: 12px; color: #64748b; margin: 10px 0 0 0;">Punta la fotocamera sul codice a barre: la tabella mostrerà subito l'articolo corrispondente.</p>
+        <p style="font-size: 12px; color: #64748b; margin: 10px 0 0 0;">Punta la fotocamera sul codice a barre del flacone per filtrare la tabella.</p>
     </div>
 </div>
 
@@ -2434,6 +2445,223 @@
             border-color: #6366f1 !important;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
         }
+
+/* ======================================================== */
+/* 📦 STILI RESPONSIVI DEDICATI PER IL MAGAZZINO PRODOTTI    */
+/* ======================================================== */
+.products-header-card {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.prod-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Barra di ricerca con Fotocamera integrata */
+.prod-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 260px;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 2px 6px;
+    transition: all 0.2s ease;
+}
+
+.prod-search-wrapper:focus-within {
+    border-color: #6366f1;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.prod-search-icon {
+    font-size: 14px;
+    color: #94a3b8;
+    padding-left: 6px;
+}
+
+.prod-search-wrapper input {
+    border: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 8px 6px !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    flex: 1;
+    outline: none !important;
+    min-height: unset !important;
+    width: 100% !important;
+}
+
+#src-prod-clear-btn {
+    display: none;
+    cursor: pointer;
+    color: #94a3b8;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 0 6px;
+}
+
+.prod-search-cam-btn {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border: 1px solid #c4b5fd !important;
+    border-radius: 8px !important;
+    padding: 6px 10px !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    min-height: unset !important;
+    transition: all 0.15s ease;
+}
+
+.prod-btns-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-scan-fast {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 800 !important;
+    font-size: 12.5px !important;
+    padding: 9px 14px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25) !important;
+    white-space: nowrap !important;
+    min-height: unset !important;
+}
+
+.btn-new-prod {
+    font-weight: 800 !important;
+    font-size: 12.5px !important;
+    padding: 9px 14px !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+    min-height: unset !important;
+}
+
+.prod-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.prod-filters-grid select {
+    margin: 0 !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    color: #334155 !important;
+    min-height: 36px !important;
+    outline: none !important;
+}
+
+.prod-pills-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.btn-pill-danger {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 1.5px solid #fca5a5 !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    padding: 7px 12px !important;
+    border-radius: 8px !important;
+    min-height: unset !important;
+    white-space: nowrap !important;
+}
+
+.btn-pill-danger.active-filter {
+    background: #dc2626 !important;
+    color: white !important;
+}
+
+.btn-pill-reset {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1.5px solid #cbd5e1 !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+    min-height: unset !important;
+    white-space: nowrap !important;
+}
+
+/* 📱 OTTIMIZZAZIONE SMARTPHONE (< 640px) */
+@media screen and (max-width: 640px) {
+    .products-header-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+    }
+    .prod-actions-row {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 8px !important;
+    }
+    .prod-btns-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+        gap: 6px;
+    }
+    .btn-scan-fast, .btn-new-prod {
+        text-align: center;
+        justify-content: center;
+        padding: 10px 6px !important;
+    }
+    .prod-search-wrapper {
+        width: 100%;
+        min-width: unset;
+    }
+    .prod-filters-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px !important;
+    }
+    .prod-pills-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+    }
+    .btn-pill-danger, .btn-pill-reset {
+        text-align: center;
+        justify-content: center;
+    }
+}
+
+
 
         /* 📱 RESPONSIVE SMARTPHONE */
         @media screen and (max-width: 600px) {
@@ -9241,7 +9469,158 @@ async function registerOperatorPushNotifications() {
 }
 
 
+// =========================================================================
+// 🔍 MOTORE RICERCA BARCODE & FILTRI PRODOTTI (REGISTRATO SU WINDOW)
+// =========================================================================
 
+window._prodSearchCameraStream = null;
+window._prodSearchCameraTimer = null;
+window._prodSearchBarcodeDetector = null;
+
+// 1. ATTIVA/DISATTIVA FOTOCAMERA PER IL FILTRO RICERCA
+window.toggleProductSearchCamera = async function() {
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    const video = document.getElementById('prod-search-camera-video');
+
+    if (!wrapper || !video) {
+        console.error("Elementi video fotocamera non trovati nel DOM!");
+        return;
+    }
+
+    if (window._prodSearchCameraStream) {
+        window.stopProductSearchCamera();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione video nativa richiede Chrome su Android o Safari aggiornato su iOS 17+. In alternativa, puoi digitare il codice o usare qualsiasi lettore barcode USB/Bluetooth.");
+        }
+
+        window._prodSearchBarcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        window._prodSearchCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        video.srcObject = window._prodSearchCameraStream;
+        await video.play();
+
+        wrapper.style.display = 'flex';
+
+        // Ciclo di scansione fotogrammi a 60 FPS
+        window._prodSearchCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && window._prodSearchBarcodeDetector) {
+                try {
+                    const barcodes = await window._prodSearchBarcodeDetector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        const detectedCode = barcodes[0].rawValue;
+                        console.log("📷 [PROD SEARCH DETECTED]:", detectedCode);
+                        
+                        window.stopProductSearchCamera();
+                        if (typeof playWarehouseAudioFeedback === 'function') {
+                            playWarehouseAudioFeedback('success');
+                        }
+
+                        // Applica il filtro alla tabella
+                        window.applyBarcodeFilterToProductsTable(detectedCode);
+                    }
+                } catch (e) {}
+            }
+        }, 150);
+
+    } catch (err) {
+        console.error("Accesso fotocamera negato:", err);
+        alert("Impossibile accedere alla fotocamera per la ricerca. Verifica i permessi nelle impostazioni del browser.");
+        window.stopProductSearchCamera();
+    }
+};
+
+window.stopProductSearchCamera = function() {
+    if (window._prodSearchCameraTimer) {
+        clearInterval(window._prodSearchCameraTimer);
+        window._prodSearchCameraTimer = null;
+    }
+    if (window._prodSearchCameraStream) {
+        window._prodSearchCameraStream.getTracks().forEach(track => track.stop());
+        window._prodSearchCameraStream = null;
+    }
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+};
+
+// 2. APPLICAZIONE FILTRO BARCODE NELLA CASELLA E AGGIORNAMENTO TABELLA
+window.applyBarcodeFilterToProductsTable = function(barcodeText) {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (!input) return;
+
+    input.value = String(barcodeText).trim();
+    if (clearBtn) clearBtn.style.display = 'inline';
+
+    if (typeof renderProducts === 'function') {
+        renderProducts();
+    }
+};
+
+window.clearProductSearchInput = function() {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (typeof renderProducts === 'function') {
+        renderProducts();
+    }
+};
+
+// 3. RESET COMPLETO DEI FILTRI PRODOTTI
+window.resetAllProductFilters = function() {
+    productFilter = 'all';
+    const sInput = document.getElementById('src-prod');
+    const sClear = document.getElementById('src-prod-clear-btn');
+    const fSupp = document.getElementById('filter-prod-supplier');
+    const fSize = document.getElementById('filter-prod-size');
+    const fType = document.getElementById('filter-prod-type-sales');
+    const btnLow = document.getElementById('btn-filter-lowstock');
+
+    if (sInput) sInput.value = '';
+    if (sClear) sClear.style.display = 'none';
+    if (fSupp) fSupp.value = 'all';
+    if (fSize) fSize.value = 'all';
+    if (fType) fType.value = 'all';
+    if (btnLow) btnLow.classList.remove('active-filter');
+
+    if (typeof renderProducts === 'function') {
+        renderProducts();
+    }
+};
+
+// 4. TOGGLE FILTRO SOTTOSOGLIA
+window.toggleLowStockFilter = function() {
+    const btn = document.getElementById('btn-filter-lowstock');
+    if (productFilter === 'lowstock') {
+        productFilter = 'all';
+        if (btn) btn.classList.remove('active-filter');
+    } else {
+        productFilter = 'lowstock';
+        if (btn) btn.classList.add('active-filter');
+    }
+    if (typeof renderProducts === 'function') {
+        renderProducts();
+    }
+};
+
+// 5. AGGIORNAMENTO PULSANTE CLEAR SU DIGITAZIONE TASTIERA
+const originalRenderProducts = window.renderProducts;
+window.renderProducts = async function() {
+    const f = (document.getElementById('src-prod')?.value || '').trim();
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (clearBtn) {
+        clearBtn.style.display = f ? 'inline' : 'none';
+    }
+    if (typeof originalRenderProducts === 'function') {
+        await originalRenderProducts();
+    }
+};
 
     let currentSmartSlots = []; // Salva i}`); // Array di slot proposti su cui navigare con lo skip
 
@@ -9973,6 +10352,171 @@ async function deletePackage(id) {
             alertBox.style.display = 'none';
         }
     }
+
+
+
+
+
+
+
+// =========================================================================
+// 🔍 RICERCA PRODOTTI TRAMITE BARCODE (FOTOCAMERA E LETTORE LASER AUTOMATICO)
+// =========================================================================
+
+let prodSearchCameraStream = null;
+let prodSearchCameraTimer = null;
+let prodSearchBarcodeDetector = null;
+
+// 1. ATTIVA/DISATTIVA FOTOCAMERA PER IL FILTRO TABELLA
+async function toggleProductSearchCamera() {
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    const video = document.getElementById('prod-search-camera-video');
+
+    if (prodSearchCameraStream) {
+        stopProductSearchCamera();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione tramite fotocamera richiede Chrome su Android o Safari aggiornato su iOS. In alternativa, puoi digitare il codice o usare qualsiasi lettore laser.");
+        }
+
+        prodSearchBarcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        prodSearchCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        video.srcObject = prodSearchCameraStream;
+        await video.play();
+
+        wrapper.style.display = 'flex';
+
+        // Loop di rilevamento fotogrammi
+        prodSearchCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && prodSearchBarcodeDetector) {
+                try {
+                    const barcodes = await prodSearchBarcodeDetector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        const detectedCode = barcodes[0].rawValue;
+                        console.log("📷 [BARCODE SEARCH DETECTED]:", detectedCode);
+                        
+                        stopProductSearchCamera();
+                        playWarehouseAudioFeedback('success');
+
+                        // Inserisce il codice nel campo di ricerca e filtra la tabella
+                        applyBarcodeFilterToProductsTable(detectedCode);
+                    }
+                } catch (e) {}
+            }
+        }, 150);
+
+    } catch (err) {
+        console.error("Accesso fotocamera negato:", err);
+        alert("Impossibile accedere alla fotocamera per la ricerca.");
+        stopProductSearchCamera();
+    }
+}
+
+function stopProductSearchCamera() {
+    if (prodSearchCameraTimer) {
+        clearInterval(prodSearchCameraTimer);
+        prodSearchCameraTimer = null;
+    }
+    if (prodSearchCameraStream) {
+        prodSearchCameraStream.getTracks().forEach(track => track.stop());
+        prodSearchCameraStream = null;
+    }
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+}
+
+// 2. APPLICA IL FILTRO IN TABELLA
+function applyBarcodeFilterToProductsTable(barcodeText) {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (!input) return;
+
+    input.value = barcodeText.trim();
+    if (clearBtn) clearBtn.style.display = 'inline';
+
+    renderProducts();
+}
+
+function clearProductSearchInput() {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderProducts();
+}
+
+// 3. ASCOLTO AUTOMATICO PISTOLA LASER NELLA SCHERMATA MAGAZZINO
+// Aggiorna l'ascoltatore 'keydown' globale: se l'utente è nella schermata magazzino
+// e nessun modale è aperto, la scansione filtra direttamente la tabella!
+document.addEventListener('keydown', (e) => {
+    const fastScanModal = document.getElementById('mod-fast-scan-load');
+    const invModal = document.getElementById('mod-inv');
+    const activeView = document.querySelector('.view.active')?.id;
+    const targetTag = e.target.tagName;
+
+    // Se un modale specifico è aperto, lascia gestire a quel modale
+    if (fastScanModal?.classList.contains('active') || invModal?.classList.contains('active')) {
+        return;
+    }
+
+    // Se l'utente sta digitando normalmente in una casella di testo (tranne che se è proprio src-prod)
+    if (targetTag === 'INPUT' && e.target.id !== 'src-prod') return;
+    if (targetTag === 'TEXTAREA' || targetTag === 'SELECT') return;
+
+    // Se siamo nella vista Magazzino Prodotti (v-products)
+    if (activeView === 'v-products') {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastKeyTime;
+        lastKeyTime = currentTime;
+
+        if (e.key === 'Enter') {
+            if (barcodeBuffer.length >= 4) {
+                console.log("⚡ [LASER SCAN IN V-PRODUCTS]:", barcodeBuffer);
+                applyBarcodeFilterToProductsTable(barcodeBuffer.trim());
+                playWarehouseAudioFeedback('success');
+                barcodeBuffer = "";
+                e.preventDefault();
+            }
+        } else if (e.key.length === 1) {
+            if (timeDiff > 120) {
+                barcodeBuffer = ""; // Reset se digitazione umana lenta
+            }
+            barcodeBuffer += e.key;
+        }
+    }
+});
+
+// 4. AGGIORNAMENTO DI RENDERPRODUCTS PER GESTIRE LA CASISTICA "NESSUN RISULTATO"
+const prevRenderProducts = window.renderProducts;
+// Nel corpo di renderProducts(), assicurati che mostri una riga pulita se non trova nulla:
+// Se filtered.length === 0:
+// tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #888; padding: 25px;">Nessun prodotto trovato per "${f}".</td></tr>`;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             function changePage(p, f = false) {
