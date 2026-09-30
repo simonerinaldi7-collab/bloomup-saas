@@ -9609,6 +9609,7 @@ window.toggleLowStockFilter = function() {
     }
 };
 
+
 // 5. AGGIORNAMENTO PULSANTE CLEAR SU DIGITAZIONE TASTIERA
 const originalRenderProducts = window.renderProducts;
 window.renderProducts = async function() {
@@ -9673,6 +9674,347 @@ window.renderProducts = async function() {
 
         document.getElementById('rebooking-proposal-text').innerHTML = `Selezionato: <b>${typeof formatDateIt === 'function' ? formatDateIt(slot.date) : slot.date}</b> alle <b>${slot.time}</b> (Slot ${smartSlotIndex + 1}/${currentSmartSlots.length})`;
     }
+
+
+// =========================================================================
+// 🤖 MOTORE AUTONOMO IA CON WEB GROUNDING (USA LA CHIAVE SICURA DA SUPABASE)
+// =========================================================================
+
+async function resolveBarcodeAutonomouslyWithAi(barcode) {
+    const cleanBarcode = String(barcode).trim();
+
+    // 1. Assicuriamoci che la chiave salvata su Supabase sia caricata in memoria
+    if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
+        await loadSecureAiKey();
+    }
+    const apiKey = window._runtimeAiKey;
+
+    if (!apiKey) {
+        console.warn("⚠️ Nessuna chiave IA trovata nella tabella settings di Supabase.");
+        return null;
+    }
+
+    const isGoogleKey = apiKey.startsWith("AIza");
+    console.log(`🤖 [AI WEB SEARCH] Ricerca autonoma sul web per barcode: ${cleanBarcode} (Provider: ${isGoogleKey ? 'Google Gemini Native' : 'OpenRouter'})...`);
+
+    const promptText = `Identifica l'articolo o prodotto associato al codice a barre EAN/UPC: ${cleanBarcode}.
+Effettua una ricerca sul web e trova la Marca/Brand, il Nome del prodotto commerciale e il Formato o Taglia (es. 1.5L, 500ml, pacchetto da 20, 250ml, S, M, L).
+Rispondi ESCLUSIVAMENTE con un JSON valido (senza testo extra, spiegazioni o markdown):
+{
+  "name": "Nome Prodotto Completo",
+  "model": "Marca o Linea",
+  "size": "Formato o Taglia",
+  "unit": "ml" o "L" o "Pezzi" o "g"
+}`;
+
+    try {
+        // CASO A: Chiave Google Gemini da Supabase (AIza...) con Google Search nativo attivo
+        if (isGoogleKey) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    tools: [{ google_search: {} }] // 🌟 Ricerca Google attiva in tempo reale
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                return cleanJsonFromAi(text, cleanBarcode);
+            }
+        } 
+        // CASO B: Chiave OpenRouter da Supabase (sk-or-...) con Web Plugin attivo
+        else {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'VaiMUp AI Barcode Grounding'
+                },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-001:online",
+                    plugins: [{ id: "web" }],
+                    messages: [{ role: "user", content: promptText }],
+                    temperature: 0.1
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.choices?.[0]?.message?.content || "";
+                return cleanJsonFromAi(text, cleanBarcode);
+            }
+        }
+    } catch (err) {
+        console.error("Errore chiamata IA autonoma:", err);
+    }
+    return null;
+}
+
+function cleanJsonFromAi(rawText, barcode) {
+    try {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) {
+            const p = JSON.parse(match[0]);
+            if (p.name && p.name.trim().length > 1) {
+                return {
+                    barcode: barcode,
+                    name: p.name.trim(),
+                    model: p.model ? p.model.trim() : '',
+                    size: p.size ? p.size.trim() : '',
+                    unit: p.unit ? p.unit.trim() : 'Pezzi',
+                    detected_source: 'Intelligenza Artificiale (Ricerca Web in Tempo Reale)'
+                };
+            }
+        }
+    } catch(e) {}
+    return null;
+}
+
+// =========================================================================
+// ⚡ SCANSIONE BARCODE A CASCATA (LOCALE ➔ OPEN*FACTS ➔ IA SUL WEB)
+// =========================================================================
+
+async function processScannedBarcode(barcode) {
+    const cleanBarcode = String(barcode).trim();
+    const input = document.getElementById('fast-scan-barcode-input');
+    const spinner = document.getElementById('fast-scan-loader-spinner');
+    const resultPane = document.getElementById('fast-scan-result-pane');
+    
+    if (input) input.value = cleanBarcode;
+    if (spinner) {
+        spinner.innerText = "🔍 Ricerca automatica in corso...";
+        spinner.style.display = 'inline';
+    }
+
+    try {
+        // 1. Prodotto già presente nel magazzino del tuo salone
+        const localProduct = (allInventory || []).find(p => p.barcode && String(p.barcode).trim() === cleanBarcode);
+        if (localProduct) {
+            playWarehouseAudioFeedback('success');
+            await displayFastScanProduct(localProduct, 'local');
+            return;
+        }
+
+        // 2. Rete Open*Facts gratuita (Open Food Facts trova subito l'acqua, Open Beauty i cosmetici)
+        if (navigator.onLine) {
+            const dbs = [
+                { url: `https://world.openfoodfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Food Facts (Bevande/Acqua)' },
+                { url: `https://world.openbeautyfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Beauty Facts (Cosmesi)' },
+                { url: `https://world.openproductsfacts.org/api/v2/product/${cleanBarcode}.json`, label: 'Open Products Facts (Retail/Tabacchi)' }
+            ];
+
+            for (let db of dbs) {
+                try {
+                    const res = await fetch(db.url);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.status === 1 && json.product) {
+                            const p = json.product;
+                            const brand = p.brands || p.brand || '';
+                            const nameOnly = p.product_name_it || p.product_name || p.generic_name_it || '';
+                            const fullName = brand && nameOnly && !nameOnly.toLowerCase().includes(brand.toLowerCase())
+                                ? `${brand} - ${nameOnly}`.trim() : (nameOnly || brand);
+                            const size = p.quantity || '';
+                            let unit = 'Pezzi';
+                            if (size.toLowerCase().includes('ml')) unit = 'ml';
+                            else if (size.toLowerCase().includes('l')) unit = 'L';
+                            else if (size.toLowerCase().includes('g')) unit = 'g';
+
+                            const found = {
+                                barcode: cleanBarcode,
+                                name: fullName || 'Articolo Rilevato',
+                                model: brand || '',
+                                size: size,
+                                unit: unit,
+                                detected_source: db.label
+                            };
+                            playWarehouseAudioFeedback('new_product');
+                            await displayFastScanProduct(found, 'external_db');
+                            return;
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+
+        // 3. 🤖 SE NON È NEI DATABASE, L'IA CERCA AUTONOMAMENTE SUL WEB
+        if (spinner) spinner.innerText = "🤖 Ricerca autonoma IA sul Web...";
+        const aiFound = await resolveBarcodeAutonomouslyWithAi(cleanBarcode);
+        if (aiFound && aiFound.name) {
+            playWarehouseAudioFeedback('new_product');
+            await displayFastScanProduct(aiFound, 'ai_agent');
+            return;
+        }
+
+        // 4. Non trovato: compila manualmente
+        playWarehouseAudioFeedback('error');
+        await displayFastScanProduct({ barcode: cleanBarcode, name: '', model: '', size: '', unit: 'Pezzi' }, 'not_found');
+
+    } catch (err) {
+        console.error("Errore scansione barcode:", err);
+        playWarehouseAudioFeedback('error');
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+        if (resultPane) resultPane.style.display = 'block';
+    }
+}
+
+// =========================================================================
+// 📷 GESTORI FOTOCAMERA PER RICERCA E SCHEDA PRODOTTO (BLINDATI SU WINDOW)
+// =========================================================================
+
+window._prodSearchCameraStream = null;
+window._prodSearchCameraTimer = null;
+
+window.toggleProductSearchCamera = async function() {
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    const video = document.getElementById('prod-search-camera-video');
+    if (!wrapper || !video) return;
+
+    if (window._prodSearchCameraStream) {
+        window.stopProductSearchCamera();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione fotocamera richiede Chrome su Android o Safari aggiornato su iOS 17+. Puoi comunque usare qualsiasi lettore barcode USB/Bluetooth.");
+        }
+        const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        window._prodSearchCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = window._prodSearchCameraStream;
+        await video.play();
+        wrapper.style.display = 'flex';
+
+        window._prodSearchCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                try {
+                    const codes = await detector.detect(video);
+                    if (codes && codes.length > 0) {
+                        const val = codes[0].rawValue;
+                        window.stopProductSearchCamera();
+                        if (typeof playWarehouseAudioFeedback === 'function') playWarehouseAudioFeedback('success');
+                        window.applyBarcodeFilterToProductsTable(val);
+                    }
+                } catch(e) {}
+            }
+        }, 150);
+    } catch(err) {
+        alert("Impossibile accedere alla fotocamera. Verifica i permessi.");
+        window.stopProductSearchCamera();
+    }
+};
+
+window.stopProductSearchCamera = function() {
+    if (window._prodSearchCameraTimer) clearInterval(window._prodSearchCameraTimer);
+    if (window._prodSearchCameraStream) {
+        window._prodSearchCameraStream.getTracks().forEach(t => t.stop());
+        window._prodSearchCameraStream = null;
+    }
+    const wrapper = document.getElementById('prod-search-camera-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+};
+
+window.applyBarcodeFilterToProductsTable = function(code) {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (input) input.value = String(code).trim();
+    if (clearBtn) clearBtn.style.display = 'inline';
+    if (typeof renderProducts === 'function') renderProducts();
+};
+
+window.clearProductSearchInput = function() {
+    const input = document.getElementById('src-prod');
+    const clearBtn = document.getElementById('src-prod-clear-btn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (typeof renderProducts === 'function') renderProducts();
+};
+
+window.resetAllProductFilters = function() {
+    productFilter = 'all';
+    window.clearProductSearchInput();
+    const fSupp = document.getElementById('filter-prod-supplier');
+    const fSize = document.getElementById('filter-prod-size');
+    const fType = document.getElementById('filter-prod-type-sales');
+    const btnLow = document.getElementById('btn-filter-lowstock');
+    if (fSupp) fSupp.value = 'all';
+    if (fSize) fSize.value = 'all';
+    if (fType) fType.value = 'all';
+    if (btnLow) btnLow.classList.remove('active-filter');
+    if (typeof renderProducts === 'function') renderProducts();
+};
+
+window.toggleLowStockFilter = function() {
+    const btn = document.getElementById('btn-filter-lowstock');
+    productFilter = (productFilter === 'lowstock') ? 'all' : 'lowstock';
+    if (btn) btn.classList.toggle('active-filter', productFilter === 'lowstock');
+    if (typeof renderProducts === 'function') renderProducts();
+};
+
+// Fotocamera dentro #mod-inv (Scheda Prodotto Singola)
+let invCameraStream = null;
+let invCameraTimer = null;
+
+window.toggleInvCameraScanner = async function() {
+    const wrapper = document.getElementById('inv-camera-scanner-wrapper');
+    const video = document.getElementById('inv-camera-scanner-video');
+    if (!wrapper || !video) return;
+
+    if (invCameraStream) {
+        window.stopInvCameraScanner();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) return alert("Fotocamera nativa non supportata su questo browser.");
+        const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        invCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } }
+        });
+        video.srcObject = invCameraStream;
+        await video.play();
+        wrapper.style.display = 'block';
+
+        invCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                try {
+                    const codes = await detector.detect(video);
+                    if (codes && codes.length > 0) {
+                        const val = codes[0].rawValue;
+                        window.stopInvCameraScanner();
+                        if (typeof playWarehouseAudioFeedback === 'function') playWarehouseAudioFeedback('success');
+                        const barcodeInput = document.getElementById('f-p-barcode');
+                        if (barcodeInput) barcodeInput.value = val;
+                    }
+                } catch(e) {}
+            }
+        }, 150);
+    } catch(err) {
+        alert("Errore accesso fotocamera.");
+        window.stopInvCameraScanner();
+    }
+};
+
+window.stopInvCameraScanner = function() {
+    if (invCameraTimer) clearInterval(invCameraTimer);
+    if (invCameraStream) {
+        invCameraStream.getTracks().forEach(t => t.stop());
+        invCameraStream = null;
+    }
+    const wrapper = document.getElementById('inv-camera-scanner-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+};
+
+
 
     // 3. Algoritmo di ricerca slot liberi basato sugli orari dell'operatore e sugli appuntamenti esistenti
     // 1. Ricerca slot liberi filtrata rigorosamente per l'operatore passato come parametro
