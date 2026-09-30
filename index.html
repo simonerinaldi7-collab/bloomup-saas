@@ -2825,13 +2825,25 @@
                         <input type="number" id="f-p-min" placeholder="Es. 5">
                     </div>
                     <!-- Dentro #mod-inv, sostituire il blocco del campo barcode con: -->
-                        <div>
-                            <label>Codice identificativo (Barcode)</label>
-                            <div style="display: flex; gap: 4px; align-items: center;">
-                                <input type="text" id="f-p-barcode" placeholder="Es. 80234..." style="margin: 0; flex-grow: 1;">
-                                <button type="button" class="btn" style="padding: 10px 12px; font-size: 14px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="triggerBarcodePromptIntoProductForm()" title="Acquisisci Barcode da Lettore o Fotocamera">⚡</button>
-                            </div>
-                        </div>
+                        <<div style="margin-bottom: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+        <label style="margin: 0;">Codice identificativo (Barcode)</label>
+        <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold; border-radius: 6px;" onclick="toggleInvCameraScanner()">
+            📷 Scansiona con Fotocamera
+        </button>
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center;">
+        <input type="text" id="f-p-barcode" placeholder="Es. 80234... (o scansiona con fotocamera/laser)" style="margin: 0; flex-grow: 1; font-weight: bold;">
+    </div>
+
+    <!-- Mirino Fotocamera Dedicato per il Modale Prodotto (A scomparsa) -->
+    <div id="inv-camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 180px; background: #000; border-radius: 10px; overflow: hidden; margin-top: 8px;">
+        <video id="inv-camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <!-- Linea di puntamento laser rossa -->
+        <div style="position: absolute; top: 50%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
+        <button type="button" onclick="stopInvCameraScanner()" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer;">✕</button>
+    </div>
+</div>
                 </div>
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -12282,6 +12294,123 @@ async function getAdvancedBusinessAnalytics() {
 }
 
 
+// =========================================================================
+// 2. SCANNER FOTOCAMERA DEDICATO PER LA SCHEDA PRODOTTO (#mod-inv)
+// =========================================================================
+
+let invCameraStream = null;
+let invCameraTimer = null;
+let invBarcodeDetector = null;
+
+async function toggleInvCameraScanner() {
+    const wrapper = document.getElementById('inv-camera-scanner-wrapper');
+    const video = document.getElementById('inv-camera-scanner-video');
+
+    if (invCameraStream) {
+        stopInvCameraScanner();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione con fotocamera nativa richiede Chrome su Android o Safari aggiornato su iOS. In alternativa, puoi inserire il codice a barre tramite lettore laser USB/Bluetooth.");
+        }
+
+        invBarcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        invCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        video.srcObject = invCameraStream;
+        await video.play();
+
+        wrapper.style.display = 'block';
+
+        // Loop di rilevamento fotogrammi ad alta frequenza
+        invCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && invBarcodeDetector) {
+                try {
+                    const barcodes = await invBarcodeDetector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        const detectedCode = barcodes[0].rawValue;
+                        console.log("📷 [MOD-INV CAMERA DETECTED]:", detectedCode);
+                        
+                        // Ferma la fotocamera ed emette il bip di successo
+                        stopInvCameraScanner();
+                        playWarehouseAudioFeedback('success');
+
+                        // Popola il campo barcode di #mod-inv
+                        const barcodeInput = document.getElementById('f-p-barcode');
+                        if (barcodeInput) barcodeInput.value = detectedCode;
+
+                        // Se stiamo creando un NUOVO prodotto (#edit-p-id === "-1") e il nome è vuoto, avvia il lookup per precompilare i campi!
+                        const editId = document.getElementById('edit-p-id')?.value;
+                        const nameInput = document.getElementById('f-p-name');
+                        if ((editId === "-1" || !editId) && nameInput && !nameInput.value.trim()) {
+                            await autoLookupIntoProductForm(detectedCode);
+                        }
+                    }
+                } catch (e) {}
+            }
+        }, 150);
+
+    } catch (err) {
+        console.error("Accesso fotocamera negato:", err);
+        alert("Impossibile accedere alla fotocamera. Verifica i permessi nelle impostazioni del dispositivo.");
+        stopInvCameraScanner();
+    }
+}
+
+
+// 3. AUTO-LOOKUP PER SCHEDA PRODOTTO (Precompila Nome, Marca, Taglia e Unità se trovato)
+async function autoLookupIntoProductForm(barcode) {
+    try {
+        // Cerca prima in Open Beauty Facts
+        const res = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${barcode}.json`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.status === 1 && data.product) {
+                const prod = data.product;
+                const brand = prod.brands || '';
+                const nameOnly = prod.product_name_it || prod.product_name || '';
+                const fullName = brand ? `${brand} - ${nameOnly}`.trim() : nameOnly;
+                const size = prod.quantity || '';
+
+                if (fullName) document.getElementById('f-p-name').value = fullName;
+                if (brand && document.getElementById('f-p-model')) document.getElementById('f-p-model').value = brand;
+                if (size && document.getElementById('f-p-size')) document.getElementById('f-p-size').value = size;
+                if (size.toLowerCase().includes('ml') && document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = 'ml';
+                
+                playWarehouseAudioFeedback('new_product');
+                return;
+            }
+        }
+    } catch(e) {}
+}
+
+// Pulizia fotocamera alla chiusura di #mod-inv
+const prevCloseMod = window.closeMod;
+window.closeMod = function() {
+    stopInvCameraScanner();
+    if (typeof prevCloseMod === 'function') prevCloseMod();
+};
+
+
+
+function stopInvCameraScanner() {
+    if (invCameraTimer) {
+        clearInterval(invCameraTimer);
+        invCameraTimer = null;
+    }
+    if (invCameraStream) {
+        invCameraStream.getTracks().forEach(track => track.stop());
+        invCameraStream = null;
+    }
+    const wrapper = document.getElementById('inv-camera-scanner-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+}
+
+
 
 // =========================================================================
 // ⚡ MOTORE BARCODE FAST-TRACK: SCANNER, LOOKUP A CASCATA & CARICO FIFO
@@ -12663,6 +12792,17 @@ async function displayFastScanProduct(prod, source) {
     document.getElementById('fs-unload-qty').value = "1";
     document.getElementById('fs-total-cost').value = "";
     document.getElementById('fs-calculated-unit-cost').innerText = "€ 0.00";
+const minStockInput = document.getElementById('fs-min-stock');
+if (minStockInput) {
+    if (isLocal && prod.min_stock !== undefined) {
+        minStockInput.value = prod.min_stock;
+    } else {
+        // Valore predefinito intelligente: 1 (evita che articoli con 1 pezzo risultino subito sottosoglia)
+        minStockInput.value = "1";
+    }
+}
+
+
 
     toggleFastScanConsignment();
 
@@ -12879,6 +13019,10 @@ async function executeFastBarcodeLoad() {
     const isConsignment = document.getElementById('fs-is-consignment').value === "1";
     const supplierId = document.getElementById('fs-supplier-select').value || null;
 
+    // 🌟 LETTURA DELLA SOGLIA SCORTA MINIMA IMPOSTATA DALL'UTENTE (Zero hardcoding)
+    const rawMinStock = parseInt(document.getElementById('fs-min-stock')?.value);
+    const minStock = isNaN(rawMinStock) ? 1 : Math.max(rawMinStock, 0);
+
     const qty = parseInt(document.getElementById('fs-load-qty').value) || 0;
     const totalCost = parseFloat(document.getElementById('fs-total-cost').value) || 0;
 
@@ -12895,7 +13039,6 @@ async function executeFastBarcodeLoad() {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
     try {
-        // A. Se il prodotto è NUOVO, lo inseriamo in inventory
         if (isNew) {
             const newProductPayload = {
                 id: prodId,
@@ -12903,7 +13046,7 @@ async function executeFastBarcodeLoad() {
                 name: name,
                 type: 'prodotto',
                 stock: qty,
-                min_stock: 3,
+                min_stock: minStock, // 👈 Salvata esattamente la soglia scelta
                 model: model || null,
                 barcode: barcode || null,
                 size: size || null,
@@ -12916,7 +13059,6 @@ async function executeFastBarcodeLoad() {
             };
             await window.universalQuery({ action: 'INSERT', table: 'inventory', data: newProductPayload });
 
-            // Creazione storico prezzi iniziale
             await window.universalQuery({
                 action: 'INSERT',
                 table: 'price_history',
@@ -12931,7 +13073,6 @@ async function executeFastBarcodeLoad() {
                 }
             });
 
-            // Condivisione asincrona nel Master Catalog su Supabase per gli altri saloni
             if (navigator.onLine && window.SUPABASE_CONFIG) {
                 fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/master_catalog_products`, {
                     method: 'POST',
@@ -12940,19 +13081,22 @@ async function executeFastBarcodeLoad() {
                 }).catch(e => console.warn("Sync master catalog rimandata:", e));
             }
         } else {
-            // Se esiste già, aggiorniamo la giacenza
             const currentProd = allInventory.find(p => p.id === prodId);
             const newStock = (parseFloat(currentProd ? currentProd.stock : 0) || 0) + qty;
 
             await window.universalQuery({
                 action: 'UPDATE',
                 table: 'inventory',
-                data: { stock: newStock, updated_at: nowIso },
+                data: { 
+                    stock: newStock, 
+                    min_stock: minStock, // 👈 Aggiorna la soglia anche sui riassortimenti
+                    updated_at: nowIso 
+                },
                 id: prodId
             });
         }
 
-        // B. REGISTRAZIONE LOTTO FIFO (stock_lots)
+        // Registrazione Lotto FIFO
         const lotPayload = {
             id: crypto.randomUUID(),
             salon_id: salonId,
@@ -12964,7 +13108,7 @@ async function executeFastBarcodeLoad() {
         };
         await window.universalQuery({ action: 'INSERT', table: 'stock_lots', data: lotPayload });
 
-        // C. REGISTRAZIONE SPESA A BILANCIO (Solo se acquisto di Proprietà)
+        // Spesa a bilancio
         if (!isConsignment && totalCost > 0) {
             await window.universalQuery({
                 action: 'INSERT',
@@ -12981,16 +13125,13 @@ async function executeFastBarcodeLoad() {
 
         playWarehouseAudioFeedback('success');
 
-        // Reset pulito e riposizionamento immediato per il prossimo pezzo (Loop continuo)
+        // Reset e pronto per la scansione successiva
         document.getElementById('fast-scan-barcode-input').value = '';
         document.getElementById('fast-scan-result-pane').style.display = 'none';
         document.getElementById('fast-scan-barcode-input').focus();
 
-        // Aggiorna dati in background
         await refreshAllData();
         if (typeof renderProducts === 'function') renderProducts();
-
-        console.log(`✅ [FAST LOAD COMPLETATO]: ${name} (+${qty} Pz, Costo Unit: €${unitCost.toFixed(2)})`);
 
     } catch (err) {
         console.error("Errore salvataggio carico barcode:", err);
@@ -17253,21 +17394,25 @@ async function deleteExpense(id) {
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Fornitore</label>
-                        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 11.5px;"></select>
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Unità</label>
-                        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 11.5px;">
-                            <option value="Pezzi">Pezzi</option>
-                            <option value="ml">ml (Millilitri)</option>
-                            <option value="L">L (Litri)</option>
-                            <option value="g">g (Grammi)</option>
-                        </select>
-                    </div>
-                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 110px; gap: 8px; margin-bottom: 8px;">
+    <div>
+        <label style="margin: 0 0 2px 0;">Fornitore</label>
+        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 11.5px;"></select>
+    </div>
+    <div>
+        <label style="margin: 0 0 2px 0;">Unità</label>
+        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 11.5px;">
+            <option value="Pezzi">Pezzi</option>
+            <option value="ml">ml (Millilitri)</option>
+            <option value="L">L (Litri)</option>
+            <option value="g">g (Grammi)</option>
+        </select>
+    </div>
+    <div>
+        <label style="margin: 0 0 2px 0; color: #dc2626; font-weight: bold;">Soglia Alert</label>
+        <input type="number" id="fs-min-stock" min="0" value="1" placeholder="Es. 1" style="margin: 0; padding: 7px; font-size: 13px; font-weight: 800; background: white; text-align: center; border: 1.5px solid #cbd5e1; border-radius: 6px;" title="Scorta minima per far scattare l'alert sottosoglia">
+    </div>
+</div>
 
                 <div style="background: #f1f5f9; border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 100px 1fr 130px; gap: 8px; align-items: end;">
                     <div>
