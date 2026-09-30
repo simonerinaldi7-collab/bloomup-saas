@@ -1580,6 +1580,11 @@
        <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn" onclick="productFilter='all'; document.getElementById('filter-prod-supplier').value='all'; document.getElementById('filter-prod-size').value='all'; document.getElementById('filter-prod-type-sales').value='all'; document.getElementById('src-prod').value=''; renderProducts()">Reset</button>
             <button class="btn btn-d" onclick="productFilter='lowstock'; renderProducts()">Sottosoglia</button>
+            <!-- Inserire nella barra dei pulsanti in cima a v-products, prima di "+ Nuovo Prodotto": -->
+            <button class="btn" style="padding: 10px 16px; font-size: 13px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);" onclick="openFastBarcodeScanModal()">
+                ⚡ Scan & Carico Rapido
+            </button>
+
             <button class="btn btn-p" onclick="openMod('inv'); document.getElementById('f-p-type').value='prodotto'; toggleInvFields();">+ Nuovo Prodotto</button>
         </div>
     </div>
@@ -12273,6 +12278,573 @@ async function getAdvancedBusinessAnalytics() {
 }
 
 
+
+// =========================================================================
+// ⚡ MOTORE BARCODE FAST-TRACK: SCANNER, LOOKUP A CASCATA & CARICO FIFO
+// =========================================================================
+
+let fastScanCameraStream = null;
+let fastScanCameraTimer = null;
+let fastScanBarcodeDetector = null;
+
+// 1. SINTETIZZATORE AUDIO NATIVO DI MAGAZZINO (Zero file audio esterni)
+function playWarehouseAudioFeedback(type = 'success') {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const now = ctx.currentTime;
+
+        if (type === 'success') {
+            // Bip acuto e pulito di avvenuta lettura (880Hz)
+            osc.frequency.setValueAtTime(880, now);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        } else if (type === 'new_product') {
+            // Doppio bip ascendente per nuovo prodotto rilevato (587Hz -> 880Hz)
+            osc.frequency.setValueAtTime(587, now);
+            osc.frequency.setValueAtTime(880, now + 0.08);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else if (type === 'error') {
+            // Tono basso di errore (220Hz)
+            osc.frequency.setValueAtTime(220, now);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        }
+    } catch (e) {
+        console.warn("Audio feedback non disponibile:", e);
+    }
+}
+
+// 2. APERTURA E GESTIONE MODALE SCANNER
+async function openFastBarcodeScanModal() {
+    const modal = document.getElementById('mod-fast-scan-load');
+    const input = document.getElementById('fast-scan-barcode-input');
+    const resultPane = document.getElementById('fast-scan-result-pane');
+
+    if (!modal || !input) return;
+
+    // Popola select fornitori
+    const suppSelect = document.getElementById('fs-supplier-select');
+    if (suppSelect) {
+        const suppliers = allSuppliers || await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        suppSelect.innerHTML = `<option value="">-- Nessun fornitore --</option>` +
+            suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    input.value = '';
+    if (resultPane) resultPane.style.display = 'none';
+
+    modal.classList.add('active');
+
+    // Mette il focus immediato per le pistole laser / lettori barcode
+    setTimeout(() => { input.focus(); }, 150);
+}
+
+function closeFastScanModal() {
+    stopCameraScanner();
+    const modal = document.getElementById('mod-fast-scan-load');
+    if (modal) modal.classList.remove('active');
+}
+
+// 3. ASCOLTATORE PISTOLE BARCODE LASER FISICHE (Buffer Tastiera Rapido Globale)
+let barcodeBuffer = "";
+let lastKeyTime = Date.now();
+
+document.addEventListener('keydown', (e) => {
+    const activeModal = document.getElementById('mod-fast-scan-load');
+    const targetTag = e.target.tagName;
+    
+    // Se l'utente sta già scrivendo in una normale textarea o input e il modale scanner NON è aperto, non interferire
+    if (!activeModal?.classList.contains('active') && (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT')) {
+        return;
+    }
+
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastKeyTime;
+    lastKeyTime = currentTime;
+
+    // Se l'intervallo tra i tasti è tipico di un lettore laser (< 45ms) o se siamo nel campo barcode
+    if (e.key === 'Enter') {
+        if (barcodeBuffer.length >= 6) {
+            console.log("⚡ [HARDWARE SCANNER DETECTED]:", barcodeBuffer);
+            processScannedBarcode(barcodeBuffer.trim());
+            barcodeBuffer = "";
+            e.preventDefault();
+        }
+    } else if (e.key.length === 1) {
+        if (timeDiff > 100) {
+            barcodeBuffer = ""; // Resetta se è digitazione umana lenta
+        }
+        barcodeBuffer += e.key;
+    }
+});
+
+function handleFastBarcodeManualKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = e.target.value.trim();
+        if (code.length >= 4) {
+            processScannedBarcode(code);
+        }
+    }
+}
+
+// 4. RICERCA A CASCATA: LOCALE ➔ CLOUD ➔ OPEN BEAUTY FACTS ➔ IA
+async function processScannedBarcode(barcode) {
+    const cleanBarcode = String(barcode).trim();
+    const input = document.getElementById('fast-scan-barcode-input');
+    const spinner = document.getElementById('fast-scan-loader-spinner');
+    const resultPane = document.getElementById('fast-scan-result-pane');
+    
+    if (input) input.value = cleanBarcode;
+    if (spinner) spinner.style.display = 'inline';
+
+    console.log(`🔍 [LOOKUP BARCODE] Avvio ricerca per codice: ${cleanBarcode}...`);
+
+    try {
+        // TIER 1: Ricerca in locale (Esiste già nel magazzino del salone?)
+        const localProduct = (allInventory || []).find(p => p.barcode && String(p.barcode).trim() === cleanBarcode);
+
+        if (localProduct) {
+            playWarehouseAudioFeedback('success');
+            console.log("✅ [TIER 1] Prodotto già esistente in locale:", localProduct.name);
+            await displayFastScanProduct(localProduct, 'local');
+            return;
+        }
+
+        // TIER 2: Ricerca nel Master Catalog Condiviso di Supabase
+        if (navigator.onLine && window.SUPABASE_CONFIG) {
+            try {
+                const resMaster = await fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/master_catalog_products?barcode=eq.${cleanBarcode}&select=*`, {
+                    headers: { 'apikey': window.SUPABASE_CONFIG.key, 'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key }
+                });
+                if (resMaster.ok) {
+                    const masterRows = await resMaster.json();
+                    if (masterRows && masterRows.length > 0) {
+                        playWarehouseAudioFeedback('new_product');
+                        console.log("✅ [TIER 2] Trovato nel Master Catalog VaiMUp:", masterRows[0]);
+                        await displayFastScanProduct(masterRows[0], 'master_catalog');
+                        return;
+                    }
+                }
+            } catch (errMaster) {
+                console.warn("Master catalog lookup fallito:", errMaster);
+            }
+        }
+
+        // TIER 3: Ricerca API Open Beauty Facts (Database mondiale Cosmetica / Haircare)
+        if (navigator.onLine) {
+            try {
+                const obfRes = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${cleanBarcode}.json`);
+                if (obfRes.ok) {
+                    const obfData = await obfRes.json();
+                    if (obfData.status === 1 && obfData.product) {
+                        const prod = obfData.product;
+                        const brand = prod.brands || '';
+                        const nameOnly = prod.product_name_it || prod.product_name || '';
+                        const fullName = brand ? `${brand} - ${nameOnly}`.trim() : nameOnly;
+                        const size = prod.quantity || '';
+
+                        const candidate = {
+                            barcode: cleanBarcode,
+                            name: fullName || 'Prodotto Cosmetico',
+                            model: brand || '',
+                            size: size,
+                            unit: (size.toLowerCase().includes('ml') || size.toLowerCase().includes('l')) ? 'ml' : 'Pezzi'
+                        };
+
+                        playWarehouseAudioFeedback('new_product');
+                        console.log("✅ [TIER 3] Trovato in Open Beauty Facts:", candidate);
+                        await displayFastScanProduct(candidate, 'open_beauty_facts');
+                        return;
+                    }
+                }
+            } catch (errObf) {
+                console.warn("Open Beauty Facts lookup fallito:", errObf);
+            }
+        }
+
+        // TIER 4: Fallback con Intelligenza Artificiale (Per abbigliamento, formati salone o novità)
+        if (window._runtimeAiKey || (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey)) {
+            try {
+                const aiResult = await fetchBarcodeViaAiAgent(cleanBarcode);
+                if (aiResult && aiResult.name) {
+                    playWarehouseAudioFeedback('new_product');
+                    console.log("✅ [TIER 4] Risolto tramite AI Fallback:", aiResult);
+                    await displayFastScanProduct(aiResult, 'ai_agent');
+                    return;
+                }
+            } catch (errAi) {
+                console.warn("AI Barcode lookup fallito:", errAi);
+            }
+        }
+
+        // Se non trovato in nessuna fonte: Pre-imposta per creazione manuale veloce
+        playWarehouseAudioFeedback('error');
+        await displayFastScanProduct({ barcode: cleanBarcode, name: '', model: '', size: '', unit: 'Pezzi' }, 'not_found');
+
+    } catch (err) {
+        console.error("Errore processo scansione barcode:", err);
+        playWarehouseAudioFeedback('error');
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+        if (resultPane) resultPane.style.display = 'block';
+    }
+}
+
+// 5. QUERY IA FALLBACK PER BARCODE SCONOSCIUTI
+async function fetchBarcodeViaAiAgent(barcode) {
+    const apiKey = window._runtimeAiKey || (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey);
+    const systemPrompt = `Sei un esperto di codici EAN/barcode per il settore retail, beauty salone e moda.
+Identifica l'articolo associato al codice a barre ${barcode}.
+Rispondi con un oggetto JSON valido (senza markdown o spiegazioni):
+{
+  "barcode": "${barcode}",
+  "name": "Nome Prodotto Completo con Marca",
+  "model": "Marca o Linea Collezione",
+  "size": "Taglia o Formato (es. 250ml, 1000ml, M, L)",
+  "unit": "Pezzi" o "ml"
+}`;
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'VaiMUp Barcode Service'
+        },
+        body: JSON.stringify({
+            model: "openrouter/free",
+            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `Barcode: ${barcode}` }],
+            temperature: 0.1,
+            max_tokens: 200
+        })
+    });
+
+    if (!res.ok) return null;
+    const jsonRes = await res.json();
+    const raw = jsonRes.choices?.[0]?.message?.content || "";
+    const match = raw.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : null;
+}
+
+// 6. POPOLAMENTO DELLA SCHEDA DI CARICO MERCI
+async function displayFastScanProduct(prod, source) {
+    const isLocal = (source === 'local');
+    const badge = document.getElementById('fast-scan-source-badge');
+    const isNewInput = document.getElementById('fs-is-new-product');
+    const prodIdInput = document.getElementById('fs-prod-id');
+    const nameInput = document.getElementById('fs-prod-name');
+    const modelInput = document.getElementById('fs-prod-model');
+    const sizeInput = document.getElementById('fs-prod-size');
+    const unitSelect = document.getElementById('fs-unit-select');
+    const priceInput = document.getElementById('fs-listing-price');
+    const suppSelect = document.getElementById('fs-supplier-select');
+    const consignmentSelect = document.getElementById('fs-is-consignment');
+
+    isNewInput.value = isLocal ? "0" : "1";
+    prodIdInput.value = isLocal ? prod.id : crypto.randomUUID();
+
+    nameInput.value = prod.name || '';
+    modelInput.value = prod.model || '';
+    sizeInput.value = prod.size || '';
+    if (unitSelect) unitSelect.value = prod.unit || 'Pezzi';
+
+    if (badge) {
+        if (source === 'local') {
+            badge.style.background = '#dcfce7';
+            badge.style.color = '#16a34a';
+            badge.innerHTML = `✓ Prodotto già a listino nel tuo salone (Giacenza attuale: <b>${prod.stock || 0} ${prod.unit || 'Pz'}</b>)`;
+        } else if (source === 'open_beauty_facts') {
+            badge.style.background = '#ede9fe';
+            badge.style.color = '#6d28d9';
+            badge.innerHTML = `✨ Riconosciuto da Open Beauty Facts Database`;
+        } else if (source === 'master_catalog') {
+            badge.style.background = '#e0f2fe';
+            badge.style.color = '#0284c7';
+            badge.innerHTML = `☁️ Riconosciuto da Master Catalog VaiMUp`;
+        } else if (source === 'ai_agent') {
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#d97706';
+            badge.innerHTML = `🤖 Identificato tramite Ricerca Intelligente IA`;
+        } else {
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#dc2626';
+            badge.innerHTML = `⚠️ Codice nuovo non presente nei database: inserisci il nome`;
+        }
+    }
+
+    // Se esiste in locale, carica l'ultimo prezzo di vendita e fornitore
+    if (isLocal) {
+        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
+        priceInput.value = pInfo ? pInfo.price : 0;
+        if (suppSelect) suppSelect.value = prod.supplier_id || '';
+        if (consignmentSelect) consignmentSelect.value = prod.is_consignment ? "1" : "0";
+    } else {
+        priceInput.value = '';
+        if (consignmentSelect) consignmentSelect.value = "0";
+    }
+
+    // Default carico merce
+    document.getElementById('fs-load-qty').value = "1";
+    document.getElementById('fs-total-cost').value = "";
+    document.getElementById('fs-calculated-unit-cost').innerText = "€ 0.00";
+
+    toggleFastScanConsignment();
+
+    // Focus rapido per confermare quantità o prezzo
+    setTimeout(() => {
+        if (isLocal) {
+            document.getElementById('fs-load-qty').focus();
+        } else {
+            if (!nameInput.value) nameInput.focus();
+            else priceInput.focus();
+        }
+    }, 100);
+}
+
+function calculateFastScanUnitCost() {
+    const qty = parseFloat(document.getElementById('fs-load-qty').value) || 0;
+    const totalCost = parseFloat(document.getElementById('fs-total-cost').value) || 0;
+    const unitEl = document.getElementById('fs-calculated-unit-cost');
+    if (qty > 0 && totalCost > 0) {
+        unitEl.innerText = `€ ${(totalCost / qty).toFixed(2)}`;
+    } else {
+        unitEl.innerText = `€ 0.00`;
+    }
+}
+
+function toggleFastScanConsignment() {
+    const isConsignment = document.getElementById('fs-is-consignment').value === "1";
+    const totalCostInput = document.getElementById('fs-total-cost');
+    if (isConsignment) {
+        totalCostInput.value = "0";
+        totalCostInput.disabled = true;
+        totalCostInput.style.background = "#e2e8f0";
+        document.getElementById('fs-calculated-unit-cost').innerText = "€ 0.00 (Conto Vendita)";
+    } else {
+        totalCostInput.disabled = false;
+        totalCostInput.style.background = "#ffffff";
+        calculateFastScanUnitCost();
+    }
+}
+
+// 7. TRANSAZIONE ATOMICA: CREA PRODOTTO + CARICO MERCE FIFO
+async function executeFastBarcodeLoad() {
+    const isNew = document.getElementById('fs-is-new-product').value === "1";
+    const prodId = document.getElementById('fs-prod-id').value;
+    const barcode = document.getElementById('fast-scan-barcode-input').value.trim();
+    const name = document.getElementById('fs-prod-name').value.trim();
+    const model = document.getElementById('fs-prod-model').value.trim();
+    const size = document.getElementById('fs-prod-size').value.trim();
+    const unit = document.getElementById('fs-unit-select').value;
+    const listingPrice = parseFloat(document.getElementById('fs-listing-price').value) || 0;
+    const isConsignment = document.getElementById('fs-is-consignment').value === "1";
+    const supplierId = document.getElementById('fs-supplier-select').value || null;
+
+    const qty = parseInt(document.getElementById('fs-load-qty').value) || 0;
+    const totalCost = parseFloat(document.getElementById('fs-total-cost').value) || 0;
+
+    if (!name) return alert("Inserisci il nome del prodotto!");
+    if (listingPrice <= 0) return alert("Inserisci il prezzo di listino di vendita!");
+    if (qty <= 0) return alert("La quantità deve essere maggiore di 0!");
+    if (!isConsignment && totalCost <= 0) {
+        if (!confirm("Il costo totale è impostato a € 0.00. Vuoi procedere con costo d'acquisto zero?")) return;
+    }
+
+    const unitCost = (!isConsignment && qty > 0) ? (totalCost / qty) : 0;
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    try {
+        // A. Se il prodotto è NUOVO, lo inseriamo in inventory
+        if (isNew) {
+            const newProductPayload = {
+                id: prodId,
+                salon_id: salonId,
+                name: name,
+                type: 'prodotto',
+                stock: qty,
+                min_stock: 3,
+                model: model || null,
+                barcode: barcode || null,
+                size: size || null,
+                unit: unit || 'Pezzi',
+                location: null,
+                supplier_id: supplierId,
+                is_consignment: isConsignment,
+                consignment_split_pct: 0,
+                updated_at: nowIso
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'inventory', data: newProductPayload });
+
+            // Creazione storico prezzi iniziale
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'price_history',
+                data: {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    product_id: prodId,
+                    cost: unitCost,
+                    price: listingPrice,
+                    date_from: nowIso,
+                    date_to: null
+                }
+            });
+
+            // Condivisione asincrona nel Master Catalog su Supabase per gli altri saloni
+            if (navigator.onLine && window.SUPABASE_CONFIG) {
+                fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/master_catalog_products`, {
+                    method: 'POST',
+                    headers: { 'apikey': window.SUPABASE_CONFIG.key, 'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key, 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates' },
+                    body: JSON.stringify({ barcode: barcode, name: name, brand: model, model: model, size: size, unit: unit })
+                }).catch(e => console.warn("Sync master catalog rimandata:", e));
+            }
+        } else {
+            // Se esiste già, aggiorniamo la giacenza
+            const currentProd = allInventory.find(p => p.id === prodId);
+            const newStock = (parseFloat(currentProd ? currentProd.stock : 0) || 0) + qty;
+
+            await window.universalQuery({
+                action: 'UPDATE',
+                table: 'inventory',
+                data: { stock: newStock, updated_at: nowIso },
+                id: prodId
+            });
+        }
+
+        // B. REGISTRAZIONE LOTTO FIFO (stock_lots)
+        const lotPayload = {
+            id: crypto.randomUUID(),
+            salon_id: salonId,
+            product_id: prodId,
+            initial_qty: qty,
+            qty_remaining: qty,
+            unit_cost: unitCost,
+            created_at: nowIso
+        };
+        await window.universalQuery({ action: 'INSERT', table: 'stock_lots', data: lotPayload });
+
+        // C. REGISTRAZIONE SPESA A BILANCIO (Solo se acquisto di Proprietà)
+        if (!isConsignment && totalCost > 0) {
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'expenses',
+                data: {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    date: todayStr,
+                    description: `Carico Barcode: ${name} (x${qty})`,
+                    amount: totalCost
+                }
+            });
+        }
+
+        playWarehouseAudioFeedback('success');
+
+        // Reset pulito e riposizionamento immediato per il prossimo pezzo (Loop continuo)
+        document.getElementById('fast-scan-barcode-input').value = '';
+        document.getElementById('fast-scan-result-pane').style.display = 'none';
+        document.getElementById('fast-scan-barcode-input').focus();
+
+        // Aggiorna dati in background
+        await refreshAllData();
+        if (typeof renderProducts === 'function') renderProducts();
+
+        console.log(`✅ [FAST LOAD COMPLETATO]: ${name} (+${qty} Pz, Costo Unit: €${unitCost.toFixed(2)})`);
+
+    } catch (err) {
+        console.error("Errore salvataggio carico barcode:", err);
+        playWarehouseAudioFeedback('error');
+        alert("Errore durante la registrazione del carico: " + err.message);
+    }
+}
+
+// 8. FOTOCAMERA SMARTPHONE NATIVA (BarcodeDetector API a 60 FPS)
+async function toggleCameraScanner() {
+    const wrapper = document.getElementById('camera-scanner-wrapper');
+    const video = document.getElementById('camera-scanner-video');
+
+    if (fastScanCameraStream) {
+        stopCameraScanner();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione video nativa richiede Chrome su Android o Safari aggiornato su iOS. In alternativa, puoi digitare il codice o usare qualsiasi lettore barcode USB/Bluetooth.");
+        }
+
+        fastScanBarcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+        fastScanCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        video.srcObject = fastScanCameraStream;
+        await video.play();
+
+        wrapper.style.display = 'block';
+        document.getElementById('btn-toggle-camera-scanner').innerText = "🛑 Disattiva Fotocamera";
+
+        // Loop di rilevamento fotogrammi
+        fastScanCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && fastScanBarcodeDetector) {
+                try {
+                    const barcodes = await fastScanBarcodeDetector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        const detectedCode = barcodes[0].rawValue;
+                        console.log("📷 [CAMERA BARCODE DETECTED]:", detectedCode);
+                        stopCameraScanner();
+                        processScannedBarcode(detectedCode);
+                    }
+                } catch (e) {}
+            }
+        }, 150);
+
+    } catch (camErr) {
+        console.error("Accesso fotocamera negato:", camErr);
+        alert("Impossibile accedere alla fotocamera. Verifica i permessi nelle impostazioni del browser.");
+        stopCameraScanner();
+    }
+}
+
+function stopCameraScanner() {
+    if (fastScanCameraTimer) {
+        clearInterval(fastScanCameraTimer);
+        fastScanCameraTimer = null;
+    }
+    if (fastScanCameraStream) {
+        fastScanCameraStream.getTracks().forEach(track => track.stop());
+        fastScanCameraStream = null;
+    }
+    const wrapper = document.getElementById('camera-scanner-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+    const btn = document.getElementById('btn-toggle-camera-scanner');
+    if (btn) btn.innerText = "📷 Attiva Fotocamera";
+}
+
+
     async function viewApp(id) {
     const a = allAppointments.find(x => x.id === id); 
     if(!a) return; 
@@ -16345,6 +16917,142 @@ async function deleteExpense(id) {
             <small style="color: #64748b; font-size: 11px;">I messaggi inviati vengono memorizzati nello storico comunicazioni.</small>
             <button class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 16px;" onclick="closeMod()">Chiudi</button>
         </div>
+    </div>
+</div>
+
+
+<!-- ======================================================== -->
+<!-- ⚡ MODALE SCANNER CONTINUO & CARICO MERCI ULTRA-RAPIDO   -->
+<!-- ======================================================== -->
+<div id="mod-fast-scan-load" class="modal" onclick="if(event.target==this) closeFastScanModal()">
+    <div class="modal-box" style="width: 620px; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; padding: 22px;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">⚡</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Scansione & Carico Merci Rapido</h3>
+                    <small style="color: #64748b;">Pistola Laser attiva ovunque o usa la fotocamera del telefono</small>
+                </div>
+            </div>
+            <button onclick="closeFastScanModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <!-- Sezione Selezione Modalità Scanner (Laser vs Fotocamera) -->
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="scan-hardware-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; display: inline-block; animation: pulseAlarm 2s infinite;"></span>
+                <span style="font-size: 12px; font-weight: 700; color: #334155;">Pistola Laser / Barcode Scanner: <span style="color: #10b981;">PRONTA</span></span>
+            </div>
+            <button type="button" id="btn-toggle-camera-scanner" class="btn" style="padding: 5px 12px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="toggleCameraScanner()">
+                📷 Attiva Fotocamera
+            </button>
+        </div>
+
+        <!-- Viewfinder Fotocamera Smartphone (Nascosto di default, attivabile con un tocco) -->
+        <div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 210px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; flex-shrink: 0;">
+            <video id="camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <!-- Linea guida rossa di puntamento -->
+            <div style="position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
+            <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer;">✕</button>
+        </div>
+
+        <!-- Input Barcode Manuale / Buffer Ricezione Laser -->
+        <div style="position: relative; margin-bottom: 12px; flex-shrink: 0;">
+            <input type="text" id="fast-scan-barcode-input" placeholder="Inquadra o spara il codice a barre col lettore..." autocomplete="off" style="margin: 0; padding: 12px 14px; font-size: 16px; font-weight: 800; letter-spacing: 1px; border: 2px solid var(--p); background: #ffffff;" onkeydown="handleFastBarcodeManualKey(event)">
+            <span id="fast-scan-loader-spinner" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 14px;">⏳ Ricerca database...</span>
+        </div>
+
+        <!-- Area Scrollabile Risultato Prodotto & Form Carico Contestuale -->
+        <div id="fast-scan-result-pane" style="flex-grow: 1; overflow-y: auto; padding-right: 4px; display: none;">
+            
+            <!-- Badge Stato Riconoscimento (Esistente vs Nuovo da Database) -->
+            <div id="fast-scan-source-badge" style="padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; margin-bottom: 10px; display: inline-block;"></div>
+
+            <!-- Dati Anagrafici (Auto-compilati da database o esistenti) -->
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+                <input type="hidden" id="fs-prod-id" value="-1">
+                <input type="hidden" id="fs-is-new-product" value="0">
+
+                <label style="margin: 0 0 2px 0;">Nome Prodotto *</label>
+                <input type="text" id="fs-prod-name" placeholder="Es. Shampoo Riparatore 250ml" style="margin: 0 0 8px 0; background: white; font-weight: bold;">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Marca / Linea</label>
+                        <input type="text" id="fs-prod-model" placeholder="Es. Kérastase / Serie Expert" style="margin: 0; background: white;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Taglia / Formato</label>
+                        <input type="text" id="fs-prod-size" placeholder="Es. 250ml, 1000ml, M, L" style="margin: 0; background: white; font-weight: bold;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dati di Listino & Carico Merci Contestuale -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; color: var(--p);">Prezzo Listino Vendita (€) *</label>
+                        <input type="number" id="fs-listing-price" step="0.01" min="0" placeholder="Es. 28.00" style="margin: 0; background: white; font-size: 15px; font-weight: 800;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Gestione Articolo</label>
+                        <select id="fs-is-consignment" onchange="toggleFastScanConsignment()" style="margin: 0; background: white; font-weight: 600;">
+                            <option value="0">Proprietà (Acquisto)</option>
+                            <option value="1">Conto Vendita</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Fornitore</label>
+                        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 12px;"></select>
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0;">Unità di Misura</label>
+                        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 12px;">
+                            <option value="Pezzi">Pezzi</option>
+                            <option value="ml">ml (Millilitri)</option>
+                            <option value="L">L (Litri)</option>
+                            <option value="g">g (Grammi)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Box Parametri Quantità e Costo Carico -->
+                <div style="background: #f1f5f9; border-radius: 10px; padding: 10px; margin-top: 6px; display: grid; grid-template-columns: 110px 1fr 140px; gap: 8px; align-items: end;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800;">Quantità in Arrivo (+)</label>
+                        <input type="number" id="fs-load-qty" value="1" min="1" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 8px; font-size: 16px; font-weight: 900; text-align: center; background: white;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800;">Costo Totale Carico (€)</label>
+                        <input type="number" id="fs-total-cost" step="0.01" min="0" placeholder="0.00" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 8px; font-size: 14px; font-weight: 800; background: white;">
+                    </div>
+                    <div>
+                        <small style="font-size: 9px; color: #64748b; display: block; margin-bottom: 2px; text-transform: uppercase;">Costo Unit. Calcolato:</small>
+                        <div id="fs-calculated-unit-cost" style="font-size: 14px; font-weight: 800; color: #047857; padding: 6px 0;">€ 0.00</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Tasto Azione Unica: Crea / Aggiorna + Carica FIFO -->
+            <button type="button" id="btn-execute-fast-load" class="btn" style="width: 100%; padding: 14px; font-size: 14px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); cursor: pointer;" onclick="executeFastBarcodeLoad()">
+                ⚡ REGISTRA CARICO MERCE E CONTINUA (ENTER)
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <small style="color: #64748b; font-size: 11px;">Lo scanner rimane in ascolto continuo per il prossimo prodotto.</small>
+            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 6px 14px;" onclick="closeFastScanModal()">Esci</button>
+        </div>
+
     </div>
 </div>
 
