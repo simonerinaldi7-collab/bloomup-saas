@@ -10852,29 +10852,17 @@ const prevRenderProducts = window.renderProducts;
 // 🎨 MOTORE TEMI ISTANTANEO (BEAUTY vs BARBER)
 // =========================================================================
 
-// =========================================================================
-// 🎨 GESTIONE TEMA E COLORE BARRA SUPERIORE (HEADER & NOTCH SMARTPHONE)
-// =========================================================================
-
+// 1. APPLICA IL TEMA ALL'ELEMENTO RADICE HTML (ZERO RELOAD)
 function applyAppTheme(themeName) {
     const validTheme = (themeName === 'barber') ? 'barber' : 'beauty';
     
-    // 1. Imposta l'attributo tema sull'elemento radice <html>
+    // Imposta l'attributo sull'elemento root HTML
     document.documentElement.setAttribute('data-theme', validTheme);
+    
+    // Salva in locale per evitare sfarfallii all'avvio
     localStorage.setItem('VaiMUp_app_theme', validTheme);
-
-    // 2. 📱 SINCRONIZZAZIONE NOTCH / STATUS BAR MOBILE (PWA)
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        // Se il tema è Barber la barra del telefono diventa Nero Notte (#0f172a), altrimenti Viola (#6C5CE7)
-        metaTheme.setAttribute('content', validTheme === 'barber' ? '#0f172a' : '#6C5CE7');
-    }
-
-    // 3. Ripristina stile barra se impostato su 'auto'
-    const savedHdr = localStorage.getItem('VaiMUp_header_style') || 'auto';
-    setHeaderStyle(savedHdr, false);
-
-    // 4. Aggiorna grafica card impostazioni
+    
+    // Aggiorna l'interfaccia delle card nelle impostazioni se visibile
     const cardBeauty = document.getElementById('theme-card-beauty');
     const cardBarber = document.getElementById('theme-card-barber');
     const hiddenInput = document.getElementById('set-app-theme');
@@ -10892,46 +10880,9 @@ function applyAppTheme(themeName) {
         }
     }
     if (hiddenInput) hiddenInput.value = validTheme;
+
+    console.log(`🎨 [THEME ENGINE] Tema applicato: ${validTheme.toUpperCase()}`);
 }
-
-// Funzione per impostare la tonalità della barra in alto (Auto / Scura / Chiara)
-function setHeaderStyle(styleType, saveToStorage = true) {
-    if (saveToStorage) {
-        localStorage.setItem('VaiMUp_header_style', styleType);
-    }
-
-    if (styleType === 'dark') {
-        document.documentElement.setAttribute('data-header', 'dark');
-    } else if (styleType === 'light') {
-        document.documentElement.removeAttribute('data-header');
-        // Se il tema è barber ma si forza la barra chiara
-        document.querySelector('.header').style.setProperty('--header-bg', '#ffffff', 'important');
-        document.querySelector('.header').style.setProperty('--header-title', '#0f172a', 'important');
-        document.querySelector('.header').style.setProperty('--header-burger', '#0f172a', 'important');
-    } else {
-        // Modalità Auto: segue il tema principale
-        document.documentElement.removeAttribute('data-header');
-        document.querySelector('.header').style.removeProperty('--header-bg');
-        document.querySelector('.header').style.removeProperty('--header-title');
-        document.querySelector('.header').style.removeProperty('--header-burger');
-    }
-}
-
-// Applicazione immediata all'avvio prima del rendering (Zero sfarfallii)
-(function() {
-    const savedTheme = localStorage.getItem('VaiMUp_app_theme') || 'beauty';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        metaTheme.setAttribute('content', savedTheme === 'barber' ? '#0f172a' : '#6C5CE7');
-    }
-
-    const savedHdr = localStorage.getItem('VaiMUp_header_style') || 'auto';
-    if (savedHdr === 'dark') {
-        document.documentElement.setAttribute('data-header', 'dark');
-    }
-})();
 
 // 2. SCELTA TEMA DALL'INTERFACCIA IMPOSTAZIONI
 function chooseAppTheme(themeName) {
@@ -13719,10 +13670,6 @@ async function displayFastScanProduct(prod, source) {
     const consignmentSelect = document.getElementById('fs-is-consignment');
     const linkExistingBox = document.getElementById('fs-link-existing-wrapper');
     const currentStockLabel = document.getElementById('fs-current-stock-label');
-    const minStockInput = document.getElementById('fs-min-stock');
-
-    // 🌟 RISOLUZIONE: DICHIARAZIONE ESPLICITA DEL BOX DI SOCCORSO SKU & FOTO
-    const skuRescueBox = document.getElementById('fs-sku-rescue-box');
 
     isNewInput.value = isLocal ? "0" : "1";
     prodIdInput.value = isLocal ? prod.id : crypto.randomUUID();
@@ -13732,19 +13679,12 @@ async function displayFastScanProduct(prod, source) {
     sizeInput.value = prod.size || '';
     if (unitSelect) unitSelect.value = prod.unit || 'Pezzi';
 
+    // Gestione visualizzazione giacenza attuale per lo scarico
     if (currentStockLabel) {
         currentStockLabel.innerText = `${prod.stock || 0} ${prod.unit || 'Pz'}`;
     }
 
-    if (minStockInput) {
-        if (isLocal && prod.min_stock !== undefined) {
-            minStockInput.value = prod.min_stock;
-        } else {
-            minStockInput.value = "1";
-        }
-    }
-
-    // Gestione box associazione a prodotto esistente
+    // 🌟 SE IL PRODOTTO NON È LOCALE, MOSTRIAMO L'OPZIONE PER ASSOCIARE A UN PRODOTTO ESISTENTE
     if (!isLocal) {
         if (linkExistingBox) {
             linkExistingBox.style.display = 'block';
@@ -13754,48 +13694,27 @@ async function displayFastScanProduct(prod, source) {
         if (linkExistingBox) linkExistingBox.style.display = 'none';
     }
 
-    // 🌟 SE IL CODICE È SCONOSCIUTO (not_found), APRIAMO IL BOX SKU & FOTO ETICHETTA!
-    if (skuRescueBox) {
-        if (source === 'not_found') {
-            skuRescueBox.style.display = 'block';
-            // Pre-compila lo SKU con il barcode scansionato come suggerimento rapido
-            const skuInput = document.getElementById('fs-sku-input');
-            if (skuInput && !skuInput.value) skuInput.value = '';
-        } else {
-            skuRescueBox.style.display = 'none';
-        }
-    }
-
-    // Gestione Badge di Origine
     if (badge) {
         if (source === 'local') {
             badge.style.background = '#dcfce7';
             badge.style.color = '#16a34a';
             badge.innerHTML = `✓ Prodotto presente in magazzino (Giacenza: <b>${prod.stock || 0} ${prod.unit || 'Pz'}</b>)`;
-        } else if (source === 'ai_vision') {
-            badge.style.background = '#ede9fe';
-            badge.style.color = '#6d28d9';
-            badge.innerHTML = `📸 Riconosciuto da Foto Etichetta (Gemini Vision)`;
-        } else if (source === 'ai_sku') {
-            badge.style.background = '#e0f2fe';
-            badge.style.color = '#0284c7';
-            badge.innerHTML = `🔍 Identificato da Codice SKU / Articolo sul Web`;
         } else if (source === 'open_beauty_facts') {
             badge.style.background = '#ede9fe';
             badge.style.color = '#6d28d9';
             badge.innerHTML = `✨ Riconosciuto da Open Beauty Facts Database`;
-        } else if (source === 'external_db') {
-            badge.style.background = '#ede9fe';
-            badge.style.color = '#6d28d9';
-            badge.innerHTML = `✨ Riconosciuto da: <b>${prod.detected_source || 'Database Mondiale'}</b>`;
         } else if (source === 'master_catalog') {
             badge.style.background = '#e0f2fe';
             badge.style.color = '#0284c7';
             badge.innerHTML = `☁️ Riconosciuto da Master Catalog VaiMUp`;
+        } else if (source === 'ai_agent') {
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#d97706';
+            badge.innerHTML = `🤖 Identificato tramite Ricerca Intelligente IA`;
         } else {
             badge.style.background = '#fee2e2';
             badge.style.color = '#dc2626';
-            badge.innerHTML = `⚠️ Codice non presente nei database pubblici: scatta una foto o inserisci lo SKU sotto`;
+            badge.innerHTML = `⚠️ Barcode nuovo: compila il nome o associalo a un prodotto esistente`;
         }
     }
 
@@ -13813,9 +13732,21 @@ async function displayFastScanProduct(prod, source) {
     document.getElementById('fs-unload-qty').value = "1";
     document.getElementById('fs-total-cost').value = "";
     document.getElementById('fs-calculated-unit-cost').innerText = "€ 0.00";
+const minStockInput = document.getElementById('fs-min-stock');
+if (minStockInput) {
+    if (isLocal && prod.min_stock !== undefined) {
+        minStockInput.value = prod.min_stock;
+    } else {
+        // Valore predefinito intelligente: 1 (evita che articoli con 1 pezzo risultino subito sottosoglia)
+        minStockInput.value = "1";
+    }
+}
+
+
 
     toggleFastScanConsignment();
 
+    // Se siamo in modalità SCARICO e il prodotto non esiste a magazzino, avvisiamo subito
     if (currentFastScanMode === 'scarico' && !isLocal) {
         playWarehouseAudioFeedback('error');
         alert("⚠️ Questo barcode non appartiene ad alcun prodotto a magazzino. Impossibile effettuare lo scarico.");
@@ -13827,16 +13758,13 @@ async function displayFastScanProduct(prod, source) {
             document.getElementById('fs-unload-qty').focus();
         } else if (isLocal) {
             document.getElementById('fs-load-qty').focus();
-        } else if (source === 'not_found') {
-            // Se non trovato, metti il focus sul campo SKU
-            const skuInp = document.getElementById('fs-sku-input');
-            if (skuInp) skuInp.focus();
         } else {
             if (!nameInput.value) nameInput.focus();
             else priceInput.focus();
         }
-    }, 120);
+    }, 100);
 }
+
 
 // 3. POPOLAMENTO TENDINA "ASSOCIA A PRODOTTO ESISTENTE"
 function populateLinkExistingDropdown() {
@@ -16480,237 +16408,6 @@ function urlBase64ToUint8Array(base64String) {
     }
 
 
-
-// =========================================================================
-// 📸 MOTORE MULTIMODALE IA: FOTO ETICHETTA & RICERCA PER CODICE SKU
-// =========================================================================
-
-// 1. CATTURA FOTOGRAMMA DALLA FOTOCAMERA E RICONOSCIMENTO MULTIMODALE GEMINI
-async function snapLabelFromActiveCamera() {
-    const video = document.getElementById('camera-scanner-video');
-    const canvas = document.getElementById('camera-snapshot-canvas');
-    const spinner = document.getElementById('fast-scan-loader-spinner');
-    const currentBarcode = document.getElementById('fast-scan-barcode-input')?.value.trim() || '';
-
-    if (!video || !canvas || video.readyState < 2) {
-        return alert("La fotocamera non è ancora pronta. Attendi un istante e riprova.");
-    }
-
-    // Blocca il video, disegna il frame sul canvas e crea il JPEG base64
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const base64Jpeg = canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
-
-    stopCameraScanner();
-
-    if (spinner) {
-        spinner.innerText = "🤖 Lettura etichetta e ricerca IA in corso...";
-        spinner.style.display = 'inline';
-    }
-
-    try {
-        const recognized = await resolveProductFromImageWithAi(base64Jpeg, currentBarcode);
-        if (recognized && recognized.name) {
-            playWarehouseAudioFeedback('new_product');
-            await displayFastScanProduct(recognized, 'ai_vision');
-        } else {
-            playWarehouseAudioFeedback('error');
-            alert("L'IA non è riuscita a leggere chiaramente l'etichetta. Prova a inserire lo SKU o il nome a mano.");
-        }
-    } catch (err) {
-        console.error("Errore visione multimodale IA:", err);
-        playWarehouseAudioFeedback('error');
-        alert("Errore durante l'elaborazione dell'immagine con l'IA.");
-    } finally {
-        if (spinner) spinner.style.display = 'none';
-    }
-}
-
-// Avvia la fotocamera appositamente per scattare una foto alla scatola
-async function triggerCameraLabelCapture() {
-    const wrapper = document.getElementById('camera-scanner-wrapper');
-    const snapBtn = document.getElementById('btn-camera-snap-ai');
-    if (snapBtn) snapBtn.style.display = 'inline-flex';
-    
-    await toggleCameraScanner();
-}
-
-// 2. CHIAMATA MULTIMODALE A GOOGLE GEMINI FLASH (IMMAGINE + TESTO)
-async function resolveProductFromImageWithAi(base64Image, originalBarcode) {
-    if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
-        await loadSecureAiKey();
-    }
-    const apiKey = window._runtimeAiKey;
-
-    if (!apiKey) {
-        alert("Chiave IA non caricata dal database Supabase.");
-        return null;
-    }
-
-    const isGoogleKey = apiKey.startsWith("AIza");
-    console.log(`📸 [AI VISION] Invio immagine etichetta a Gemini Multimodale (Barcode Rif: ${originalBarcode})...`);
-
-    const promptText = `Sei un assistente esperto di magazzino per parrucchieri, estetica e retail.
-Analizza con estrema precisione l'etichetta e il testo di questa confezione.
-Estrai:
-1. Marca/Brand (model)
-2. Nome commerciale completo del prodotto (name)
-3. Eventuale codice SKU / Codice Articolo / Reference impresso
-4. Formato / Taglia (size, es. 250ml, 1000ml, 20 pezzi, M, L)
-5. Unità di misura (unit: ml, L, Pezzi, g)
-
-Rispondi ESCLUSIVAMENTE con un JSON valido (senza testo introduttivo, spiegazioni o markdown):
-{
-  "name": "Nome Completo Prodotto",
-  "model": "Marca o Linea",
-  "size": "Formato o Taglia",
-  "unit": "ml" o "L" o "Pezzi" o "g"
-}`;
-
-    try {
-        if (isGoogleKey) {
-            // Chiamata REST nativa Google Gemini Vision
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: promptText },
-                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-                        ]
-                    }],
-                    // Ricerca web contestuale attiva sul testo estratto
-                    tools: [{ google_search: {} }]
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                return cleanJsonFromAi(text, originalBarcode);
-            }
-        } else {
-            // Fallback multimodale OpenRouter (supporta base64 data url)
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'VaiMUp AI Vision'
-                },
-                body: JSON.stringify({
-                    model: "google/gemini-2.0-flash-001",
-                    messages: [{
-                        role: "user",
-                        content: [
-                            { type: "text", text: promptText },
-                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
-                        ]
-                    }],
-                    temperature: 0.1
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const text = data.choices?.[0]?.message?.content || "";
-                return cleanJsonFromAi(text, originalBarcode);
-            }
-        }
-    } catch (e) {
-        console.error("Errore analisi multimodale IA:", e);
-    }
-    return null;
-}
-
-// 3. RICERCA WEB AUTONOMA TRAMITE CODICE SKU / NOME
-async function searchBySkuWithAi() {
-    const skuInput = document.getElementById('fs-sku-input');
-    const spinner = document.getElementById('fast-scan-loader-spinner');
-    const skuText = skuInput ? skuInput.value.trim() : '';
-    const currentBarcode = document.getElementById('fast-scan-barcode-input')?.value.trim() || '';
-
-    if (!skuText) {
-        return alert("Inserisci lo SKU, il codice articolo o il nome da cercare con l'IA.");
-    }
-
-    if (spinner) {
-        spinner.innerText = `🤖 Ricerca Web per SKU "${skuText}"...`;
-        spinner.style.display = 'inline';
-    }
-
-    try {
-        if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
-            await loadSecureAiKey();
-        }
-        const apiKey = window._runtimeAiKey;
-
-        const promptText = `Identifica l'articolo commerciale associato al seguente codice articolo o SKU: "${skuText}".
-Cerca sul Web e trova la Marca esatta, il Nome del prodotto e la Taglia/Formato (es. 250ml, 1000ml, pezzi).
-Rispondi SOLO con un JSON valido:
-{
-  "name": "Nome Completo Prodotto",
-  "model": "Marca o Linea",
-  "size": "Formato o Taglia",
-  "unit": "ml" o "L" o "Pezzi" o "g"
-}`;
-
-        let recognized = null;
-        if (apiKey && apiKey.startsWith("AIza")) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }],
-                    tools: [{ google_search: {} }]
-                })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                recognized = cleanJsonFromAi(text, currentBarcode);
-            }
-        } else if (apiKey) {
-            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                    model: "google/gemini-2.0-flash-001:online",
-                    plugins: [{ id: "web" }],
-                    messages: [{ role: "user", content: promptText }]
-                })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                const text = data.choices?.[0]?.message?.content || "";
-                recognized = cleanJsonFromAi(text, currentBarcode);
-            }
-        }
-
-        if (recognized && recognized.name) {
-            playWarehouseAudioFeedback('new_product');
-            await displayFastScanProduct(recognized, 'ai_sku');
-        } else {
-            playWarehouseAudioFeedback('error');
-            alert(`Nessun prodotto trovato online per lo SKU "${skuText}". Completa i campi manualmente.`);
-        }
-
-    } catch (err) {
-        console.error("Errore ricerca SKU IA:", err);
-        playWarehouseAudioFeedback('error');
-    } finally {
-        if (spinner) spinner.style.display = 'none';
-    }
-}
-
-
     async function populateSupplierSelect(selectedId = null) {
     const select = document.getElementById('f-p-supplier');
     if (!select) {
@@ -18529,7 +18226,7 @@ async function deleteExpense(id) {
 
 
 <!-- ======================================================== -->
-<!-- ⚡ SCANNER MAGAZZINO: CARICO, SCARICO & FOTO SKU IA     -->
+<!-- ⚡ SCANNER MAGAZZINO: CARICO, SCARICO & ASSOCIAZIONE    -->
 <!-- ======================================================== -->
 <div id="mod-fast-scan-load" class="modal" onclick="if(event.target==this) closeFastScanModal()">
     <div class="modal-box" style="width: 640px; max-width: 96vw; max-height: 94vh; display: flex; flex-direction: column; padding: 20px;">
@@ -18557,7 +18254,7 @@ async function deleteExpense(id) {
             <button onclick="closeFastScanModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
         </div>
 
-        <!-- Barra Stato & Tasto Fotocamera -->
+        <!-- Sezione Stato Lettore & Tasto Fotocamera -->
         <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 6px;">
                 <span id="scan-hardware-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
@@ -18568,21 +18265,12 @@ async function deleteExpense(id) {
             </button>
         </div>
 
-        <!-- 📷 MIRINO FOTOCAMERA UNICO (CON TASTO SCATTO FOTO IA) -->
-        <div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 200px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 10px; flex-shrink: 0;">
+        <!-- Viewfinder Fotocamera Mobile -->
+        <div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 180px; background: #000; border-radius: 10px; overflow: hidden; margin-bottom: 10px; flex-shrink: 0;">
             <video id="camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-            <div style="position: absolute; top: 44%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
-            
-            <!-- Tasto Scatto Foto Sovrapposto al Video -->
-            <button type="button" id="btn-camera-snap-ai" class="btn" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.9); color: #f8fafc; border: 1.5px solid #c4b5fd; border-radius: 20px; padding: 6px 14px; font-size: 11.5px; font-weight: bold; backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="snapLabelFromActiveCamera()">
-                📸 Inquadra Etichetta e Riconosci con IA
-            </button>
-            
-            <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer;">✕</button>
+            <div style="position: absolute; top: 50%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
+            <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-weight: bold; cursor: pointer;">✕</button>
         </div>
-
-        <!-- Canvas invisibile per estrarre il frame JPEG per l'IA -->
-        <canvas id="camera-snapshot-canvas" style="display: none;"></canvas>
 
         <!-- Input Barcode Ricezione Laser / Manuale -->
         <div style="position: relative; margin-bottom: 10px; flex-shrink: 0;">
@@ -18595,159 +18283,20 @@ async function deleteExpense(id) {
             
             <div id="fast-scan-source-badge" style="padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; margin-bottom: 8px; display: inline-block;"></div>
 
-            <!-- 🌟 BOX DI SOCCORSO INTELLIGENTE: MOSTRATO QUANDO IL BARCODE NON È CENSITO ONLINE -->
-            <div id="fs-sku-rescue-box" style="display: none; background: #fffdf5; border: 1.5px solid #fde68a; border-radius: 12px; padding: 12px; margin-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <span style="font-size: 18px;">💡</span>
-                    <b style="font-size: 12px; color: #92400e;">Barcode non presente nei database pubblici.</b>
-                </div>
-                <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #78350f; line-height: 1.4;">
-                    Puoi risolverlo all'istante: <b>scatta una foto all'etichetta</b> oppure inserisci lo <b>SKU / Codice Articolo</b> (es. <i>REF. 1042</i>) impresso sulla scatola:
-                </p>
-
-                <!-- Canale 1: Cerca SKU con l'IA -->
-                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                    <input type="text" id="fs-sku-input" placeholder="Digita o spara SKU / Articolo / Modello..." style="margin: 0; padding: 8px 10px; font-size: 12px; background: white; font-weight: bold; flex-grow: 1;" onkeydown="if(event.key==='Enter'){ event.preventDefault(); searchBySkuWithAi(); }">
-                    <button type="button" class="btn" style="padding: 8px 12px; font-size: 11px; font-weight: bold; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px; white-space: nowrap;" onclick="searchBySkuWithAi()">
-                        🤖 Cerca SKU
-                    </button>
-                </div>
-
-                <!-- Canale 2: Scatta Foto con la Fotocamera (AI Vision) -->
-                <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; font-weight: bold; background: #ffffff; color: #1e1b4b; border: 1.5px solid #cbd5e1; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="triggerCameraLabelCapture()">
-                    📸 Inquadra Confezione / Scatola con la Fotocamera
-                </button>
-            </div>
-
-            <!-- OPZIONE: ASSOCIA BARCODE A PRODOTTO ESISTENTE -->
+            <!-- OPZIONE: ASSOCIA BARCODE A PRODOTTO ESISTENTE (Mostrato se il barcode è nuovo) -->
             <div id="fs-link-existing-wrapper" style="display: none; background: #fffbeb; border: 1.5px solid #fef3c7; border-radius: 10px; padding: 10px; margin-bottom: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <b style="font-size: 12px; color: #b45309;">🔗 Vuoi assegnare questo barcode a un prodotto già creato a mano?</b>
-                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #fde68a;" onclick="toggleLinkExistingDropdown()">Espandi</button>
+                    <b style="font-size: 12px; color: #b45309;">🔗 Questo prodotto è già presente in magazzino senza barcode?</b>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #fde68a;" onclick="toggleLinkExistingDropdown()">Espandi Ricerca</button>
                 </div>
                 <div id="fs-link-existing-dropdown-box" style="display: none; margin-top: 6px;">
-                    <label style="margin: 0 0 2px 0; font-size: 10px;">Seleziona il prodotto esistente dal tuo listino:</label>
+                    <label style="margin: 0 0 2px 0; font-size: 10px;">Seleziona il prodotto esistente a cui assegnare questo barcode:</label>
                     <select id="fs-existing-product-select" style="margin: 0 0 8px 0; background: white; font-size: 12px; font-weight: bold;"></select>
                     <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; background: #b45309; color: white; border: none; font-weight: bold; border-radius: 6px;" onclick="executeLinkBarcodeToExistingProduct()">
-                        Assegna Barcode ed Esegui Carico ➔
+                        Assegna Barcode a questo Prodotto ed Esegui Carico ➔
                     </button>
                 </div>
             </div>
-
-            <!-- DATI ANAGRAFICI -->
-            <div id="fs-product-details-card" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px;">
-                <input type="hidden" id="fs-prod-id" value="-1">
-                <input type="hidden" id="fs-is-new-product" value="0">
-
-                <label style="margin: 0 0 2px 0;">Nome Prodotto *</label>
-                <input type="text" id="fs-prod-name" placeholder="Nome articolo" style="margin: 0 0 6px 0; background: white; font-weight: bold;">
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Marca / Linea</label>
-                        <input type="text" id="fs-prod-model" placeholder="Es. Kérastase" style="margin: 0; background: white;">
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Taglia / Formato</label>
-                        <input type="text" id="fs-prod-size" placeholder="Es. 250ml, 1000ml, M, L" style="margin: 0; background: white; font-weight: bold;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- SEZIONE CARICO MERCI -->
-            <div id="fs-carico-controls" style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0; color: var(--p);">Prezzo Listino Vendita (€) *</label>
-                        <input type="number" id="fs-listing-price" step="0.01" min="0" placeholder="0.00" style="margin: 0; background: white; font-size: 14px; font-weight: 800;">
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Tipo Articolo</label>
-                        <select id="fs-is-consignment" onchange="toggleFastScanConsignment()" style="margin: 0; background: white;">
-                            <option value="0">Proprietà</option>
-                            <option value="1">Conto Vendita</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 110px; gap: 8px; margin-bottom: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Fornitore</label>
-                        <select id="fs-supplier-select" style="margin: 0; background: white; font-size: 11.5px;"></select>
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Unità</label>
-                        <select id="fs-unit-select" style="margin: 0; background: white; font-size: 11.5px;">
-                            <option value="Pezzi">Pezzi</option>
-                            <option value="ml">ml (Millilitri)</option>
-                            <option value="L">L (Litri)</option>
-                            <option value="g">g (Grammi)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0; color: #dc2626; font-weight: bold;">Soglia Alert</label>
-                        <input type="number" id="fs-min-stock" min="0" value="1" placeholder="1" style="margin: 0; padding: 7px; font-size: 13px; font-weight: 800; background: white; text-align: center; border: 1.5px solid #cbd5e1; border-radius: 6px;">
-                    </div>
-                </div>
-
-                <div style="background: #f1f5f9; border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 100px 1fr 130px; gap: 8px; align-items: end;">
-                    <div>
-                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 800;">Quantità (+)</label>
-                        <input type="number" id="fs-load-qty" value="1" min="1" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 6px; font-size: 15px; font-weight: 900; text-align: center; background: white;">
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 800;">Costo Totale (€)</label>
-                        <input type="number" id="fs-total-cost" step="0.01" min="0" placeholder="0.00" oninput="calculateFastScanUnitCost()" style="margin: 0; padding: 6px; font-size: 14px; font-weight: 800; background: white;">
-                    </div>
-                    <div>
-                        <small style="font-size: 9px; color: #64748b; display: block; margin-bottom: 2px;">Costo Unitario:</small>
-                        <div id="fs-calculated-unit-cost" style="font-size: 13px; font-weight: 800; color: #047857;">€ 0.00</div>
-                    </div>
-                </div>
-
-                <button type="button" id="btn-execute-fast-load" class="btn" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 13.5px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px;" onclick="executeFastBarcodeLoad()">
-                    🟢 REGISTRA CARICO MERCE (INVIO)
-                </button>
-            </div>
-
-            <!-- SEZIONE SCARICO MERCI -->
-            <div id="fs-scarico-controls" style="display: none; background: #ffffff; border: 1.5px solid #fecaca; border-radius: 10px; padding: 12px; margin-bottom: 10px;">
-                <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 12px; color: #991b1b; font-weight: bold;">Giacenza Attuale:</span>
-                    <b id="fs-current-stock-label" style="font-size: 14px; color: #991b1b;">0 Pz</b>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0; color: #dc2626;">Quantità da Scaricare (-)</label>
-                        <input type="number" id="fs-unload-qty" value="1" min="1" style="margin: 0; padding: 8px; font-size: 16px; font-weight: 900; text-align: center; background: white;">
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0;">Causale Scarico</label>
-                        <select id="fs-unload-reason" style="margin: 0; background: white; font-weight: bold;">
-                            <option value="Uso Interno / Lavatesta">✂️ Uso Interno / Lavatesta / Cabina</option>
-                            <option value="Prodotto Danneggiato / Scaduto">⚠️ Prodotto Danneggiato o Scaduto</option>
-                            <option value="Rettifica Inventario">📊 Rettifica Inventario</option>
-                            <option value="Reso Fornitore">🚚 Reso a Fornitore</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="button" id="btn-execute-fast-unload" class="btn btn-d" style="width: 100%; margin-top: 6px; padding: 12px; font-size: 13.5px; font-weight: 800; justify-content: center; border-radius: 10px;" onclick="executeFastBarcodeUnload()">
-                    🔴 CONFERMA SCARICO MERCE (INVIO)
-                </button>
-            </div>
-
-        </div>
-
-        <!-- Footer -->
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-            <small style="color: #64748b; font-size: 11px;">Lo scanner resta attivo a ciclo continuo per il prossimo pezzo.</small>
-            <button class="btn" style="background: #f1f5f9; color: #475569; padding: 5px 12px;" onclick="closeFastScanModal()">Esci</button>
-        </div>
-
-    </div>
-</div>
 
             <!-- DATI ANAGRAFICI -->
             <div id="fs-product-details-card" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px;">
