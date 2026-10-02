@@ -13743,8 +13743,23 @@ async function displayFastScanProduct(prod, source) {
         if (linkExistingBox) linkExistingBox.style.display = 'none';
     }
 
+
+if (source === 'not_found') {
+    if (skuRescueBox) skuRescueBox.style.display = 'block';
+} else {
+    if (skuRescueBox) skuRescueBox.style.display = 'none';
+}
+
     if (badge) {
-        if (source === 'local') {
+        if (source === 'ai_vision') {
+        badge.style.background = '#ede9fe';
+        badge.style.color = '#6d28d9';
+        badge.innerHTML = `📸 Riconosciuto da Foto Etichetta (Gemini Vision)`;
+    } else if (source === 'ai_sku') {
+        badge.style.background = '#e0f2fe';
+        badge.style.color = '#0284c7';
+        badge.innerHTML = `🔍 Identificato da Codice SKU / Articolo sul Web`;
+    } else if (source === 'local') {
             badge.style.background = '#dcfce7';
             badge.style.color = '#16a34a';
             badge.innerHTML = `✓ Prodotto presente in magazzino (Giacenza: <b>${prod.stock || 0} ${prod.unit || 'Pz'}</b>)`;
@@ -16457,6 +16472,237 @@ function urlBase64ToUint8Array(base64String) {
     }
 
 
+
+// =========================================================================
+// 📸 MOTORE MULTIMODALE IA: FOTO ETICHETTA & RICERCA PER CODICE SKU
+// =========================================================================
+
+// 1. CATTURA FOTOGRAMMA DALLA FOTOCAMERA E RICONOSCIMENTO MULTIMODALE GEMINI
+async function snapLabelFromActiveCamera() {
+    const video = document.getElementById('camera-scanner-video');
+    const canvas = document.getElementById('camera-snapshot-canvas');
+    const spinner = document.getElementById('fast-scan-loader-spinner');
+    const currentBarcode = document.getElementById('fast-scan-barcode-input')?.value.trim() || '';
+
+    if (!video || !canvas || video.readyState < 2) {
+        return alert("La fotocamera non è ancora pronta. Attendi un istante e riprova.");
+    }
+
+    // Blocca il video, disegna il frame sul canvas e crea il JPEG base64
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const base64Jpeg = canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
+
+    stopCameraScanner();
+
+    if (spinner) {
+        spinner.innerText = "🤖 Lettura etichetta e ricerca IA in corso...";
+        spinner.style.display = 'inline';
+    }
+
+    try {
+        const recognized = await resolveProductFromImageWithAi(base64Jpeg, currentBarcode);
+        if (recognized && recognized.name) {
+            playWarehouseAudioFeedback('new_product');
+            await displayFastScanProduct(recognized, 'ai_vision');
+        } else {
+            playWarehouseAudioFeedback('error');
+            alert("L'IA non è riuscita a leggere chiaramente l'etichetta. Prova a inserire lo SKU o il nome a mano.");
+        }
+    } catch (err) {
+        console.error("Errore visione multimodale IA:", err);
+        playWarehouseAudioFeedback('error');
+        alert("Errore durante l'elaborazione dell'immagine con l'IA.");
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+// Avvia la fotocamera appositamente per scattare una foto alla scatola
+async function triggerCameraLabelCapture() {
+    const wrapper = document.getElementById('camera-scanner-wrapper');
+    const snapBtn = document.getElementById('btn-camera-snap-ai');
+    if (snapBtn) snapBtn.style.display = 'inline-flex';
+    
+    await toggleCameraScanner();
+}
+
+// 2. CHIAMATA MULTIMODALE A GOOGLE GEMINI FLASH (IMMAGINE + TESTO)
+async function resolveProductFromImageWithAi(base64Image, originalBarcode) {
+    if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
+        await loadSecureAiKey();
+    }
+    const apiKey = window._runtimeAiKey;
+
+    if (!apiKey) {
+        alert("Chiave IA non caricata dal database Supabase.");
+        return null;
+    }
+
+    const isGoogleKey = apiKey.startsWith("AIza");
+    console.log(`📸 [AI VISION] Invio immagine etichetta a Gemini Multimodale (Barcode Rif: ${originalBarcode})...`);
+
+    const promptText = `Sei un assistente esperto di magazzino per parrucchieri, estetica e retail.
+Analizza con estrema precisione l'etichetta e il testo di questa confezione.
+Estrai:
+1. Marca/Brand (model)
+2. Nome commerciale completo del prodotto (name)
+3. Eventuale codice SKU / Codice Articolo / Reference impresso
+4. Formato / Taglia (size, es. 250ml, 1000ml, 20 pezzi, M, L)
+5. Unità di misura (unit: ml, L, Pezzi, g)
+
+Rispondi ESCLUSIVAMENTE con un JSON valido (senza testo introduttivo, spiegazioni o markdown):
+{
+  "name": "Nome Completo Prodotto",
+  "model": "Marca o Linea",
+  "size": "Formato o Taglia",
+  "unit": "ml" o "L" o "Pezzi" o "g"
+}`;
+
+    try {
+        if (isGoogleKey) {
+            // Chiamata REST nativa Google Gemini Vision
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: promptText },
+                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+                        ]
+                    }],
+                    // Ricerca web contestuale attiva sul testo estratto
+                    tools: [{ google_search: {} }]
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                return cleanJsonFromAi(text, originalBarcode);
+            }
+        } else {
+            // Fallback multimodale OpenRouter (supporta base64 data url)
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'VaiMUp AI Vision'
+                },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-001",
+                    messages: [{
+                        role: "user",
+                        content: [
+                            { type: "text", text: promptText },
+                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+                        ]
+                    }],
+                    temperature: 0.1
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.choices?.[0]?.message?.content || "";
+                return cleanJsonFromAi(text, originalBarcode);
+            }
+        }
+    } catch (e) {
+        console.error("Errore analisi multimodale IA:", e);
+    }
+    return null;
+}
+
+// 3. RICERCA WEB AUTONOMA TRAMITE CODICE SKU / NOME
+async function searchBySkuWithAi() {
+    const skuInput = document.getElementById('fs-sku-input');
+    const spinner = document.getElementById('fast-scan-loader-spinner');
+    const skuText = skuInput ? skuInput.value.trim() : '';
+    const currentBarcode = document.getElementById('fast-scan-barcode-input')?.value.trim() || '';
+
+    if (!skuText) {
+        return alert("Inserisci lo SKU, il codice articolo o il nome da cercare con l'IA.");
+    }
+
+    if (spinner) {
+        spinner.innerText = `🤖 Ricerca Web per SKU "${skuText}"...`;
+        spinner.style.display = 'inline';
+    }
+
+    try {
+        if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
+            await loadSecureAiKey();
+        }
+        const apiKey = window._runtimeAiKey;
+
+        const promptText = `Identifica l'articolo commerciale associato al seguente codice articolo o SKU: "${skuText}".
+Cerca sul Web e trova la Marca esatta, il Nome del prodotto e la Taglia/Formato (es. 250ml, 1000ml, pezzi).
+Rispondi SOLO con un JSON valido:
+{
+  "name": "Nome Completo Prodotto",
+  "model": "Marca o Linea",
+  "size": "Formato o Taglia",
+  "unit": "ml" o "L" o "Pezzi" o "g"
+}`;
+
+        let recognized = null;
+        if (apiKey && apiKey.startsWith("AIza")) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    tools: [{ google_search: {} }]
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                recognized = cleanJsonFromAi(text, currentBarcode);
+            }
+        } else if (apiKey) {
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-001:online",
+                    plugins: [{ id: "web" }],
+                    messages: [{ role: "user", content: promptText }]
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const text = data.choices?.[0]?.message?.content || "";
+                recognized = cleanJsonFromAi(text, currentBarcode);
+            }
+        }
+
+        if (recognized && recognized.name) {
+            playWarehouseAudioFeedback('new_product');
+            await displayFastScanProduct(recognized, 'ai_sku');
+        } else {
+            playWarehouseAudioFeedback('error');
+            alert(`Nessun prodotto trovato online per lo SKU "${skuText}". Completa i campi manualmente.`);
+        }
+
+    } catch (err) {
+        console.error("Errore ricerca SKU IA:", err);
+        playWarehouseAudioFeedback('error');
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+
     async function populateSupplierSelect(selectedId = null) {
     const select = document.getElementById('f-p-supplier');
     if (!select) {
@@ -18346,6 +18592,47 @@ async function deleteExpense(id) {
                     </button>
                 </div>
             </div>
+
+            <!-- Nel modale #mod-fast-scan-load:
+     1. All'interno di #camera-scanner-wrapper, aggiungiamo il tasto per scattare la foto con l'IA: -->
+<div id="camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 210px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 10px; flex-shrink: 0;">
+    <video id="camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+    <div style="position: absolute; top: 46%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 8px #ef4444; transform: translateY(-50%);"></div>
+    
+    <!-- Tasto Scatto Foto Etichetta sovrapposto al video -->
+    <button type="button" id="btn-camera-snap-ai" class="btn" style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.85); color: #f8fafc; border: 1.5px solid #c4b5fd; border-radius: 20px; padding: 6px 14px; font-size: 11px; font-weight: bold; backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="snapLabelFromActiveCamera()">
+        📸 Inquadra Etichetta e Riconosci con IA
+    </button>
+    
+    <button type="button" onclick="stopCameraScanner()" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer;">✕</button>
+</div>
+
+<!-- Canvas invisibile per estrarre il fotogramma JPEG dalla fotocamera -->
+<canvas id="camera-snapshot-canvas" style="display: none;"></canvas>
+
+<!-- 2. Subito sopra #fs-product-details-card dentro #fast-scan-result-pane, inserire questo box di soccorso SKU & FOTO: -->
+<div id="fs-sku-rescue-box" style="display: none; background: #fffdf5; border: 1.5px solid #fde68a; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 18px;">💡</span>
+        <b style="font-size: 12px; color: #92400e;">Barcode non presente nei database pubblici.</b>
+    </div>
+    <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #78350f; line-height: 1.4;">
+        Puoi identificare l'articolo in due modi rapidi: scatta una foto all'etichetta oppure inserisci lo <b>SKU / Codice Articolo</b> (es. <i>REF. 1042</i>) impresso sulla scatola:
+    </p>
+
+    <!-- Canale 1: Cerca per SKU / Codice Articolo con l'IA -->
+    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+        <input type="text" id="fs-sku-input" placeholder="Digita o spara SKU / Articolo / Modello..." style="margin: 0; padding: 8px 10px; font-size: 12.5px; background: white; font-weight: bold; flex-grow: 1;" onkeydown="if(event.key==='Enter'){ event.preventDefault(); searchBySkuWithAi(); }">
+        <button type="button" class="btn" style="padding: 8px 12px; font-size: 11.5px; font-weight: bold; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px; white-space: nowrap;" onclick="searchBySkuWithAi()">
+            🤖 Cerca SKU
+        </button>
+    </div>
+
+    <!-- Canale 2: Scatta Foto con Fotocamera (AI Vision) -->
+    <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; font-weight: bold; background: #ffffff; color: #1e1b4b; border: 1.5px solid #cbd5e1; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="triggerCameraLabelCapture()">
+        📸 Inquadra Confezione / Scatola con la Fotocamera
+    </button>
+</div>
 
             <!-- DATI ANAGRAFICI -->
             <div id="fs-product-details-card" style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px;">
