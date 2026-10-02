@@ -5834,6 +5834,417 @@ async function sendAIDrawerQuery() {
             suppliers.map(s => `<option value="${s.id}" ${s.id === currentVal ? 'selected' : ''}>${s.name}</option>`).join('');
     }
 
+
+
+
+// =========================================================================
+// 💶 LIQUIDAZIONE FORNITORI AD ALTE PRESTAZIONI (SELEZIONE MULTIPLA & BATCH)
+// =========================================================================
+
+// 1. RENDERIZZAZIONE DELLA SCHERMATA CON AZIONI MULTIPLE E CHECKBOX BATCH
+async function renderSupplierPayouts() {
+    console.log("[PAYOUTS] Calcolo liquidazione fornitori in corso...");
+    await populatePayoutSupplierDropdown();
+
+    const startInput = document.getElementById('payout-start-date');
+    const endInput = document.getElementById('payout-end-date');
+    const supplierFilterSelect = document.getElementById('payout-supplier-filter');
+    const container = document.getElementById('supplier-payouts-container');
+    
+    if (!container) return;
+
+    const startStr = startInput ? startInput.value : '';
+    const endStr = endInput ? endInput.value : '';
+    const selectedSupplierId = supplierFilterSelect ? supplierFilterSelect.value : 'all';
+
+    if (!startStr || !endStr) {
+        container.innerHTML = `<div style="text-align:center; color:#E17055; padding:20px;">Seleziona la data di inizio e fine periodo.</div>`;
+        return;
+    }
+
+    container.innerHTML = `<div style="text-align:center; color:#666; padding:20px;">Calcolo in corso...</div>`;
+
+    try {
+        const salesData = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
+        const saleItemsData = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
+        const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const settlementsData = await window.universalQuery({ action: 'GET_ALL', table: 'supplier_settlements' }) || [];
+
+        const salesInPeriod = salesData.filter(s => s.date >= startStr && s.date <= endStr);
+        const salesIdsInRange = new Set(salesInPeriod.map(s => s.id));
+
+        const payoutSummary = {};
+
+        const targetSuppliers = selectedSupplierId === 'all' 
+            ? suppliersData 
+            : suppliersData.filter(s => s.id === selectedSupplierId);
+
+        targetSuppliers.forEach(s => {
+            payoutSummary[s.id] = {
+                id: s.id,
+                name: s.name,
+                phone: s.phone || '',
+                items: []
+            };
+        });
+
+        for (let item of saleItemsData) {
+            if (!salesIdsInRange.has(item.sale_id)) continue;
+
+            const sale = salesInPeriod.find(s => s.id === item.sale_id);
+            const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
+            
+            if (!prod || !prod.is_consignment) continue;
+
+            const soldPrice = parseFloat(item.price) || 0;
+            const discount = parseFloat(item.discount) || 0;
+            const finalPrice = soldPrice - discount;
+            const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
+
+            const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
+            const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
+
+            const registerItemForSupplier = (supId, payoutAmount) => {
+                if (!payoutSummary[supId]) return;
+
+                const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
+                const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
+
+                payoutSummary[supId].items.push({
+                    saleItemId: item.id,
+                    supplierId: supId,
+                    date: saleDate,
+                    itemName: item.item_name,
+                    gross: finalPrice,
+                    payout: payoutAmount,
+                    isPaid: isPaid
+                });
+            };
+
+            if (prod.type === 'servizio') {
+                const supId = prod.supplier_id;
+                if (supId) {
+                    let payoutForThisSupp = 0;
+                    if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
+                        payoutForThisSupp = parseFloat(item.supplier_payout) || 0;
+                    } else {
+                        const rule = prod.discount_absorption || 'salon';
+                        const splitPct = parseFloat(prod.consignment_split_pct) || 0;
+                        const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
+                        const basePayout = (listinoPienoOriginale * splitPct) / 100;
+
+                        if (rule === 'supplier') payoutForThisSupp = finalPrice - salonShareFull;
+                        else if (rule === 'split') payoutForThisSupp = basePayout - (discount / 2);
+                        else payoutForThisSupp = basePayout;
+                    }
+                    registerItemForSupplier(supId, payoutForThisSupp);
+                }
+            } else {
+                const links = productSuppliersData.filter(l => l.product_id === prod.id);
+                if (links.length > 0) {
+                    links.forEach(l => {
+                        const pct = parseFloat(l.split_pct) || 0;
+                        const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                        registerItemForSupplier(l.supplier_id, payoutForThisSupp);
+                    });
+                } else if (prod.consignment_split_pct && prod.supplier_id) {
+                    const pct = parseFloat(prod.consignment_split_pct) || 0;
+                    const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
+                    registerItemForSupplier(prod.supplier_id, payoutForThisSupp);
+                }
+            }
+        }
+
+        const activeSuppliers = Object.values(payoutSummary).filter(s => s.items.length > 0);
+
+        if (activeSuppliers.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">Nessun dato di conto vendita trovato per i filtri selezionati.</div>`;
+            return;
+        }
+
+        let html = `<div style="display:flex; flex-direction:column; gap:25px;">`;
+
+        activeSuppliers.forEach(sup => {
+            const totalToPay = sup.items.filter(i => !i.isPaid).reduce((sum, i) => sum + i.payout, 0);
+            const totalAlreadyPaid = sup.items.filter(i => i.isPaid).reduce((sum, i) => sum + i.payout, 0);
+
+            html += `
+                <div id="payout-card-${sup.id}" style="background:#f8f9fa; border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                    
+                    <!-- INTESTAZIONE FORNITORE CON TOTALI E AZIONI RAPIDE BATCH -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h4 style="margin:0; font-size:18px; color:var(--p); font-weight:800;">${sup.name}</h4>
+                            <small style="color:#64748b;">Tel: ${sup.phone || 'N/D'}</small>
+                        </div>
+                        
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <div style="text-align:right;">
+                                <span style="font-size:13px; color:#16a34a; margin-right:12px;">Già pagato: <b id="payout-paid-${sup.id}">€${totalAlreadyPaid.toFixed(2)}</b></span>
+                                <span style="font-size:15px; color:var(--d);">Da liquidare: <b id="payout-topay-${sup.id}">€${totalToPay.toFixed(2)}</b></span>
+                            </div>
+
+                            <!-- PULSANTI AZIONE MULTIPLA -->
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" id="btn-salda-all-${sup.id}" class="btn btn-s" 
+                                    style="padding:6px 12px; font-size:11.5px; font-weight:800; border-radius:8px; display:${totalToPay > 0 ? 'inline-flex' : 'none'};" 
+                                    onclick="batchSettleSupplier('${sup.id}', true)">
+                                    ✨ Salda Tutti da Pagare (€${totalToPay.toFixed(2)})
+                                </button>
+                                <button type="button" class="btn" 
+                                    style="padding:6px 10px; font-size:11px; background:white; border:1px solid #cbd5e1; border-radius:8px; color:#64748b;" 
+                                    onclick="batchSettleSupplier('${sup.id}', false)" 
+                                    title="Annulla il saldo per tutti gli articoli di questo fornitore">
+                                    ↩ Annulla Saldi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TABELLA ARTICOLI CON SELEZIONE MULTIPLA E CHECKBOX MASTER -->
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse: collapse; background:white; border-radius:10px; overflow:hidden;">
+                            <thead>
+                                <tr style="background:#eee; text-align:left; font-size:12px;">
+                                    <th style="padding:10px; width:45px; text-align:center;">
+                                        <input type="checkbox" id="select-all-${sup.id}" 
+                                            onchange="toggleSelectAllSupplierRows(this, '${sup.id}')" 
+                                            style="width:17px; height:17px; cursor:pointer;"
+                                            title="Seleziona o Deseleziona tutti">
+                                    </th>
+                                    <th style="padding:10px;">Data</th>
+                                    <th style="padding:10px;">Articolo</th>
+                                    <th style="padding:10px;">Lordo Vendita</th>
+                                    <th style="padding:10px; color:var(--d);">Quota Fornitore</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            sup.items.forEach(it => {
+                html += `
+                    <tr id="payout-row-${it.saleItemId}-${it.supplierId}" 
+                        style="border-bottom:1px solid #f0f0f0; font-size:13px; transition:background 0.15s ease; ${it.isPaid ? 'background:#f0fdf4;' : ''}">
+                        <td style="padding:10px; text-align:center;">
+                            <input type="checkbox" 
+                                class="payout-cb payout-cb-${sup.id}" 
+                                id="cb-${it.saleItemId}-${it.supplierId}"
+                                data-saleitem="${it.saleItemId}"
+                                data-supplier="${it.supplierId}"
+                                data-payout="${it.payout}"
+                                ${it.isPaid ? 'checked' : ''} 
+                                onchange="onSinglePayoutToggle('${it.saleItemId}', '${it.supplierId}', ${it.payout}, this, '${sup.id}')" 
+                                style="width:18px; height:18px; cursor:pointer;"
+                                title="Segna come pagato">
+                        </td>
+                        <td style="padding:10px;">${it.date}</td>
+                        <td style="padding:10px;"><b>${it.itemName}</b></td>
+                        <td style="padding:10px;">€${it.gross.toFixed(2)}</td>
+                        <td style="padding:10px; color:${it.isPaid ? '#16a34a' : 'var(--d)'}; font-weight:bold;">
+                            €${it.payout.toFixed(2)} ${it.isPaid ? '✓' : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error("[PAYOUTS] Errore critico:", err);
+        container.innerHTML = `<div style="color:red; padding:20px;">Errore nel calcolo: ${err.message}</div>`;
+    }
+}
+
+// 2. TOGGLE SINGOLO OTTIMISTICO (0 MILLISECONDI - NESSUN RICARICAMENTO PAGINA)
+window.onSinglePayoutToggle = async function(saleItemId, supplierId, payoutAmount, checkboxEl, supId) {
+    const isChecked = checkboxEl.checked ? 1 : 0;
+    const rowEl = document.getElementById(`payout-row-${saleItemId}-${supplierId}`);
+
+    // Aggiornamento visivo immediato della riga
+    if (rowEl) {
+        rowEl.style.background = isChecked ? '#f0fdf4' : 'transparent';
+        const payoutCell = rowEl.cells[4];
+        if (payoutCell) {
+            payoutCell.style.color = isChecked ? '#16a34a' : 'var(--d)';
+            payoutCell.innerHTML = `€${payoutAmount.toFixed(2)} ${isChecked ? '✓' : ''}`;
+        }
+    }
+
+    // Ricalcolo immediato dei totali in alto senza ricaricare la pagina
+    updateSupplierCardTotalsInDOM(supId);
+
+    // Salvataggio asincrono in background (Dexie + Supabase)
+    await saveSettlementRecord(saleItemId, supplierId, isChecked);
+};
+
+// Funzione di retrocompatibilità
+window.toggleSupplierItemPaid = function(saleItemId, supplierId, checkboxEl) {
+    const payout = parseFloat(checkboxEl.getAttribute('data-payout')) || 0;
+    window.onSinglePayoutToggle(saleItemId, supplierId, payout, checkboxEl, supplierId);
+};
+
+// 3. RICALCOLO DEI TOTALI NEL DOM ISTANTANEO
+function updateSupplierCardTotalsInDOM(supId) {
+    const checkboxes = document.querySelectorAll(`.payout-cb-${supId}`);
+    let paidTotal = 0;
+    let toPayTotal = 0;
+
+    checkboxes.forEach(cb => {
+        const amt = parseFloat(cb.getAttribute('data-payout')) || 0;
+        if (cb.checked) {
+            paidTotal += amt;
+        } else {
+            toPayTotal += amt;
+        }
+    });
+
+    const paidEl = document.getElementById(`payout-paid-${supId}`);
+    const toPayEl = document.getElementById(`payout-topay-${supId}`);
+    const btnAllToPay = document.getElementById(`btn-salda-all-${supId}`);
+
+    if (paidEl) paidEl.innerText = `€${paidTotal.toFixed(2)}`;
+    if (toPayEl) toPayEl.innerText = `€${toPayTotal.toFixed(2)}`;
+    if (btnAllToPay) {
+        btnAllToPay.innerHTML = `✨ Salda Tutti da Pagare (€${toPayTotal.toFixed(2)})`;
+        btnAllToPay.style.display = toPayTotal > 0 ? 'inline-flex' : 'none';
+    }
+}
+
+// 4. SALVATAGGIO IN BATCH DI TUTTE LE RIGHE SELEZIONATE (CON UNICO COMMIT)
+window.batchSettleSupplier = async function(supId, markAsPaid) {
+    const checkboxes = Array.from(document.querySelectorAll(`.payout-cb-${supId}`));
+    const toChange = checkboxes.filter(cb => (cb.checked ? 1 : 0) !== (markAsPaid ? 1 : 0));
+
+    if (toChange.length === 0) {
+        return alert(markAsPaid ? "Tutti gli articoli di questo fornitore risultano già saldati." : "Nessun articolo saldato da annullare.");
+    }
+
+    // 1. Aggiornamento Visivo Istantaneo di tutte le righe coinvolte
+    toChange.forEach(cb => {
+        cb.checked = markAsPaid;
+        const saleItemId = cb.getAttribute('data-saleitem');
+        const supplierId = cb.getAttribute('data-supplier');
+        const payout = parseFloat(cb.getAttribute('data-payout')) || 0;
+        const rowEl = document.getElementById(`payout-row-${saleItemId}-${supplierId}`);
+        if (rowEl) {
+            rowEl.style.background = markAsPaid ? '#f0fdf4' : 'transparent';
+            const payoutCell = rowEl.cells[4];
+            if (payoutCell) {
+                payoutCell.style.color = markAsPaid ? '#16a34a' : 'var(--d)';
+                payoutCell.innerHTML = `€${payout.toFixed(2)} ${markAsPaid ? '✓' : ''}`;
+            }
+        }
+    });
+
+    // 2. Ricalcolo immediato dei totali in alto
+    updateSupplierCardTotalsInDOM(supId);
+
+    // 3. Preparazione del pacchetto Batch per salvare tutto in 1 operazione
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const nowIso = new Date().toISOString();
+
+    const existingSettlements = (localDb && localDb.supplier_settlements) 
+        ? await localDb.supplier_settlements.toArray() 
+        : [];
+
+    let recordsToPut = [];
+    for (let cb of toChange) {
+        const saleItemId = cb.getAttribute('data-saleitem');
+        const supplierId = cb.getAttribute('data-supplier');
+        const existing = existingSettlements.find(st => st.sale_item_id === saleItemId && st.supplier_id === supplierId);
+
+        if (existing) {
+            recordsToPut.push({
+                ...existing,
+                is_paid: markAsPaid ? 1 : 0,
+                updated_at: nowIso
+            });
+        } else {
+            recordsToPut.push({
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                sale_item_id: saleItemId,
+                supplier_id: supplierId,
+                is_paid: markAsPaid ? 1 : 0,
+                updated_at: nowIso
+            });
+        }
+    }
+
+    // Salvataggio Bulk su Dexie locale (istante: 10ms)
+    if (localDb && localDb.supplier_settlements) {
+        await localDb.supplier_settlements.bulkPut(recordsToPut);
+    }
+
+    // Invio in batch su Supabase Cloud (un'unica richiesta POST per tutti gli articoli)
+    if (navigator.onLine && window.SUPABASE_CONFIG) {
+        fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/supplier_settlements`, {
+            method: 'POST',
+            headers: {
+                'apikey': window.SUPABASE_CONFIG.key,
+                'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(recordsToPut)
+        }).catch(e => console.warn("Sync batch settlements cloud:", e));
+    }
+};
+
+// 5. GESTORE CHECKBOX MASTER IN TESTATA ("Seleziona Tutti")
+window.toggleSelectAllSupplierRows = function(masterCb, supId) {
+    window.batchSettleSupplier(supId, masterCb.checked);
+};
+
+// 6. FUNZIONE AUSILIARIA SALVATAGGIO SINGOLO RECORD IN BACKGROUND
+async function saveSettlementRecord(saleItemId, supplierId, isChecked) {
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const nowIso = new Date().toISOString();
+
+    try {
+        const settlements = (localDb && localDb.supplier_settlements) 
+            ? await localDb.supplier_settlements.toArray() 
+            : [];
+        const existing = settlements.find(st => st.sale_item_id === saleItemId && st.supplier_id === supplierId);
+
+        if (existing) {
+            const updatePayload = { is_paid: isChecked, updated_at: nowIso };
+            await localDb.supplier_settlements.update(existing.id, updatePayload);
+            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                sendToCloudDirectly('PATCH', 'supplier_settlements', updatePayload, existing.id).catch(e => {});
+            }
+        } else {
+            const newRecord = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                sale_item_id: saleItemId,
+                supplier_id: supplierId,
+                is_paid: isChecked,
+                updated_at: nowIso
+            };
+            await localDb.supplier_settlements.put(newRecord);
+            if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                sendToCloudDirectly('POST', 'supplier_settlements', newRecord).catch(e => {});
+            }
+        }
+    } catch (err) {
+        console.error("Errore salvataggio settlement:", err);
+    }
+}
+
+
     // Funzione di toggle indipendente per la multi-fornitura
     async function toggleSupplierItemPaid(saleItemId, supplierId, checkboxEl) {
         const isChecked = checkboxEl.checked ? 1 : 0;
@@ -6290,203 +6701,7 @@ async function executeLocalSmartFallback(query) {
     return `🤖 Il sistema di ricerca locale è attivo. Prova a chiedere gli appuntamenti di un cliente specifico o lo stato del magazzino.`;
 }
 
-    async function renderSupplierPayouts() {
-        console.log("[DEBUG PAYOUT] Avvio renderSupplierPayouts multi-fornitore ripristinato...");
-        
-        await populatePayoutSupplierDropdown();
-
-        const startInput = document.getElementById('payout-start-date');
-        const endInput = document.getElementById('payout-end-date');
-        const supplierFilterSelect = document.getElementById('payout-supplier-filter');
-        const container = document.getElementById('supplier-payouts-container');
-        
-        if (!container) return;
-
-        const startStr = startInput ? startInput.value : '';
-        const endStr = endInput ? endInput.value : '';
-        const selectedSupplierId = supplierFilterSelect ? supplierFilterSelect.value : 'all';
-
-        if (!startStr || !endStr) {
-            container.innerHTML = `<div style="text-align:center; color:#E17055; padding:20px;">Seleziona la data di inizio e fine periodo.</div>`;
-            return;
-        }
-
-        container.innerHTML = `<div style="text-align:center; color:#666; padding:20px;">Calcolo in corso...</div>`;
-
-        try {
-            const salesData = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
-            const saleItemsData = await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [];
-            const inventoryData = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-            const suppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-            const productSuppliersData = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-            const priceHistoryData = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-            const settlementsData = await window.universalQuery({ action: 'GET_ALL', table: 'supplier_settlements' }) || [];
-
-            const salesInPeriod = salesData.filter(s => s.date >= startStr && s.date <= endStr);
-            const salesIdsInRange = salesInPeriod.map(s => s.id);
-
-            const payoutSummary = {};
-
-            const targetSuppliers = selectedSupplierId === 'all' 
-                ? suppliersData 
-                : suppliersData.filter(s => s.id === selectedSupplierId);
-
-            targetSuppliers.forEach(s => {
-                payoutSummary[s.id] = {
-                    id: s.id,
-                    name: s.name,
-                    phone: s.phone || '',
-                    items: []
-                };
-            });
-
-            for (let item of saleItemsData) {
-                if (!salesIdsInRange.includes(item.sale_id)) continue;
-
-                const sale = salesInPeriod.find(s => s.id === item.sale_id);
-                const prod = inventoryData.find(i => i.name.toLowerCase() === (item.item_name || '').toLowerCase());
-                
-                if (!prod || !prod.is_consignment) continue;
-
-                const soldPrice = parseFloat(item.price) || 0;
-                const discount = parseFloat(item.discount) || 0;
-                const finalPrice = soldPrice - discount;
-                const saleDate = sale ? sale.date : new Date().toISOString().split('T')[0];
-
-                const phList = priceHistoryData.filter(ph => ph.product_id === prod.id && saleDate >= ph.date_from && (saleDate <= ph.date_to || !ph.date_to));
-                const listinoPienoOriginale = phList.length > 0 ? (parseFloat(phList[0].price) || soldPrice) : soldPrice;
-
-                // Funzione interna per registrare la quota al singolo fornitore
-                const registerItemForSupplier = (supId, payoutAmount) => {
-                    if (!payoutSummary[supId]) return;
-
-                    const settlement = settlementsData.find(st => st.sale_item_id === item.id && st.supplier_id === supId);
-                    const isPaid = settlement ? (settlement.is_paid === 1 || settlement.is_paid === true) : false;
-
-                    payoutSummary[supId].items.push({
-                        saleItemId: item.id,
-                        supplierId: supId,
-                        date: saleDate,
-                        itemName: item.item_name,
-                        gross: finalPrice,
-                        payout: payoutAmount,
-                        isPaid: isPaid
-                    });
-                };
-
-                if (prod.type === 'servizio') {
-                    // ✂️ SERVIZIO IN CONTO VENDITA (Fornitore singolo con eventuale sconto gestito in cassa o salvato in item)
-                    const supId = prod.supplier_id;
-                    if (supId) {
-                        let payoutForThisSupp = 0;
-                        if (item.supplier_payout !== undefined && item.supplier_payout !== null && !isNaN(item.supplier_payout)) {
-                            payoutForThisSupp = parseFloat(item.supplier_payout) || 0;
-                        } else {
-                            const rule = prod.discount_absorption || 'salon';
-                            const splitPct = parseFloat(prod.consignment_split_pct) || 0;
-                            const salonShareFull = listinoPienoOriginale * (1 - (splitPct / 100));
-                            const basePayout = (listinoPienoOriginale * splitPct) / 100;
-
-                            if (rule === 'supplier') {
-                                payoutForThisSupp = finalPrice - salonShareFull;
-                            } else if (rule === 'split') {
-                                payoutForThisSupp = basePayout - (discount / 2);
-                            } else {
-                                payoutForThisSupp = basePayout;
-                            }
-                        }
-                        registerItemForSupplier(supId, payoutForThisSupp);
-                    }
-                } else {
-                    // 📦 📦 PRODOTTO FISICO IN CONTO VENDITA (LOGICA ORIGINALE RIPRISTINATA AL 100% PER I LINK MULTI-FORNITORE)
-                    const links = productSuppliersData.filter(l => l.product_id === prod.id);
-                    if (links.length > 0) {
-                        links.forEach(l => {
-                            const pct = parseFloat(l.split_pct) || 0;
-                            const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
-                            registerItemForSupplier(l.supplier_id, payoutForThisSupp);
-                        });
-                    } else if (prod.consignment_split_pct && prod.supplier_id) {
-                        const pct = parseFloat(prod.consignment_split_pct) || 0;
-                        const payoutForThisSupp = (listinoPienoOriginale * pct) / 100;
-                        registerItemForSupplier(prod.supplier_id, payoutForThisSupp);
-                    }
-                }
-            }
-
-            const activeSuppliers = Object.values(payoutSummary).filter(s => s.items.length > 0);
-
-            if (activeSuppliers.length === 0) {
-                container.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">Nessun dato di conto vendita trovato per i filtri selezionati.</div>`;
-                return;
-            }
-
-            let html = `<div style="display:flex; flex-direction:column; gap:25px;">`;
-
-            activeSuppliers.forEach(sup => {
-                const totalToPay = sup.items.filter(i => !i.isPaid).reduce((sum, i) => sum + i.payout, 0);
-                const totalAlreadyPaid = sup.items.filter(i => i.isPaid).reduce((sum, i) => sum + i.payout, 0);
-
-                html += `
-                    <div style="background:#f8f9fa; border:1px solid var(--border); border-radius:12px; padding:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                            <div>
-                                <h4 style="margin:0; font-size:18px; color:var(--p);">${sup.name}</h4>
-                                <small style="color:#666;">Tel: ${sup.phone || 'N/D'}</small>
-                            </div>
-                            <div style="text-align:right;">
-                                <span style="font-size:14px; color:#27ae60; margin-right:15px;">Già pagato: <b>€${totalAlreadyPaid.toFixed(2)}</b></span>
-                                <span style="font-size:16px; color:var(--d);">Da liquidare: <b>€${totalToPay.toFixed(2)}</b></span>
-                            </div>
-                        </div>
-
-                        <div style="overflow-x:auto;">
-                            <table style="width:100%; border-collapse: collapse; background:white; border-radius:8px; overflow:hidden;">
-                                <thead>
-                                    <tr style="background:#eee; text-align:left; font-size:12px;">
-                                        <th style="padding:10px; width:50px; text-align:center;">Pagato</th>
-                                        <th style="padding:10px;">Data</th>
-                                        <th style="padding:10px;">Articolo</th>
-                                        <th style="padding:10px;">Lordo Vendita</th>
-                                        <th style="padding:10px; color:var(--d);">Quota Fornitore</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                `;
-
-                sup.items.forEach(it => {
-                    html += `
-                        <tr style="border-bottom:1px solid #f0f0f0; font-size:13px;">
-                            <td style="padding:10px; text-align:center;">
-                                <input type="checkbox" ${it.isPaid ? 'checked' : ''} 
-                                    onchange="toggleSupplierItemPaid('${it.saleItemId}', '${it.supplierId}', this)" 
-                                    style="width:18px; height:18px; cursor:pointer;"
-                                    title="Segna come pagato per ${sup.name}">
-                            </td>
-                            <td style="padding:10px;">${it.date}</td>
-                            <td style="padding:10px;"><b>${it.itemName}</b></td>
-                            <td style="padding:10px;">€${it.gross.toFixed(2)}</td>
-                            <td style="padding:10px; color:var(--d); font-weight:bold;">€${it.payout.toFixed(2)}</td>
-                        </tr>
-                    `;
-                });
-
-                html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
-            container.innerHTML = html;
-
-        } catch (err) {
-            console.error("[DEBUG PAYOUT] Errore critico:", err);
-            container.innerHTML = `<div style="color:red; padding:20px;">Errore nel calcolo: ${err.message}</div>`;
-        }
-    }
+    
 // Variabile di stato in memoria per evitare il loop continuo dei log
 window._expenseReminderShownThisSession = window._expenseReminderShownThisSession || false;
 
