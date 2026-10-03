@@ -5,7 +5,102 @@
     <title>VaiMUp - Gestionale Beauty & Retail</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-   /* ======================================================== */
+  
+  /* ======================================================== */
+/* 📈 TABELLA REPORT VENDITE: SCROLLBARS DEDICATE PER PC    */
+/* ======================================================== */
+
+/* Comportamento su PC / Desktop (Schermi > 768px) */
+@media screen and (min-width: 769px) {
+    .sales-report-table-container {
+        /* Blocca l'altezza rispetto allo schermo: la barra orizzontale è sempre visibile senza scrollare in fondo */
+        max-height: calc(100vh - 350px);
+        min-height: 380px;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 12px;
+        position: relative;
+        background: #ffffff;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .sales-report-table-container table {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    /* 📌 Intestazione fissa in alto mentre scorri le righe */
+    .sales-report-table-container th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #f8fafc !important;
+        box-shadow: inset 0 -2px 0 #cbd5e1;
+    }
+
+    /* Stile delle Scrollbar Desktop personalizzate e sempre visibili */
+    .sales-report-table-container::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    .sales-report-table-container::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 8px;
+    }
+
+    .sales-report-table-container::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 8px;
+        border: 2px solid #f1f5f9;
+    }
+
+    .sales-report-table-container::-webkit-scrollbar-thumb:hover {
+        background: var(--p);
+    }
+
+    .sales-report-table-container::-webkit-scrollbar-corner {
+        background: #f1f5f9;
+    }
+}
+
+/* Adattamento tema Barber (Nero/Ambra) su PC */
+[data-theme="barber"] .sales-report-table-container {
+    border-color: #334155;
+    background: #0f172a;
+}
+[data-theme="barber"] .sales-report-table-container th {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    box-shadow: inset 0 -2px 0 #334155;
+}
+[data-theme="barber"] .sales-report-table-container::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+[data-theme="barber"] .sales-report-table-container::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-color: #0f172a;
+}
+[data-theme="barber"] .sales-report-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--p);
+}
+
+/* Comportamento su Smartphone (Touch naturale intatto) */
+@media screen and (max-width: 768px) {
+    .sales-report-table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+    }
+}
+  
+  
+  
+  /* ======================================================== */
 /* 🎨 VARIABILI HEADER PER TEMA FEMMINILE (BEAUTY)         */
 /* ======================================================== */
 :root, [data-theme="beauty"] {
@@ -2007,8 +2102,9 @@
                 </div>
             </div>
 
-            <div style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px;">
-                <table style="min-width: 1050px;">
+            <!-- CON: -->
+<div class="sales-report-table-container" style="margin-top: 15px;">
+    <table style="min-width: 1050px;">
                     <thead>
                         <tr>
                             <th>Data</th>
