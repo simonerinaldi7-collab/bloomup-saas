@@ -5,7 +5,7 @@
     <title>VaiMUp - Gestionale Beauty & Retail</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* ======================================================== */
+   /* ======================================================== */
 /* 🎨 VARIABILI HEADER PER TEMA FEMMINILE (BEAUTY)         */
 /* ======================================================== */
 :root, [data-theme="beauty"] {
@@ -33,15 +33,31 @@
     --status-bar-color: #0f172a;           /* Colore Notch Smartphone */
 }
 
-/* Variante opzionale: Header Scuro Forzato anche su tema Beauty */
+/* 🌑 FORZATURA BARRA SCURA (Funziona su qualsiasi tema) */
 [data-header="dark"] {
     --header-bg: #0f172a !important;
     --header-border: #1e293b !important;
     --header-title: #f8fafc !important;
     --header-burger: #f8fafc !important;
+    --header-btn-bg: #1e293b !important;
+    --header-btn-color: #f59e0b !important;
+    --header-btn-border: #b45309 !important;
+    --status-bar-color: #0f172a !important;
 }
 
-/* 🌟 APPLICAZIONE REGOLE ALL'HEADER REALE */
+/* ⚪ FORZATURA BARRA CHIARA (Funziona su qualsiasi tema) */
+[data-header="light"] {
+    --header-bg: #ffffff !important;
+    --header-border: #e2e8f0 !important;
+    --header-title: #1e1b4b !important;
+    --header-burger: #1e1b4b !important;
+    --header-btn-bg: #ede9fe !important;
+    --header-btn-color: #6d28d9 !important;
+    --header-btn-border: #c4b5fd !important;
+    --status-bar-color: #ffffff !important;
+}
+
+/* 🌟 APPLICAZIONE REGOLE ALL'HEADER */
 .header {
     background: var(--header-bg) !important;
     border-bottom: 1px solid var(--header-border) !important;
@@ -58,7 +74,6 @@
     transition: background 0.25s ease;
 }
 
-/* Pulsante Assistente IA nell'header */
 #header-ai-btn {
     background: var(--header-btn-bg) !important;
     color: var(--header-btn-color) !important;
@@ -2238,30 +2253,23 @@
         <div class="card" style="max-width: 700px; margin: 0 auto;">
             <h3 style="margin-top:0; color:var(--p);">⚙️ Configurazione Sistema & Template</h3>
 
-<!-- Nel <section id="v-settings">, subito sotto <h3> Configurazione Sistema: -->
-<div style="background: #ffffff; border: 1.5px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 22px;">
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div>
-            <label style="margin: 0; color: var(--p); font-size: 13px; font-weight: 800;">🎨 Stile Visivo & Identità Salone</label>
-            <small style="color: #64748b; font-size: 11.5px;">Scegli l'atmosfera grafica più adatta al tuo punto vendita (cambio istantaneo).</small>
-        </div>
-        <span id="current-theme-pill" style="font-size: 10.5px; font-weight: 800; background: var(--p-light); color: var(--p); padding: 3px 8px; border-radius: 6px;">Beauty Attivo</span>
-    </div>
-    <!-- Nel selettore tema di v-settings, aggiungere la scelta rapida dello stile barra: -->
+<<!-- Nel selettore tema di v-settings, sostituire la riga dei pulsanti barra con: -->
 <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     <div>
         <label style="margin: 0; font-size: 11.5px; font-weight: 700; color: #334155;">Tonalità Barra Superiore (Header)</label>
-        <small style="color: #64748b; font-size: 11px;">Scegli se mantenere la barra superiore scura o chiara.</small>
+        <small style="color: #64748b; font-size: 11px;">Scegli se mantenere la barra superiore scura, chiara o automatica dal tema.</small>
     </div>
 
+    <input type="hidden" id="set-header-style" value="auto">
+
     <div style="display: flex; gap: 6px;">
-        <button type="button" class="btn" id="btn-hdr-auto" style="padding: 5px 12px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; font-weight: bold; border-radius: 6px;" onclick="setHeaderStyle('auto')">
+        <button type="button" class="btn" id="btn-hdr-auto" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('auto')">
             🔄 Auto da Tema
         </button>
-        <button type="button" class="btn" id="btn-hdr-dark" style="padding: 5px 12px; font-size: 11px; min-height: unset; background: #0f172a; color: #f8fafc; border: 1px solid #334155; font-weight: bold; border-radius: 6px;" onclick="setHeaderStyle('dark')">
+        <button type="button" class="btn" id="btn-hdr-dark" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #0f172a; color: #f8fafc; border: 1.5px solid #334155; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('dark')">
             🌑 Barra Scura
         </button>
-        <button type="button" class="btn" id="btn-hdr-light" style="padding: 5px 12px; font-size: 11px; min-height: unset; background: #ffffff; color: #1e1b4b; border: 1px solid #cbd5e1; font-weight: bold; border-radius: 6px;" onclick="setHeaderStyle('light')">
+        <button type="button" class="btn" id="btn-hdr-light" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #ffffff; color: #1e1b4b; border: 1.5px solid #cbd5e1; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('light')">
             ⚪ Barra Chiara
         </button>
     </div>
@@ -7901,9 +7909,11 @@ if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'
         const imminentLeadEl = document.getElementById('set-imminent-lead');
 
 
-// Dentro loadSettingsFields():
 const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
-applyAppTheme(currentTheme);
+window.applyAppTheme(currentTheme);
+
+const currentHdrStyle = sysSettings['header_style'] || localStorage.getItem('VaiMUp_header_style') || 'auto';
+window.setHeaderStyle(currentHdrStyle, false);
 
         if (remHoursEl) remHoursEl.value = sysSettings['reminder_hours'] || '48';
         if (confirmMsgEl) confirmMsgEl.value = sysSettings['template_confirm'] || '';
@@ -10397,7 +10407,8 @@ function closeDuplicateModal() {
                     { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
                     { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
     // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
-    { key: 'app_theme', id: 'set-app-theme' }
+    { key: 'app_theme', id: 'set-app-theme' },
+    { key: 'header_style', id: 'set-header-style' }
                 ];
                 
                 for (let f of fields) {
@@ -11064,20 +11075,74 @@ const prevRenderProducts = window.renderProducts;
 
 
 // =========================================================================
-// 🎨 MOTORE TEMI ISTANTANEO (BEAUTY vs BARBER)
+// 🎨 MOTORE TEMA & BARRA SUPERIORE (BLINDATO SU WINDOW - ZERO ERRORI)
 // =========================================================================
 
-// 1. APPLICA IL TEMA ALL'ELEMENTO RADICE HTML (ZERO RELOAD)
-function applyAppTheme(themeName) {
+// 1. FUNZIONE PER IMPOSTARE LA TONALITÀ BARRA (AUTO / SCURA / CHIARA)
+window.setHeaderStyle = function(styleType, saveToStorage = true) {
+    const validStyle = (styleType === 'dark' || styleType === 'light') ? styleType : 'auto';
+
+    if (saveToStorage) {
+        localStorage.setItem('VaiMUp_header_style', validStyle);
+        const hiddenInput = document.getElementById('set-header-style');
+        if (hiddenInput) hiddenInput.value = validStyle;
+    }
+
+    const htmlEl = document.documentElement;
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+
+    // Applicazione attributo CSS
+    if (validStyle === 'dark') {
+        htmlEl.setAttribute('data-header', 'dark');
+        if (metaTheme) metaTheme.setAttribute('content', '#0f172a');
+    } else if (validStyle === 'light') {
+        htmlEl.setAttribute('data-header', 'light');
+        if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
+    } else {
+        // Modalità Auto: rimuove la forzatura e segue il tema (Barber o Beauty)
+        htmlEl.removeAttribute('data-header');
+        const activeTheme = htmlEl.getAttribute('data-theme') || 'beauty';
+        if (metaTheme) metaTheme.setAttribute('content', activeTheme === 'barber' ? '#0f172a' : '#6C5CE7');
+    }
+
+    // Aggiornamento grafico evidenziazione pulsanti nelle impostazioni
+    const bAuto = document.getElementById('btn-hdr-auto');
+    const bDark = document.getElementById('btn-hdr-dark');
+    const bLight = document.getElementById('btn-hdr-light');
+
+    if (bAuto) {
+        bAuto.style.boxShadow = (validStyle === 'auto') ? '0 0 0 2px var(--p)' : 'none';
+        bAuto.style.fontWeight = (validStyle === 'auto') ? '800' : 'normal';
+    }
+    if (bDark) {
+        bDark.style.boxShadow = (validStyle === 'dark') ? '0 0 0 2px #f59e0b' : 'none';
+        bDark.style.fontWeight = (validStyle === 'dark') ? '800' : 'normal';
+    }
+    if (bLight) {
+        bLight.style.boxShadow = (validStyle === 'light') ? '0 0 0 2px var(--p)' : 'none';
+        bLight.style.fontWeight = (validStyle === 'light') ? '800' : 'normal';
+    }
+
+    console.log(`🎨 [HEADER STYLE]: ${validStyle.toUpperCase()}`);
+};
+
+// Alias per compatibilità con eventuali chiamate senza window.
+function setHeaderStyle(styleType, saveToStorage = true) {
+    window.setHeaderStyle(styleType, saveToStorage);
+}
+
+// 2. APPLICAZIONE TEMA PRINCIPALE (BEAUTY VS BARBER)
+window.applyAppTheme = function(themeName) {
     const validTheme = (themeName === 'barber') ? 'barber' : 'beauty';
     
-    // Imposta l'attributo sull'elemento root HTML
     document.documentElement.setAttribute('data-theme', validTheme);
-    
-    // Salva in locale per evitare sfarfallii all'avvio
     localStorage.setItem('VaiMUp_app_theme', validTheme);
-    
-    // Aggiorna l'interfaccia delle card nelle impostazioni se visibile
+
+    // Ripristina o applica lo stile della barra configurato
+    const savedHdr = localStorage.getItem('VaiMUp_header_style') || 'auto';
+    window.setHeaderStyle(savedHdr, false);
+
+    // Aggiorna le card di selezione in Configurazione
     const cardBeauty = document.getElementById('theme-card-beauty');
     const cardBarber = document.getElementById('theme-card-barber');
     const hiddenInput = document.getElementById('set-app-theme');
@@ -11095,21 +11160,31 @@ function applyAppTheme(themeName) {
         }
     }
     if (hiddenInput) hiddenInput.value = validTheme;
+};
 
-    console.log(`🎨 [THEME ENGINE] Tema applicato: ${validTheme.toUpperCase()}`);
-}
+window.chooseAppTheme = function(themeName) {
+    window.applyAppTheme(themeName);
+};
 
-// 2. SCELTA TEMA DALL'INTERFACCIA IMPOSTAZIONI
-function chooseAppTheme(themeName) {
-    applyAppTheme(themeName);
-}
-
-// 3. APPLICAZIONE AUTOMATICA ALL'AVVIO PRIMA DEL RENDERING (ZERO FOUC)
+// 3. ESECUZIONE IMMEDIATA ALL'AVVIO DELLA PAGINA (ZERO SFARFALLII)
 (function() {
     const savedTheme = localStorage.getItem('VaiMUp_app_theme') || 'beauty';
     document.documentElement.setAttribute('data-theme', savedTheme);
-})();
 
+    const savedHdr = localStorage.getItem('VaiMUp_header_style') || 'auto';
+    if (savedHdr === 'dark') {
+        document.documentElement.setAttribute('data-header', 'dark');
+    } else if (savedHdr === 'light') {
+        document.documentElement.setAttribute('data-header', 'light');
+    }
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        if (savedHdr === 'dark') metaTheme.setAttribute('content', '#0f172a');
+        else if (savedHdr === 'light') metaTheme.setAttribute('content', '#ffffff');
+        else metaTheme.setAttribute('content', savedTheme === 'barber' ? '#0f172a' : '#6C5CE7');
+    }
+})();
 
 
 
