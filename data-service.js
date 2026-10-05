@@ -106,6 +106,10 @@ function startBackgroundMultiOperatorSync() {
             
             if (typeof updateStats === 'function') updateStats();
 
+            // Subito dopo allCustomers = await getVisibleCustomersForSalon(salonId);
+if (typeof checkPendingCustomersAlert === 'function') {
+    checkPendingCustomersAlert();
+}
         } catch (err) {
             console.warn("⚠️ [SMART-SYNC] Errore non bloccante nel ciclo di background:", err);
         }

@@ -1302,6 +1302,11 @@
     🎁 <span id="pkg-expiry-badge-count">0</span> Pacchetti in Scadenza
 </div>
 
+<!-- 🔔 BADGE NOTIFICA CLIENTI IN ATTESA DI APPROVAZIONE -->
+<div id="pending-cust-alert" style="display: none; color: #92400e; font-size: 12px; font-weight: 800; cursor: pointer; background: #fef3c7; padding: 6px 12px; border-radius: 8px; border: 1.5px solid #fde68a; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="changePage('customers')" title="Ci sono nuovi profili cliente da approvare per il booking online">
+    🔔 <span id="pending-cust-count">0</span> Clienti da Approvare
+</div>
+
             </header>
 
             <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -1323,6 +1328,22 @@
                 Visualizza ed Invia WhatsApp ➔
             </button>
         </div>
+
+
+
+<!-- 🔔 BANNER DASHBOARD RICHIESTE REGISTRAZIONE ONLINE -->
+<div id="dashboard-pending-cust-banner" style="display: none; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #fde68a; border-left: 6px solid #d97706; border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 26px;">🔔</span>
+        <div>
+            <h4 style="margin: 0; font-size: 14px; color: #78350f; font-weight: 800;">Nuove Richieste di Registrazione Online!</h4>
+            <p id="dashboard-pending-cust-text" style="margin: 3px 0 0 0; font-size: 12px; color: #92400e;">Ci sono clienti che attendono la tua approvazione per poter prenotare.</p>
+        </div>
+    </div>
+    <button class="btn btn-p" style="padding: 8px 16px; font-size: 12px; background: #d97706; border: none;" onclick="changePage('customers')">
+        Vai ai Clienti e Approva ➔
+    </button>
+</div>
 
         <!-- Statistica Rapida (KPI Globali) -->
         <div class="stat-grid" style="margin-bottom: 25px;">
@@ -7812,6 +7833,7 @@ if (typeof checkExpiringCustomerPackages === 'function') {
             renderActiveView();
             if (document.getElementById('user-filter')) updateCalendarUI();
             await updateReminderBadgeCount();
+            checkPendingCustomersAlert();
 
         } catch(e) { 
             console.error("Errore nel refresh:", e); 
@@ -8184,10 +8206,36 @@ function renderCust() {
     }).join(''); 
 }
 
-async function approveCustomerForBooking(customerId) {
+// =========================================================================
+// ✓ APPROVAZIONE CLIENTE CON APERTURA WHATSAPP ISTANTANEA (ZERO BLOCCHI POPUP)
+// =========================================================================
+window.approveCustomerForBooking = async function(customerId) {
     const cust = allCustomers.find(c => c.id === customerId);
     if (!cust) return;
 
+    // 1. Chiediamo subito all'operatore se vuole inviare il messaggio di benvenuto WhatsApp
+    const sendWhatsApp = cust.phone ? confirm(`✅ Vuoi approvare ${cust.first_name} ${cust.last_name} e inviargli subito il messaggio WhatsApp di attivazione?`) : true;
+
+    // 2. Se ha confermato, apriamo WhatsApp IMMEDIATAMENTE nel flusso del click (così il browser non lo blocca mai!)
+    if (sendWhatsApp && cust.phone) {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+        const messageText = `Ciao ${cust.first_name}! Il tuo profilo per la prenotazione online da ${salonId} è stato attivato con successo ✨ Da oggi puoi prenotare in totale autonomia i tuoi appuntamenti quando vuoi cliccando qui: ${bookingLink}`;
+        
+        const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
+        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`;
+
+        // Creazione link sintetico cliccato istantaneamente: aggira al 100% i blocchi popup di Chrome, Safari e iOS!
+        const link = document.createElement('a');
+        link.href = waUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    // 3. Aggiorniamo il cliente nel database
     await window.universalQuery({
         action: 'UPDATE',
         table: 'customers',
@@ -8196,15 +8244,64 @@ async function approveCustomerForBooking(customerId) {
     });
 
     cust.booking_status = 'approved';
+    
+    // Aggiorna tabella e badge di notifica
     renderCust();
+    checkPendingCustomersAlert();
+};
 
-    if (cust.phone && confirm(`✅ Cliente ${cust.first_name} ${cust.last_name} approvato e censito in anagrafica!\n\nVuoi inviare un messaggio WhatsApp per avvisarlo che ora può prenotare in autonomia?`)) {
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
-        const msg = encodeURIComponent(`Ciao ${cust.first_name}! Il tuo profilo è stato approvato ✨ Da questo momento puoi prenotare i tuoi appuntamenti in totale autonomia cliccando qui: ${bookingLink}`);
-        const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
-        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
+
+// =========================================================================
+// 🔔 CONTROLLO E NOTIFICA CLIENTI IN ATTESA DI APPROVAZIONE
+// =========================================================================
+window._lastKnownPendingCount = 0;
+
+function checkPendingCustomersAlert() {
+    if (!allCustomers || allCustomers.length === 0) return;
+
+    // Conta i clienti in attesa
+    const pendingCustomers = allCustomers.filter(c => c.booking_status === 'pending');
+    const count = pendingCustomers.length;
+
+    const headerBadge = document.getElementById('pending-cust-alert');
+    const badgeCount = document.getElementById('pending-cust-count');
+    const dashBanner = document.getElementById('dashboard-pending-cust-banner');
+    const dashText = document.getElementById('dashboard-pending-cust-text');
+
+    if (count > 0) {
+        // Aggiorna Badge Header
+        if (headerBadge && badgeCount) {
+            badgeCount.innerText = count;
+            headerBadge.style.display = 'inline-flex';
+        }
+
+        // Aggiorna Banner Dashboard
+        if (dashBanner && dashText) {
+            dashText.innerHTML = `Ci sono <b>${count} clienti</b> in attesa di approvazione per poter prenotare online.`;
+            dashBanner.style.display = 'flex';
+        }
+
+        // 🎶 Se il numero è aumentato (è appena arrivata una nuova registrazione), emetti un segnale acustico e notifica!
+        if (count > window._lastKnownPendingCount && window._lastKnownPendingCount !== 0) {
+            if (typeof playWarehouseAudioFeedback === 'function') {
+                playWarehouseAudioFeedback('new_product');
+            }
+            if ('Notification' in window && Notification.permission === 'granted') {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification("🔔 Nuova Registrazione Online", {
+                        body: `C'è un nuovo cliente in attesa di approvazione.`,
+                        icon: './icon-192.png',
+                        badge: './icon-192.png'
+                    });
+                }).catch(() => {});
+            }
+        }
+    } else {
+        if (headerBadge) headerBadge.style.display = 'none';
+        if (dashBanner) dashBanner.style.display = 'none';
     }
+
+    window._lastKnownPendingCount = count;
 }
 
 async function toggleBlockCustomerBooking(customerId, newStatus) {
