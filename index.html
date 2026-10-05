@@ -3500,6 +3500,23 @@
 <!-- ✂️ SEZIONE ESCLUSIVA SERVIZI: DURATA & POSTAZIONI MULTIPLE (Mostrata solo se Online Booking è ATTIVO) -->
 <div id="service-booking-config-box" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
     
+    <!-- 1. Durata Trattamento con Bottoni Funzionanti -->
+    <div style="margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="margin: 0; color: var(--p); font-size: 11px; font-weight: 800; text-transform: uppercase;">⏱️ Durata del Servizio (Minuti) *</label>
+            <span style="font-size: 10px; background: #fee2e2; color: #dc2626; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Richiesto per Booking Online</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr repeat(5, auto); gap: 6px; align-items: center;">
+            <input type="number" id="f-s-duration-input" min="5" step="5" placeholder="Es. 30" style="margin: 0; font-weight: 800; background: white; text-align: center;">
+            <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(15)">15m</button>
+            <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(30)">30m</button>
+            <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(45)">45m</button>
+            <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(60)">60m</button>
+            <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(90)">90m</button>
+        </div>
+    </div>
+
     <!-- 2. Postazioni / Cabine Multiple con Feedback Chiarissimo -->
 <div>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -3516,6 +3533,7 @@
         <!-- Popolato dinamicamente da JS con le postazioni registrate -->
     </div>
 </div>
+
 
 </div>
 
@@ -15348,6 +15366,7 @@ function setServiceDuration(minutes) {
     }
 }
 
+// 2. Popola le postazioni fisiche come Checkbox Multiple nel Modale
 // Funzione che aggiorna il badge dinamico spiegando chiaramente cosa succede
 function updateWorkstationHelperBadge() {
     const badge = document.getElementById('service-ws-status-badge');
