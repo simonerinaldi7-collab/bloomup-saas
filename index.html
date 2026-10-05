@@ -2479,6 +2479,7 @@
 <!-- ======================================================== -->
 <!-- 🌐 PORTALE PRENOTAZIONI ONLINE (SELF-SERVICE CLIENTI)   -->
 <!-- ======================================================== -->
+<!-- SEZIONE DENTRO V-SETTINGS -->
 <div style="margin: 25px 0 15px 0; padding-top: 15px; border-top: 1.5px dashed var(--border);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <div>
@@ -2502,7 +2503,6 @@
             </label>
         </div>
 
-        <!-- Sezione QR Code e Condivisione Link -->
         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
             <div style="width: 120px; height: 120px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
                 <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
@@ -2643,36 +2643,7 @@
                 <textarea id="f-c-notes" rows="3" placeholder="Colorazioni preferite, allergie, preferenze di piega..." style="margin: 4px 0 10px 0;"></textarea>
             </div>
 
-<!-- MODALE WIZARD DURATE SERVIZI MANCANTI -->
-<div id="mod-missing-durations" class="modal" style="z-index: 35000;">
-    <div class="modal-box" style="width: 600px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 22px;">⏱️</span>
-                <h3 style="margin: 0; color: #1e1b4b; font-size: 16px; font-weight: 800;">Durata Servizi Obbligatoria</h3>
-            </div>
-            <button onclick="closeMissingDurationsModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
-        </div>
 
-        <div style="background: #fffbeb; border: 1.5px solid #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 10px; font-size: 12px; line-height: 1.45; margin-bottom: 12px; flex-shrink: 0;">
-            <b>💡 Attenzione:</b> Per attivare la prenotazione autonoma dei clienti, il sistema deve conoscere la durata esatta di ciascun trattamento per calcolare correttamente gli slot liberi ed evitare sovrapposizioni.
-            <br>Imposta i minuti per i servizi sottostanti per completare l'attivazione.
-        </div>
-
-        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;" id="missing-durations-list">
-            <!-- Popolato dinamicamente -->
-        </div>
-
-        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0;">
-            <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px;" onclick="saveBatchMissingDurations()">
-                Salva Durate ed Abilita Booking ➔
-            </button>
-            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 12px;" onclick="closeMissingDurationsModal()">
-                Annulla
-            </button>
-        </div>
-    </div>
-</div>
 
 
             <!-- ========================================== -->
@@ -8162,7 +8133,21 @@ async function loadSettingsFields() {
         settingsTable.forEach(s => {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
+
 // Dentro loadSettingsFields():
+const isBookingOn = (sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true');
+const toggleBooking = document.getElementById('set-online-booking-toggle');
+const paneBooking = document.getElementById('online-booking-active-pane');
+
+if (toggleBooking) toggleBooking.checked = isBookingOn;
+if (paneBooking) paneBooking.style.display = isBookingOn ? 'block' : 'none';
+
+if (isBookingOn) {
+    updateBookingQrAndUrl(currentUser ? currentUser.salon_id : 'SALON_001');
+}
+
+
+        // Dentro loadSettingsFields():
 const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
 const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
 
@@ -18726,42 +18711,51 @@ async function loadExpenses() {
 // 🌐 CONTROLLO E WIZARD ATTIVAZIONE BOOKING ONLINE
 // =========================================================================
 
-// Verifica se la prenotazione online è attualmente attiva nelle impostazioni
+// =========================================================================
+// 🌐 GESTORE ROBUSTO BOOKING ONLINE, WIZARD DURATE & QR CODE
+// =========================================================================
+
 function isOnlineBookingActive() {
     return sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true';
 }
 
-// 1. Intercettazione Toggle Attivazione
+// 1. Intercettazione Spunta in Configurazione
 async function onToggleOnlineBooking(isChecked) {
+    const activePane = document.getElementById('online-booking-active-pane');
+    const toggleEl = document.getElementById('set-online-booking-toggle');
+
     if (!isChecked) {
-        // Disattivazione immediata senza blocchi
-        document.getElementById('online-booking-active-pane').style.display = 'none';
+        if (activePane) activePane.style.display = 'none';
         await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '0' } });
         sysSettings['online_booking_enabled'] = '0';
         return;
     }
 
-    // Scansiona tutti i servizi per verificare se mancano le durate
-    const services = (allInventory || []).filter(i => i.type === 'servizio');
+    // Assicuriamoci che allInventory sia idratato
+    if (!allInventory || allInventory.length === 0) {
+        allInventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+    }
+
+    const services = allInventory.filter(i => i.type === 'servizio');
     const missing = services.filter(s => !s.duration_minutes || parseInt(s.duration_minutes) <= 0);
 
     if (missing.length > 0) {
-        // Re-imposta temporaneamente il toggle visivo a false finché non si completano le durate
-        document.getElementById('set-online-booking-toggle').checked = false;
+        // NON nascondiamo silenziosamente: apriamo SUBITO il modale wizard
         openMissingDurationsModal(missing);
         return;
     }
 
-    // Se tutti i servizi hanno una durata, attiva direttamente
-    activateOnlineBookingConfirmed();
+    // Se tutti i servizi hanno la durata, attiva e genera il QR
+    await activateOnlineBookingConfirmed();
 }
 
-// 2. Apertura del Wizard Servizi senza Durata
+// 2. Apertura del Wizard
 function openMissingDurationsModal(missingServices) {
     const listEl = document.getElementById('missing-durations-list');
-    if (!listEl) return;
+    const modal = document.getElementById('mod-missing-durations');
+    if (!listEl || !modal) return;
 
-    listEl.innerHTML = missingServices.map((s, idx) => `
+    listEl.innerHTML = missingServices.map(s => `
         <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
             <div style="flex: 1;">
                 <b style="font-size: 13px; color: #1e1b4b;">${s.name}</b>
@@ -18774,15 +18768,21 @@ function openMissingDurationsModal(missingServices) {
         </div>
     `).join('');
 
-    document.getElementById('mod-missing-durations').classList.add('active');
+    modal.classList.add('active');
 }
 
 function closeMissingDurationsModal() {
-    document.getElementById('mod-missing-durations').classList.remove('active');
-    document.getElementById('set-online-booking-toggle').checked = false;
+    const modal = document.getElementById('mod-missing-durations');
+    if (modal) modal.classList.remove('active');
+    
+    // Solo se l'utente annulla il wizard ripristiniamo la spunta a OFF
+    const toggleEl = document.getElementById('set-online-booking-toggle');
+    if (toggleEl && !isOnlineBookingActive()) {
+        toggleEl.checked = false;
+    }
 }
 
-// 3. Salvataggio in Batch delle Durate e Attivazione Definitiva del Booking
+// 3. Salvataggio in Batch Durate e Attivazione
 async function saveBatchMissingDurations() {
     const inputs = document.querySelectorAll('.missing-duration-input');
     let hasInvalid = false;
@@ -18795,7 +18795,6 @@ async function saveBatchMissingDurations() {
             break;
         }
 
-        // Aggiorna sia localmente che su Supabase
         await window.universalQuery({
             action: 'UPDATE',
             table: 'inventory',
@@ -18803,33 +18802,43 @@ async function saveBatchMissingDurations() {
             id: servId
         });
 
-        // Aggiorna l'array globale in memoria
         const sObj = (allInventory || []).find(i => i.id === servId);
         if (sObj) sObj.duration_minutes = durVal;
     }
 
     if (hasInvalid) {
-        return alert("Tutti i servizi devono avere una durata valida superiore a 0 minuti.");
+        return alert("Tutti i servizi devono avere una durata superiore a 0 minuti.");
     }
 
-    closeMissingDurationsModal();
-    activateOnlineBookingConfirmed();
+    const modal = document.getElementById('mod-missing-durations');
+    if (modal) modal.classList.remove('active');
+
+    await activateOnlineBookingConfirmed();
+    alert("✅ Durate salvate con successo! Il booking online è ora attivo.");
 }
 
-// 4. Attivazione confermata con generazione QR Code
+// 4. Conferma Attivazione e Generazione QR Code Dinamico
 async function activateOnlineBookingConfirmed() {
-    document.getElementById('set-online-booking-toggle').checked = true;
-    document.getElementById('online-booking-active-pane').style.display = 'block';
+    const toggleEl = document.getElementById('set-online-booking-toggle');
+    const activePane = document.getElementById('online-booking-active-pane');
+    
+    if (toggleEl) toggleEl.checked = true;
+    if (activePane) activePane.style.display = 'block';
 
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '1' } });
     sysSettings['online_booking_enabled'] = '1';
 
-    // Costruzione Link Cliente
-    const publicBookingUrl = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
-    document.getElementById('booking-portal-url').value = publicBookingUrl;
+    updateBookingQrAndUrl(salonId);
+}
 
-    // Generazione dinamica QR Code nitido tramite QuickChart API (zero dipendenze npm)
+function updateBookingQrAndUrl(salonId = null) {
+    const sId = salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
+    const publicBookingUrl = `${window.location.origin}/?book=${encodeURIComponent(sId)}`;
+    
+    const inputUrl = document.getElementById('booking-portal-url');
+    if (inputUrl) inputUrl.value = publicBookingUrl;
+
     const qrImg = document.getElementById('booking-qr-code-img');
     if (qrImg) {
         qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(publicBookingUrl)}&size=200&dark=1e1b4b`;
@@ -19152,6 +19161,40 @@ async function deleteExpense(id) {
             <button class="btn" style="background: #f1f5f9; color: #475569; padding: 5px 12px;" onclick="closeFastScanModal()">Esci</button>
         </div>
 
+    </div>
+</div>
+
+
+
+<!-- ======================================================== -->
+<!-- ⏱️ MODALE WIZARD DURATE (FIGLIO DIRETTO DEL BODY)         -->
+<!-- ======================================================== -->
+<div id="mod-missing-durations" class="modal" style="z-index: 99999;" onclick="if(event.target===this) closeMissingDurationsModal()">
+    <div class="modal-box" style="width: 600px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">⏱️</span>
+                <h3 style="margin: 0; color: #1e1b4b; font-size: 16px; font-weight: 800;">Durata Trattamenti Obbligatoria</h3>
+            </div>
+            <button type="button" onclick="closeMissingDurationsModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div style="background: #fffbeb; border: 1.5px solid #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 10px; font-size: 12px; line-height: 1.45; margin-bottom: 12px; flex-shrink: 0;">
+            <b>💡 Attenzione:</b> Per attivare la prenotazione autonoma dei clienti, è necessario inserire la durata in minuti per tutti i servizi del listino, così da permettere all'algoritmo di calcolare gli slot liberi ed evitare sovrapposizioni.
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;" id="missing-durations-list">
+            <!-- Popolato dinamicamente da JS -->
+        </div>
+
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0;">
+            <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px;" onclick="saveBatchMissingDurations()">
+                Salva Durate ed Abilita Booking ➔
+            </button>
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 12px;" onclick="closeMissingDurationsModal()">
+                Annulla
+            </button>
+        </div>
     </div>
 </div>
 
