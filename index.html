@@ -8207,25 +8207,30 @@ function renderCust() {
 }
 
 // =========================================================================
-// ✓ APPROVAZIONE CLIENTE CON APERTURA WHATSAPP ISTANTANEA (ZERO BLOCCHI POPUP)
+// ✓ APPROVAZIONE CLIENTE: ENDPOINT UFFICIALE ANTI-CORRUZIONE EMOJI
 // =========================================================================
 window.approveCustomerForBooking = async function(customerId) {
     const cust = allCustomers.find(c => c.id === customerId);
     if (!cust) return;
 
-    // 1. Chiediamo subito all'operatore se vuole inviare il messaggio di benvenuto WhatsApp
+    // 1. Conferma sincrona immediata al click
     const sendWhatsApp = cust.phone ? confirm(`✅ Vuoi approvare ${cust.first_name} ${cust.last_name} e inviargli subito il messaggio WhatsApp di attivazione?`) : true;
 
-    // 2. Se ha confermato, apriamo WhatsApp IMMEDIATAMENTE nel flusso del click (così il browser non lo blocca mai!)
+    // 2. Se confermato, apriamo WhatsApp con l'endpoint che preserva le emoji su PC
     if (sendWhatsApp && cust.phone) {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
         const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+        
+        // Testo del messaggio con emoji perfettamente compatibili
         const messageText = `Ciao ${cust.first_name}! Il tuo profilo per la prenotazione online da ${salonId} è stato attivato con successo ✨ Da oggi puoi prenotare in totale autonomia i tuoi appuntamenti quando vuoi cliccando qui: ${bookingLink}`;
         
         const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
-        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`;
+        const encodedText = encodeURIComponent(messageText);
 
-        // Creazione link sintetico cliccato istantaneamente: aggira al 100% i blocchi popup di Chrome, Safari e iOS!
+        // 🌟 ENDPOINT UFFICIALE: Salta il redirect di wa.me e mantiene intatte le emoji su PC e smartphone
+        const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
+
+        // Apertura tramite elemento sintetico (bypassa il blocco popup)
         const link = document.createElement('a');
         link.href = waUrl;
         link.target = '_blank';
@@ -8235,7 +8240,7 @@ window.approveCustomerForBooking = async function(customerId) {
         link.remove();
     }
 
-    // 3. Aggiorniamo il cliente nel database
+    // 3. Aggiornamento stato cliente a 'approved' nel database
     await window.universalQuery({
         action: 'UPDATE',
         table: 'customers',
@@ -8245,9 +8250,11 @@ window.approveCustomerForBooking = async function(customerId) {
 
     cust.booking_status = 'approved';
     
-    // Aggiorna tabella e badge di notifica
+    // Aggiorna interfaccia e spegne l'alert
     renderCust();
-    checkPendingCustomersAlert();
+    if (typeof checkPendingCustomersAlert === 'function') {
+        checkPendingCustomersAlert();
+    }
 };
 
 
