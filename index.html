@@ -19378,19 +19378,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // 2. Caricamento Dati del Salone
+// 2. Caricamento Dati del Salone con Risoluzione Prezzi Reali
 async function initPublicBookingPortal(salonId) {
     const titleEl = document.getElementById('pb-salon-name');
     if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
 
+    // 1. Assicuriamo il contesto del salon_id per il data-service anche per gli ospiti
+    if (!currentUser || !currentUser.salon_id) {
+        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
+    }
+
     try {
-        // Recupero servizi, orari staff e postazioni
+        // 2. Recuperiamo sia il catalogo che lo storico prezzi in vigore
         const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        window._pbState.allServices = inventory.filter(i => {
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const nowIso = new Date().toISOString();
+
+        // 3. Filtriamo i soli servizi che hanno una durata valida
+        const services = inventory.filter(i => {
             const isService = i.type === 'servizio';
             const hasDur = i.duration_minutes && parseInt(i.duration_minutes) > 0;
             return isService && hasDur;
         });
 
+        // 4. Colleghiamo il prezzo effettivo da price_history a ciascun servizio
+        services.forEach(s => {
+            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
+            
+            // Cerca la riga di listino valida per oggi
+            let currentPriceRow = sHistory.find(ph => {
+                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                return nowIso >= from && nowIso <= to;
+            });
+
+            // Se non c'è una riga aperta, prende la più recente
+            if (!currentPriceRow && sHistory.length > 0) {
+                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                currentPriceRow = sHistory[0];
+            }
+
+            // Assegna il prezzo reale (es. € 25.00, € 45.00)
+            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
+        });
+
+        window._pbState.allServices = services;
         window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
         window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
