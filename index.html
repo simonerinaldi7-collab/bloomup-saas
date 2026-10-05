@@ -3106,6 +3106,176 @@
         }
     </style>
 
+
+
+<!-- ======================================================== -->
+<!-- 📱 PORTALE PRENOTAZIONI CLIENTE FINALE (SELF-SERVICE)    -->
+<!-- ======================================================== -->
+<div id="public-booking-portal" style="display: none; min-height: 100vh; background: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b;">
+    
+    <!-- Top Header Brand Salone -->
+    <header style="background: white; border-bottom: 1px solid #e2e8f0; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; background: #ede9fe; color: #6d28d9; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;">✂️</div>
+            <div>
+                <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">Prenotazione Online</h3>
+                <small id="pb-salon-subtitle" style="color: #64748b; font-size: 11px;">Scegli il tuo trattamento preferito</small>
+            </div>
+        </div>
+        <div id="pb-user-badge" style="display: none; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #475569;"></div>
+    </header>
+
+    <!-- Contenitore Wizard Funnel a Passi -->
+    <main style="max-width: 620px; margin: 0 auto; padding: 16px;">
+        
+        <!-- STEP 1: IDENTIFICAZIONE CLIENTE & TIER APPROVAZIONE -->
+        <section id="pb-step-auth" class="pb-wizard-step" style="display: block;">
+            <div style="background: white; border-radius: 20px; padding: 24px; border: 1.5px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 50px; height: 50px; background: #ede9fe; color: #6d28d9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 10px auto;">👤</div>
+                    <h2 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800; color: #1e1b4b;">Benvenuta/o!</h2>
+                    <p style="margin: 0; font-size: 12.5px; color: #64748b;">Inserisci il tuo cellulare per accedere o registrarti.</p>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Cellulare (WhatsApp)</label>
+                    <input type="tel" id="pb-auth-phone" placeholder="Es. 3331234567" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 10px; box-sizing: border-box;">
+                </div>
+
+                <!-- Campi anagrafici per registrazione nuovo cliente -->
+                <div id="pb-register-fields" style="display: none; border-top: 1px dashed #cbd5e1; padding-top: 14px; margin-top: 14px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                        <div>
+                            <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Nome *</label>
+                            <input type="text" id="pb-auth-firstname" placeholder="Es. Maria" style="width: 100%; padding: 10px; font-size: 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Cognome *</label>
+                            <input type="text" id="pb-auth-lastname" placeholder="Es. Rossi" style="width: 100%; padding: 10px; font-size: 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+                        </div>
+                    </div>
+
+                    <div style="background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 11.5px; color: #475569; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="pb-auth-gdpr" checked style="width: 16px; height: 16px; accent-color: var(--p); margin: 0;">
+                            <span>Accetto il trattamento dei dati personali (Privacy GDPR)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Schermata di blocco profilo / approvazione in attesa -->
+                <div id="pb-auth-feedback" style="display: none; padding: 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45; margin-bottom: 14px;"></div>
+
+                <button type="button" id="pb-btn-auth-continue" class="btn btn-p" style="width: 100%; padding: 14px; justify-content: center; font-size: 14px; font-weight: 800; border-radius: 10px;" onclick="handlePublicAuthContinue()">
+                    Continua ➔
+                </button>
+            </div>
+        </section>
+
+        <!-- STEP 2: SELEZIONE TRATTAMENTI / SERVIZI -->
+        <section id="pb-step-services" class="pb-wizard-step" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #1e1b4b;">1. Scegli i Trattamenti</h4>
+                <small style="color: #64748b; font-size: 11px;">Puoi selezionarne anche più di uno</small>
+            </div>
+
+            <!-- Lista Card Servizi -->
+            <div id="pb-services-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 80px;">
+                <!-- Popolato dinamicamente da JS -->
+            </div>
+
+            <!-- Sticky Bottom Bar con Totali e Tasto Avanti -->
+            <div style="position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1.5px solid #cbd5e1; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 -4px 15px rgba(0,0,0,0.05);">
+                <div>
+                    <div id="pb-summary-duration" style="font-size: 11px; font-weight: 700; color: #6d28d9;">⏱️ Durata: 0 min</div>
+                    <div id="pb-summary-price" style="font-size: 17px; font-weight: 900; color: #1e1b4b;">€ 0.00</div>
+                </div>
+                <button type="button" id="pb-btn-to-step3" class="btn btn-p" style="padding: 12px 20px; font-size: 13px; font-weight: 800; border-radius: 10px;" onclick="goToStep3OperatorAndSlots()">
+                    Scegli Data e Ora ➔
+                </button>
+            </div>
+        </section>
+
+        <!-- STEP 3: SELEZIONE OPERATORE, DATA E SLOT ORARIO -->
+        <section id="pb-step-slots" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e1;" onclick="goToStep('pb-step-services')">◀ Cambia Servizi</button>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">2. Data e Operatore</h4>
+            </div>
+
+            <!-- Scelta Operatore con opzione "Primo Disponibile" -->
+            <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Operatore Preferito</label>
+                <div id="pb-operators-pills" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+                    <!-- Popolato da JS -->
+                </div>
+            </div>
+
+            <!-- Selezione Data (Oggi e prossimi 30 giorni) -->
+            <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Giorno del Trattamento</label>
+                <div id="pb-dates-scroll" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
+                    <!-- Generato da JS: pillole giorno Lun 18, Mar 19... -->
+                </div>
+            </div>
+
+            <!-- Griglia Slot Orari Disponibili -->
+            <div style="background: white; border-radius: 14px; padding: 16px; border: 1.5px solid #cbd5e1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Orari Disponibili</label>
+                    <span id="pb-slots-count-badge" style="font-size: 11px; color: #047857; font-weight: bold;"></span>
+                </div>
+
+                <div id="pb-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; max-height: 260px; overflow-y: auto;">
+                    <!-- Popolato da JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 4: RIEPILOGO FINALE & CONFERMA PRENOTAZIONE -->
+        <section id="pb-step-confirm" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
+            <div style="background: white; border-radius: 20px; padding: 22px; border: 1.5px solid #cbd5e1; box-shadow: 0 10px 25px rgba(0,0,0,0.03);">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <span style="font-size: 32px;">✨</span>
+                    <h3 style="margin: 4px 0; font-size: 18px; font-weight: 800; color: #1e1b4b;">Riepilogo Prenotazione</h3>
+                    <p style="margin: 0; font-size: 12px; color: #64748b;">Controlla i dettagli prima di confermare</p>
+                </div>
+
+                <div id="pb-confirm-summary-box" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; line-height: 1.6; font-size: 13px;">
+                    <!-- Popolato dinamicamente da JS -->
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn" style="flex: 1; padding: 12px; justify-content: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px;" onclick="goToStep('pb-step-slots')">Modifica</button>
+                    <button type="button" id="pb-btn-submit-booking" class="btn btn-p" style="flex: 2; padding: 12px; justify-content: center; font-size: 14px; font-weight: 800; border-radius: 10px;" onclick="executePublicBooking()">
+                        Conferma Prenotazione ✓
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 5: SUCCESSO / CONFERMA AVVENUTA -->
+        <section id="pb-step-success" class="pb-wizard-step" style="display: none;">
+            <div style="background: white; border-radius: 20px; padding: 30px 20px; border: 1.5px solid #bbf7d0; text-align: center; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.08);">
+                <div style="width: 65px; height: 65px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px auto;">✓</div>
+                <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 800; color: #1e1b4b;">Appuntamento Confermato!</h2>
+                <p id="pb-success-desc" style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px;"></p>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" class="btn btn-w" style="width: 100%; padding: 14px; justify-content: center; font-size: 13.5px; font-weight: 700; border-radius: 10px;" onclick="saveAppointmentToWhatsAppReminder()">
+                        💬 Salva Promemoria su WhatsApp
+                    </button>
+                    <button type="button" class="btn" style="width: 100%; padding: 12px; justify-content: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; color: #475569;" onclick="location.reload()">
+                        Fissa un altro appuntamento
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+
 <!-- MODALE RILEVAMENTO CLIENTE DUPLICATO -->
 <div id="mod-duplicate-customer" class="modal" style="z-index: 35000;">
     <div class="modal-box" style="width: 500px; text-align: left;">
@@ -19057,7 +19227,561 @@ async function deleteExpense(id) {
     }
 }
 
+// =========================================================================
+// 🌐 MOTORE COMPLETO DEL PORTALE PRENOTAZIONI CLIENTE (SELF-SERVICE)
+// =========================================================================
 
+window._pbState = {
+    salonId: null,
+    customer: null,
+    selectedServices: [],     // array di oggetti { id, name, price, duration, workstations }
+    selectedOperator: 'any',  // 'any' oppure username operatore
+    selectedDate: null,       // 'YYYY-MM-DD'
+    selectedSlot: null,       // 'HH:MM'
+    allocatedWorkstationId: null,
+    calculatedTotalMinutes: 0,
+    calculatedTotalPrice: 0,
+    allServices: [],
+    allOperators: [],
+    allSchedules: [],
+    allWorkstations: [],
+    allBookings: [],
+    allExistingApps: []
+};
+
+// 1. BOOTSTRAP: Intercetta il link ?book=SALON_ID all'avvio della pagina
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingSalonId = urlParams.get('book');
+
+    if (bookingSalonId) {
+        console.log("🌐 [PORTALE PUBBLICO] Rilevata richiesta di prenotazione per salone:", bookingSalonId);
+        window._pbState.salonId = bookingSalonId.trim();
+
+        // Nasconde schermata di login e shell gestionale
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.style.display = 'none';
+        const appShell = document.getElementById('app-shell');
+        if (appShell) appShell.style.display = 'none';
+
+        // Mostra il portale di prenotazione
+        const portal = document.getElementById('public-booking-portal');
+        if (portal) portal.style.display = 'block';
+
+        // Inizializza i dati pubblici dal cloud/locale
+        await initPublicBookingPortal(window._pbState.salonId);
+    }
+});
+
+// 2. Caricamento Dati del Salone
+async function initPublicBookingPortal(salonId) {
+    const titleEl = document.getElementById('pb-salon-name');
+    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
+
+    try {
+        // Recupero servizi, orari staff e postazioni
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        window._pbState.allServices = inventory.filter(i => {
+            const isService = i.type === 'servizio';
+            const hasDur = i.duration_minutes && parseInt(i.duration_minutes) > 0;
+            return isService && hasDur;
+        });
+
+        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
+        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+
+        renderPublicServicesList();
+        renderPublicOperatorsList();
+        renderPublicDatesList();
+    } catch (e) {
+        console.error("Errore inizializzazione portale pubblico:", e);
+    }
+}
+
+// 3. STEP 1: Autenticazione & Verifica Approvazione Cliente
+async function handlePublicAuthContinue() {
+    const phoneInput = document.getElementById('pb-auth-phone');
+    const rawPhone = phoneInput ? phoneInput.value.trim() : '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    const feedback = document.getElementById('pb-auth-feedback');
+    const regFields = document.getElementById('pb-register-fields');
+
+    if (cleanPhone.length < 8) {
+        return alert("Inserisci un numero di cellulare valido.");
+    }
+
+    // Cerchiamo se il cliente esiste già nell'anagrafica
+    const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+    const matched = customers.find(c => {
+        const cPhone = (c.phone || '').replace(/\D/g, '');
+        return cPhone.includes(cleanPhone) || cleanPhone.includes(cPhone);
+    });
+
+    const isApprovalRequired = (sysSettings['booking_require_approval'] !== '0');
+
+    if (matched) {
+        const status = matched.booking_status || 'approved';
+
+        if (status === 'blocked') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fee2e2';
+            feedback.style.color = '#dc2626';
+            feedback.style.border = '1px solid #fecaca';
+            feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Ti invitiamo a contattare telefonicamente il salone.`;
+            return;
+        }
+
+        if (status === 'pending') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il salone non ha ancora abilitato il tuo numero. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
+            return;
+        }
+
+        // Cliente esistente e APPROVATO: avanti ai servizi!
+        window._pbState.customer = matched;
+        onCustomerVerifiedSuccess(matched);
+    } else {
+        // Nuovo cliente mai visto: apriamo i campi per raccogliere Nome e Cognome
+        if (regFields.style.display === 'none') {
+            regFields.style.display = 'block';
+            feedback.style.display = 'block';
+            feedback.style.background = '#ede9fe';
+            feedback.style.color = '#6d28d9';
+            feedback.style.border = '1px solid #ddd6fe';
+            feedback.innerHTML = `👋 È la tua prima volta da noi! Inserisci il tuo nome e cognome per registrarti.`;
+            document.getElementById('pb-btn-auth-continue').innerText = "Completa Registrazione ➔";
+            return;
+        }
+
+        // Ha inserito nome e cognome
+        const fn = document.getElementById('pb-auth-firstname')?.value.trim();
+        const ln = document.getElementById('pb-auth-lastname')?.value.trim();
+        const gdpr = document.getElementById('pb-auth-gdpr')?.checked;
+
+        if (!fn || !ln) return alert("Inserisci sia il nome che il cognome per continuare.");
+        if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR.");
+
+        const initialStatus = isApprovalRequired ? 'pending' : 'approved';
+
+        const newCustPayload = {
+            id: crypto.randomUUID(),
+            salon_id: window._pbState.salonId,
+            first_name: fn,
+            last_name: ln,
+            phone: rawPhone,
+            gdpr_consent: 1,
+            gdpr_date: new Date().toISOString().split('T')[0],
+            booking_status: initialStatus
+        };
+
+        // Salvataggio immediato in anagrafica clienti
+        await window.universalQuery({ action: 'INSERT', table: 'customers', data: newCustPayload });
+
+        if (isApprovalRequired) {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà la tua richiesta a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
+            document.getElementById('pb-btn-auth-continue').style.display = 'none';
+        } else {
+            window._pbState.customer = newCustPayload;
+            onCustomerVerifiedSuccess(newCustPayload);
+        }
+    }
+}
+
+function onCustomerVerifiedSuccess(customer) {
+    const badge = document.getElementById('pb-user-badge');
+    if (badge) {
+        badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
+        badge.style.display = 'inline-block';
+    }
+    goToStep('pb-step-services');
+}
+
+// 4. STEP 2: Render Elenco Trattamenti con Selezione Multipla
+function renderPublicServicesList() {
+    const list = document.getElementById('pb-services-list');
+    if (!list) return;
+
+    if (window._pbState.allServices.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">Nessun trattamento disponibile per la prenotazione online.</div>`;
+        return;
+    }
+
+    list.innerHTML = window._pbState.allServices.map(s => {
+        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id);
+        const dur = s.duration_minutes || 30;
+        const price = parseFloat(s.price || 0).toFixed(2);
+
+        return `
+            <div onclick="togglePublicServiceSelection('${s.id}')" 
+                 style="background: white; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(108, 92, 231, 0.15)' : 'none'};">
+                <div style="flex: 1;">
+                    <div style="font-weight: 800; font-size: 14px; color: #1e1b4b; margin-bottom: 2px;">${s.name}</div>
+                    <div style="font-size: 11.5px; color: #64748b; display: flex; gap: 8px;">
+                        <span>⏱️ ${dur} min</span>
+                        <span>•</span>
+                        <span style="font-weight: 700; color: #1e1b4b;">€ ${price}</span>
+                    </div>
+                </div>
+                <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; background: ${isSelected ? 'var(--p)' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                    ${isSelected ? '✓' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function togglePublicServiceSelection(servId) {
+    const s = window._pbState.allServices.find(x => x.id === servId);
+    if (!s) return;
+
+    const idx = window._pbState.selectedServices.findIndex(x => x.id === servId);
+    if (idx >= 0) {
+        window._pbState.selectedServices.splice(idx, 1);
+    } else {
+        window._pbState.selectedServices.push(s);
+    }
+
+    // Ricalcolo totali
+    window._pbState.calculatedTotalMinutes = window._pbState.selectedServices.reduce((sum, item) => sum + (item.duration_minutes || 30), 0);
+    window._pbState.calculatedTotalPrice = window._pbState.selectedServices.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+
+    const durEl = document.getElementById('pb-summary-duration');
+    const priceEl = document.getElementById('pb-summary-price');
+    if (durEl) durEl.innerText = `⏱️ Durata: ${window._pbState.calculatedTotalMinutes} min`;
+    if (priceEl) priceEl.innerText = `€ ${window._pbState.calculatedTotalPrice.toFixed(2)}`;
+
+    renderPublicServicesList();
+}
+
+function goToStep3OperatorAndSlots() {
+    if (window._pbState.selectedServices.length === 0) {
+        return alert("Seleziona almeno un trattamento prima di procedere.");
+    }
+    goToStep('pb-step-slots');
+    computeAndRenderAvailableSlots();
+}
+
+// 5. STEP 3: Operatori, Date e Algoritmo Slot Orari
+function renderPublicOperatorsList() {
+    const container = document.getElementById('pb-operators-pills');
+    if (!container) return;
+
+    let html = `
+        <button type="button" class="btn pb-op-pill" data-op="any" onclick="setPublicOperator('any')" 
+                style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; border-radius: 20px; background: var(--p); color: white; border: none; white-space: nowrap; flex-shrink: 0;">
+            🌟 Primo Disponibile
+        </button>
+    `;
+
+    window._pbState.allOperators.forEach(u => {
+        html += `
+            <button type="button" class="btn pb-op-pill" data-op="${u.username}" onclick="setPublicOperator('${u.username}')" 
+                    style="padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 20px; background: #f8fafc; color: #475569; border: 1.5px solid #cbd5e1; white-space: nowrap; flex-shrink: 0;">
+                ${u.username}
+            </button>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function setPublicOperator(op) {
+    window._pbState.selectedOperator = op;
+    document.querySelectorAll('.pb-op-pill').forEach(btn => {
+        const isMatch = btn.getAttribute('data-op') === op;
+        btn.style.background = isMatch ? 'var(--p)' : '#f8fafc';
+        btn.style.color = isMatch ? 'white' : '#475569';
+        btn.style.border = isMatch ? 'none' : '1.5px solid #cbd5e1';
+    });
+    computeAndRenderAvailableSlots();
+}
+
+function renderPublicDatesList() {
+    const container = document.getElementById('pb-dates-scroll');
+    if (!container) return;
+
+    let html = '';
+    const today = new Date();
+    window._pbState.selectedDate = today.toLocaleDateString('en-CA');
+
+    for (let i = 0; i < 21; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const dateStr = d.toLocaleDateString('en-CA');
+        const isSelected = (i === 0);
+
+        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
+        const dayNum = d.getDate();
+
+        html += `
+            <button type="button" class="btn pb-date-pill" data-date="${dateStr}" onclick="setPublicDate('${dateStr}')" 
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : '#ffffff'}; color: ${isSelected ? 'white' : '#1e1b4b'}; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; cursor: pointer;">
+                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
+                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
+            </button>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function setPublicDate(dateStr) {
+    window._pbState.selectedDate = dateStr;
+    document.querySelectorAll('.pb-date-pill').forEach(btn => {
+        const isMatch = btn.getAttribute('data-date') === dateStr;
+        btn.style.background = isMatch ? 'var(--p)' : '#ffffff';
+        btn.style.color = isMatch ? 'white' : '#1e1b4b';
+        btn.style.borderColor = isMatch ? 'var(--p)' : '#cbd5e1';
+    });
+    computeAndRenderAvailableSlots();
+}
+
+// 6. 🧠 ALGORITMO CALCOLO SLOT DISPONIBILI (Durata cumulata + Operatori + Cabine libere)
+async function computeAndRenderAvailableSlots() {
+    const grid = document.getElementById('pb-slots-grid');
+    const badge = document.getElementById('pb-slots-count-badge');
+    if (!grid) return;
+
+    grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:15px; color:#64748b; font-size:12px;">Calcolo orari liberi...</div>`;
+
+    const targetDateStr = window._pbState.selectedDate;
+    const totalMinutes = window._pbState.calculatedTotalMinutes;
+    const targetOp = window._pbState.selectedOperator;
+
+    // Raccoglie tutte le cabine richieste dai servizi selezionati
+    const requiredWorkstations = new Set();
+    window._pbState.selectedServices.forEach(s => {
+        let wsList = [];
+        if (s.required_workstations) {
+            wsList = Array.isArray(s.required_workstations) ? s.required_workstations : JSON.parse(s.required_workstations || '[]');
+        } else if (s.required_workstation_id) {
+            wsList = [s.required_workstation_id];
+        }
+        wsList.forEach(id => requiredWorkstations.add(String(id)));
+    });
+
+    const candidateOperators = targetOp === 'any' 
+        ? window._pbState.allOperators.map(u => u.username)
+        : [targetOp];
+
+    const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
+    const availableSlotsMap = new Map(); // mappa slot 'HH:MM' -> { operator, workstationId }
+
+    const now = new Date();
+    const isToday = targetDateStr === now.toLocaleDateString('en-CA');
+    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // almeno 30 minuti di preavviso per oggi
+
+    for (let op of candidateOperators) {
+        const cleanOp = op.trim().toLowerCase();
+        const sched = window._pbState.allSchedules.find(s => (s.username || '').trim().toLowerCase() === cleanOp && Number(s.day_of_week) === targetDayOfWeek);
+        
+        if (!sched || Number(sched.is_working) !== 1) continue;
+
+        const shifts = [];
+        if (sched.start_time_1 && sched.end_time_1) shifts.push({ s: sched.start_time_1, e: sched.end_time_1 });
+        if (sched.start_time_2 && sched.end_time_2) shifts.push({ s: sched.start_time_2, e: sched.end_time_2 });
+
+        const opAppointments = window._pbState.allExistingApps.filter(a => a.date === targetDateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanOp);
+
+        for (let shift of shifts) {
+            let [sH, sM] = shift.s.split(':').map(Number);
+            let [eH, eM] = shift.e.split(':').map(Number);
+            let curMin = sH * 60 + sM;
+            const endShiftMin = eH * 60 + eM;
+
+            while (curMin + totalMinutes <= endShiftMin) {
+                if (isToday && curMin < currentMinutesNow) {
+                    curMin += 15;
+                    continue;
+                }
+
+                const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
+                const endMinSlot = curMin + totalMinutes;
+                const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
+
+                // A. Controllo sovrapposizione agenda operatore
+                const opConflict = opAppointments.some(a => {
+                    const aStart = (a.time || '00:00').substring(0, 5);
+                    const aEnd = a.end_time ? a.end_time.substring(0, 5) : `${String(parseInt(aStart.split(':')[0]) + 1).padStart(2, '0')}:${aStart.split(':')[1]}`;
+                    return slotStartStr < aEnd && slotEndStr > aStart;
+                });
+
+                if (!opConflict) {
+                    // B. Controllo allocazione cabina (se richiesta dal trattamento)
+                    let validWorkstationId = null;
+                    let wsConflict = false;
+
+                    if (requiredWorkstations.size > 0) {
+                        wsConflict = true;
+                        // Cerca se ALMENO UNA delle cabine compatibili è libera nello slot
+                        for (let wsId of requiredWorkstations) {
+                            const occupied = window._pbState.allBookings.some(b => {
+                                if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
+                                const bStart = b.start_time.substring(0, 5);
+                                const bEnd = b.end_time.substring(0, 5);
+                                return slotStartStr < bEnd && slotEndStr > bStart;
+                            });
+
+                            if (!occupied) {
+                                validWorkstationId = wsId;
+                                wsConflict = false;
+                                break; // Trovata la prima libera!
+                            }
+                        }
+                    }
+
+                    if (!wsConflict) {
+                        if (!availableSlotsMap.has(slotStartStr)) {
+                            availableSlotsMap.set(slotStartStr, {
+                                time: slotStartStr,
+                                endTime: slotEndStr,
+                                operator: op,
+                                workstationId: validWorkstationId
+                            });
+                        }
+                    }
+                }
+                curMin += 15; // scaglioni a intervalli di 15 minuti
+            }
+        }
+    }
+
+    const sortedSlots = Array.from(availableSlotsMap.values()).sort((a, b) => a.time.localeCompare(b.time));
+
+    if (badge) badge.innerText = `${sortedSlots.length} disponibili`;
+
+    if (sortedSlots.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#e17055; font-size:12.5px; background:#fff1f0; border-radius:10px;">Nessun orario libero per la durata richiesta (${totalMinutes} min) in questa data. Prova a selezionare un altro giorno o un altro operatore.</div>`;
+        return;
+    }
+
+    grid.innerHTML = sortedSlots.map(slot => `
+        <button type="button" class="btn" onclick="selectPublicSlot('${slot.time}', '${slot.endTime}', '${slot.operator}', '${slot.workstationId || ''}')" 
+                style="padding: 10px 4px; font-size: 13.5px; font-weight: 800; border-radius: 8px; background: #ffffff; color: var(--p); border: 1.5px solid #cbd5e1; text-align: center; justify-content: center;">
+            ${slot.time}
+        </button>
+    `).join('');
+}
+
+function selectPublicSlot(timeStr, endTimeStr, operator, workstationId) {
+    window._pbState.selectedSlot = timeStr;
+    window._pbState.selectedSlotEnd = endTimeStr;
+    window._pbState.selectedSlotOperator = operator;
+    window._pbState.allocatedWorkstationId = workstationId || null;
+
+    renderConfirmSummary();
+    goToStep('pb-step-confirm');
+}
+
+// 7. STEP 4: Riepilogo e Invio Atomico della Prenotazione
+function renderConfirmSummary() {
+    const box = document.getElementById('pb-confirm-summary-box');
+    if (!box) return;
+
+    const sNames = window._pbState.selectedServices.map(s => `• <b>${s.name}</b> (€${parseFloat(s.price).toFixed(2)})`).join('<br>');
+    const wsObj = window._pbState.allWorkstations.find(w => String(w.id) === String(window._pbState.allocatedWorkstationId));
+    const wsName = wsObj ? ` (Postazione: <b>${wsObj.name}</b>)` : '';
+
+    box.innerHTML = `
+        <div style="margin-bottom: 8px;">👤 <b>Cliente:</b> ${window._pbState.customer.first_name} ${window._pbState.customer.last_name} (${window._pbState.customer.phone})</div>
+        <div style="margin-bottom: 8px;">📅 <b>Data:</b> ${formatDateIt(window._pbState.selectedDate)} dalle <b>${window._pbState.selectedSlot}</b> alle <b>${window._pbState.selectedSlotEnd}</b></div>
+        <div style="margin-bottom: 8px;">✂️ <b>Operatore:</b> ${window._pbState.selectedSlotOperator}${wsName}</div>
+        <div style="margin-bottom: 8px;">⏱️ <b>Durata Complessiva:</b> ${window._pbState.calculatedTotalMinutes} minuti</div>
+        <div style="margin-bottom: 8px;">📋 <b>Trattamenti:</b><br>${sNames}</div>
+        <div style="border-top: 1px dashed #cbd5e1; padding-top: 8px; font-size: 15px; font-weight: 900; color: var(--p);">
+            Totale da saldare in salone: € ${window._pbState.calculatedTotalPrice.toFixed(2)}
+        </div>
+    `;
+}
+
+async function executePublicBooking() {
+    const btn = document.getElementById('pb-btn-submit-booking');
+    if (btn) { btn.disabled = true; btn.innerText = "Salvataggio in corso..."; }
+
+    const appointmentId = crypto.randomUUID();
+    const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
+    const salonId = window._pbState.salonId;
+
+    let notes = `[ONLINE_BOOKING] Prenotato online dal cliente`;
+    if (window._pbState.allocatedWorkstationId) {
+        notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
+    }
+
+    const appPayload = {
+        id: appointmentId,
+        salon_id: salonId,
+        cust_name: `${window._pbState.customer.first_name} ${window._pbState.customer.last_name}`.trim(),
+        cust_id: window._pbState.customer.id,
+        phone: window._pbState.customer.phone,
+        date: window._pbState.selectedDate,
+        time: window._pbState.selectedSlot,
+        end_time: window._pbState.selectedSlotEnd,
+        service: serviceNames,
+        price: window._pbState.calculatedTotalPrice,
+        assigned_user: window._pbState.selectedSlotOperator,
+        notes: notes
+    };
+
+    try {
+        // 1. Inserimento Appuntamento
+        await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
+
+        // 2. Se è stata allocata una cabina, prenotazione atomica su workstation_bookings
+        if (window._pbState.allocatedWorkstationId) {
+            await window.universalQuery({
+                action: 'BOOK_WORKSTATION_ATOMIC',
+                data: {
+                    workstationId: window._pbState.allocatedWorkstationId,
+                    date: window._pbState.selectedDate,
+                    startTime: window._pbState.selectedSlot,
+                    endTime: window._pbState.selectedSlotEnd,
+                    appointmentId: appointmentId,
+                    operatorName: window._pbState.selectedSlotOperator,
+                    notes: `Prenotazione Online: ${appPayload.cust_name}`
+                }
+            });
+        }
+
+        // Mostra schermata di successo
+        document.getElementById('pb-success-desc').innerHTML = `
+            Gentile <b>${window._pbState.customer.first_name}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(window._pbState.selectedDate)}</b> alle ore <b>${window._pbState.selectedSlot}</b> con <b>${window._pbState.selectedSlotOperator}</b>.
+        `;
+
+        goToStep('pb-step-success');
+
+    } catch (err) {
+        console.error("Errore salvataggio prenotazione:", err);
+        alert("Si è verificato un errore durante la prenotazione. Riprova tra poco.");
+        if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
+    }
+}
+
+// 8. Navigazione semplice del Wizard
+function goToStep(stepId) {
+    document.querySelectorAll('.pb-wizard-step').forEach(step => step.style.display = 'none');
+    const target = document.getElementById(stepId);
+    if (target) {
+        target.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+// 9. Salva Promemoria su WhatsApp per il cliente
+function saveAppointmentToWhatsAppReminder() {
+    const s = window._pbState;
+    const msg = encodeURIComponent(`📅 Promemoria Appuntamento:\nData: ${formatDateIt(s.selectedDate)} alle ${s.selectedSlot}\nTrattamento: ${s.selectedServices.map(x=>x.name).join(', ')}\nOperatore: ${s.selectedSlotOperator}`);
+    const cleanPhone = (s.customer.phone || '').replace(/\D/g, '');
+    window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
+}
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
