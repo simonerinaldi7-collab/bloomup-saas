@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
   
+
+/* 🚀 GPU Hardware Acceleration per dispositivi datati */
+.cal-scroll-area,
+.sales-report-table-container,
+.cust-tab-content,
+#cart-items,
+.pos-catalog-pane {
+    transform: translateZ(0);
+    will-change: scroll-position;
+    contain: content;
+}
+
+
  /* ======================================================== */
 /* 📈 REPORT VENDITE: TABELLA LUMINOSA, CHIARA E LEGGIBILE */
 /* ======================================================== */
@@ -7365,6 +7378,41 @@ let currentSelectedServices = [];
         if (countEl) countEl.innerText = `${currentSelectedServices.length} servizi selezionati`;
         if (totalEl) totalEl.innerText = `Totale stimato: € ${total.toFixed(2)}`;
     }
+
+
+
+// ⚡ Debounce ad alte prestazioni (180ms) per evitare re-render massivi durante la digitazione
+function debounce(func, delay = 180) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
+}
+
+// Applicazione automatica del debounce sui campi di ricerca ad alta frequenza
+document.addEventListener('DOMContentLoaded', () => {
+    const prodInput = document.getElementById('src-prod');
+    if (prodInput) {
+        const debouncedRenderProd = debounce(() => renderProducts(), 180);
+        prodInput.onkeyup = debouncedRenderProd;
+    }
+
+    const custInput = document.getElementById('src-c');
+    if (custInput) {
+        const debouncedRenderCust = debounce(() => renderCust(), 180);
+        custInput.onkeyup = debouncedRenderCust;
+    }
+
+    const salesSearch = document.getElementById('sales-search-input');
+    if (salesSearch) {
+        const debouncedSalesList = debounce((val) => renderSalesList(val), 180);
+        salesSearch.onkeyup = function() { debouncedSalesList(this.value); };
+    }
+});
+
 
 async function quickAlarmAction(actionType) {
     const appId = window._quickAlarmAppId;
