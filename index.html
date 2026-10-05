@@ -19302,28 +19302,51 @@ async function initPublicBookingPortal(salonId) {
 }
 
 // 3. STEP 1: Autenticazione & Verifica Approvazione Cliente
+// STEP 1: Autenticazione & Verifica Approvazione Cliente (Corretto e Blindato)
 async function handlePublicAuthContinue() {
     const phoneInput = document.getElementById('pb-auth-phone');
     const rawPhone = phoneInput ? phoneInput.value.trim() : '';
-    const cleanPhone = rawPhone.replace(/\D/g, '');
+    
+    // Normalizziamo il numero inserito
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('39') && cleanPhone.length >= 11) {
+        cleanPhone = cleanPhone.substring(2);
+    }
+    if (cleanPhone.startsWith('0') && cleanPhone.length >= 10) {
+        cleanPhone = cleanPhone.substring(1);
+    }
 
     const feedback = document.getElementById('pb-auth-feedback');
     const regFields = document.getElementById('pb-register-fields');
 
-    if (cleanPhone.length < 8) {
-        return alert("Inserisci un numero di cellulare valido.");
+    // Controllo validità: deve avere almeno 9 cifre per essere un cellulare reale
+    if (!cleanPhone || cleanPhone.length < 9) {
+        return alert("Inserisci un numero di cellulare valido (almeno 9-10 cifre).");
     }
 
-    // Cerchiamo se il cliente esiste già nell'anagrafica
+    // Recupero clienti
     const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+    
+    // 🛡️ MATCH ESATTO: Ignora chi non ha telefono o ha stringhe vuote!
     const matched = customers.find(c => {
-        const cPhone = (c.phone || '').replace(/\D/g, '');
-        return cPhone.includes(cleanPhone) || cleanPhone.includes(cPhone);
+        if (!c.phone || c.phone.trim() === '') return false; // 👈 Salta chi non ha il telefono!
+        
+        let cPhone = String(c.phone).replace(/\D/g, '');
+        if (cPhone.startsWith('39') && cPhone.length >= 11) {
+            cPhone = cPhone.substring(2);
+        }
+        if (cPhone.startsWith('0') && cPhone.length >= 10) {
+            cPhone = cPhone.substring(1);
+        }
+
+        // Deve essere un numero valido e coincidere ESATTAMENTE
+        return cPhone.length >= 9 && cPhone === cleanPhone;
     });
 
-    const isApprovalRequired = (sysSettings['booking_require_approval'] !== '0');
+    const isApprovalRequired = (sysSettings && sysSettings['booking_require_approval'] !== '0');
 
     if (matched) {
+        // CLIENTE TROVATO
         const status = matched.booking_status || 'approved';
 
         if (status === 'blocked') {
@@ -19344,29 +19367,29 @@ async function handlePublicAuthContinue() {
             return;
         }
 
-        // Cliente esistente e APPROVATO: avanti ai servizi!
+        // Cliente riconosciuto e abilitato
         window._pbState.customer = matched;
         onCustomerVerifiedSuccess(matched);
+
     } else {
-        // Nuovo cliente mai visto: apriamo i campi per raccogliere Nome e Cognome
+        // CLIENTE NON TROVATO (Nuovo Cliente)
         if (regFields.style.display === 'none') {
             regFields.style.display = 'block';
             feedback.style.display = 'block';
             feedback.style.background = '#ede9fe';
             feedback.style.color = '#6d28d9';
             feedback.style.border = '1px solid #ddd6fe';
-            feedback.innerHTML = `👋 È la tua prima volta da noi! Inserisci il tuo nome e cognome per registrarti.`;
+            feedback.innerHTML = `👋 Non risulti ancora registrato nei nostri sistemi! Inserisci il tuo nome e cognome per creare la tua scheda.`;
             document.getElementById('pb-btn-auth-continue').innerText = "Completa Registrazione ➔";
             return;
         }
 
-        // Ha inserito nome e cognome
         const fn = document.getElementById('pb-auth-firstname')?.value.trim();
         const ln = document.getElementById('pb-auth-lastname')?.value.trim();
         const gdpr = document.getElementById('pb-auth-gdpr')?.checked;
 
         if (!fn || !ln) return alert("Inserisci sia il nome che il cognome per continuare.");
-        if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR.");
+        if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR per registrarsi.");
 
         const initialStatus = isApprovalRequired ? 'pending' : 'approved';
 
@@ -19389,7 +19412,7 @@ async function handlePublicAuthContinue() {
             feedback.style.background = '#fef3c7';
             feedback.style.color = '#92400e';
             feedback.style.border = '1px solid #fde68a';
-            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà la tua richiesta a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
+            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare in autonomia.`;
             document.getElementById('pb-btn-auth-continue').style.display = 'none';
         } else {
             window._pbState.customer = newCustPayload;
