@@ -3496,6 +3496,41 @@
             <label>Nome Prodotto / Servizio *</label>
             <input type="text" id="f-p-name" placeholder="Es. Shampoo Idratante 250ml">
             
+
+<!-- ✂️ CAMPI ESCLUSIVI PER I SERVIZI (DURATA & POSTAZIONE VINCOLATA) -->
+<div id="fields-servizio-extra" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start;">
+        
+        <!-- 1. Durata in Minuti -->
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin: 0; color: var(--p); font-size: 11px;">⏱️ Durata (Minuti)</label>
+                <span id="badge-duration-required" style="display: none; font-size: 9.5px; background: #fee2e2; color: #dc2626; font-weight: 800; padding: 2px 6px; border-radius: 4px;">Obbligatorio</span>
+            </div>
+            <input type="number" id="f-s-duration" min="5" step="5" placeholder="Es. 30" style="margin: 0 0 6px 0; font-weight: 800; background: white;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 10px; min-height: unset; background: white;" onclick="document.getElementById('f-s-duration').value=15">15m</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 10px; min-height: unset; background: white;" onclick="document.getElementById('f-s-duration').value=30">30m</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 10px; min-height: unset; background: white;" onclick="document.getElementById('f-s-duration').value=45">45m</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 10px; min-height: unset; background: white;" onclick="document.getElementById('f-s-duration').value=60">60m</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 10px; min-height: unset; background: white;" onclick="document.getElementById('f-s-duration').value=90">90m</button>
+            </div>
+        </div>
+
+        <!-- 2. Postazione / Cabina Vincolata -->
+        <div>
+            <label style="margin: 0 0 4px 0; color: #334155; font-size: 11px;">🏢 Postazione / Cabina Richiesta</label>
+            <select id="f-s-workstation" style="margin: 0; background: white; font-size: 12.5px; font-weight: 600;">
+                <option value="">-- Nessun vincolo (Poltrona libera) --</option>
+            </select>
+            <small style="color: #64748b; font-size: 10px; display: block; margin-top: 4px; line-height: 1.3;">
+                Se selezionata, il servizio sarà prenotabile solo quando anche questa postazione/cabina risulta libera.
+            </small>
+        </div>
+
+    </div>
+</div>
+
             <!-- 1. Campi esclusivi dei PRODOTTI FISICI -->
             <div id="fields-prodotto">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -6501,29 +6536,7 @@ async function saveSettlementRecord(saleItemId, supplierId, isChecked) {
 
 
 
-// 1. Gestione dinamica dei campi quando si cambia la tipologia (Prodotto vs Servizio)
-function toggleInvFields() {
-    const type = document.getElementById('f-p-type').value;
-    const prodFields = document.getElementById('fields-prodotto');
-    const durationWrapper = document.getElementById('service-duration-wrapper');
-    const durationRequiredBadge = document.getElementById('badge-duration-required');
 
-    if (prodFields) {
-        prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
-    }
-    
-    // Mostra il campo durata solo se è un servizio
-    if (durationWrapper) {
-        durationWrapper.style.display = (type === 'servizio') ? 'block' : 'none';
-    }
-
-    // Se il booking online è attivo, la durata è obbligatoria
-    if (durationRequiredBadge) {
-        durationRequiredBadge.style.display = (type === 'servizio' && isOnlineBookingActive()) ? 'inline-block' : 'none';
-    }
-
-    toggleConsignmentFields();
-}
 
 
     // Funzione scattata quando si cambia operatore nel modale
@@ -7931,6 +7944,155 @@ async function renderPackages() {
             </tr>
         `).join('');
     }
+
+
+
+// =========================================================================
+// 👥 GESTIONE ANAGRAFICA CLIENTI & TIER DI APPROVAZIONE BOOKING ONLINE
+// =========================================================================
+
+function renderCust() { 
+    const f = document.getElementById('src-c').value.toLowerCase(); 
+
+    document.querySelector('#v-customers thead tr').innerHTML = `
+        <th>Nome e Cognome</th><th>Tel / Email</th><th>Stato Booking</th><th>Compleanno</th><th>Note / Allerte</th><th style="text-align:right">Azioni</th>
+    `;
+
+    // Ordiniamo mettendo in cima i clienti 'pending' (In attesa di approvazione) così il titolare li vede subito!
+    const sortedCustomers = [...allCustomers].filter(c => {
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        return fullName.includes(f) || phone.includes(f);
+    }).sort((a, b) => {
+        const aPending = a.booking_status === 'pending' ? 0 : 1;
+        const bPending = b.booking_status === 'pending' ? 0 : 1;
+        if (aPending !== bPending) return aPending - bPending;
+        return (a.first_name || '').localeCompare(b.first_name || '');
+    });
+
+    document.getElementById('list-c').innerHTML = sortedCustomers.map(c => {
+        const isShared = Boolean(c.is_shared_client) || (currentUser && c.salon_id && String(c.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase());
+        const sharedBadge = isShared 
+            ? `<span style="background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">🎁 Pacchetto Condiviso</span>` 
+            : '';
+
+        const status = c.booking_status || 'approved';
+        let statusBadge = `<span style="background: #dcfce7; color: #16a34a; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: bold;">✓ Abilitato</span>`;
+        let quickActionBtn = '';
+
+        if (status === 'pending') {
+            statusBadge = `<span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 800; border: 1px solid #fde68a;">⏳ Da Approvare</span>`;
+            quickActionBtn = `<button class="btn" style="padding:4px 10px; background:#10b981; color:white; border:none; font-size:11px; font-weight:800;" onclick="approveCustomerForBooking('${c.id}')" title="Approva e abilita al Booking Online">✓ Approva</button>`;
+        } else if (status === 'blocked') {
+            statusBadge = `<span style="background: #fee2e2; color: #dc2626; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: bold;">🚫 Bloccato</span>`;
+            quickActionBtn = `<button class="btn" style="padding:4px 8px; background:#f1f5f9; color:#475569; font-size:11px;" onclick="toggleBlockCustomerBooking('${c.id}', 'approved')" title="Sblocca cliente">🔓 Sblocca</button>`;
+        } else {
+            quickActionBtn = `<button class="btn" style="padding:4px 8px; background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; font-size:11px;" onclick="toggleBlockCustomerBooking('${c.id}', 'blocked')" title="Blocca prenotazioni online per questo cliente">🚫</button>`;
+        }
+
+        return `
+            <tr style="${status === 'pending' ? 'background: #fffbeb;' : ''}">
+                <td><b>${c.first_name || ''} ${c.last_name || ''}</b>${sharedBadge}</td>
+                <td>${c.phone || '-'}<br><small style="color:#666;">${c.email || ''}</small></td>
+                <td>${statusBadge}</td>
+                <td>${c.birth_date ? formatDateIt(c.birth_date) : '-'}</td>
+                <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
+                <td style="text-align:right">
+                    <div style="display: inline-flex; gap: 5px; align-items: center;">
+                        ${quickActionBtn}
+                        <button class="btn btn-s" style="padding:4px 10px;" onclick="editCust('${c.id}')">Edit</button> 
+                        <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join(''); 
+}
+
+async function approveCustomerForBooking(customerId) {
+    const cust = allCustomers.find(c => c.id === customerId);
+    if (!cust) return;
+
+    await window.universalQuery({
+        action: 'UPDATE',
+        table: 'customers',
+        data: { booking_status: 'approved', updated_at: getNowLocal() },
+        id: customerId
+    });
+
+    cust.booking_status = 'approved';
+    renderCust();
+
+    if (cust.phone && confirm(`✅ Cliente ${cust.first_name} ${cust.last_name} approvato e censito in anagrafica!\n\nVuoi inviare un messaggio WhatsApp per avvisarlo che ora può prenotare in autonomia?`)) {
+        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+        const msg = encodeURIComponent(`Ciao ${cust.first_name}! Il tuo profilo è stato approvato ✨ Da questo momento puoi prenotare i tuoi appuntamenti in totale autonomia cliccando qui: ${bookingLink}`);
+        const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
+        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
+    }
+}
+
+async function toggleBlockCustomerBooking(customerId, newStatus) {
+    const cust = allCustomers.find(c => c.id === customerId);
+    if (!cust) return;
+
+    const msg = newStatus === 'blocked' 
+        ? `Vuoi bloccare le prenotazioni online per ${cust.first_name} ${cust.last_name}?`
+        : `Vuoi riabilitare ${cust.first_name} ${cust.last_name} alle prenotazioni online?`;
+
+    if (!confirm(msg)) return;
+
+    await window.universalQuery({
+        action: 'UPDATE',
+        table: 'customers',
+        data: { booking_status: newStatus, updated_at: getNowLocal() },
+        id: customerId
+    });
+
+    cust.booking_status = newStatus;
+    renderCust();
+}
+
+async function saveCust() {
+    const id = document.getElementById('edit-c-id').value; 
+    const isGdprChecked = document.getElementById('f-c-gdpr').checked;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Se è un cliente già esistente manteniamo il suo stato, se è creato dal salone nasce già 'approved'
+    const existingCust = id !== "-1" ? allCustomers.find(c => c.id === id) : null;
+    const currentBookingStatus = existingCust && existingCust.booking_status ? existingCust.booking_status : 'approved';
+
+    let data = { 
+        first_name: document.getElementById('f-c-firstname').value.trim(), 
+        last_name: document.getElementById('f-c-lastname').value.trim(),
+        phone: document.getElementById('f-c-phone').value.trim(),
+        email: document.getElementById('f-c-email').value.trim(),
+        birth_date: document.getElementById('f-c-birth').value,
+        gdpr_consent: isGdprChecked ? 1 : 0,
+        gdpr_date: isGdprChecked ? todayStr : null,
+        notes: document.getElementById('f-c-notes').value.trim(),
+        booking_status: currentBookingStatus
+    };
+    
+    if (!data.first_name || !data.last_name) {
+        return alert("Inserisci sia il nome che il cognome del cliente!");
+    }
+
+    data = addAuditData(data);
+    
+    if (id === "-1") {
+        const isDuplicate = await checkAndHandleCustomerDuplicate(data);
+        if (isDuplicate) return;
+    }
+
+    if (id === "-1") {
+        await window.api.query({ action: 'INSERT', table: 'customers', data });
+    } else {
+        await window.api.query({ action: 'UPDATE', table: 'customers', data, id: id });
+    }
+    
+    refreshAllData(); 
+    closeMod();
+}
 
 async function renderCustomerPackagesInModal(customerId) {
     const container = document.getElementById('customer-packages-list');
@@ -15185,125 +15347,307 @@ async function decrementInventoryFIFO(productId) {
 
 
 
-          function renderCust() { 
-        const f = document.getElementById('src-c').value.toLowerCase(); 
+       // =========================================================================
+// ✂️ GESTIONE SERVIZI CON DURATA & POSTAZIONE VINCOLATA
+// =========================================================================
 
-        document.querySelector('#v-customers thead tr').innerHTML = `
-            <th>Nome e Cognome</th><th>Tel / Email</th><th>Compleanno</th><th>Note / Allerte</th><th style="text-align:right">Azioni</th>
-        `;
-
-        document.getElementById('list-c').innerHTML = allCustomers.filter(c => {
-            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
-            const phone = (c.phone || '').toLowerCase();
-            return fullName.includes(f) || phone.includes(f);
-        })
-        .sort((a,b)=>(a.first_name || '').localeCompare(b.first_name || ''))
-        .map(c => {
-            const isShared = Boolean(c.is_shared_client) || (currentUser && c.salon_id && String(c.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase());
-            const sharedBadge = isShared 
-                ? `<span style="background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px;">🎁 Pacchetto Condiviso</span>` 
-                : '';
-
-            return `
-                <tr>
-                    <td><b>${c.first_name || ''} ${c.last_name || ''}</b>${sharedBadge}</td>
-                    <td>${c.phone || '-'}<br><small style="color:#666;">${c.email || ''}</small></td>
-                    <td>${c.birth_date ? formatDateIt(c.birth_date) : '-'}</td>
-                    <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
-                    <td style="text-align:right">
-                        <button class="btn btn-s" style="padding:4px 10px;" onclick="editCust('${c.id}')">Edit</button> 
-                        <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
-                    </td>
-                </tr>`;
-
-// All'interno del map() di renderCust():
-const isPendingApproval = c.booking_status === 'pending';
-
-let approvalBadge = '';
-let approvalActionBtn = '';
-
-if (isPendingApproval) {
-    approvalBadge = `<span style="background: #fef3c7; color: #b45309; font-size: 10.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">⏳ In Attesa Approvazione</span>`;
-    approvalActionBtn = `
-        <button class="btn btn-s" style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: #059669; color: white;" onclick="approveCustomerForBooking('${c.id}')" title="Approva cliente al booking online">
-            ✓ Approva
-        </button>
-    `;
+async function populateServiceWorkstationSelect(selectedWsId = '') {
+    const select = document.getElementById('f-s-workstation');
+    if (!select) return;
+    const workstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    select.innerHTML = '<option value="">-- Nessun vincolo (Poltrona libera) --</option>' +
+        workstations.map(ws => `<option value="${ws.id}" ${String(ws.id) === String(selectedWsId) ? 'selected' : ''}>🏢 ${ws.name}</option>`).join('');
 }
 
-// Funzione di approvazione istantanea:
-window.approveCustomerForBooking = async function(customerId) {
-    const cust = allCustomers.find(c => c.id === customerId);
-    if (!cust) return;
+function toggleInvFields() {
+    const type = document.getElementById('f-p-type').value;
+    const prodFields = document.getElementById('fields-prodotto');
+    const servExtraFields = document.getElementById('fields-servizio-extra');
+    const badgeReq = document.getElementById('badge-duration-required');
 
-    if (!confirm(`Vuoi abilitare ${cust.first_name} ${cust.last_name} alla prenotazione online? Il cliente verrà censito come approvato al 100%.`)) {
-        return;
+    if (prodFields) {
+        prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
+    }
+    if (servExtraFields) {
+        servExtraFields.style.display = (type === 'servizio') ? 'block' : 'none';
+    }
+    if (badgeReq) {
+        const bookingOn = (typeof isOnlineBookingActive === 'function') && isOnlineBookingActive();
+        badgeReq.style.display = (type === 'servizio' && bookingOn) ? 'inline-block' : 'none';
     }
 
-    await window.universalQuery({
-        action: 'UPDATE',
-        table: 'customers',
-        data: { booking_status: 'approved' },
-        id: customerId
-    });
-
-    cust.booking_status = 'approved';
-    renderCust();
-
-    // Notifica WhatsApp di benvenuto (opzionale con 1 click)
-    if (cust.phone && confirm(`Vuoi inviare un messaggio WhatsApp di conferma attivazione a ${cust.first_name}?`)) {
-        const salonName = currentUser ? currentUser.salon_id : 'Salone';
-        const msg = encodeURIComponent(`Ciao ${cust.first_name}! Il tuo profilo per la prenotazione online da ${salonName} è stato attivato! Da oggi puoi prenotare autonomamente i tuoi appuntamenti quando vuoi. Ti aspettiamo! ✨`);
-        const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
-        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
+    if (type === 'servizio') {
+        const currentWs = document.getElementById('f-s-workstation')?.value || '';
+        populateServiceWorkstationSelect(currentWs);
     }
-};
 
-        }).join(''); 
+    toggleConsignmentFields();
+}
+
+async function editInv(id) { 
+    const i = allInventory.find(x => x.id === id); 
+    if(!i) return;
+
+    document.getElementById('edit-p-id').value = id; 
+    document.getElementById('f-p-name').value = i.name; 
+    document.getElementById('f-p-type').value = i.type || 'prodotto';
+    document.getElementById('f-p-min').value = i.min_stock || 0; 
+    await populateSupplierSelect(i.supplier_id);
+    
+    if (document.getElementById('f-p-model')) document.getElementById('f-p-model').value = i.model || '';
+    if (document.getElementById('f-p-barcode')) document.getElementById('f-p-barcode').value = i.barcode || '';
+    if (document.getElementById('f-p-size')) document.getElementById('f-p-size').value = i.size || ''; 
+    if (document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = i.unit || 'Pezzi';
+    if (document.getElementById('f-p-location')) document.getElementById('f-p-location').value = i.location || '';
+    if (document.getElementById('f-p-supplier')) document.getElementById('f-p-supplier').value = i.supplier_id || '';
+
+    // Popolamento Durata e Postazione Vincolata per i Servizi
+    if (document.getElementById('f-s-duration')) {
+        document.getElementById('f-s-duration').value = i.duration_minutes || '';
     }
-            
-            async function saveCust() {
-        const id = document.getElementById('edit-c-id').value; 
-        const isGdprChecked = document.getElementById('f-c-gdpr').checked;
+    await populateServiceWorkstationSelect(i.required_workstation_id || '');
+
+    // Prezzo di listino attuale
+    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
+    if (document.getElementById('f-p-listing-price')) {
+        document.getElementById('f-p-listing-price').value = pInfo ? pInfo.price : 0;
+    }
+
+    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
+    if (consignmentCheckbox) {
+        consignmentCheckbox.checked = i.is_consignment ? true : false;
+    }
+    
+    if (i.type === 'servizio' && i.is_consignment) {
+        document.getElementById('product-suppliers-section').style.display = 'none';
+        document.getElementById('service-supplier-section').style.display = 'block';
+        await populateSingleServiceSupplierSelect(i.supplier_id);
+        document.getElementById('f-s-split-pct').value = i.consignment_split_pct || 0;
+        document.getElementById('f-s-discount-rule').value = i.discount_absorption || 'salon';
+    }
+
+    toggleInvFields();
+    toggleConsignmentFields();
+
+    if (i.type === 'prodotto' && typeof loadProductSuppliersForEdit === 'function') {
+        await loadProductSuppliersForEdit(id);
+    }
+    
+    document.getElementById('mod-inv').classList.add('active'); 
+}
+
+async function saveInv() {
+    const rawId = document.getElementById('edit-p-id').value;
+    const isNew = (!rawId || rawId === "-1" || rawId === -1);
+    const targetId = isNew ? crypto.randomUUID() : rawId;
+
+    const name = document.getElementById('f-p-name').value.trim();
+    const type = document.getElementById('f-p-type').value;
+    
+    const rawPriceInput = document.getElementById('f-p-listing-price').value;
+    const listingPrice = parseFloat(String(rawPriceInput).replace(',', '.')) || 0;
+
+    const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
+    const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value.trim() : '';
+    const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value.trim() : '';
+    const size = document.getElementById('f-p-size') ? document.getElementById('f-p-size').value.trim() : ''; 
+    const unit = document.getElementById('f-p-unit') ? document.getElementById('f-p-unit').value : 'Pezzi';
+    const location = document.getElementById('f-p-location') ? document.getElementById('f-p-location').value.trim() : '';
+    const supplier_id_standard = document.getElementById('f-p-supplier') ? document.getElementById('f-p-supplier').value : '';
+    const is_consignment = document.getElementById('f-p-is-consignment') ? document.getElementById('f-p-is-consignment').checked : false;
+
+    // ⏱️ Lettura Durata e Postazione Vincolata per i Servizi
+    const durationMinutes = type === 'servizio' ? (parseInt(document.getElementById('f-s-duration')?.value) || null) : null;
+    const requiredWorkstationId = type === 'servizio' ? (document.getElementById('f-s-workstation')?.value || null) : null;
+
+    if (!name) return alert("Inserisci il nome del prodotto o servizio!");
+
+    // 🛡️ OBBLIGATORIETÀ CONDIZIONALE: Se il Booking Online è attivo, la durata è obbligatoria!
+    const bookingActive = (typeof isOnlineBookingActive === 'function') && isOnlineBookingActive();
+    if (type === 'servizio' && bookingActive && (!durationMinutes || durationMinutes <= 0)) {
+        return alert("⚠️ Attenzione: La Prenotazione Autonoma Online è attiva! È obbligatorio inserire la durata in minuti per il servizio.");
+    }
+
+    let serviceSupplierId = null;
+    let serviceSplitPct = 0;
+    let serviceDiscountRule = 'salon';
+
+    if (type === 'servizio' && is_consignment) {
+        serviceSupplierId = document.getElementById('f-s-supplier').value || null;
+        serviceSplitPct = parseFloat(document.getElementById('f-s-split-pct').value) || 0;
+        serviceDiscountRule = document.getElementById('f-s-discount-rule').value || 'salon';
         
-        // Controlliamo se il consenso è stato appena spuntato per mettere la data odierna
-        const todayStr = new Date().toISOString().split('T')[0];
+        if (!serviceSupplierId) return alert("Seleziona un fornitore per il servizio in conto vendita.");
+        if (serviceSplitPct <= 0) return alert("Inserisci una percentuale valida per il fornitore.");
+    }
 
-        let data = { 
-            first_name: document.getElementById('f-c-firstname').value.trim(), 
-            last_name: document.getElementById('f-c-lastname').value.trim(),
-            phone: document.getElementById('f-c-phone').value.trim(),
-            email: document.getElementById('f-c-email').value.trim(),
-            birth_date: document.getElementById('f-c-birth').value,
-            gdpr_consent: isGdprChecked ? 1 : 0,
-            gdpr_date: isGdprChecked ? todayStr : null, // 👈 Registra la data del consenso
-            notes: document.getElementById('f-c-notes').value.trim()
+    const nowTimestamp = new Date().toISOString();
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+
+    if (isNew) {
+        let invData = { 
+            id: targetId,
+            salon_id: salonId,
+            name: name, 
+            type: type, 
+            stock: 0, 
+            min_stock: Number(min_stock) || 0, 
+            model: model || null, 
+            barcode: barcode || null, 
+            size: size || null, 
+            unit: unit || 'Pezzi', 
+            location: location || null, 
+            supplier_id: type === 'servizio' ? serviceSupplierId : (supplier_id_standard || null), 
+            is_consignment: Boolean(is_consignment),
+            consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
+            discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon',
+            duration_minutes: durationMinutes,
+            required_workstation_id: requiredWorkstationId
         };
-        
-        if (!data.first_name || !data.last_name) {
-            return alert("Inserisci sia il nome che il cognome del cliente!");
-        }
 
-        data = addAuditData(data);
-        
-  // 🛑 SE SI TRATTA DI UN NUOVO CLIENTE (id === "-1"), ESEGUIAMO IL CONTROLLO DUPLICATI
-    if (id === "-1") {
-        const isDuplicate = await checkAndHandleCustomerDuplicate(data);
-        if (isDuplicate) {
-            return; // Interrompe il salvataggio immediato e mostra il modale di avviso
+        await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
+
+        const historyData = {
+            id: crypto.randomUUID(),
+            salon_id: salonId,
+            product_id: targetId,
+            cost: 0,
+            price: Number(listingPrice) || 0,
+            date_from: nowTimestamp,
+            date_to: null
+        };
+        await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
+
+    } else {
+        let invData = { 
+            name: name, 
+            type: type, 
+            min_stock: Number(min_stock) || 0, 
+            model: model || null, 
+            barcode: barcode || null, 
+            size: size || null, 
+            unit: unit || 'Pezzi', 
+            location: location || null, 
+            supplier_id: type === 'servizio' ? serviceSupplierId : (supplier_id_standard || null), 
+            is_consignment: Boolean(is_consignment),
+            consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
+            discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon',
+            duration_minutes: durationMinutes,
+            required_workstation_id: requiredWorkstationId
+        };
+
+        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: targetId });
+
+        const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: targetId }) || [];
+        const activeHistory = historyRecords.find(h => !h.date_to);
+
+        let currentCost = activeHistory ? (parseFloat(activeHistory.cost) || 0) : 0;
+        let oldPrice = activeHistory ? (parseFloat(activeHistory.price) || 0) : 0;
+
+        if (oldPrice !== Number(listingPrice)) {
+            if (activeHistory) {
+                await window.universalQuery({ 
+                    action: 'UPDATE', 
+                    table: 'price_history', 
+                    data: { date_to: nowTimestamp }, 
+                    id: activeHistory.id 
+                });
+            }
+
+            const newHistoryData = {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                product_id: targetId,
+                cost: currentCost,
+                price: Number(listingPrice) || 0,
+                date_from: nowTimestamp,
+                date_to: null
+            };
+            await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
         }
     }
 
-
-        if (id === "-1") {
-            await window.api.query({ action: 'INSERT', table: 'customers', data });
-        } else {
-            await window.api.query({ action: 'UPDATE', table: 'customers', data, id: id });
+    if (type === 'prodotto' && is_consignment) {
+        const rows = document.querySelectorAll('.supplier-split-row');
+        const existingLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
+        for (let l of existingLinks.filter(x => x.product_id === targetId)) {
+            await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: l.id });
         }
-        
-        refreshAllData(); 
-        closeMod();
+
+        for (let row of rows) {
+            const suppSelect = row.querySelector('.row-supp-select');
+            const pctInput = row.querySelector('.row-supp-pct');
+            if (suppSelect && pctInput) {
+                const suppId = suppSelect.value;
+                const splitPct = parseFloat(pctInput.value) || 0;
+                if (suppId && splitPct > 0) {
+                    const linkData = {
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        product_id: targetId,
+                        supplier_id: suppId,
+                        split_pct: splitPct
+                    };
+                    await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
+                }
+            }
+        }
     }
+
+    alert("Anagrafica salvata con successo!");
+    await refreshAllData(); 
+    closeMod();
+}
+
+// Renderizzazione Tabella Listino Servizi (Mostra Durata e Postazione Vincolata)
+async function renderServices() {
+    const f = document.getElementById('src-serv').value.toLowerCase();
+    const tbody = document.getElementById('list-serv');
+    if (!tbody) return;
+
+    const workstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
+    
+    let html = "";
+    for (let item of filtered) {
+        const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
+        const price = pInfo ? pInfo.price : 0;
+        
+        const consignmentBadge = (item.type === 'servizio' && item.is_consignment)
+            ? `<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">CV</span>`
+            : '-';
+
+        const durBadge = item.duration_minutes && parseInt(item.duration_minutes) > 0
+            ? `<span style="background:#ede9fe; color:#6d28d9; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:6px;">⏱️ ${item.duration_minutes} min</span>`
+            : `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:6px;">⚠️ Durata mancante</span>`;
+
+        let wsBadge = '';
+        if (item.required_workstation_id) {
+            const wsObj = workstations.find(w => String(w.id) === String(item.required_workstation_id));
+            if (wsObj) {
+                wsBadge = `<br><small style="color:#0284c7; font-weight:700;">🏢 Postazione: ${wsObj.name}</small>`;
+            }
+        }
+
+        html += `<tr>
+            <td><b>${item.name}</b>${durBadge}${wsBadge}</td>
+            <td>€ ${parseFloat(price).toFixed(2)}</td>
+            <td>${consignmentBadge}</td>
+            <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
+            <td>${item.created_by || 'Admin'}</td>
+            <td style="text-align:right">
+                <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
+                    <button class="btn btn-s" style="padding:2px 8px;" onclick="openConsumables('${item.id}')" title="Associa Prodotti Consumabili">📦</button>
+                    <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')" title="Modifica">Edit</button>
+                    <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')" title="Elimina">✕</button>
+                </div>
+            </td>
+        </tr>`;
+    }
+    tbody.innerHTML = html;
+}
+            
+        
     // 3. Funzione Principale di Caricamento Dossier in editCust(id)
 async function editCust(id) { 
     const c = allCustomers.find(x => x.id === id); 
@@ -15836,57 +16180,6 @@ async function updateStockInline(productId, newStockVal) {
     console.log(`✅ Giacenza aggiornata inline per ID ${productId} a ${newStock}`);
 }
 
-// Correzione bug fix: Salvataggio e popolamento corretto del fornitore in editInv
-// 4. Modifica anagrafica (Corretta per gestire servizi in conto vendita)
-async function editInv(id) { 
-    const i = allInventory.find(x => x.id === id); 
-    if(!i) return;
-
-    document.getElementById('edit-p-id').value = id; 
-    document.getElementById('f-p-name').value = i.name; 
-    document.getElementById('f-p-type').value = i.type || 'prodotto';
-    document.getElementById('f-p-min').value = i.min_stock || 0; 
-    await populateSupplierSelect(i.supplier_id);
-    
-    // Campi extra
-    if (document.getElementById('f-p-model')) document.getElementById('f-p-model').value = i.model || '';
-    if (document.getElementById('f-p-barcode')) document.getElementById('f-p-barcode').value = i.barcode || '';
-    if (document.getElementById('f-p-size')) document.getElementById('f-p-size').value = i.size || ''; 
-    if (document.getElementById('f-p-unit')) document.getElementById('f-p-unit').value = i.unit || 'Pezzi';
-    if (document.getElementById('f-p-location')) document.getElementById('f-p-location').value = i.location || '';
-    if (document.getElementById('f-p-supplier')) document.getElementById('f-p-supplier').value = i.supplier_id || '';
-
-    // Prezzo di listino attuale
-    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: id });
-    if (document.getElementById('f-p-listing-price')) {
-        document.getElementById('f-p-listing-price').value = pInfo ? pInfo.price : 0;
-    }
-
-    // Conto vendita checkbox
-    const consignmentCheckbox = document.getElementById('f-p-is-consignment');
-    if (consignmentCheckbox) {
-        consignmentCheckbox.checked = i.is_consignment ? true : false;
-    }
-    
-    // Gestione specifica se è un Servizio in Conto Vendita
-    if (i.type === 'servizio' && i.is_consignment) {
-        document.getElementById('product-suppliers-section').style.display = 'none';
-        document.getElementById('service-supplier-section').style.display = 'block';
-        
-        await populateSingleServiceSupplierSelect(i.supplier_id);
-        document.getElementById('f-s-split-pct').value = i.consignment_split_pct || 0;
-        document.getElementById('f-s-discount-rule').value = i.discount_absorption || 'salon';
-    }
-
-    toggleInvFields();
-    toggleConsignmentFields();
-
-    if (i.type === 'prodotto' && typeof loadProductSuppliersForEdit === 'function') {
-        await loadProductSuppliersForEdit(id);
-    }
-    
-    document.getElementById('mod-inv').classList.add('active'); 
-}
 
 
 // --- FUNZIONI GESTIONE CARICO MERCE ---
@@ -16072,41 +16365,7 @@ async function executeStockLoad() {
     }
 }
 
-   async function renderServices() {
-    const f = document.getElementById('src-serv').value.toLowerCase();
-    const tbody = document.getElementById('list-serv');
-    if (!tbody) return;
-
-    let filtered = allInventory.filter(p => p.type === 'servizio' && p.name.toLowerCase().includes(f));
-    
-    let html = "";
-    for (let item of filtered) {
-        const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: item.id });
-        const price = pInfo ? pInfo.price : 0;
-        
-        // 🌟 RECUPERA IL FLAG "CONTO VENDITA" E CREA UN BADGE VISUALMENTE CHIARO
-        const consignmentBadge = (item.type === 'servizio' && item.is_consignment)
-            ? `<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">CV</span>` // CV = Conto Vendita
-            : ''; // Stringa vuota se non è un servizio in conto vendita
-
-        html += `<tr>
-            <td><b>${item.name}</b></td>
-            <td>€ ${parseFloat(price).toFixed(2)}</td>
-            <td>${consignmentBadge}</td> <!-- NUOVA COLONNA RENDERIZZATA QUI -->
-            <td>${item.updated_at ? formatDateIt(item.updated_at.substring(0, 10)) : '-'}</td>
-            <td>${item.created_by || 'Admin'}</td>
-            <td style="text-align:right">
-                <div style="display: inline-flex; gap: 5px; white-space: nowrap;">
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="openConsumables('${item.id}')" title="Associa Prodotti Consumabili">📦</button>
-                    <button class="btn btn-s" style="padding:2px 8px;" onclick="editInv('${item.id}')" title="Modifica">Edit</button>
-                    <button class="btn btn-d" style="padding:2px 8px;" onclick="delItem('inventory', '${item.id}')" title="Elimina">✕</button>
-                </div>
-            </td>
-        </tr>`;
-    }
-    tbody.innerHTML = html;
-
-}
+   
 
 // Funzione sicura per la pulizia e normalizzazione del numero di telefono
 function formatPhoneNumberForWhatsApp(phone) {
@@ -16148,171 +16407,7 @@ function formatPhoneNumberForWhatsApp(phone) {
     renderSalesReport();
 }
     // Correzione di saveInv per includere il campo size
-// Cerca la funzione saveInv() e assicurati che gestisca i campi del servizio in conto vendita:
-async function saveInv() {
-    const rawId = document.getElementById('edit-p-id').value;
-    const isNew = (!rawId || rawId === "-1" || rawId === -1);
-    const targetId = isNew ? crypto.randomUUID() : rawId;
 
-    const name = document.getElementById('f-p-name').value.trim();
-    const type = document.getElementById('f-p-type').value;
-    
-    const rawPriceInput = document.getElementById('f-p-listing-price').value;
-    const listingPrice = parseFloat(String(rawPriceInput).replace(',', '.')) || 0;
-
-    const min_stock = type === 'servizio' ? 0 : parseInt(document.getElementById('f-p-min').value) || 0;
-    const model = document.getElementById('f-p-model') ? document.getElementById('f-p-model').value.trim() : '';
-    const barcode = document.getElementById('f-p-barcode') ? document.getElementById('f-p-barcode').value.trim() : '';
-    const size = document.getElementById('f-p-size') ? document.getElementById('f-p-size').value.trim() : ''; 
-    const unit = document.getElementById('f-p-unit') ? document.getElementById('f-p-unit').value : 'Pezzi';
-    const location = document.getElementById('f-p-location') ? document.getElementById('f-p-location').value.trim() : '';
-    const supplier_id_standard = document.getElementById('f-p-supplier') ? document.getElementById('f-p-supplier').value : '';
-    const is_consignment = document.getElementById('f-p-is-consignment') ? document.getElementById('f-p-is-consignment').checked : false;
-
-    if (!name) return alert("Inserisci il nome del prodotto o servizio!");
-
-    let serviceSupplierId = null;
-    let serviceSplitPct = 0;
-    let serviceDiscountRule = 'salon';
-
-const durationVal = type === 'servizio' ? (parseInt(document.getElementById('f-s-duration')?.value) || 0) : null;
-
-if (type === 'servizio' && isOnlineBookingActive() && (!durationVal || durationVal <= 0)) {
-    return alert("⚠️ Attenzione: La Prenotazione Autonoma Online è attiva. Devi specificare una durata in minuti valida per questo servizio.");
-}
-
-
-    if (type === 'servizio' && is_consignment) {
-        serviceSupplierId = document.getElementById('f-s-supplier').value || null;
-        serviceSplitPct = parseFloat(document.getElementById('f-s-split-pct').value) || 0;
-        serviceDiscountRule = document.getElementById('f-s-discount-rule').value || 'salon';
-        
-        if (!serviceSupplierId) return alert("Seleziona un fornitore per il servizio in conto vendita.");
-        if (serviceSplitPct <= 0) return alert("Inserisci una percentuale valida per il fornitore.");
-    }
-
-    const nowTimestamp = new Date().toISOString();
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-
-    if (isNew) {
-        let invData = { 
-            id: targetId,
-            salon_id: salonId,
-            name: name, 
-            type: type, 
-            stock: 0, 
-            min_stock: Number(min_stock) || 0, 
-            model: model || null, 
-            barcode: barcode || null, 
-            size: size || null, 
-            unit: unit || 'Pezzi', 
-            location: location || null, 
-            supplier_id: type === 'servizio' ? serviceSupplierId : (supplier_id_standard || null), 
-            is_consignment: Boolean(is_consignment),
-            consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
-            duration_minutes: durationVal,
-            discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon'
-        };
-
-        await window.universalQuery({ action: 'INSERT', table: 'inventory', data: invData });
-
-        const historyData = {
-            id: crypto.randomUUID(),
-            salon_id: salonId,
-            product_id: targetId,
-            cost: 0,
-            price: Number(listingPrice) || 0,
-            date_from: nowTimestamp,
-            date_to: null
-        };
-        await window.universalQuery({ action: 'INSERT', table: 'price_history', data: historyData });
-
-    } else {
-        let invData = { 
-            name: name, 
-            type: type, 
-            min_stock: Number(min_stock) || 0, 
-            model: model || null, 
-            barcode: barcode || null, 
-            size: size || null, 
-            unit: unit || 'Pezzi', 
-            location: location || null, 
-            supplier_id: type === 'servizio' ? serviceSupplierId : (supplier_id_standard || null), 
-            is_consignment: Boolean(is_consignment),
-            consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
-            discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon'
-        };
-
-        await window.universalQuery({ action: 'UPDATE', table: 'inventory', data: invData, id: targetId });
-
-        // 🌟 GESTIONE STORICO PREZZI (Tracciamento variazioni prezzo di listino / costo)
-        const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: targetId }) || [];
-        const activeHistory = historyRecords.find(h => !h.date_to);
-
-        let currentCost = activeHistory ? (parseFloat(activeHistory.cost) || 0) : 0;
-        let oldPrice = activeHistory ? (parseFloat(activeHistory.price) || 0) : 0;
-
-        // Se il prezzo di listino è cambiato, chiudiamo il vecchio record e ne apriamo uno nuovo con il prezzo aggiornato
-        if (oldPrice !== Number(listingPrice)) {
-            if (activeHistory) {
-                await window.universalQuery({ 
-                    action: 'UPDATE', 
-                    table: 'price_history', 
-                    data: { date_to: nowTimestamp }, 
-                    id: activeHistory.id 
-                });
-            }
-
-            const newHistoryData = {
-                id: crypto.randomUUID(),
-                salon_id: salonId,
-                product_id: targetId,
-                cost: currentCost,
-                price: Number(listingPrice) || 0,
-                date_from: nowTimestamp,
-                date_to: null
-            };
-            await window.universalQuery({ action: 'INSERT', table: 'price_history', data: newHistoryData });
-        }
-    }
-
-    // 🌟 GESTIONE LINK FORNITORI MULTI-FORNITORE (Per prodotti fisici in conto vendita con più fornitori)
-    if (type === 'prodotto' && is_consignment) {
-        const rows = document.querySelectorAll('.supplier-split-row');
-        
-        // Rimuoviamo prima i vecchi collegamenti per questo prodotto
-        const existingLinks = await window.universalQuery({ action: 'GET_ALL', table: 'product_suppliers' }) || [];
-        for (let l of existingLinks.filter(x => x.product_id === targetId)) {
-            await window.universalQuery({ action: 'DELETE', table: 'product_suppliers', id: l.id });
-        }
-
-        // Inseriamo i nuovi collegamenti configurati nelle righe dinamiche
-        for (let row of rows) {
-            const suppSelect = row.querySelector('.row-supp-select');
-            const pctInput = row.querySelector('.row-supp-pct');
-            
-            if (suppSelect && pctInput) {
-                const suppId = suppSelect.value;
-                const splitPct = parseFloat(pctInput.value) || 0;
-                
-                if (suppId && splitPct > 0) {
-                    const linkData = {
-                        id: crypto.randomUUID(),
-                        salon_id: salonId,
-                        product_id: targetId,
-                        supplier_id: suppId,
-                        split_pct: splitPct
-                    };
-                    await window.universalQuery({ action: 'INSERT', table: 'product_suppliers', data: linkData });
-                }
-            }
-        }
-    }
-
-    alert("Anagrafica salvata con successo!");
-    await refreshAllData(); 
-    closeMod();
-}
 
 
     function openQuickSupplierModal() {
