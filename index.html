@@ -2476,7 +2476,62 @@
     <textarea id="set-msg-pkg-expiry" rows="3" placeholder="Scrivi il messaggio di invito al rinnovo pacchetto..."></textarea>
 </div>
 
+<!-- ======================================================== -->
+<!-- 🌐 PORTALE PRENOTAZIONI ONLINE (SELF-SERVICE CLIENTI)   -->
+<!-- ======================================================== -->
+<div style="margin: 25px 0 15px 0; padding-top: 15px; border-top: 1.5px dashed var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div>
+            <label style="color: var(--p); font-size: 13px; font-weight: 800; margin: 0;">🌐 Prenotazione Autonoma Online (Clienti)</label>
+            <small style="color: #64748b; font-size: 11.5px; display: block;">Permetti ai tuoi clienti di prenotare gli slot liberi da smartphone tramite link o QR Code.</small>
+        </div>
+        <!-- Toggle Switch -->
+        <label style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer;">
+            <input type="checkbox" id="set-online-booking-toggle" onchange="onToggleOnlineBooking(this.checked)" style="opacity: 0; width: 0; height: 0;">
+            <span id="slider-booking-toggle" style="position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1; transition: .3s; border-radius: 26px;"></span>
+        </label>
+    </div>
 
+    <!-- Pannello attivo solo se il booking è abilitato -->
+    <div id="online-booking-active-pane" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 16px; margin-top: 12px;">
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+            <input type="checkbox" id="set-booking-approval" checked style="width: 18px; height: 18px; accent-color: var(--p); margin: 0; cursor: pointer;">
+            <label for="set-booking-approval" style="margin: 0; font-size: 12.5px; font-weight: 700; color: #1e1b4b; text-transform: none; cursor: pointer;">
+                🛡️ Richiedi approvazione profilo prima di consentire la prima prenotazione
+            </label>
+        </div>
+
+        <!-- Sezione QR Code e Condivisione Link -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <div style="width: 120px; height: 120px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+
+            <div style="flex: 1; min-width: 220px;">
+                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 4px;">Link Diretto per i tuoi Clienti:</b>
+                <input type="text" id="booking-portal-url" readonly style="margin: 0 0 8px 0; padding: 8px 10px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569;" onclick="this.select()">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-p" style="padding: 6px 12px; font-size: 11.5px;" onclick="copyBookingLink()">📋 Copia Link</button>
+                    <button type="button" class="btn btn-w" style="padding: 6px 12px; font-size: 11.5px;" onclick="shareBookingWhatsApp()">💬 Invia su WhatsApp</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Stile Toggle Switch iOS-Like */
+#set-online-booking-toggle:checked + #slider-booking-toggle {
+    background-color: var(--p) !important;
+}
+#set-online-booking-toggle:checked + #slider-booking-toggle:before {
+    transform: translateX(24px);
+}
+#slider-booking-toggle:before {
+    position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;
+}
+</style>
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
@@ -2587,6 +2642,38 @@
                 <label>Note / Allerte Trattamenti</label>
                 <textarea id="f-c-notes" rows="3" placeholder="Colorazioni preferite, allergie, preferenze di piega..." style="margin: 4px 0 10px 0;"></textarea>
             </div>
+
+<!-- MODALE WIZARD DURATE SERVIZI MANCANTI -->
+<div id="mod-missing-durations" class="modal" style="z-index: 35000;">
+    <div class="modal-box" style="width: 600px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">⏱️</span>
+                <h3 style="margin: 0; color: #1e1b4b; font-size: 16px; font-weight: 800;">Durata Servizi Obbligatoria</h3>
+            </div>
+            <button onclick="closeMissingDurationsModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div style="background: #fffbeb; border: 1.5px solid #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 10px; font-size: 12px; line-height: 1.45; margin-bottom: 12px; flex-shrink: 0;">
+            <b>💡 Attenzione:</b> Per attivare la prenotazione autonoma dei clienti, il sistema deve conoscere la durata esatta di ciascun trattamento per calcolare correttamente gli slot liberi ed evitare sovrapposizioni.
+            <br>Imposta i minuti per i servizi sottostanti per completare l'attivazione.
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;" id="missing-durations-list">
+            <!-- Popolato dinamicamente -->
+        </div>
+
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0;">
+            <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px;" onclick="saveBatchMissingDurations()">
+                Salva Durate ed Abilita Booking ➔
+            </button>
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 12px;" onclick="closeMissingDurationsModal()">
+                Annulla
+            </button>
+        </div>
+    </div>
+</div>
+
 
             <!-- ========================================== -->
             <!-- 🎁 TAB 2: PACCHETTI E CARNET CON FILTRI    -->
@@ -3419,6 +3506,21 @@
                     <input type="number" id="f-p-listing-price" step="0.01" placeholder="Es. 25.00">
                 </div>
             </div>
+
+<!-- Campo Durata (Visibile solo per tipo servizio) -->
+<div id="service-duration-wrapper" style="display: none; margin-bottom: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label id="lbl-service-duration" style="margin: 0; color: var(--p);">Durata Trattamento (Minuti)</label>
+        <span id="badge-duration-required" style="display: none; font-size: 10px; background: #fee2e2; color: #dc2626; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Obbligatorio per Online Booking</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr repeat(4, auto); gap: 6px; align-items: center;">
+        <input type="number" id="f-s-duration" min="5" step="5" placeholder="Es. 30" style="margin: 0; font-weight: bold;">
+        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: #f1f5f9;" onclick="document.getElementById('f-s-duration').value=15">15m</button>
+        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: #f1f5f9;" onclick="document.getElementById('f-s-duration').value=30">30m</button>
+        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: #f1f5f9;" onclick="document.getElementById('f-s-duration').value=45">45m</button>
+        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: #f1f5f9;" onclick="document.getElementById('f-s-duration').value=60">60m</button>
+    </div>
+</div>
 
             <label>Nome Prodotto / Servizio *</label>
             <input type="text" id="f-p-name" placeholder="Es. Shampoo Idratante 250ml">
@@ -6432,11 +6534,23 @@ async function saveSettlementRecord(saleItemId, supplierId, isChecked) {
 function toggleInvFields() {
     const type = document.getElementById('f-p-type').value;
     const prodFields = document.getElementById('fields-prodotto');
+    const durationWrapper = document.getElementById('service-duration-wrapper');
+    const durationRequiredBadge = document.getElementById('badge-duration-required');
+
     if (prodFields) {
         prodFields.style.display = (type === 'servizio') ? 'none' : 'block';
     }
     
-    // Attiva la logica del conto vendita dedicata al tipo di articolo
+    // Mostra il campo durata solo se è un servizio
+    if (durationWrapper) {
+        durationWrapper.style.display = (type === 'servizio') ? 'block' : 'none';
+    }
+
+    // Se il booking online è attivo, la durata è obbligatoria
+    if (durationRequiredBadge) {
+        durationRequiredBadge.style.display = (type === 'servizio' && isOnlineBookingActive()) ? 'inline-block' : 'none';
+    }
+
     toggleConsignmentFields();
 }
 
@@ -15116,6 +15230,50 @@ async function decrementInventoryFIFO(productId) {
                         <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
                     </td>
                 </tr>`;
+
+// All'interno del map() di renderCust():
+const isPendingApproval = c.booking_status === 'pending';
+
+let approvalBadge = '';
+let approvalActionBtn = '';
+
+if (isPendingApproval) {
+    approvalBadge = `<span style="background: #fef3c7; color: #b45309; font-size: 10.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">⏳ In Attesa Approvazione</span>`;
+    approvalActionBtn = `
+        <button class="btn btn-s" style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: #059669; color: white;" onclick="approveCustomerForBooking('${c.id}')" title="Approva cliente al booking online">
+            ✓ Approva
+        </button>
+    `;
+}
+
+// Funzione di approvazione istantanea:
+window.approveCustomerForBooking = async function(customerId) {
+    const cust = allCustomers.find(c => c.id === customerId);
+    if (!cust) return;
+
+    if (!confirm(`Vuoi abilitare ${cust.first_name} ${cust.last_name} alla prenotazione online? Il cliente verrà censito come approvato al 100%.`)) {
+        return;
+    }
+
+    await window.universalQuery({
+        action: 'UPDATE',
+        table: 'customers',
+        data: { booking_status: 'approved' },
+        id: customerId
+    });
+
+    cust.booking_status = 'approved';
+    renderCust();
+
+    // Notifica WhatsApp di benvenuto (opzionale con 1 click)
+    if (cust.phone && confirm(`Vuoi inviare un messaggio WhatsApp di conferma attivazione a ${cust.first_name}?`)) {
+        const salonName = currentUser ? currentUser.salon_id : 'Salone';
+        const msg = encodeURIComponent(`Ciao ${cust.first_name}! Il tuo profilo per la prenotazione online da ${salonName} è stato attivato! Da oggi puoi prenotare autonomamente i tuoi appuntamenti quando vuoi. Ti aspettiamo! ✨`);
+        const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
+        window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
+    }
+};
+
         }).join(''); 
     }
             
@@ -16032,6 +16190,13 @@ async function saveInv() {
     let serviceSplitPct = 0;
     let serviceDiscountRule = 'salon';
 
+const durationVal = type === 'servizio' ? (parseInt(document.getElementById('f-s-duration')?.value) || 0) : null;
+
+if (type === 'servizio' && isOnlineBookingActive() && (!durationVal || durationVal <= 0)) {
+    return alert("⚠️ Attenzione: La Prenotazione Autonoma Online è attiva. Devi specificare una durata in minuti valida per questo servizio.");
+}
+
+
     if (type === 'servizio' && is_consignment) {
         serviceSupplierId = document.getElementById('f-s-supplier').value || null;
         serviceSplitPct = parseFloat(document.getElementById('f-s-split-pct').value) || 0;
@@ -16060,6 +16225,7 @@ async function saveInv() {
             supplier_id: type === 'servizio' ? serviceSupplierId : (supplier_id_standard || null), 
             is_consignment: Boolean(is_consignment),
             consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
+            duration_minutes: durationVal,
             discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon'
         };
 
@@ -18552,6 +18718,139 @@ async function loadExpenses() {
             });
         }
     });
+
+
+
+
+// =========================================================================
+// 🌐 CONTROLLO E WIZARD ATTIVAZIONE BOOKING ONLINE
+// =========================================================================
+
+// Verifica se la prenotazione online è attualmente attiva nelle impostazioni
+function isOnlineBookingActive() {
+    return sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true';
+}
+
+// 1. Intercettazione Toggle Attivazione
+async function onToggleOnlineBooking(isChecked) {
+    if (!isChecked) {
+        // Disattivazione immediata senza blocchi
+        document.getElementById('online-booking-active-pane').style.display = 'none';
+        await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '0' } });
+        sysSettings['online_booking_enabled'] = '0';
+        return;
+    }
+
+    // Scansiona tutti i servizi per verificare se mancano le durate
+    const services = (allInventory || []).filter(i => i.type === 'servizio');
+    const missing = services.filter(s => !s.duration_minutes || parseInt(s.duration_minutes) <= 0);
+
+    if (missing.length > 0) {
+        // Re-imposta temporaneamente il toggle visivo a false finché non si completano le durate
+        document.getElementById('set-online-booking-toggle').checked = false;
+        openMissingDurationsModal(missing);
+        return;
+    }
+
+    // Se tutti i servizi hanno una durata, attiva direttamente
+    activateOnlineBookingConfirmed();
+}
+
+// 2. Apertura del Wizard Servizi senza Durata
+function openMissingDurationsModal(missingServices) {
+    const listEl = document.getElementById('missing-durations-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = missingServices.map((s, idx) => `
+        <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div style="flex: 1;">
+                <b style="font-size: 13px; color: #1e1b4b;">${s.name}</b>
+                <small style="display: block; color: #64748b;">Prezzo attuale: € ${parseFloat(s.price || 0).toFixed(2)}</small>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="number" min="5" step="5" value="30" class="missing-duration-input" data-id="${s.id}" style="width: 80px; padding: 7px; text-align: center; font-weight: bold; margin: 0; background: #f8fafc; border: 1.5px solid var(--p); border-radius: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #64748b;">min</span>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('mod-missing-durations').classList.add('active');
+}
+
+function closeMissingDurationsModal() {
+    document.getElementById('mod-missing-durations').classList.remove('active');
+    document.getElementById('set-online-booking-toggle').checked = false;
+}
+
+// 3. Salvataggio in Batch delle Durate e Attivazione Definitiva del Booking
+async function saveBatchMissingDurations() {
+    const inputs = document.querySelectorAll('.missing-duration-input');
+    let hasInvalid = false;
+
+    for (let input of inputs) {
+        const servId = input.getAttribute('data-id');
+        const durVal = parseInt(input.value) || 0;
+        if (durVal <= 0) {
+            hasInvalid = true;
+            break;
+        }
+
+        // Aggiorna sia localmente che su Supabase
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { duration_minutes: durVal },
+            id: servId
+        });
+
+        // Aggiorna l'array globale in memoria
+        const sObj = (allInventory || []).find(i => i.id === servId);
+        if (sObj) sObj.duration_minutes = durVal;
+    }
+
+    if (hasInvalid) {
+        return alert("Tutti i servizi devono avere una durata valida superiore a 0 minuti.");
+    }
+
+    closeMissingDurationsModal();
+    activateOnlineBookingConfirmed();
+}
+
+// 4. Attivazione confermata con generazione QR Code
+async function activateOnlineBookingConfirmed() {
+    document.getElementById('set-online-booking-toggle').checked = true;
+    document.getElementById('online-booking-active-pane').style.display = 'block';
+
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '1' } });
+    sysSettings['online_booking_enabled'] = '1';
+
+    // Costruzione Link Cliente
+    const publicBookingUrl = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+    document.getElementById('booking-portal-url').value = publicBookingUrl;
+
+    // Generazione dinamica QR Code nitido tramite QuickChart API (zero dipendenze npm)
+    const qrImg = document.getElementById('booking-qr-code-img');
+    if (qrImg) {
+        qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(publicBookingUrl)}&size=200&dark=1e1b4b`;
+    }
+}
+
+function copyBookingLink() {
+    const input = document.getElementById('booking-portal-url');
+    if (!input) return;
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        alert("✅ Link prenotazione copiato negli appunti!");
+    });
+}
+
+function shareBookingWhatsApp() {
+    const url = document.getElementById('booking-portal-url')?.value;
+    if (!url) return;
+    const msg = encodeURIComponent(`Prenota comodamente il tuo prossimo appuntamento da noi online tramite questo link: ${url}`);
+    window.open(`https://api.whatsapp.com/send/?text=${msg}`, '_blank');
+}
 
 
     // 🗑️ Funzione di eliminazione spesa con ricalcolo economico immediato (Bilancio & Target)
