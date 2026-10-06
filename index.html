@@ -3698,6 +3698,20 @@
             <span style="font-size: 10px; background: #fee2e2; color: #dc2626; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Richiesto per Booking Online</span>
         </div>
         
+
+<!-- ⚡ OPZIONE SERVIZIO AUTONOMO (SOLO CABINA) -->
+<div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+        <input type="checkbox" id="f-s-autonomous-toggle" onchange="onToggleAutonomousService(this.checked)" style="width: 17px; height: 17px; accent-color: #d97706; margin: 0; cursor: pointer;">
+        <div>
+            <b style="font-size: 12px; color: #1e1b4b;">⚡ Trattamento Autonomo (Senza Operatore)</b>
+            <small style="color: #64748b; font-size: 11px; display: block; line-height: 1.3;">
+                Ideale per lampade solari, docce solari o macchinari automatici. In prenotazione impegna solo la cabina libera senza vincolare il turno dello staff.
+            </small>
+        </div>
+    </label>
+</div>
+
         <div style="display: grid; grid-template-columns: 1fr repeat(5, auto); gap: 6px; align-items: center;">
             <input type="number" id="f-s-duration-input" min="5" step="5" placeholder="Es. 30" style="margin: 0; font-weight: 800; background: white; text-align: center;">
             <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; min-height: unset; background: white; border: 1px solid #cbd5e1;" onclick="setServiceDuration(15)">15m</button>
@@ -15640,26 +15654,45 @@ function setServiceDuration(minutes) {
     }
 }
 
-// 2. Popola le postazioni fisiche come Checkbox Multiple nel Modale
-// Funzione che aggiorna il badge dinamico spiegando chiaramente cosa succede
+function onToggleAutonomousService(isAutonomous) {
+    updateWorkstationHelperBadge();
+}
+
+// Aggiorniamo la funzione che spiega cosa succede alle cabine:
 function updateWorkstationHelperBadge() {
     const badge = document.getElementById('service-ws-status-badge');
     if (!badge) return;
 
+    const isAutonomous = document.getElementById('f-s-autonomous-toggle')?.checked || false;
     const checkedBoxes = document.querySelectorAll('.ws-service-checkbox:checked');
     const count = checkedBoxes.length;
 
-    if (count === 0) {
-        badge.style.background = '#dcfce7'; // Verde chiaro
-        badge.style.border = '1.5px solid #bbf7d0';
-        badge.style.color = '#15803d'; // Verde scuro
-        badge.innerHTML = `🟢 <b>Lavoro Libero / Poltrona Generica:</b> Non richiede una cabina specifica. In fase di prenotazione verrà controllata solo la disponibilità dell'operatore.`;
+    if (isAutonomous) {
+        if (count === 0) {
+            badge.style.background = '#fef2f2';
+            badge.style.border = '1.5px solid #fecaca';
+            badge.style.color = '#dc2626';
+            badge.innerHTML = `⚠️ <b>Attenzione:</b> Un servizio autonomo senza operatore richiede obbligatoriamente che sia spuntata almeno una cabina in cui si svolge!`;
+        } else {
+            const names = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-name')).filter(Boolean);
+            badge.style.background = '#fef3c7';
+            badge.style.border = '1.5px solid #fde68a';
+            badge.style.color = '#b45309';
+            badge.innerHTML = `⚡ <b>Servizio Autonomo su ${count} cabine (${names.join(', ')}):</b> Non impegna nessun operatore. Verrà verificata solo la disponibilità della prima cabina libera tra quelle scelte.`;
+        }
     } else {
-        const names = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-name')).filter(Boolean);
-        badge.style.background = '#ede9fe'; // Viola chiaro
-        badge.style.border = '1.5px solid #ddd6fe';
-        badge.style.color = '#6d28d9'; // Viola scuro
-        badge.innerHTML = `🏢 <b>Vincolato a ${count} cabine (${names.join(', ')}):</b> L'algoritmo verificherà che l'operatore sia libero e assegnerà automaticamente la prima cabina disponibile tra quelle scelte.`;
+        if (count === 0) {
+            badge.style.background = '#dcfce7';
+            badge.style.border = '1.5px solid #bbf7d0';
+            badge.style.color = '#15803d';
+            badge.innerHTML = `🟢 <b>Lavoro Libero / Poltrona Generica:</b> Non richiede una cabina specifica. In fase di prenotazione verrà controllata solo la disponibilità dell'operatore.`;
+        } else {
+            const names = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-name')).filter(Boolean);
+            badge.style.background = '#ede9fe';
+            badge.style.border = '1.5px solid #ddd6fe';
+            badge.style.color = '#6d28d9';
+            badge.innerHTML = `🏢 <b>Vincolato a ${count} cabine (${names.join(', ')}):</b> Richiede che sia l'operatore SIA una delle cabine siano liberi contemporaneamente.`;
+        }
     }
 }
 
@@ -15757,6 +15790,13 @@ async function editInv(id) {
         durationInput.value = (i.duration_minutes && parseInt(i.duration_minutes) > 0) ? i.duration_minutes : '';
     }
 
+// Dentro editInv(id), dove popoli i campi:
+const autoToggle = document.getElementById('f-s-autonomous-toggle');
+if (autoToggle) {
+    // Se requires_operator è esplicitamente false, la spunta è attiva
+    autoToggle.checked = (i.requires_operator === false || i.requires_operator === 0);
+}
+
     // Popolamento Postazioni Multiple Abilitate
     let selectedWs = [];
     if (i.required_workstations) {
@@ -15845,6 +15885,15 @@ async function saveInv() {
     const nowTimestamp = new Date().toISOString();
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
+
+const isAutonomous = type === 'servizio' ? (document.getElementById('f-s-autonomous-toggle')?.checked || false) : false;
+const requiresOperator = !isAutonomous;
+
+// Se autonomo, deve avere almeno una postazione selezionata
+if (type === 'servizio' && isAutonomous && selectedWorkstations.length === 0) {
+    return alert("⚠️ Un trattamento autonomo (es. Solarium) deve avere almeno una postazione/cabina spuntata per essere prenotabile!");
+}
+
     let invData = { 
         name: name, 
         type: type, 
@@ -15859,6 +15908,7 @@ async function saveInv() {
         consignment_split_pct: type === 'servizio' ? serviceSplitPct : 0,
         discount_absorption: type === 'servizio' ? serviceDiscountRule : 'salon',
         duration_minutes: durationMinutes,
+        requires_operator: requiresOperator,
         required_workstations: selectedWorkstations,
         required_workstation_id: selectedWorkstations.length > 0 ? selectedWorkstations[0] : null // retrocompatibilità
     };
@@ -19705,6 +19755,7 @@ function setPublicDate(dateStr) {
 }
 
 // 6. 🧠 ALGORITMO CALCOLO SLOT DISPONIBILI (Durata cumulata + Operatori + Cabine libere)
+// 6. ALGORITMO SLOT: GESTIONE INTELLIGENTE SERVIZI AUTONOMI (SOLO CABINA) VS SERVIZI CON OPERATORE
 async function computeAndRenderAvailableSlots() {
     const grid = document.getElementById('pb-slots-grid');
     const badge = document.getElementById('pb-slots-count-badge');
@@ -19716,7 +19767,7 @@ async function computeAndRenderAvailableSlots() {
     const totalMinutes = window._pbState.calculatedTotalMinutes;
     const targetOp = window._pbState.selectedOperator;
 
-    // Raccoglie tutte le cabine richieste dai servizi selezionati
+    // Raccoglie tutte le cabine richieste
     const requiredWorkstations = new Set();
     window._pbState.selectedServices.forEach(s => {
         let wsList = [];
@@ -19728,36 +19779,40 @@ async function computeAndRenderAvailableSlots() {
         wsList.forEach(id => requiredWorkstations.add(String(id)));
     });
 
-    const candidateOperators = targetOp === 'any' 
-        ? window._pbState.allOperators.map(u => u.username)
-        : [targetOp];
+    // ⚡ VERIFICA SE TUTTI I SERVIZI SCELTI SONO AUTONOMI (SENZA OPERATORE)
+    const isEntirelyAutonomous = window._pbState.selectedServices.every(s => s.requires_operator === false || s.requires_operator === 0);
 
     const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
-    const availableSlotsMap = new Map(); // mappa slot 'HH:MM' -> { operator, workstationId }
+    const availableSlotsMap = new Map();
 
     const now = new Date();
     const isToday = targetDateStr === now.toLocaleDateString('en-CA');
-    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // almeno 30 minuti di preavviso per oggi
+    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // 30 min di preavviso per oggi
 
-    for (let op of candidateOperators) {
-        const cleanOp = op.trim().toLowerCase();
-        const sched = window._pbState.allSchedules.find(s => (s.username || '').trim().toLowerCase() === cleanOp && Number(s.day_of_week) === targetDayOfWeek);
+    // CASO 1: ⚡ TRATTAMENTO AUTONOMO (ES. SOLARIUM) -> VERIFICA ESCLUSIVAMENTE LA CABINA
+    if (isEntirelyAutonomous && requiredWorkstations.size > 0) {
+        // Ricaviamo gli orari di apertura del salone per quel giorno (dall'unione di tutti i turni del personale)
+        const daySchedules = window._pbState.allSchedules.filter(s => Number(s.day_of_week) === targetDayOfWeek && Number(s.is_working) === 1);
         
-        if (!sched || Number(sched.is_working) !== 1) continue;
+        if (daySchedules.length > 0) {
+            // Troviamo l'orario di apertura minimo e chiusura massimo del salone
+            let openMin = 24 * 60;
+            let closeMin = 0;
 
-        const shifts = [];
-        if (sched.start_time_1 && sched.end_time_1) shifts.push({ s: sched.start_time_1, e: sched.end_time_1 });
-        if (sched.start_time_2 && sched.end_time_2) shifts.push({ s: sched.start_time_2, e: sched.end_time_2 });
+            daySchedules.forEach(s => {
+                if (s.start_time_1) {
+                    const [h, m] = s.start_time_1.split(':').map(Number);
+                    openMin = Math.min(openMin, h * 60 + m);
+                }
+                const end = s.end_time_2 || s.end_time_1;
+                if (end) {
+                    const [h, m] = end.split(':').map(Number);
+                    closeMin = Math.max(closeMin, h * 60 + m);
+                }
+            });
 
-        const opAppointments = window._pbState.allExistingApps.filter(a => a.date === targetDateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanOp);
-
-        for (let shift of shifts) {
-            let [sH, sM] = shift.s.split(':').map(Number);
-            let [eH, eM] = shift.e.split(':').map(Number);
-            let curMin = sH * 60 + sM;
-            const endShiftMin = eH * 60 + eM;
-
-            while (curMin + totalMinutes <= endShiftMin) {
+            let curMin = openMin;
+            while (curMin + totalMinutes <= closeMin) {
                 if (isToday && curMin < currentMinutesNow) {
                     curMin += 15;
                     continue;
@@ -19767,59 +19822,119 @@ async function computeAndRenderAvailableSlots() {
                 const endMinSlot = curMin + totalMinutes;
                 const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
 
-                // A. Controllo sovrapposizione agenda operatore
-                const opConflict = opAppointments.some(a => {
-                    const aStart = (a.time || '00:00').substring(0, 5);
-                    const aEnd = a.end_time ? a.end_time.substring(0, 5) : `${String(parseInt(aStart.split(':')[0]) + 1).padStart(2, '0')}:${aStart.split(':')[1]}`;
-                    return slotStartStr < aEnd && slotEndStr > aStart;
-                });
+                // Verifica se ALMENO UNA delle cabine abilitate è libera
+                let freeWsId = null;
+                for (let wsId of requiredWorkstations) {
+                    const isOccupied = window._pbState.allBookings.some(b => {
+                        if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
+                        const bStart = b.start_time.substring(0, 5);
+                        const bEnd = b.end_time.substring(0, 5);
+                        return slotStartStr < bEnd && slotEndStr > bStart;
+                    });
 
-                if (!opConflict) {
-                    // B. Controllo allocazione cabina (se richiesta dal trattamento)
-                    let validWorkstationId = null;
-                    let wsConflict = false;
+                    if (!isOccupied) {
+                        freeWsId = wsId;
+                        break; // Cabina libera trovata!
+                    }
+                }
 
-                    if (requiredWorkstations.size > 0) {
-                        wsConflict = true;
-                        // Cerca se ALMENO UNA delle cabine compatibili è libera nello slot
-                        for (let wsId of requiredWorkstations) {
-                            const occupied = window._pbState.allBookings.some(b => {
-                                if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
-                                const bStart = b.start_time.substring(0, 5);
-                                const bEnd = b.end_time.substring(0, 5);
-                                return slotStartStr < bEnd && slotEndStr > bStart;
-                            });
+                if (freeWsId) {
+                    availableSlotsMap.set(slotStartStr, {
+                        time: slotStartStr,
+                        endTime: slotEndStr,
+                        operator: 'Autonomo', // Nessun membro dello staff occupato
+                        workstationId: freeWsId
+                    });
+                }
+                curMin += 15;
+            }
+        }
+    } 
+    // CASO 2: TRATTAMENTO STANDARD (RICHIEDE OPERATORE + EVENTUALE CABINA)
+    else {
+        const candidateOperators = targetOp === 'any' 
+            ? window._pbState.allOperators.map(u => u.username)
+            : [targetOp];
 
-                            if (!occupied) {
-                                validWorkstationId = wsId;
-                                wsConflict = false;
-                                break; // Trovata la prima libera!
+        for (let op of candidateOperators) {
+            const cleanOp = op.trim().toLowerCase();
+            const sched = window._pbState.allSchedules.find(s => (s.username || '').trim().toLowerCase() === cleanOp && Number(s.day_of_week) === targetDayOfWeek);
+            
+            if (!sched || Number(sched.is_working) !== 1) continue;
+
+            const shifts = [];
+            if (sched.start_time_1 && sched.end_time_1) shifts.push({ s: sched.start_time_1, e: sched.end_time_1 });
+            if (sched.start_time_2 && sched.end_time_2) shifts.push({ s: sched.start_time_2, e: sched.end_time_2 });
+
+            const opAppointments = window._pbState.allExistingApps.filter(a => a.date === targetDateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanOp);
+
+            for (let shift of shifts) {
+                let [sH, sM] = shift.s.split(':').map(Number);
+                let [eH, eM] = shift.e.split(':').map(Number);
+                let curMin = sH * 60 + sM;
+                const endShiftMin = eH * 60 + eM;
+
+                while (curMin + totalMinutes <= endShiftMin) {
+                    if (isToday && curMin < currentMinutesNow) {
+                        curMin += 15;
+                        continue;
+                    }
+
+                    const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
+                    const endMinSlot = curMin + totalMinutes;
+                    const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
+
+                    // Controllo agenda operatore
+                    const opConflict = opAppointments.some(a => {
+                        const aStart = (a.time || '00:00').substring(0, 5);
+                        const aEnd = a.end_time ? a.end_time.substring(0, 5) : `${String(parseInt(aStart.split(':')[0]) + 1).padStart(2, '0')}:${aStart.split(':')[1]}`;
+                        return slotStartStr < aEnd && slotEndStr > aStart;
+                    });
+
+                    if (!opConflict) {
+                        let validWorkstationId = null;
+                        let wsConflict = false;
+
+                        if (requiredWorkstations.size > 0) {
+                            wsConflict = true;
+                            for (let wsId of requiredWorkstations) {
+                                const occupied = window._pbState.allBookings.some(b => {
+                                    if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
+                                    const bStart = b.start_time.substring(0, 5);
+                                    const bEnd = b.end_time.substring(0, 5);
+                                    return slotStartStr < bEnd && slotEndStr > bStart;
+                                });
+
+                                if (!occupied) {
+                                    validWorkstationId = wsId;
+                                    wsConflict = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!wsConflict) {
+                            if (!availableSlotsMap.has(slotStartStr)) {
+                                availableSlotsMap.set(slotStartStr, {
+                                    time: slotStartStr,
+                                    endTime: slotEndStr,
+                                    operator: op,
+                                    workstationId: validWorkstationId
+                                });
                             }
                         }
                     }
-
-                    if (!wsConflict) {
-                        if (!availableSlotsMap.has(slotStartStr)) {
-                            availableSlotsMap.set(slotStartStr, {
-                                time: slotStartStr,
-                                endTime: slotEndStr,
-                                operator: op,
-                                workstationId: validWorkstationId
-                            });
-                        }
-                    }
+                    curMin += 15;
                 }
-                curMin += 15; // scaglioni a intervalli di 15 minuti
             }
         }
     }
 
     const sortedSlots = Array.from(availableSlotsMap.values()).sort((a, b) => a.time.localeCompare(b.time));
-
     if (badge) badge.innerText = `${sortedSlots.length} disponibili`;
 
     if (sortedSlots.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#e17055; font-size:12.5px; background:#fff1f0; border-radius:10px;">Nessun orario libero per la durata richiesta (${totalMinutes} min) in questa data. Prova a selezionare un altro giorno o un altro operatore.</div>`;
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#e17055; font-size:12.5px; background:#fff1f0; border-radius:10px;">Nessun orario libero per questo trattamento in questa data. Prova a selezionare un altro giorno.</div>`;
         return;
     }
 
