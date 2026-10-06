@@ -19265,47 +19265,7 @@ function loadBacConfigFromStorage() {
     if (bufSelect) bufSelect.value = String(_bacConfigState.buffer_minutes || 10);
 }
 
-// 3. Render Tabella Settimanale Cabine Autonome
-function renderBacWeeklyHours() {
-    const container = document.getElementById('bac-weekly-hours-container');
-    if (!container) return;
 
-    let html = '';
-    // Ordine da Lunedì (1) a Sabato (6) e infine Domenica (0)
-    const daysOrder = [1, 2, 3, 4, 5, 6, 0];
-
-    daysOrder.forEach(dayIndex => {
-        const h = _bacConfigState.weekly_hours[dayIndex] || { is_open: true, start: "09:00", end: "20:00" };
-        html += `
-            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                <div style="width: 100px; font-weight: 800; font-size: 13px; color: #1e1b4b;">
-                    ${BAC_DAYS_NAMES[dayIndex]}
-                </div>
-                
-                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 12px; font-weight: bold; text-transform: none;">
-                    <input type="checkbox" id="bac-day-open-${dayIndex}" ${h.is_open ? 'checked' : ''} onchange="toggleBacDayRow(${dayIndex}, this.checked)" style="width: 16px; height: 16px; accent-color: var(--p); margin: 0;">
-                    <span>Attivo</span>
-                </label>
-
-                <div id="bac-day-inputs-${dayIndex}" style="display: flex; align-items: center; gap: 6px; opacity: ${h.is_open ? '1' : '0.4'}; pointer-events: ${h.is_open ? 'auto' : 'none'};">
-                    <input type="time" id="bac-start-${dayIndex}" value="${h.start || '09:00'}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
-                    <span style="font-size: 11px; color: #64748b;">fino a</span>
-                    <input type="time" id="bac-end-${dayIndex}" value="${h.end || '20:00'}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
-                </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-}
-
-function toggleBacDayRow(dayIndex, isOpen) {
-    const inputsDiv = document.getElementById(`bac-day-inputs-${dayIndex}`);
-    if (inputsDiv) {
-        inputsDiv.style.opacity = isOpen ? '1' : '0.4';
-        inputsDiv.style.pointerEvents = isOpen ? 'auto' : 'none';
-    }
-}
 
 // Mostra o nasconde i campi Dalle / Alle
 function toggleBacClosureTimeInputs(isAllDay) {
@@ -19385,19 +19345,122 @@ function removeBacClosure(index) {
     renderBacClosuresList();
 }
 
-// 5. Salvataggio Regole Avanzate
+// =========================================================================
+// ⏱️ GESTIONE ORARI CABINE AUTONOME: SUPPORTO ORARIO SPEZZATO / PAUSA PRANZO
+// =========================================================================
+
+// 1. Toggle visualizzazione seconda fascia oraria (Pomeriggio)
+function toggleBacBreakRow(dayIndex, hasBreak) {
+    const shift2Container = document.getElementById(`bac-shift2-container-${dayIndex}`);
+    const shift1Label = document.getElementById(`bac-shift1-label-${dayIndex}`);
+    
+    if (shift2Container) {
+        shift2Container.style.display = hasBreak ? 'flex' : 'none';
+    }
+    if (shift1Label) {
+        shift1Label.innerText = hasBreak ? 'Mattina:' : 'Orario:';
+    }
+}
+
+// 2. Render Settimanale con Supporto Orario Continuato vs Spezzato
+function renderBacWeeklyHours() {
+    const container = document.getElementById('bac-weekly-hours-container');
+    if (!container) return;
+
+    let html = '';
+    const daysOrder = [1, 2, 3, 4, 5, 6, 0]; // Da Lunedì a Domenica
+
+    daysOrder.forEach(dayIndex => {
+        const h = _bacConfigState.weekly_hours[dayIndex] || { 
+            is_open: dayIndex !== 0, 
+            has_break: false,
+            start_1: "09:00", 
+            end_1: "20:00",
+            start_2: "14:30",
+            end_2: "20:00"
+        };
+
+        const isOpen = h.is_open !== false;
+        const hasBreak = Boolean(h.has_break);
+        const start1 = h.start_1 || h.start || "09:00";
+        const end1 = h.end_1 || (hasBreak ? "13:00" : (h.end || "20:00"));
+        const start2 = h.start_2 || "14:30";
+        const end2 = h.end_2 || (h.end || "20:00");
+
+        html += `
+            <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;">
+                
+                <!-- Riga Intestazione Giorno e Spunte -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-weight: 800; font-size: 13.5px; color: #1e1b4b; min-width: 90px;">
+                        ${BAC_DAYS_NAMES[dayIndex]}
+                    </span>
+                    
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 12px; font-weight: 700; text-transform: none;">
+                            <input type="checkbox" id="bac-day-open-${dayIndex}" ${isOpen ? 'checked' : ''} onchange="toggleBacDayRow(${dayIndex}, this.checked)" style="width: 16px; height: 16px; accent-color: var(--p); margin: 0;">
+                            <span>Aperto</span>
+                        </label>
+
+                        <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 12px; font-weight: 700; text-transform: none; color: #475569;">
+                            <input type="checkbox" id="bac-day-break-${dayIndex}" ${hasBreak ? 'checked' : ''} onchange="toggleBacBreakRow(${dayIndex}, this.checked)" style="width: 16px; height: 16px; accent-color: #d97706; margin: 0;">
+                            <span>Pausa / Spezzato</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Contenitore Fasce Orarie -->
+                <div id="bac-day-inputs-${dayIndex}" style="opacity: ${isOpen ? '1' : '0.4'}; pointer-events: ${isOpen ? 'auto' : 'none'};">
+                    
+                    <!-- Fascia 1 (Mattina o Continuato) -->
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span id="bac-shift1-label-${dayIndex}" style="font-size: 11px; font-weight: 700; color: #64748b; width: 70px;">
+                            ${hasBreak ? 'Mattina:' : 'Orario:'}
+                        </span>
+                        <input type="time" id="bac-start1-${dayIndex}" value="${start1}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                        <span style="font-size: 11px; color: #64748b;">fino a</span>
+                        <input type="time" id="bac-end1-${dayIndex}" value="${end1}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                    </div>
+
+                    <!-- Fascia 2 (Pomeriggio: visibile solo se Spezzato è attivo) -->
+                    <div id="bac-shift2-container-${dayIndex}" style="display: ${hasBreak ? 'flex' : 'none'}; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">
+                        <span style="font-size: 11px; font-weight: 700; color: #64748b; width: 70px;">Pomeriggio:</span>
+                        <input type="time" id="bac-start2-${dayIndex}" value="${start2}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                        <span style="font-size: 11px; color: #64748b;">fino a</span>
+                        <input type="time" id="bac-end2-${dayIndex}" value="${end2}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                    </div>
+
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// 3. Salvataggio Regole Orari con Supporto Spezzato
 async function saveBookingAdvancedConfig() {
     _bacConfigState.buffer_minutes = parseInt(document.getElementById('bac-buffer-minutes')?.value) || 0;
 
     for (let d = 0; d <= 6; d++) {
         const isOpen = document.getElementById(`bac-day-open-${d}`)?.checked || false;
-        const startVal = document.getElementById(`bac-start-${d}`)?.value || "09:00";
-        const endVal = document.getElementById(`bac-end-${d}`)?.value || "20:00";
+        const hasBreak = document.getElementById(`bac-day-break-${d}`)?.checked || false;
+
+        const start1 = document.getElementById(`bac-start1-${d}`)?.value || "09:00";
+        const end1 = document.getElementById(`bac-end1-${d}`)?.value || (hasBreak ? "13:00" : "20:00");
+        const start2 = document.getElementById(`bac-start2-${d}`)?.value || "14:30";
+        const end2 = document.getElementById(`bac-end2-${d}`)?.value || "20:00";
 
         _bacConfigState.weekly_hours[d] = {
             is_open: isOpen,
-            start: startVal,
-            end: endVal
+            has_break: hasBreak,
+            start_1: start1,
+            end_1: end1,
+            start_2: start2,
+            end_2: end2,
+            // retrocompatibilità
+            start: start1,
+            end: hasBreak ? end2 : end1
         };
     }
 
@@ -19410,10 +19473,9 @@ async function saveBookingAdvancedConfig() {
         data: { key: 'booking_autonomous_config', value: jsonStr }
     });
 
-    alert("✅ Regole orari cabine autonome e chiusure salvate con successo!");
+    alert("✅ Orari cabine (anche spezzati) e chiusure salvati con successo!");
     closeBookingAdvancedConfigModal();
 }
-
 
 // =========================================================================
 // 🌐 CONTROLLO E WIZARD ATTIVAZIONE BOOKING ONLINE
@@ -20075,7 +20137,7 @@ async function computeAndRenderAvailableSlots() {
     const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // 30 min di preavviso minimo per oggi
 
     // =========================================================================
-    // ⚡ CASO A: TRATTAMENTO AUTONOMO (SOLO ORARI CABINE, ZERO OPERATORI)
+    // ⚡ CASO A: TRATTAMENTO AUTONOMO (SUPPORTO ORARIO CONTINUATO E SPEZZATO)
     // =========================================================================
     if (isEntirelyAutonomous && requiredWorkstations.size > 0) {
         const weeklyHours = advConfig && advConfig.weekly_hours ? advConfig.weekly_hours[targetDayOfWeek] : null;
@@ -20087,59 +20149,81 @@ async function computeAndRenderAvailableSlots() {
             return;
         }
 
-        const openTimeStr = weeklyHours ? weeklyHours.start : "09:00";
-        const closeTimeStr = weeklyHours ? weeklyHours.end : "20:00";
+        // Costruzione delle fasce orarie della cabina (1 fascia se continuato, 2 fasce se spezzato)
+        const cabinShifts = [];
+        const hasBreak = weeklyHours && Boolean(weeklyHours.has_break);
 
-        const [oH, oM] = openTimeStr.split(':').map(Number);
-        const [cH, cM] = closeTimeStr.split(':').map(Number);
-        let curMin = oH * 60 + oM;
-        const closeMin = cH * 60 + cM;
+        if (hasBreak) {
+            // Fascia Mattina
+            const s1 = weeklyHours.start_1 || "09:00";
+            const e1 = weeklyHours.end_1 || "13:00";
+            cabinShifts.push({ start: s1, end: e1 });
+
+            // Fascia Pomeriggio
+            const s2 = weeklyHours.start_2 || "14:30";
+            const e2 = weeklyHours.end_2 || "20:00";
+            cabinShifts.push({ start: s2, end: e2 });
+        } else {
+            // Orario continuato unico
+            const s1 = (weeklyHours && (weeklyHours.start_1 || weeklyHours.start)) || "09:00";
+            const e1 = (weeklyHours && (weeklyHours.end_1 || weeklyHours.end)) || "20:00";
+            cabinShifts.push({ start: s1, end: e1 });
+        }
 
         const slotOccupancyDuration = totalMinutes + bufferMinutes;
 
-        while (curMin + totalMinutes <= closeMin) {
-            if (isToday && curMin < currentMinutesNow) {
-                curMin += 15;
-                continue;
-            }
+        // Genera gli slot liberi per ogni singola fascia aperta (esclude automaticamente la pausa pranzo!)
+        for (let shift of cabinShifts) {
+            const [oH, oM] = shift.start.split(':').map(Number);
+            const [cH, cM] = shift.end.split(':').map(Number);
+            let curMin = oH * 60 + oM;
+            const shiftCloseMin = cH * 60 + cM;
 
-            const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
-            const endServiceMin = curMin + totalMinutes;
-            const slotEndStr = `${String(Math.floor(endServiceMin / 60)).padStart(2, '0')}:${String(endServiceMin % 60).padStart(2, '0')}`;
-            
-            const endOccupancyMin = curMin + slotOccupancyDuration;
-            const slotOccupancyEndStr = `${String(Math.floor(endOccupancyMin / 60)).padStart(2, '0')}:${String(endOccupancyMin % 60).padStart(2, '0')}`;
-
-            // 🛑 Se lo slot cade in un blocco orario parziale configurato, saltalo!
-            if (isSlotInPartialClosure(slotStartStr, slotEndStr)) {
-                curMin += 15;
-                continue;
-            }
-
-            let freeWsId = null;
-            for (let wsId of requiredWorkstations) {
-                const isOccupied = window._pbState.allBookings.some(b => {
-                    if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
-                    const bStart = b.start_time.substring(0, 5);
-                    const bEnd = b.end_time.substring(0, 5);
-                    return slotStartStr < bEnd && slotOccupancyEndStr > bStart;
-                });
-
-                if (!isOccupied) {
-                    freeWsId = wsId;
-                    break;
+            while (curMin + totalMinutes <= shiftCloseMin) {
+                if (isToday && curMin < currentMinutesNow) {
+                    curMin += 15;
+                    continue;
                 }
-            }
 
-            if (freeWsId) {
-                availableSlotsMap.set(slotStartStr, {
-                    time: slotStartStr,
-                    endTime: slotEndStr,
-                    operator: 'Autonomo',
-                    workstationId: freeWsId
-                });
+                const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
+                const endServiceMin = curMin + totalMinutes;
+                const slotEndStr = `${String(Math.floor(endServiceMin / 60)).padStart(2, '0')}:${String(endServiceMin % 60).padStart(2, '0')}`;
+                
+                const endOccupancyMin = curMin + slotOccupancyDuration;
+                const slotOccupancyEndStr = `${String(Math.floor(endOccupancyMin / 60)).padStart(2, '0')}:${String(endOccupancyMin % 60).padStart(2, '0')}`;
+
+                // Salta se ricade in un eventuale blocco orario straordinario
+                if (isSlotInPartialClosure(slotStartStr, slotEndStr)) {
+                    curMin += 15;
+                    continue;
+                }
+
+                // Verifica se almeno una delle cabine abilitate è libera
+                let freeWsId = null;
+                for (let wsId of requiredWorkstations) {
+                    const isOccupied = window._pbState.allBookings.some(b => {
+                        if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
+                        const bStart = b.start_time.substring(0, 5);
+                        const bEnd = b.end_time.substring(0, 5);
+                        return slotStartStr < bEnd && slotOccupancyEndStr > bStart;
+                    });
+
+                    if (!isOccupied) {
+                        freeWsId = wsId;
+                        break;
+                    }
+                }
+
+                if (freeWsId) {
+                    availableSlotsMap.set(slotStartStr, {
+                        time: slotStartStr,
+                        endTime: slotEndStr,
+                        operator: 'Autonomo',
+                        workstationId: freeWsId
+                    });
+                }
+                curMin += 15;
             }
-            curMin += 15;
         }
     }
 
