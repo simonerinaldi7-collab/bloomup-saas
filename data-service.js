@@ -680,7 +680,8 @@ async function pullWorkstationsFromSupabase(salonId) {
 }
 
 async function handleWriteOperation(action, table, data, id, isOnline) {
-    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    // 🛡️ Prende il salon_id dai dati se specificato, altrimenti da currentUser
+    const salonId = (data && data.salon_id) || (currentUser ? currentUser.salon_id : 'SALON_001');
 
     try {
         if (action === 'INSERT') {
@@ -690,10 +691,10 @@ async function handleWriteOperation(action, table, data, id, isOnline) {
                 salon_id: salonId 
             };
             
-            // 1. Scrittura istantanea su Dexie locale
+            // 1. Scrittura locale su Dexie
             await localDb.table(table).add(recordToSave);
 
-            // 2. Invio diretto o accodamento offline
+            // 2. Invio diretto al cloud Supabase
             if (isOnline) {
                 const success = await sendToCloudDirectly('POST', table, recordToSave);
                 if (!success) {
@@ -755,7 +756,11 @@ async function sendToCloudDirectly(method, table, data, id = null) {
             },
             body: data && method !== 'DELETE' ? JSON.stringify(data) : null
         });
-        return response.ok;
+        if (!response.ok) {
+    const errText = await response.text();
+    console.error(`❌ [SUPABASE REJECTED] ${method} su ${table} fallito (Status ${response.status}):`, errText);
+}
+return response.ok;
     } catch (e) {
         console.error("Errore di rete cloud direct:", e);
         return false;

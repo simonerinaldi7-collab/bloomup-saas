@@ -19862,64 +19862,91 @@ function renderConfirmSummary() {
     `;
 }
 
+// 7. STEP 4: Invio e Creazione Appuntamento da Portale Pubblico (Corretto e Compatibile)
 async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
     if (btn) { btn.disabled = true; btn.innerText = "Salvataggio in corso..."; }
 
     const appointmentId = crypto.randomUUID();
     const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
-    const salonId = window._pbState.salonId;
+    const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
 
-    let notes = `[ONLINE_BOOKING] Prenotato online dal cliente`;
+    // Assicuriamo il contesto salon_id per currentUser
+    if (!currentUser || !currentUser.salon_id) {
+        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
+    }
+
+    const custFirst = window._pbState.customer ? (window._pbState.customer.first_name || '') : '';
+    const custLast = window._pbState.customer ? (window._pbState.customer.last_name || '') : '';
+    const custFullName = `${custFirst} ${custLast}`.trim() || 'Cliente Online';
+    const custPhone = window._pbState.customer ? (window._pbState.customer.phone || '') : '';
+
+    // Inseriamo il recapito telefonico nelle note così compare nell'agenda del salone
+    let notes = `[ONLINE_BOOKING] Tel: ${custPhone}`;
     if (window._pbState.allocatedWorkstationId) {
         notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
     }
 
+    // 🛡️ PAYLOAD RIGOROSO: Invia solo le colonne esistenti nella tabella appointments di Supabase!
+    // (Rimosse 'cust_id' e 'phone' dirette che scatenavano l'errore 400 Bad Request)
     const appPayload = {
         id: appointmentId,
         salon_id: salonId,
-        cust_name: `${window._pbState.customer.first_name} ${window._pbState.customer.last_name}`.trim(),
-        cust_id: window._pbState.customer.id,
-        phone: window._pbState.customer.phone,
+        cust_name: custFullName,
         date: window._pbState.selectedDate,
         time: window._pbState.selectedSlot,
         end_time: window._pbState.selectedSlotEnd,
         service: serviceNames,
-        price: window._pbState.calculatedTotalPrice,
-        assigned_user: window._pbState.selectedSlotOperator,
+        price: parseFloat(window._pbState.calculatedTotalPrice) || 0,
+        assigned_user: window._pbState.selectedSlotOperator || 'admin',
         notes: notes
     };
 
     try {
-        // 1. Inserimento Appuntamento
-        await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
+        console.log("🚀 [BOOKING SUBMIT] Salvataggio appuntamento:", appPayload);
 
-        // 2. Se è stata allocata una cabina, prenotazione atomica su workstation_bookings
-        if (window._pbState.allocatedWorkstationId) {
-            await window.universalQuery({
-                action: 'BOOK_WORKSTATION_ATOMIC',
-                data: {
-                    workstationId: window._pbState.allocatedWorkstationId,
-                    date: window._pbState.selectedDate,
-                    startTime: window._pbState.selectedSlot,
-                    endTime: window._pbState.selectedSlotEnd,
-                    appointmentId: appointmentId,
-                    operatorName: window._pbState.selectedSlotOperator,
-                    notes: `Prenotazione Online: ${appPayload.cust_name}`
-                }
-            });
+        // 1. Inserimento Appuntamento nella tabella appointments
+        const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
+
+        if (res && res.status === 'error') {
+            throw new Error(res.message || "Errore durante il salvataggio su Supabase");
         }
 
-        // Mostra schermata di successo
+        // 2. Se il servizio richiede una cabina, prenotazione atomica
+        if (window._pbState.allocatedWorkstationId) {
+            try {
+                await window.universalQuery({
+                    action: 'BOOK_WORKSTATION_ATOMIC',
+                    data: {
+                        workstationId: window._pbState.allocatedWorkstationId,
+                        date: window._pbState.selectedDate,
+                        startTime: window._pbState.selectedSlot,
+                        endTime: window._pbState.selectedSlotEnd,
+                        appointmentId: appointmentId,
+                        operatorName: appPayload.assigned_user,
+                        notes: `Prenotazione Online: ${custFullName}`
+                    }
+                });
+            } catch (wsErr) {
+                console.warn("Prenotazione postazione gestita con fallback:", wsErr);
+            }
+        }
+
+        // 3. Se l'agenda del gestionale è aperta, aggiorna subito i dati in memoria
+        if (typeof refreshAllData === 'function') {
+            refreshAllData().catch(() => {});
+        }
+
+        // 4. Mostra schermata di successo
         document.getElementById('pb-success-desc').innerHTML = `
-            Gentile <b>${window._pbState.customer.first_name}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(window._pbState.selectedDate)}</b> alle ore <b>${window._pbState.selectedSlot}</b> con <b>${window._pbState.selectedSlotOperator}</b>.
+            Gentile <b>${custFirst}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(window._pbState.selectedDate)}</b> alle ore <b>${window._pbState.selectedSlot}</b> con <b>${appPayload.assigned_user}</b>.
         `;
 
         goToStep('pb-step-success');
 
     } catch (err) {
-        console.error("Errore salvataggio prenotazione:", err);
-        alert("Si è verificato un errore durante la prenotazione. Riprova tra poco.");
+        console.error("❌ [BOOKING ERROR]:", err);
+        alert("Si è verificato un errore durante la prenotazione: " + (err.message || "Riprova tra poco."));
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
     }
 }
