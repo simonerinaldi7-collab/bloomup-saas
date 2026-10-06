@@ -2524,6 +2524,19 @@
             </label>
         </div>
 
+
+
+<!-- PULSANTE APERTURA PANNELLO ORARI CABINE & CHIUSURE -->
+<div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px;">
+    <div>
+        <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⚙️ Orari Cabine Autonome & Chiusure Straordinarie</b>
+        <small style="color: #64748b; font-size: 11px;">Imposta fasce orarie per i solarium, pause tecniche e date di chiusura del salone.</small>
+    </div>
+    <button type="button" class="btn btn-p" style="padding: 7px 14px; font-size: 11.5px; font-weight: bold; border-radius: 8px;" onclick="openBookingAdvancedConfigModal()">
+        Configura Regole ➔
+    </button>
+</div>
+
         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
             <div style="width: 120px; height: 120px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
                 <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
@@ -19189,7 +19202,177 @@ async function loadExpenses() {
         }
     });
 
+// =========================================================================
+// ⚙️ GESTIONE CONFIGURAZIONE AVANZATA CABINE AUTONOME & CHIUSURE
+// =========================================================================
 
+const BAC_DAYS_NAMES = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+let _bacConfigState = {
+    buffer_minutes: 10,
+    weekly_hours: {},
+    closures: []
+};
+
+// 1. Apertura e Popolamento del Modale
+async function openBookingAdvancedConfigModal() {
+    loadBacConfigFromStorage();
+    renderBacWeeklyHours();
+    renderBacClosuresList();
+    document.getElementById('mod-booking-advanced-config').classList.add('active');
+}
+
+function closeBookingAdvancedConfigModal() {
+    document.getElementById('mod-booking-advanced-config').classList.remove('active');
+}
+
+function switchBacTab(tabName) {
+    document.getElementById('tab-btn-bac-hours').style.borderBottomColor = (tabName === 'hours') ? 'var(--p)' : 'transparent';
+    document.getElementById('tab-btn-bac-hours').style.color = (tabName === 'hours') ? 'var(--p)' : '#64748b';
+    document.getElementById('tab-btn-bac-closures').style.borderBottomColor = (tabName === 'closures') ? 'var(--p)' : 'transparent';
+    document.getElementById('tab-btn-bac-closures').style.color = (tabName === 'closures') ? 'var(--p)' : '#64748b';
+
+    document.getElementById('bac-tab-content-hours').style.display = (tabName === 'hours') ? 'block' : 'none';
+    document.getElementById('bac-tab-content-closures').style.display = (tabName === 'closures') ? 'block' : 'none';
+}
+
+// 2. Lettura Configurazione Salvata
+function loadBacConfigFromStorage() {
+    const raw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    if (raw) {
+        try {
+            _bacConfigState = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch(e) {}
+    }
+
+    if (!_bacConfigState.weekly_hours) _bacConfigState.weekly_hours = {};
+    if (!_bacConfigState.closures) _bacConfigState.closures = [];
+
+    // Orari standard predefiniti se non ancora personalizzati (09:00 - 20:00)
+    for (let d = 0; d <= 6; d++) {
+        if (!_bacConfigState.weekly_hours[d]) {
+            _bacConfigState.weekly_hours[d] = {
+                is_open: d !== 0, // domenica chiusa di default
+                start: "09:00",
+                end: "20:00",
+                has_break: false,
+                break_start: "13:00",
+                break_end: "14:00"
+            };
+        }
+    }
+
+    const bufSelect = document.getElementById('bac-buffer-minutes');
+    if (bufSelect) bufSelect.value = String(_bacConfigState.buffer_minutes || 10);
+}
+
+// 3. Render Tabella Settimanale Cabine Autonome
+function renderBacWeeklyHours() {
+    const container = document.getElementById('bac-weekly-hours-container');
+    if (!container) return;
+
+    let html = '';
+    // Ordine da Lunedì (1) a Sabato (6) e infine Domenica (0)
+    const daysOrder = [1, 2, 3, 4, 5, 6, 0];
+
+    daysOrder.forEach(dayIndex => {
+        const h = _bacConfigState.weekly_hours[dayIndex] || { is_open: true, start: "09:00", end: "20:00" };
+        html += `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div style="width: 100px; font-weight: 800; font-size: 13px; color: #1e1b4b;">
+                    ${BAC_DAYS_NAMES[dayIndex]}
+                </div>
+                
+                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 12px; font-weight: bold; text-transform: none;">
+                    <input type="checkbox" id="bac-day-open-${dayIndex}" ${h.is_open ? 'checked' : ''} onchange="toggleBacDayRow(${dayIndex}, this.checked)" style="width: 16px; height: 16px; accent-color: var(--p); margin: 0;">
+                    <span>Attivo</span>
+                </label>
+
+                <div id="bac-day-inputs-${dayIndex}" style="display: flex; align-items: center; gap: 6px; opacity: ${h.is_open ? '1' : '0.4'}; pointer-events: ${h.is_open ? 'auto' : 'none'};">
+                    <input type="time" id="bac-start-${dayIndex}" value="${h.start || '09:00'}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                    <span style="font-size: 11px; color: #64748b;">fino a</span>
+                    <input type="time" id="bac-end-${dayIndex}" value="${h.end || '20:00'}" style="margin: 0; padding: 4px 6px; font-size: 12px; width: 85px;">
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleBacDayRow(dayIndex, isOpen) {
+    const inputsDiv = document.getElementById(`bac-day-inputs-${dayIndex}`);
+    if (inputsDiv) {
+        inputsDiv.style.opacity = isOpen ? '1' : '0.4';
+        inputsDiv.style.pointerEvents = isOpen ? 'auto' : 'none';
+    }
+}
+
+// 4. Gestione Date di Chiusura
+function renderBacClosuresList() {
+    const list = document.getElementById('bac-closures-list');
+    if (!list) return;
+
+    if (_bacConfigState.closures.length === 0) {
+        list.innerHTML = `<span style="color:#64748b; font-size:12px; font-style:italic;">Nessuna chiusura straordinaria inserita.</span>`;
+        return;
+    }
+
+    list.innerHTML = _bacConfigState.closures.map((c, idx) => `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 700; color: #dc2626;">📅 ${formatDateIt(c.date)} — ${c.note || 'Chiusura'}</span>
+            <button type="button" class="btn btn-d" style="padding: 2px 6px; font-size: 10px; min-height: unset;" onclick="removeBacClosure(${idx})">✕</button>
+        </div>
+    `).join('');
+}
+
+function addBacClosureDate() {
+    const dInput = document.getElementById('bac-new-closure-date');
+    const nInput = document.getElementById('bac-new-closure-note');
+    if (!dInput || !dInput.value) return alert("Seleziona una data di chiusura.");
+
+    _bacConfigState.closures.push({
+        date: dInput.value,
+        note: nInput ? nInput.value.trim() : 'Chiusura Straordinaria'
+    });
+
+    dInput.value = '';
+    if (nInput) nInput.value = '';
+    renderBacClosuresList();
+}
+
+function removeBacClosure(index) {
+    _bacConfigState.closures.splice(index, 1);
+    renderBacClosuresList();
+}
+
+// 5. Salvataggio Regole Avanzate
+async function saveBookingAdvancedConfig() {
+    _bacConfigState.buffer_minutes = parseInt(document.getElementById('bac-buffer-minutes')?.value) || 0;
+
+    for (let d = 0; d <= 6; d++) {
+        const isOpen = document.getElementById(`bac-day-open-${d}`)?.checked || false;
+        const startVal = document.getElementById(`bac-start-${d}`)?.value || "09:00";
+        const endVal = document.getElementById(`bac-end-${d}`)?.value || "20:00";
+
+        _bacConfigState.weekly_hours[d] = {
+            is_open: isOpen,
+            start: startVal,
+            end: endVal
+        };
+    }
+
+    const jsonStr = JSON.stringify(_bacConfigState);
+    localStorage.setItem('vaimup_booking_autonomous_config', jsonStr);
+    sysSettings['booking_autonomous_config'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'booking_autonomous_config', value: jsonStr }
+    });
+
+    alert("✅ Regole orari cabine autonome e chiusure salvate con successo!");
+    closeBookingAdvancedConfigModal();
+}
 
 
 // =========================================================================
@@ -19755,7 +19938,9 @@ function setPublicDate(dateStr) {
 }
 
 // 6. 🧠 ALGORITMO CALCOLO SLOT DISPONIBILI (Durata cumulata + Operatori + Cabine libere)
-// 6. ALGORITMO SLOT: GESTIONE INTELLIGENTE SERVIZI AUTONOMI (SOLO CABINA) VS SERVIZI CON OPERATORE
+// =========================================================================
+// 🧠 ALGORITMO SLOT CONDIZIONALE: OPERATORE VS CABINA AUTONOMA + CHIUSURE
+// =========================================================================
 async function computeAndRenderAvailableSlots() {
     const grid = document.getElementById('pb-slots-grid');
     const badge = document.getElementById('pb-slots-count-badge');
@@ -19766,8 +19951,53 @@ async function computeAndRenderAvailableSlots() {
     const targetDateStr = window._pbState.selectedDate;
     const totalMinutes = window._pbState.calculatedTotalMinutes;
     const targetOp = window._pbState.selectedOperator;
+    const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
 
-    // Raccoglie tutte le cabine richieste
+    // 🛑 1. CONTROLLO GLOBALE CHIUSURA SALONE (Agenda Ferie O Configurazione Straordinaria)
+    let isSalonClosedToday = false;
+    let closureReason = "Chiusura Programmata";
+
+    // A. Verifica chiusure in Agenda
+    const existingApps = window._pbState.allExistingApps || [];
+    const closureApp = existingApps.find(a => {
+        if (a.date !== targetDateStr) return false;
+        const srv = (a.service || '').toLowerCase();
+        const cust = (a.cust_name || '').toLowerCase();
+        return srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie');
+    });
+
+    if (closureApp) {
+        isSalonClosedToday = true;
+        closureReason = closureApp.cust_name || "Giornata di Chiusura / Ferie";
+    }
+
+    // B. Verifica chiusure straordinarie in Configurazione
+    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    let advConfig = null;
+    if (advConfigRaw) {
+        try { advConfig = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw; } catch(e) {}
+    }
+
+    if (advConfig && advConfig.closures && Array.isArray(advConfig.closures)) {
+        const cfgClosure = advConfig.closures.find(c => c.date === targetDateStr);
+        if (cfgClosure) {
+            isSalonClosedToday = true;
+            closureReason = cfgClosure.note || "Chiusura Straordinaria";
+        }
+    }
+
+    if (isSalonClosedToday) {
+        if (badge) badge.innerText = "0 disponibili";
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#dc2626; font-size:13px; font-weight:bold; background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
+                🏖️ Salone Chiuso in data ${formatDateIt(targetDateStr)} (${closureReason}).
+                <br><small style="font-weight:normal; color:#64748b; margin-top:4px; display:block;">Seleziona un'altra data disponibile.</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Raccoglie tutte le cabine richieste dai trattamenti
     const requiredWorkstations = new Set();
     window._pbState.selectedServices.forEach(s => {
         let wsList = [];
@@ -19779,78 +20009,84 @@ async function computeAndRenderAvailableSlots() {
         wsList.forEach(id => requiredWorkstations.add(String(id)));
     });
 
-    // ⚡ VERIFICA SE TUTTI I SERVIZI SCELTI SONO AUTONOMI (SENZA OPERATORE)
+    // Determina se TUTTI i servizi sono autonomi
     const isEntirelyAutonomous = window._pbState.selectedServices.every(s => s.requires_operator === false || s.requires_operator === 0);
 
-    const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
     const availableSlotsMap = new Map();
-
     const now = new Date();
     const isToday = targetDateStr === now.toLocaleDateString('en-CA');
-    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // 30 min di preavviso per oggi
+    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // 30 min di preavviso minimo per oggi
 
-    // CASO 1: ⚡ TRATTAMENTO AUTONOMO (ES. SOLARIUM) -> VERIFICA ESCLUSIVAMENTE LA CABINA
+    // =========================================================================
+    // ⚡ CASO A: TRATTAMENTO AUTONOMO (SOLO ORARI CABINE, ZERO CONTROLLO OPERATORI)
+    // =========================================================================
     if (isEntirelyAutonomous && requiredWorkstations.size > 0) {
-        // Ricaviamo gli orari di apertura del salone per quel giorno (dall'unione di tutti i turni del personale)
-        const daySchedules = window._pbState.allSchedules.filter(s => Number(s.day_of_week) === targetDayOfWeek && Number(s.is_working) === 1);
-        
-        if (daySchedules.length > 0) {
-            // Troviamo l'orario di apertura minimo e chiusura massimo del salone
-            let openMin = 24 * 60;
-            let closeMin = 0;
+        const weeklyHours = advConfig && advConfig.weekly_hours ? advConfig.weekly_hours[targetDayOfWeek] : null;
+        const bufferMinutes = (advConfig && advConfig.buffer_minutes) ? parseInt(advConfig.buffer_minutes) : 0;
 
-            daySchedules.forEach(s => {
-                if (s.start_time_1) {
-                    const [h, m] = s.start_time_1.split(':').map(Number);
-                    openMin = Math.min(openMin, h * 60 + m);
-                }
-                const end = s.end_time_2 || s.end_time_1;
-                if (end) {
-                    const [h, m] = end.split(':').map(Number);
-                    closeMin = Math.max(closeMin, h * 60 + m);
-                }
-            });
-
-            let curMin = openMin;
-            while (curMin + totalMinutes <= closeMin) {
-                if (isToday && curMin < currentMinutesNow) {
-                    curMin += 15;
-                    continue;
-                }
-
-                const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
-                const endMinSlot = curMin + totalMinutes;
-                const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
-
-                // Verifica se ALMENO UNA delle cabine abilitate è libera
-                let freeWsId = null;
-                for (let wsId of requiredWorkstations) {
-                    const isOccupied = window._pbState.allBookings.some(b => {
-                        if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
-                        const bStart = b.start_time.substring(0, 5);
-                        const bEnd = b.end_time.substring(0, 5);
-                        return slotStartStr < bEnd && slotEndStr > bStart;
-                    });
-
-                    if (!isOccupied) {
-                        freeWsId = wsId;
-                        break; // Cabina libera trovata!
-                    }
-                }
-
-                if (freeWsId) {
-                    availableSlotsMap.set(slotStartStr, {
-                        time: slotStartStr,
-                        endTime: slotEndStr,
-                        operator: 'Autonomo', // Nessun membro dello staff occupato
-                        workstationId: freeWsId
-                    });
-                }
-                curMin += 15;
-            }
+        // Se il giorno della cabina è disattivato in configurazione, è chiuso
+        if (weeklyHours && weeklyHours.is_open === false) {
+            if (badge) badge.innerText = "0 disponibili";
+            grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:20px; color:#dc2626; font-size:12.5px; background:#fef2f2; border-radius:10px;">Le cabine per questo trattamento sono chiuse il ${BAC_DAYS_NAMES[targetDayOfWeek]}.</div>`;
+            return;
         }
-    } 
-    // CASO 2: TRATTAMENTO STANDARD (RICHIEDE OPERATORE + EVENTUALE CABINA)
+
+        const openTimeStr = weeklyHours ? weeklyHours.start : "09:00";
+        const closeTimeStr = weeklyHours ? weeklyHours.end : "20:00";
+
+        const [oH, oM] = openTimeStr.split(':').map(Number);
+        const [cH, cM] = closeTimeStr.split(':').map(Number);
+        let curMin = oH * 60 + oM;
+        const closeMin = cH * 60 + cM;
+
+        // Slot duration considerata include l'eventuale buffer di sanificazione
+        const slotOccupancyDuration = totalMinutes + bufferMinutes;
+
+        while (curMin + totalMinutes <= closeMin) {
+            if (isToday && curMin < currentMinutesNow) {
+                curMin += 15;
+                continue;
+            }
+
+            const slotStartStr = `${String(Math.floor(curMin / 60)).padStart(2, '0')}:${String(curMin % 60).padStart(2, '0')}`;
+            const endServiceMin = curMin + totalMinutes;
+            const slotEndStr = `${String(Math.floor(endServiceMin / 60)).padStart(2, '0')}:${String(endServiceMin % 60).padStart(2, '0')}`;
+            
+            // Orario di rilascio postazione con buffer di sanificazione
+            const endOccupancyMin = curMin + slotOccupancyDuration;
+            const slotOccupancyEndStr = `${String(Math.floor(endOccupancyMin / 60)).padStart(2, '0')}:${String(endOccupancyMin % 60).padStart(2, '0')}`;
+
+            // Verifica se ALMENO UNA delle cabine abilitate è libera
+            let freeWsId = null;
+            for (let wsId of requiredWorkstations) {
+                const isOccupied = window._pbState.allBookings.some(b => {
+                    if (String(b.workstation_id) !== String(wsId) || b.date !== targetDateStr) return false;
+                    const bStart = b.start_time.substring(0, 5);
+                    const bEnd = b.end_time.substring(0, 5);
+                    return slotStartStr < bEnd && slotOccupancyEndStr > bStart;
+                });
+
+                if (!isOccupied) {
+                    freeWsId = wsId;
+                    break; // Trovata libera!
+                }
+            }
+
+            if (freeWsId) {
+                availableSlotsMap.set(slotStartStr, {
+                    time: slotStartStr,
+                    endTime: slotEndStr,
+                    operator: 'Autonomo',
+                    workstationId: freeWsId
+                });
+            }
+            curMin += 15;
+        }
+    }
+
+    // =========================================================================
+    // ✂️ CASO B: TRATTAMENTO CON OPERATORE (SOLO TURNI STAFF, ZERO CABINE AUTONOME)
+    // =========================================================================
     else {
         const candidateOperators = targetOp === 'any' 
             ? window._pbState.allOperators.map(u => u.username)
@@ -19866,7 +20102,7 @@ async function computeAndRenderAvailableSlots() {
             if (sched.start_time_1 && sched.end_time_1) shifts.push({ s: sched.start_time_1, e: sched.end_time_1 });
             if (sched.start_time_2 && sched.end_time_2) shifts.push({ s: sched.start_time_2, e: sched.end_time_2 });
 
-            const opAppointments = window._pbState.allExistingApps.filter(a => a.date === targetDateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanOp);
+            const opAppointments = existingApps.filter(a => a.date === targetDateStr && (a.assigned_user || 'admin').trim().toLowerCase() === cleanOp);
 
             for (let shift of shifts) {
                 let [sH, sM] = shift.s.split(':').map(Number);
@@ -19884,7 +20120,7 @@ async function computeAndRenderAvailableSlots() {
                     const endMinSlot = curMin + totalMinutes;
                     const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
 
-                    // Controllo agenda operatore
+                    // Controllo impegni e pause dell'operatore
                     const opConflict = opAppointments.some(a => {
                         const aStart = (a.time || '00:00').substring(0, 5);
                         const aEnd = a.end_time ? a.end_time.substring(0, 5) : `${String(parseInt(aStart.split(':')[0]) + 1).padStart(2, '0')}:${aStart.split(':')[1]}`;
@@ -19895,6 +20131,7 @@ async function computeAndRenderAvailableSlots() {
                         let validWorkstationId = null;
                         let wsConflict = false;
 
+                        // Se il servizio con operatore richiede anche una cabina specifica
                         if (requiredWorkstations.size > 0) {
                             wsConflict = true;
                             for (let wsId of requiredWorkstations) {
@@ -20381,6 +20618,107 @@ function saveAppointmentToWhatsAppReminder() {
                 Annulla
             </button>
         </div>
+    </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- ⚙️ MODALE CONFIGURAZIONE AVANZATA BOOKING & CABINE       -->
+<!-- ======================================================== -->
+<div id="mod-booking-advanced-config" class="modal" style="z-index: 99999;" onclick="if(event.target===this) closeBookingAdvancedConfigModal()">
+    <div class="modal-box" style="width: 680px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; padding: 22px;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">⚙️</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Regole Orari Cabine & Chiusure</h3>
+                    <small style="color: #64748b; font-size: 11.5px;">Gestione indipendente per servizi senza operatore e festività</small>
+                </div>
+            </div>
+            <button type="button" onclick="closeBookingAdvancedConfigModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <!-- Tab Bar -->
+        <div style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; flex-shrink: 0;">
+            <button type="button" class="btn active-tab" id="tab-btn-bac-hours" onclick="switchBacTab('hours')" style="background: transparent; border: none; border-bottom: 3px solid var(--p); border-radius: 0; font-size: 12.5px; font-weight: 800; color: var(--p); padding: 8px 12px;">
+                ⚡ Orari Cabine Autonome (Solarium)
+            </button>
+            <button type="button" class="btn" id="tab-btn-bac-closures" onclick="switchBacTab('closures')" style="background: transparent; border: none; border-bottom: 3px solid transparent; border-radius: 0; font-size: 12.5px; font-weight: 600; color: #64748b; padding: 8px 12px;">
+                🏖️ Chiusure & Blocchi Salone
+            </button>
+        </div>
+
+        <!-- CONTENUTO SCROLLABILE -->
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            
+            <!-- SCHEDA 1: ORARI CABINE AUTONOME -->
+            <div id="bac-tab-content-hours" style="display: block;">
+                
+                <!-- Buffer Sanificazione -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <b style="font-size: 12.5px; color: #1e1b4b;">⏱️ Pausa Sanificazione / Pulizia tra Clienti</b>
+                        <small style="color: #64748b; font-size: 11px; display: block;">Minuti aggiunti automaticamente dopo ogni seduta autonoma per igienizzare la cabina.</small>
+                    </div>
+                    <select id="bac-buffer-minutes" style="width: 120px; margin: 0; font-weight: bold; background: white;">
+                        <option value="0">Nessuna (0m)</option>
+                        <option value="5">+5 minuti</option>
+                        <option value="10" selected>+10 minuti</option>
+                        <option value="15">+15 minuti</option>
+                    </select>
+                </div>
+
+                <label style="color: var(--p); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; display: block;">
+                    Fasce Orarie Giornaliere Cabine Autonome (Lun - Dom)
+                </label>
+                <div id="bac-weekly-hours-container" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Generato dinamicamente da JS: Lun-Dom con Apertura, Chiusura ed eventuale pausa pranzo -->
+                </div>
+            </div>
+
+            <!-- SCHEDA 2: CHIUSURE STRAORDINARIE & BLOCCHI -->
+            <div id="bac-tab-content-closures" style="display: none;">
+                
+                <!-- Box Informativo sul legame con l'Agenda -->
+                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #1e40af; line-height: 1.5;">
+                    💡 <b>Integrazione con l'Agenda:</b><br>
+                    Se in Agenda inserisci un appuntamento con la spunta <b>🏖️ Chiusura / Ferie</b>, quel giorno risulterà <b>automaticamente bloccato</b> sia per i servizi con personale che per le cabine solari.
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                    <button type="button" class="btn btn-p" style="flex: 1; padding: 10px; font-size: 12px; justify-content: center;" onclick="closeBookingAdvancedConfigModal(); changePage('calendar'); openMod('cale'); document.getElementById('f-a-is-closure').checked=true; toggleClosureMode(true);">
+                        📅 Apri Agenda per Inserire Chiusura Salone
+                    </button>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px;">
+                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Aggiungi Chiusura Straordinaria per il Booking Online</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <input type="date" id="bac-new-closure-date" style="margin: 0; background: white; font-weight: bold; flex: 1;">
+                        <input type="text" id="bac-new-closure-note" placeholder="Motivo (es. Festività, Ristrutturazione)" style="margin: 0; background: white; flex: 2;">
+                        <button type="button" class="btn btn-s" style="padding: 0 16px; margin: 0;" onclick="addBacClosureDate()">+ Aggiungi</button>
+                    </div>
+
+                    <div id="bac-closures-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto;">
+                        <!-- Elenco date chiuse configurate -->
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0;">
+            <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px; font-size: 13.5px;" onclick="saveBookingAdvancedConfig()">
+                Salva Regole e Orari ✓
+            </button>
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 12px;" onclick="closeBookingAdvancedConfigModal()">
+                Annulla
+            </button>
+        </div>
+
     </div>
 </div>
 
