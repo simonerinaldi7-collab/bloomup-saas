@@ -19275,40 +19275,7 @@ function toggleBacClosureTimeInputs(isAllDay) {
     }
 }
 
-// Inserisce una nuova chiusura (giornata intera o parziale)
-function addBacClosureDate() {
-    const dInput = document.getElementById('bac-new-closure-date');
-    const nInput = document.getElementById('bac-new-closure-note');
-    const allDayCb = document.getElementById('bac-closure-all-day');
-    const startInput = document.getElementById('bac-closure-start');
-    const endInput = document.getElementById('bac-closure-end');
 
-    if (!dInput || !dInput.value) return alert("Seleziona una data per il blocco o la chiusura.");
-
-    const isAllDay = allDayCb ? allDayCb.checked : true;
-    let startTime = null;
-    let endTime = null;
-
-    if (!isAllDay) {
-        startTime = startInput ? startInput.value : "13:00";
-        endTime = endInput ? endInput.value : "15:00";
-        if (!startTime || !endTime || startTime >= endTime) {
-            return alert("Inserisci una fascia oraria valida (l'ora di fine deve essere successiva all'inizio).");
-        }
-    }
-
-    _bacConfigState.closures.push({
-        date: dInput.value,
-        is_all_day: isAllDay,
-        start_time: startTime,
-        end_time: endTime,
-        note: nInput && nInput.value.trim() ? nInput.value.trim() : (isAllDay ? 'Chiusura Intera Giornata' : `Blocco ${startTime} - ${endTime}`)
-    });
-
-    dInput.value = '';
-    if (nInput) nInput.value = '';
-    renderBacClosuresList();
-}
 
 // Renderizza l'elenco dei blocchi evidenziando chiaramente le fasce orarie
 function renderBacClosuresList() {
@@ -19340,9 +19307,66 @@ function renderBacClosuresList() {
 }
 
 
-function removeBacClosure(index) {
+// Salva subito la configurazione chiusure senza dover ricordare di cliccare salva in fondo
+async function persistBacConfigDirectly() {
+    const jsonStr = JSON.stringify(_bacConfigState);
+    localStorage.setItem('vaimup_booking_autonomous_config', jsonStr);
+    sysSettings['booking_autonomous_config'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'booking_autonomous_config', value: jsonStr }
+    });
+}
+
+// Inserisce e salva all'istante la chiusura
+async function addBacClosureDate() {
+    const dInput = document.getElementById('bac-new-closure-date');
+    const nInput = document.getElementById('bac-new-closure-note');
+    const allDayCb = document.getElementById('bac-closure-all-day');
+    const startInput = document.getElementById('bac-closure-start');
+    const endInput = document.getElementById('bac-closure-end');
+
+    if (!dInput || !dInput.value) return alert("Seleziona una data per il blocco o la chiusura.");
+
+    // Normalizziamo la data nel formato YYYY-MM-DD
+    const rawVal = dInput.value.trim();
+    const parts = rawVal.split('-');
+    const formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+
+    const isAllDay = allDayCb ? allDayCb.checked : true;
+    let startTime = null;
+    let endTime = null;
+
+    if (!isAllDay) {
+        startTime = startInput ? startInput.value : "13:00";
+        endTime = endInput ? endInput.value : "15:00";
+        if (!startTime || !endTime || startTime >= endTime) {
+            return alert("Inserisci una fascia oraria valida (l'ora di fine deve essere successiva all'inizio).");
+        }
+    }
+
+    _bacConfigState.closures.push({
+        date: formattedDate,
+        is_all_day: isAllDay,
+        start_time: startTime,
+        end_time: endTime,
+        note: nInput && nInput.value.trim() ? nInput.value.trim() : (isAllDay ? 'Chiusura Intera Giornata' : `Blocco ${startTime} - ${endTime}`)
+    });
+
+    dInput.value = '';
+    if (nInput) nInput.value = '';
+    renderBacClosuresList();
+
+    // 🌟 SALVATAGGIO ISTANTANEO NEL CLOUD!
+    await persistBacConfigDirectly();
+}
+
+async function removeBacClosure(index) {
     _bacConfigState.closures.splice(index, 1);
     renderBacClosuresList();
+    // 🌟 SALVATAGGIO ISTANTANEO NEL CLOUD!
+    await persistBacConfigDirectly();
 }
 
 // =========================================================================
@@ -19712,48 +19736,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 2. Caricamento Dati del Salone
-// 2. Caricamento Dati del Salone con Risoluzione Prezzi Reali
+// 2. Caricamento Dati del Salone con Chiusure e Impostazioni Sincronizzate
 async function initPublicBookingPortal(salonId) {
     const titleEl = document.getElementById('pb-salon-name');
     if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
 
-    // 1. Assicuriamo il contesto del salon_id per il data-service anche per gli ospiti
     if (!currentUser || !currentUser.salon_id) {
         currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
     }
 
     try {
-        // 2. Recuperiamo sia il catalogo che lo storico prezzi in vigore
+        // 🌟 1. SCARICA SUBITO LE IMPOSTAZIONI E LE CHIUSURE DEL SALONE DA SUPABASE!
+        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
+        settingsRows.forEach(s => {
+            if (s && s.key) {
+                sysSettings[s.key] = s.value;
+            }
+        });
+        
+        // Idrata lo stato delle chiusure e delle cabine in memoria
+        if (typeof loadBacConfigFromStorage === 'function') {
+            loadBacConfigFromStorage();
+        }
+
+        // 2. Recupero listino, prezzi e appuntamenti
         const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
         const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
         const nowIso = new Date().toISOString();
 
-        // 3. Filtriamo i soli servizi che hanno una durata valida
         const services = inventory.filter(i => {
             const isService = i.type === 'servizio';
             const hasDur = i.duration_minutes && parseInt(i.duration_minutes) > 0;
             return isService && hasDur;
         });
 
-        // 4. Colleghiamo il prezzo effettivo da price_history a ciascun servizio
         services.forEach(s => {
             const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
-            
-            // Cerca la riga di listino valida per oggi
             let currentPriceRow = sHistory.find(ph => {
                 const from = ph.date_from || '1900-01-01T00:00:00.000Z';
                 const to = ph.date_to || '9999-12-31T23:59:59.999Z';
                 return nowIso >= from && nowIso <= to;
             });
 
-            // Se non c'è una riga aperta, prende la più recente
             if (!currentPriceRow && sHistory.length > 0) {
                 sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
                 currentPriceRow = sHistory[0];
             }
 
-            // Assegna il prezzo reale (es. € 25.00, € 45.00)
             s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
         });
 
@@ -20006,22 +20035,44 @@ function renderPublicDatesList() {
 
     let html = '';
     const today = new Date();
-    window._pbState.selectedDate = today.toLocaleDateString('en-CA');
+    const pad = (n) => String(n).padStart(2, '0');
+    
+    // Recupera le chiusure configurate
+    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    let closuresList = [];
+    if (advConfigRaw) {
+        try { 
+            const parsed = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw;
+            closuresList = (parsed && parsed.closures) || [];
+        } catch(e) {}
+    }
+
+    const normalizeDate = (d) => {
+        if (!d) return '';
+        const p = String(d).trim().split(' ')[0].split('-');
+        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
+    };
+
+    window._pbState.selectedDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
     for (let i = 0; i < 21; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const dateStr = d.toLocaleDateString('en-CA');
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const isSelected = (i === 0);
 
         const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
         const dayNum = d.getDate();
 
+        // Verifica se la data è chiusa
+        const isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
+
         html += `
             <button type="button" class="btn pb-date-pill" data-date="${dateStr}" onclick="setPublicDate('${dateStr}')" 
-                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : '#ffffff'}; color: ${isSelected ? 'white' : '#1e1b4b'}; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; cursor: pointer;">
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : (isDayClosed ? '#fef2f2' : '#ffffff')}; color: ${isSelected ? 'white' : (isDayClosed ? '#dc2626' : '#1e1b4b')}; border: 1.5px solid ${isSelected ? 'var(--p)' : (isDayClosed ? '#fecaca' : '#cbd5e1')}; cursor: pointer;">
                 <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
                 <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
+                ${isDayClosed ? '<span style="font-size: 8.5px; font-weight: 800; color: #dc2626; margin-top: 1px;">Chiuso</span>' : ''}
             </button>
         `;
     }
@@ -20058,14 +20109,23 @@ async function computeAndRenderAvailableSlots() {
     const targetOp = window._pbState.selectedOperator;
     const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
 
+   // Funzione di utilità interna per normalizzare 'YYYY-MM-DD'
+    const normalizeDate = (d) => {
+        if (!d) return '';
+        const p = String(d).trim().split(' ')[0].split('-');
+        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
+    };
+
+    const cleanTargetDate = normalizeDate(targetDateStr);
+
     // 🛑 1. CONTROLLO CHIUSURE INTERA GIORNATA
     let isSalonClosedToday = false;
     let closureReason = "Chiusura Programmata";
 
-    // A. Verifica chiusure in Agenda
+    // A. Chiusure in Agenda
     const existingApps = window._pbState.allExistingApps || [];
     const closureApp = existingApps.find(a => {
-        if (a.date !== targetDateStr) return false;
+        if (normalizeDate(a.date) !== cleanTargetDate) return false;
         const srv = (a.service || '').toLowerCase();
         const cust = (a.cust_name || '').toLowerCase();
         return srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie');
@@ -20076,19 +20136,18 @@ async function computeAndRenderAvailableSlots() {
         closureReason = closureApp.cust_name || "Giornata di Chiusura / Ferie";
     }
 
-    // B. Verifica chiusure straordinarie intera giornata in Configurazione
+    // B. Chiusure Straordinarie da Configurazione (Sincronizzate)
     const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
     let advConfig = null;
     if (advConfigRaw) {
         try { advConfig = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw; } catch(e) {}
     }
 
-    // Identifica le chiusure totali vs i blocchi parziali per questa data
     let dayPartialClosures = [];
 
     if (advConfig && advConfig.closures && Array.isArray(advConfig.closures)) {
         advConfig.closures.forEach(c => {
-            if (c.date === targetDateStr) {
+            if (normalizeDate(c.date) === cleanTargetDate) {
                 if (c.is_all_day !== false) {
                     isSalonClosedToday = true;
                     closureReason = c.note || "Chiusura Intera Giornata";
@@ -20099,13 +20158,14 @@ async function computeAndRenderAvailableSlots() {
         });
     }
 
-    // Se l'intera giornata è chiusa, blocca tutto all'istante
+    // SE IL GIORNO È CHIUSO: BLOCCO TOTALE IMMEDIATO
     if (isSalonClosedToday) {
         if (badge) badge.innerText = "0 disponibili";
         grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#dc2626; font-size:13px; font-weight:bold; background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
-                🏖️ Salone Chiuso in data ${formatDateIt(targetDateStr)} (${closureReason}).
-                <br><small style="font-weight:normal; color:#64748b; margin-top:4px; display:block;">Seleziona un'altra data disponibile.</small>
+            <div style="grid-column: 1 / -1; text-align:center; padding:30px 15px; color:#dc2626; font-size:14px; font-weight:800; background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px;">
+                🏖️ Salone Chiuso in data ${formatDateIt(cleanTargetDate)}
+                <br><span style="font-size:12px; font-weight:normal; color:#991b1b; margin-top:4px; display:inline-block;">Motivo: <b>${closureReason}</b></span>
+                <br><small style="font-weight:normal; color:#64748b; margin-top:8px; display:block;">Ti invitiamo a selezionare un'altra data disponibile dal calendario.</small>
             </div>
         `;
         return;
