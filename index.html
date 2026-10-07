@@ -3220,6 +3220,22 @@
                 <small style="color: #64748b; font-size: 11px;">Puoi selezionarne anche più di uno</small>
             </div>
 
+<!-- 🎁 SEZIONE SEDUTE PREPAGATE / CARNET DEL CLIENTE -->
+<div id="pb-prepaid-packages-section" style="display: none; margin-bottom: 16px;">
+    <div style="background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%); border: 1.5px solid #c4b5fd; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">🎁</span>
+            <div>
+                <b style="font-size: 13px; color: #1e1b4b; display: block;">I Tuoi Trattamenti Prepagati (Carnet Attivi)</b>
+                <small style="color: #6d28d9; font-size: 11px;">Hai sedute disponibili già saldate: selezionale a costo € 0.00!</small>
+            </div>
+        </div>
+    </div>
+    <div id="pb-prepaid-services-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- Popolato dinamicamente da JS con le sedute del carnet -->
+    </div>
+</div>
+
             <!-- Lista Card Servizi -->
             <div id="pb-services-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 80px;">
                 <!-- Popolato dinamicamente da JS -->
@@ -20097,72 +20113,7 @@ async function handlePublicAuthContinue() {
     }
 }
 
-function onCustomerVerifiedSuccess(customer) {
-    const badge = document.getElementById('pb-user-badge');
-    if (badge) {
-        badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
-        badge.style.display = 'inline-block';
-    }
-    // 🌟 Carica subito gli appuntamenti già presi
-    loadCustomerUpcomingAppointments(customer);
-    goToStep('pb-step-services');
-}
-// 4. STEP 2: Render Elenco Trattamenti con Selezione Multipla
-function renderPublicServicesList() {
-    const list = document.getElementById('pb-services-list');
-    if (!list) return;
 
-    if (window._pbState.allServices.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">Nessun trattamento disponibile per la prenotazione online.</div>`;
-        return;
-    }
-
-    list.innerHTML = window._pbState.allServices.map(s => {
-        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id);
-        const dur = s.duration_minutes || 30;
-        const price = parseFloat(s.price || 0).toFixed(2);
-
-        return `
-            <div onclick="togglePublicServiceSelection('${s.id}')" 
-                 style="background: white; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(108, 92, 231, 0.15)' : 'none'};">
-                <div style="flex: 1;">
-                    <div style="font-weight: 800; font-size: 14px; color: #1e1b4b; margin-bottom: 2px;">${s.name}</div>
-                    <div style="font-size: 11.5px; color: #64748b; display: flex; gap: 8px;">
-                        <span>⏱️ ${dur} min</span>
-                        <span>•</span>
-                        <span style="font-weight: 700; color: #1e1b4b;">€ ${price}</span>
-                    </div>
-                </div>
-                <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; background: ${isSelected ? 'var(--p)' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                    ${isSelected ? '✓' : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function togglePublicServiceSelection(servId) {
-    const s = window._pbState.allServices.find(x => x.id === servId);
-    if (!s) return;
-
-    const idx = window._pbState.selectedServices.findIndex(x => x.id === servId);
-    if (idx >= 0) {
-        window._pbState.selectedServices.splice(idx, 1);
-    } else {
-        window._pbState.selectedServices.push(s);
-    }
-
-    // Ricalcolo totali
-    window._pbState.calculatedTotalMinutes = window._pbState.selectedServices.reduce((sum, item) => sum + (item.duration_minutes || 30), 0);
-    window._pbState.calculatedTotalPrice = window._pbState.selectedServices.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
-
-    const durEl = document.getElementById('pb-summary-duration');
-    const priceEl = document.getElementById('pb-summary-price');
-    if (durEl) durEl.innerText = `⏱️ Durata: ${window._pbState.calculatedTotalMinutes} min`;
-    if (priceEl) priceEl.innerText = `€ ${window._pbState.calculatedTotalPrice.toFixed(2)}`;
-
-    renderPublicServicesList();
-}
 
 function goToStep3OperatorAndSlots() {
     if (window._pbState.selectedServices.length === 0) {
@@ -21052,12 +21003,249 @@ function renderConfirmSummary() {
     `;
 }
 
+// =========================================================================
+// 🎁 RISCATTO CARNET / PACCHETTI (STANDARD & CONDIVISI) NEL SELF-BOOKING
+// =========================================================================
+
+// 1. Carica i pacchetti attivi del cliente (propri e condivisi dai saloni partner)
+async function loadCustomerPrepaidPackages(customer) {
+    if (!customer) return;
+
+    const currentSalon = String(window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001')).trim().toLowerCase();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    try {
+        const allCustPkgs = await window.universalQuery({ action: 'GET_ALL', table: 'customer_packages' }) || [];
+        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const inventory = window._pbState.allServices || [];
+
+        // Filtra i pacchetti appartenenti a questo cliente non scaduti
+        const clientPkgs = allCustPkgs.filter(cp => {
+            const matchCustId = String(cp.customer_id).trim() === String(customer.id).trim();
+            const notExpired = !cp.expiry_date || cp.expiry_date >= todayStr;
+            return matchCustId && notExpired;
+        });
+
+        const eligiblePrepaidServices = [];
+
+        for (let cp of clientPkgs) {
+            // Verifica configurazione genitore del pacchetto
+            const parentConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+            const pkgName = parentConfig ? parentConfig.name : 'Pacchetto Trattamenti';
+
+            // Verifica accessibilità: Salone proprietario O salone partner in shared_salons O quota in revenue_allocations
+            let isAllowed = String(cp.salon_id || '').trim().toLowerCase() === currentSalon;
+
+            if (!isAllowed && parentConfig && parentConfig.shared_salons) {
+                let sharedArr = parentConfig.shared_salons;
+                if (typeof sharedArr === 'string') { try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; } }
+                if (Array.isArray(sharedArr)) {
+                    isAllowed = sharedArr.some(s => String(s).trim().toLowerCase() === currentSalon);
+                }
+            }
+
+            if (!isAllowed && cp.revenue_allocations) {
+                let allocs = cp.revenue_allocations;
+                if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
+                if (allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === currentSalon && parseFloat(allocs[k]) > 0)) {
+                    isAllowed = true;
+                }
+            }
+
+            if (!isAllowed) continue; // Il pacchetto non è abilitato su questa sede
+
+            // Estrae le sedute residue
+            let sessionsList = [];
+            if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
+            else if (typeof cp.sessions_state === 'string') {
+                try { sessionsList = JSON.parse(cp.sessions_state); } catch(e) { sessionsList = []; }
+            }
+
+            sessionsList.forEach(s => {
+                const rem = parseInt(s.remaining) || 0;
+                const tot = parseInt(s.total) || 0;
+
+                if (rem > 0) {
+                    const servObj = inventory.find(i => String(i.id).trim() === String(s.service_id).trim());
+                    
+                    eligiblePrepaidServices.push({
+                        custPkgId: cp.id,
+                        serviceId: s.service_id,
+                        serviceName: servObj ? servObj.name : 'Trattamento',
+                        packageName: pkgName,
+                        remaining: rem,
+                        total: tot,
+                        duration_minutes: servObj ? (servObj.duration_minutes || 30) : 30,
+                        requires_operator: servObj ? servObj.requires_operator : true,
+                        required_workstations: servObj ? (servObj.required_workstations || []) : []
+                    });
+                }
+            });
+        }
+
+        window._pbState.customerPrepaidItems = eligiblePrepaidServices;
+
+    } catch(err) {
+        console.warn("Errore caricamento carnet cliente nel booking:", err);
+        window._pbState.customerPrepaidItems = [];
+    }
+}
+
+// 2. Chiamata di caricamento pacchetti all'autenticazione del cliente
+function onCustomerVerifiedSuccess(customer) {
+    const badge = document.getElementById('pb-user-badge');
+    if (badge) {
+        badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
+        badge.style.display = 'inline-block';
+    }
+
+    // Carica sia gli appuntamenti già presi sia i pacchetti attivi con sedute prepagate!
+    loadCustomerUpcomingAppointments(customer);
+    loadCustomerPrepaidPackages(customer).then(() => {
+        renderPublicServicesList();
+    });
+
+    goToStep('pb-step-services');
+}
+
+// 3. Render Cataloghi (Mostra sia i trattamenti prepagati del carnet a € 0.00 che i servizi di listino)
+function renderPublicServicesList() {
+    const list = document.getElementById('pb-services-list');
+    const prepaidSection = document.getElementById('pb-prepaid-packages-section');
+    const prepaidList = document.getElementById('pb-prepaid-services-list');
+    if (!list) return;
+
+    // A. SEZIONE SEDUTE PREPAGATE (CARNET ATTIVI A € 0.00)
+    const prepaidItems = window._pbState.customerPrepaidItems || [];
+    if (prepaidSection && prepaidList) {
+        if (prepaidItems.length > 0) {
+            prepaidSection.style.display = 'block';
+            prepaidList.innerHTML = prepaidItems.map(p => {
+                const uniqueKey = `pkg_${p.custPkgId}_${p.serviceId}`;
+                const isSelected = window._pbState.selectedServices.some(sel => sel.cartUid === uniqueKey);
+
+                return `
+                    <div onclick="togglePublicPrepaidServiceSelection('${p.custPkgId}', '${p.serviceId}')" 
+                         style="background: white; border: 1.5px solid ${isSelected ? '#7c3aed' : '#c4b5fd'}; border-radius: 14px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(124, 58, 237, 0.2)' : 'none'};">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                                <span style="font-size: 11px; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px;">🎁 CARNET</span>
+                                <b style="font-size: 13.5px; color: #1e1b4b;">${p.serviceName}</b>
+                            </div>
+                            <div style="font-size: 11.5px; color: #64748b;">
+                                Pacchetto: <b>${p.packageName}</b> • <span style="color: #047857; font-weight: bold;">${p.remaining} su ${p.total} sedute rimaste</span>
+                            </div>
+                            <div style="font-size: 11px; color: #6d28d9; font-weight: 700; margin-top: 3px;">
+                                ⏱️ ${p.duration_minutes} min • <span style="font-size: 12.5px;">€ 0.00 (Prepagato)</span>
+                            </div>
+                        </div>
+                        <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? '#7c3aed' : '#cbd5e1'}; background: ${isSelected ? '#7c3aed' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                            ${isSelected ? '✓' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            prepaidSection.style.display = 'none';
+        }
+    }
+
+    // B. LISTINO SERVIZI STANDARD (A PAGAMENTO)
+    if (window._pbState.allServices.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">Nessun trattamento disponibile per la prenotazione online.</div>`;
+        return;
+    }
+
+    list.innerHTML = window._pbState.allServices.map(s => {
+        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id && !sel.isPackageRedemption);
+        const dur = s.duration_minutes || 30;
+        const price = parseFloat(s.price || 0).toFixed(2);
+
+        return `
+            <div onclick="togglePublicServiceSelection('${s.id}')" 
+                 style="background: white; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(108, 92, 231, 0.15)' : 'none'};">
+                <div style="flex: 1;">
+                    <div style="font-weight: 800; font-size: 14px; color: #1e1b4b; margin-bottom: 2px;">${s.name}</div>
+                    <div style="font-size: 11.5px; color: #64748b; display: flex; gap: 8px;">
+                        <span>⏱️ ${dur} min</span>
+                        <span>•</span>
+                        <span style="font-weight: 700; color: #1e1b4b;">€ ${price}</span>
+                    </div>
+                </div>
+                <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; background: ${isSelected ? 'var(--p)' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                    ${isSelected ? '✓' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 4. Selezione / Deselezione di una Seduta da Carnet (Costo € 0.00)
+function togglePublicPrepaidServiceSelection(custPkgId, serviceId) {
+    const p = (window._pbState.customerPrepaidItems || []).find(x => x.custPkgId === custPkgId && x.serviceId === serviceId);
+    if (!p) return;
+
+    const uniqueKey = `pkg_${custPkgId}_${serviceId}`;
+    const idx = window._pbState.selectedServices.findIndex(x => x.cartUid === uniqueKey);
+
+    if (idx >= 0) {
+        window._pbState.selectedServices.splice(idx, 1);
+    } else {
+        // Aggiunge al carrello con prezzo 0.00
+        window._pbState.selectedServices.push({
+            cartUid: uniqueKey,
+            id: p.serviceId,
+            name: `🎁 [${p.packageName}] ${p.serviceName}`,
+            price: 0.00,
+            duration_minutes: p.duration_minutes,
+            requires_operator: p.requires_operator,
+            required_workstations: p.required_workstations,
+            isPackageRedemption: true,
+            custPkgId: p.custPkgId
+        });
+    }
+
+    recalculatePublicCartTotals();
+    renderPublicServicesList();
+}
+
+function togglePublicServiceSelection(servId) {
+    const s = window._pbState.allServices.find(x => x.id === servId);
+    if (!s) return;
+
+    const idx = window._pbState.selectedServices.findIndex(x => x.id === servId && !x.isPackageRedemption);
+    if (idx >= 0) {
+        window._pbState.selectedServices.splice(idx, 1);
+    } else {
+        window._pbState.selectedServices.push({
+            ...s,
+            cartUid: `srv_${s.id}`,
+            isPackageRedemption: false
+        });
+    }
+
+    recalculatePublicCartTotals();
+    renderPublicServicesList();
+}
+
+function recalculatePublicCartTotals() {
+    window._pbState.calculatedTotalMinutes = window._pbState.selectedServices.reduce((sum, item) => sum + (item.duration_minutes || 30), 0);
+    window._pbState.calculatedTotalPrice = window._pbState.selectedServices.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+
+    const durEl = document.getElementById('pb-summary-duration');
+    const priceEl = document.getElementById('pb-summary-price');
+    if (durEl) durEl.innerText = `⏱️ Durata: ${window._pbState.calculatedTotalMinutes} min`;
+    if (priceEl) priceEl.innerText = `€ ${window._pbState.calculatedTotalPrice.toFixed(2)}`;
+}
+
+// 5. Invio Prenotazione Atomico con Decremento Sedute e Lock Cabina
 async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
     if (btn) { btn.disabled = true; btn.innerText = "Verifica disponibilità in corso..."; }
 
     const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
 
+    // Pre-Flight Check Fresco dal Cloud
     if (navigator.onLine && salonId) {
         await Promise.all([
             fetchFreshBookingSettingsFromCloud(salonId),
@@ -21066,83 +21254,84 @@ async function executePublicBooking() {
         if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
     }
 
+    const checkDate = window._pbState.selectedDate;
+    const checkStart = window._pbState.selectedSlot;
+    const checkEnd = window._pbState.selectedSlotEnd;
+
+    // Controllo chiusure
     const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
     let advConfig = null;
     if (advConfigRaw) {
         try { advConfig = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw; } catch(e) {}
     }
 
-    const checkDate = window._pbState.selectedDate;
-    const checkStart = window._pbState.selectedSlot;
-    const checkEnd = window._pbState.selectedSlotEnd;
-
-    let isConflict = false;
-    let conflictMsg = "";
-
     if (advConfig && advConfig.closures) {
         const fullDayClosed = advConfig.closures.some(c => c.date === checkDate && c.is_all_day !== false);
         if (fullDayClosed) {
-            isConflict = true;
-            conflictMsg = "Questa giornata è stata appena chiusa dal salone.";
-        }
-        
-        const inPartial = advConfig.closures.some(c => c.date === checkDate && c.is_all_day === false && (checkStart < c.end_time && checkEnd > c.start_time));
-        if (inPartial) {
-            isConflict = true;
-            conflictMsg = "Questa fascia oraria è stata appena riservata dal salone per una chiusura o pausa.";
+            alert("⚠️ La giornata selezionata è stata chiusa dal salone. Scegli un'altra data.");
+            if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
+            goToStep('pb-step-slots');
+            computeAndRenderAvailableSlots();
+            return;
         }
     }
 
-    const appConflict = (window._pbState.allExistingApps || []).some(a => {
-        if (a.date !== checkDate) return false;
-        if (window._pbState.selectedSlotOperator !== 'Autonomo') {
-            const isSameOp = (a.assigned_user || 'admin').toLowerCase() === (window._pbState.selectedSlotOperator || '').toLowerCase();
-            if (!isSameOp) return false;
-        }
-        const aStart = (a.time || '00:00').substring(0, 5);
-        const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
-        return checkStart < aEnd && checkEnd > aStart;
-    });
-
-    if (appConflict) {
-        isConflict = true;
-        conflictMsg = "Questo orario è appena stato prenotato da un altro cliente.";
-    }
-
-    if (isConflict) {
-        alert(`⚠️ ORARIO NON PIÙ DISPONIBILE. Ti chiediamo di scegliere un altro orario.`);
-        if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
-        goToStep('pb-step-slots');
-        computeAndRenderAvailableSlots();
-        return;
-    }
-
-    btn.innerText = "Salvataggio in corso...";
-
+    // 🔒 1. BLINDATURA ATOMICA CABINA: Se c'è una cabina richiesta, la blocchiamo PRIMA di toccare l'agenda!
     const appointmentId = crypto.randomUUID();
-    const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
-
-    if (!currentUser || !currentUser.salon_id) {
-        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
-    }
-
     const custFirst = window._pbState.customer ? (window._pbState.customer.first_name || '') : '';
     const custLast = window._pbState.customer ? (window._pbState.customer.last_name || '') : '';
     const custFullName = `${custFirst} ${custLast}`.trim() || 'Cliente Online';
     const custPhone = window._pbState.customer ? (window._pbState.customer.phone || '') : '';
 
-    let notes = `[ONLINE_BOOKING] Tel: ${custPhone}`;
     if (window._pbState.allocatedWorkstationId) {
-        notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
+        try {
+            const wsRes = await window.universalQuery({
+                action: 'BOOK_WORKSTATION_ATOMIC',
+                data: {
+                    workstationId: window._pbState.allocatedWorkstationId,
+                    date: checkDate,
+                    startTime: checkStart,
+                    endTime: checkEnd,
+                    appointmentId: appointmentId,
+                    operatorName: window._pbState.selectedSlotOperator || 'Autonomo',
+                    notes: `Prenotazione Online: ${custFullName}`
+                }
+            });
+
+            if (wsRes && wsRes.success === false) {
+                alert(`⚠️ La cabina selezionata è appena stata occupata da un'altra prenotazione (${wsRes.message || ''}). Seleziona un altro orario.`);
+                if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
+                goToStep('pb-step-slots');
+                computeAndRenderAvailableSlots();
+                return;
+            }
+        } catch(wsErr) {
+            console.warn("Avviso prenotazione postazione atomica:", wsErr);
+        }
     }
+
+    // 🎁 2. GESTIONE CARNET PREPAGATI: Identifica riscatti e compone le note con il tag [PKG:...]
+    const prepaidRedemptions = window._pbState.selectedServices.filter(s => s.isPackageRedemption);
+    let pkgNotesTag = '';
+
+    if (prepaidRedemptions.length > 0) {
+        // Tag compatibile con il gestionale: [PKG:custPkgId:serviceId]
+        pkgNotesTag = prepaidRedemptions.map(p => `[PKG:${p.custPkgId}:${p.id}]`).join(' ');
+    }
+
+    let notes = `[ONLINE_BOOKING] Tel: ${custPhone}`;
+    if (pkgNotesTag) notes += ` ${pkgNotesTag}`;
+    if (window._pbState.allocatedWorkstationId) notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
+
+    const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
 
     const appPayload = {
         id: appointmentId,
         salon_id: salonId,
         cust_name: custFullName,
-        date: window._pbState.selectedDate,
-        time: window._pbState.selectedSlot,
-        end_time: window._pbState.selectedSlotEnd,
+        date: checkDate,
+        time: checkStart,
+        end_time: checkEnd,
         service: serviceNames,
         price: parseFloat(window._pbState.calculatedTotalPrice) || 0,
         assigned_user: window._pbState.selectedSlotOperator || 'admin',
@@ -21150,27 +21339,38 @@ async function executePublicBooking() {
     };
 
     try {
+        // 3. Inserimento Appuntamento
         const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
+        if (res && res.status === 'error') throw new Error(res.message);
 
-        if (res && res.status === 'error') {
-            throw new Error(res.message || "Errore salvataggio");
-        }
-
-        if (window._pbState.allocatedWorkstationId) {
+        // 4. 📉 DECREMENTO EFFETTIVO DELLE SEDUTE SUI CARNET (Dexie + Supabase Cloud)
+        for (let prep of prepaidRedemptions) {
             try {
-                await window.universalQuery({
-                    action: 'BOOK_WORKSTATION_ATOMIC',
-                    data: {
-                        workstationId: window._pbState.allocatedWorkstationId,
-                        date: window._pbState.selectedDate,
-                        startTime: window._pbState.selectedSlot,
-                        endTime: window._pbState.selectedSlotEnd,
-                        appointmentId: appointmentId,
-                        operatorName: appPayload.assigned_user,
-                        notes: `Prenotazione Online: ${custFullName}`
+                const targetPkg = await localDb.customer_packages.get(prep.custPkgId);
+                if (targetPkg) {
+                    let sessionsList = Array.isArray(targetPkg.sessions_state) 
+                        ? targetPkg.sessions_state 
+                        : JSON.parse(targetPkg.sessions_state || '[]');
+
+                    const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(prep.id).trim());
+                    if (sessionItem && parseInt(sessionItem.remaining) > 0) {
+                        sessionItem.remaining = parseInt(sessionItem.remaining) - 1;
+
+                        const updatePayload = {
+                            sessions_state: sessionsList,
+                            updated_at: getNowLocal()
+                        };
+
+                        await localDb.customer_packages.update(targetPkg.id, updatePayload);
+                        if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                            await sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, targetPkg.id);
+                        }
+                        console.log(`📉 [CARNET SCALATO] 1 seduta di ${prep.serviceName} scalata dal pacchetto ${prep.custPkgId}`);
                     }
-                });
-            } catch (wsErr) {}
+                }
+            } catch(pkgErr) {
+                console.error("Errore decremento carnet:", pkgErr);
+            }
         }
 
         if (typeof refreshAllData === 'function') {
@@ -21178,13 +21378,18 @@ async function executePublicBooking() {
         }
 
         document.getElementById('pb-success-desc').innerHTML = `
-            Gentile <b>${custFirst}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(window._pbState.selectedDate)}</b> alle ore <b>${window._pbState.selectedSlot}</b> con <b>${appPayload.assigned_user}</b>.
+            Gentile <b>${custFirst}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(checkDate)}</b> alle ore <b>${checkStart}</b>.
+            ${prepaidRedemptions.length > 0 ? `<br><span style="color:#047857; font-weight:bold; font-size:12px;">✓ 1 seduta scalata correttamente dal tuo carnet attivo!</span>` : ''}
         `;
 
         goToStep('pb-step-success');
 
     } catch (err) {
         console.error("Errore salvataggio:", err);
+        // Se l'inserimento dell'appuntamento fallisce, rilascia l'eventuale cabina bloccata
+        if (window._pbState.allocatedWorkstationId) {
+            window.universalQuery({ action: 'RELEASE_WORKSTATION_BOOKING', data: { appointmentId: appointmentId } }).catch(() => {});
+        }
         alert("Si è verificato un errore durante la prenotazione: " + err.message);
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
     }
