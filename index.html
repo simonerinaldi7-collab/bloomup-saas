@@ -19691,6 +19691,74 @@ async function deleteExpense(id) {
 }
 
 // =========================================================================
+// ⚡ MOTORE REAL-TIME FRESCHEZZA REGOLE BOOKING & PRE-FLIGHT CHECK
+// =========================================================================
+
+// 1. Scarica in tempo reale le impostazioni fresche da Supabase (Zero Cache)
+async function fetchFreshBookingSettingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?salon_id=eq.${salonId}&select=key,value`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Cache-Control': 'no-cache, no-store, must-revalidate' // 👈 Bypassa qualsiasi cache!
+            }
+        });
+        if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) {
+                rows.forEach(r => {
+                    if (r && r.key) sysSettings[r.key] = r.value;
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Avviso aggiornamento impostazioni cloud:", err);
+    }
+}
+
+// 2. Scarica al volo le ultime prenotazioni e chiusure dal cloud
+async function fetchFreshAppointmentsAndBookingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    try {
+        const [resApps, resBookings] = await Promise.all([
+            fetch(`${SUPABASE_URL}/rest/v1/appointments?salon_id=eq.${salonId}&select=id,date,time,end_time,service,cust_name,assigned_user`, {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+            }),
+            fetch(`${SUPABASE_URL}/rest/v1/workstation_bookings?salon_id=eq.${salonId}&select=id,workstation_id,date,start_time,end_time`, {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Cache-Control': 'no-cache' }
+            })
+        ]);
+
+        if (resApps.ok) {
+            window._pbState.allExistingApps = await resApps.json() || [];
+        }
+        if (resBookings.ok) {
+            window._pbState.allBookings = await resBookings.json() || [];
+        }
+    } catch(e) {}
+}
+
+// 3. Ascoltatore istantaneo tra schede del browser (Multi-Tab Live Sync)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'vaimup_booking_autonomous_config' || e.key === 'vaimup_online_booking_enabled') {
+        console.log("⚡ [LIVE SYNC] Rilevata modifica orari o chiusure da un'altra scheda.");
+        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
+        
+        // Se il portale cliente è aperto a schermo, ricalcola subito date e slot!
+        const portal = document.getElementById('public-booking-portal');
+        if (portal && portal.style.display === 'block') {
+            renderPublicDatesList();
+            computeAndRenderAvailableSlots();
+        }
+    }
+});
+
+
+
+
+// =========================================================================
 // 🌐 MOTORE COMPLETO DEL PORTALE PRENOTAZIONI CLIENTE (SELF-SERVICE)
 // =========================================================================
 
@@ -19735,6 +19803,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initPublicBookingPortal(window._pbState.salonId);
     }
 });
+
+
+
+
+
 
 // 2. Caricamento Dati del Salone con Chiusure e Impostazioni Sincronizzate
 async function initPublicBookingPortal(salonId) {
@@ -20101,14 +20174,26 @@ async function computeAndRenderAvailableSlots() {
     const badge = document.getElementById('pb-slots-count-badge');
     if (!grid) return;
 
-    grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:15px; color:#64748b; font-size:12px;">Calcolo orari liberi...</div>`;
+    grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:15px; color:#64748b; font-size:12px;">Verifica disponibilità in tempo reale...</div>`;
+
+    const targetSalonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
+
+    // ⚡ 1. RECUPERO FRESCO AL VOLO DAL CLOUD (Elimina ogni ritardo di sync)
+    if (navigator.onLine && targetSalonId) {
+        await Promise.all([
+            fetchFreshBookingSettingsFromCloud(targetSalonId),
+            fetchFreshAppointmentsAndBookingsFromCloud(targetSalonId)
+        ]);
+        if (typeof loadBacConfigFromStorage === 'function') {
+            loadBacConfigFromStorage();
+        }
+    }
 
     const targetDateStr = window._pbState.selectedDate;
     const totalMinutes = window._pbState.calculatedTotalMinutes;
     const targetOp = window._pbState.selectedOperator;
     const targetDayOfWeek = new Date(targetDateStr + 'T00:00:00').getDay();
 
-   // Funzione di utilità interna per normalizzare 'YYYY-MM-DD'
     const normalizeDate = (d) => {
         if (!d) return '';
         const p = String(d).trim().split(' ')[0].split('-');
@@ -20117,11 +20202,10 @@ async function computeAndRenderAvailableSlots() {
 
     const cleanTargetDate = normalizeDate(targetDateStr);
 
-    // 🛑 1. CONTROLLO CHIUSURE INTERA GIORNATA
+    // 🛑 2. CONTROLLO CHIUSURE INTERA GIORNATA CON I DATI FRESCHI DEL CLOUD
     let isSalonClosedToday = false;
     let closureReason = "Chiusura Programmata";
 
-    // A. Chiusure in Agenda
     const existingApps = window._pbState.allExistingApps || [];
     const closureApp = existingApps.find(a => {
         if (normalizeDate(a.date) !== cleanTargetDate) return false;
@@ -20135,7 +20219,6 @@ async function computeAndRenderAvailableSlots() {
         closureReason = closureApp.cust_name || "Giornata di Chiusura / Ferie";
     }
 
-    // B. Chiusure Straordinarie da Configurazione (Sincronizzate)
     const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
     let advConfig = null;
     if (advConfigRaw) {
@@ -20157,13 +20240,13 @@ async function computeAndRenderAvailableSlots() {
         });
     }
 
-    // SE IL GIORNO È CHIUSO: BLOCCO TOTALE IMMEDIATO
     if (isSalonClosedToday) {
         if (badge) badge.innerText = "0 disponibili";
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align:center; padding:30px 15px; color:#dc2626; font-size:14px; font-weight:800; background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px;">
-                Nessuno slot disponibile ${formatDateIt(cleanTargetDate)}
-                <br><small style="font-weight:normal; color:#64748b; margin-top:8px; display:block;">Ti invitiamo a selezionare un'altra data disponibile dal calendario.</small>
+                🏖️ Salone Chiuso in data ${formatDateIt(cleanTargetDate)}
+                <br><span style="font-size:12px; font-weight:normal; color:#991b1b; margin-top:4px; display:inline-block;">Motivo: <b>${closureReason}</b></span>
+                <br><small style="font-weight:normal; color:#64748b; margin-top:8px; display:block;">Ti invitiamo a selezionare un'altra data disponibile.</small>
             </div>
         `;
         return;
@@ -20421,15 +20504,84 @@ function renderConfirmSummary() {
 }
 
 // 7. STEP 4: Invio e Creazione Appuntamento da Portale Pubblico (Corretto e Compatibile)
+// B. Sostituisci executePublicBooking con il Pre-Flight Check:
 async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
-    if (btn) { btn.disabled = true; btn.innerText = "Salvataggio in corso..."; }
+    if (btn) { btn.disabled = true; btn.innerText = "Verifica disponibilità in corso..."; }
+
+    const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
+
+    // 🛡️ PRE-FLIGHT CHECK DIRETTO: Scarica gli ultimi dati dal Cloud prima di confermare!
+    if (navigator.onLine && salonId) {
+        await Promise.all([
+            fetchFreshBookingSettingsFromCloud(salonId),
+            fetchFreshAppointmentsAndBookingsFromCloud(salonId)
+        ]);
+        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
+    }
+
+    // 1. Controllo: il giorno è stato appena chiuso?
+    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    let advConfig = null;
+    if (advConfigRaw) {
+        try { advConfig = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw; } catch(e) {}
+    }
+
+    const checkDate = window._pbState.selectedDate;
+    const checkStart = window._pbState.selectedSlot;
+    const checkEnd = window._pbState.selectedSlotEnd;
+
+    let isConflict = false;
+    let conflictMsg = "";
+
+    // Verifica se l'intera data è stata chiusa mentre il cliente compilava
+    if (advConfig && advConfig.closures) {
+        const fullDayClosed = advConfig.closures.some(c => c.date === checkDate && c.is_all_day !== false);
+        if (fullDayClosed) {
+            isConflict = true;
+            conflictMsg = "Questa giornata è stata appena chiusa dal salone.";
+        }
+        
+        // Verifica se lo slot ricade in un blocco orario aggiunto nel frattempo
+        const inPartial = advConfig.closures.some(c => c.date === checkDate && c.is_all_day === false && (checkStart < c.end_time && checkEnd > c.start_time));
+        if (inPartial) {
+            isConflict = true;
+            conflictMsg = "Questa fascia oraria è stata appena riservata dal salone per una chiusura o pausa.";
+        }
+    }
+
+    // Verifica se qualcun altro ha preso l'operatore o la cabina nel frattempo
+    const appConflict = (window._pbState.allExistingApps || []).some(a => {
+        if (a.date !== checkDate) return false;
+        if (window._pbState.selectedSlotOperator !== 'Autonomo') {
+            const isSameOp = (a.assigned_user || 'admin').toLowerCase() === (window._pbState.selectedSlotOperator || '').toLowerCase();
+            if (!isSameOp) return false;
+        }
+        const aStart = (a.time || '00:00').substring(0, 5);
+        const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
+        return checkStart < aEnd && checkEnd > aStart;
+    });
+
+    if (appConflict) {
+        isConflict = true;
+        conflictMsg = "Questo orario è appena stato prenotato da un altro cliente.";
+    }
+
+    // 🛑 SE C'È STATO UN CAMBIO REGOLE: BLOCCA LA PRENOTAZIONE E AGGIORNA GLI SLOT!
+    if (isConflict) {
+        alert(`⚠️ ORARIO NON PIÙ DISPONIBILE:\n\n${conflictMsg}\n\nLa disponibilità è stata aggiornata in tempo reale. Ti chiediamo di scegliere un altro orario.`);
+        if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
+        goToStep('pb-step-slots');
+        computeAndRenderAvailableSlots();
+        return;
+    }
+
+    // SE TUTTO È VALIDO: PROCEDI COL SALVATAGGIO
+    btn.innerText = "Salvataggio in corso...";
 
     const appointmentId = crypto.randomUUID();
     const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
-    const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
 
-    // Assicuriamo il contesto salon_id per currentUser
     if (!currentUser || !currentUser.salon_id) {
         currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
     }
@@ -20439,14 +20591,11 @@ async function executePublicBooking() {
     const custFullName = `${custFirst} ${custLast}`.trim() || 'Cliente Online';
     const custPhone = window._pbState.customer ? (window._pbState.customer.phone || '') : '';
 
-    // Inseriamo il recapito telefonico nelle note così compare nell'agenda del salone
     let notes = `[ONLINE_BOOKING] Tel: ${custPhone}`;
     if (window._pbState.allocatedWorkstationId) {
         notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
     }
 
-    // 🛡️ PAYLOAD RIGOROSO: Invia solo le colonne esistenti nella tabella appointments di Supabase!
-    // (Rimosse 'cust_id' e 'phone' dirette che scatenavano l'errore 400 Bad Request)
     const appPayload = {
         id: appointmentId,
         salon_id: salonId,
@@ -20461,16 +20610,12 @@ async function executePublicBooking() {
     };
 
     try {
-        console.log("🚀 [BOOKING SUBMIT] Salvataggio appuntamento:", appPayload);
-
-        // 1. Inserimento Appuntamento nella tabella appointments
         const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
 
         if (res && res.status === 'error') {
-            throw new Error(res.message || "Errore durante il salvataggio su Supabase");
+            throw new Error(res.message || "Errore salvataggio");
         }
 
-        // 2. Se il servizio richiede una cabina, prenotazione atomica
         if (window._pbState.allocatedWorkstationId) {
             try {
                 await window.universalQuery({
@@ -20485,17 +20630,13 @@ async function executePublicBooking() {
                         notes: `Prenotazione Online: ${custFullName}`
                     }
                 });
-            } catch (wsErr) {
-                console.warn("Prenotazione postazione gestita con fallback:", wsErr);
-            }
+            } catch (wsErr) {}
         }
 
-        // 3. Se l'agenda del gestionale è aperta, aggiorna subito i dati in memoria
         if (typeof refreshAllData === 'function') {
             refreshAllData().catch(() => {});
         }
 
-        // 4. Mostra schermata di successo
         document.getElementById('pb-success-desc').innerHTML = `
             Gentile <b>${custFirst}</b>, il tuo appuntamento per <b>${serviceNames}</b> è stato confermato per il giorno <b>${formatDateIt(window._pbState.selectedDate)}</b> alle ore <b>${window._pbState.selectedSlot}</b> con <b>${appPayload.assigned_user}</b>.
         `;
@@ -20503,8 +20644,8 @@ async function executePublicBooking() {
         goToStep('pb-step-success');
 
     } catch (err) {
-        console.error("❌ [BOOKING ERROR]:", err);
-        alert("Si è verificato un errore durante la prenotazione: " + (err.message || "Riprova tra poco."));
+        console.error("Errore salvataggio:", err);
+        alert("Si è verificato un errore durante la prenotazione: " + err.message);
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
     }
 }
