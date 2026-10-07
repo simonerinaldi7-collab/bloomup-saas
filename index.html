@@ -3147,17 +3147,24 @@
 <!-- ======================================================== -->
 <div id="public-booking-portal" style="display: none; min-height: 100vh; background: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b;">
     
-    <!-- Top Header Brand Salone -->
-    <header style="background: white; border-bottom: 1px solid #e2e8f0; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 36px; height: 36px; background: #ede9fe; color: #6d28d9; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;">✂️</div>
-            <div>
-                <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">Prenotazione Online</h3>
-                <small id="pb-salon-subtitle" style="color: #64748b; font-size: 11px;">Scegli il tuo trattamento preferito</small>
-            </div>
+    <!-- Top Header Brand Salone con Tasto "I Miei Appuntamenti" -->
+<header style="background: white; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 36px; height: 36px; background: #ede9fe; color: #6d28d9; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;">✂️</div>
+        <div>
+            <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">Prenotazione Online</h3>
+            <small id="pb-salon-subtitle" style="color: #64748b; font-size: 11px;">Scegli il tuo trattamento preferito</small>
         </div>
-        <div id="pb-user-badge" style="display: none; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #475569;"></div>
-    </header>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <!-- Tasto visualizzazione appuntamenti già presi dal cliente -->
+        <button type="button" id="pb-my-apps-btn" class="btn" style="display: none; padding: 5px 12px; font-size: 11.5px; font-weight: 800; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; border-radius: 20px;" onclick="openPublicMyAppointmentsModal()">
+            📅 I Miei Appuntamenti (<span id="pb-my-apps-count">0</span>)
+        </button>
+        <div id="pb-user-badge" style="display: none; background: #f1f5f9; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #475569;"></div>
+    </div>
+</header>
 
     <!-- Contenitore Wizard Funnel a Passi -->
     <main style="max-width: 620px; margin: 0 auto; padding: 16px;">
@@ -3231,40 +3238,53 @@
         </section>
 
         <!-- STEP 3: SELEZIONE OPERATORE, DATA E SLOT ORARIO -->
-        <section id="pb-step-slots" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e1;" onclick="goToStep('pb-step-services')">◀ Cambia Servizi</button>
-                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">2. Data e Operatore</h4>
-            </div>
+<section id="pb-step-slots" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e1;" onclick="goToStep('pb-step-services')">◀ Cambia Servizi</button>
+        <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">2. Data e Orario</h4>
+    </div>
 
-            <!-- Scelta Operatore con opzione "Primo Disponibile" -->
-            <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
-                <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Operatore Preferito</label>
-                <div id="pb-operators-pills" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
-                    <!-- Popolato da JS -->
-                </div>
-            </div>
+    <!-- Scelta Operatore (Nascosta automaticamente se il servizio è autonomo!) -->
+    <div id="pb-operators-card" style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
+        <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Operatore Preferito</label>
+        <div id="pb-operators-pills" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+            <!-- Popolato da JS -->
+        </div>
+    </div>
 
-            <!-- Selezione Data (Oggi e prossimi 30 giorni) -->
-            <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
-                <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Giorno del Trattamento</label>
-                <div id="pb-dates-scroll" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
-                    <!-- Generato da JS: pillole giorno Lun 18, Mar 19... -->
-                </div>
+    <!-- Selezione Data con Scorrimento Pillole + Calendario Rapido per Prenotazioni Future -->
+    <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Giorno del Trattamento</label>
+            <!-- Calendario rapido per saltare a settimane/mesi futuri -->
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 10px; color: #64748b; font-weight: bold;">Oppure scegli data:</span>
+                <input type="date" id="pb-quick-date-picker" onchange="onPublicQuickDatePicked(this.value)" style="margin: 0; padding: 2px 6px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: bold; width: 110px;">
             </div>
+        </div>
 
-            <!-- Griglia Slot Orari Disponibili -->
-            <div style="background: white; border-radius: 14px; padding: 16px; border: 1.5px solid #cbd5e1;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Orari Disponibili</label>
-                    <span id="pb-slots-count-badge" style="font-size: 11px; color: #047857; font-weight: bold;"></span>
-                </div>
+        <div id="pb-dates-scroll" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
+            <!-- Generato dinamicamente in base alla finestra impostata -->
+        </div>
+    </div>
 
-                <div id="pb-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; max-height: 260px; overflow-y: auto;">
-                    <!-- Popolato da JS -->
-                </div>
-            </div>
-        </section>
+    <!-- ⚠️ BANNER ANTI-DOPPIA PRENOTAZIONE IN QUESTA DATA -->
+    <div id="pb-existing-booking-alert" style="display: none; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: #92400e; line-height: 1.45;">
+        <!-- Popolato dinamicamente da JS se il cliente ha già un appuntamento nel giorno selezionato -->
+    </div>
+
+    <!-- Griglia Slot Orari Disponibili -->
+    <div style="background: white; border-radius: 14px; padding: 16px; border: 1.5px solid #cbd5e1;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Orari Disponibili</label>
+            <span id="pb-slots-count-badge" style="font-size: 11px; color: #047857; font-weight: bold;"></span>
+        </div>
+
+        <div id="pb-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; max-height: 260px; overflow-y: auto;">
+            <!-- Popolato da JS -->
+        </div>
+    </div>
+</section>
 
         <!-- STEP 4: RIEPILOGO FINALE & CONFERMA PRENOTAZIONE -->
         <section id="pb-step-confirm" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
@@ -11013,6 +11033,88 @@ window.renderProducts = async function() {
         }
         return validSlots;
     }
+
+
+
+function renderPublicDatesList() {
+    const container = document.getElementById('pb-dates-scroll');
+    if (!container) return;
+
+    let html = '';
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    // Recupera la finestra massima configurata (default 60 giorni)
+    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    let maxDays = 60;
+    let closuresList = [];
+
+    if (advConfigRaw) {
+        try {
+            const parsed = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw;
+            if (parsed && parsed.max_future_days) maxDays = parseInt(parsed.max_future_days);
+            closuresList = (parsed && parsed.closures) || [];
+        } catch(e) {}
+    }
+
+    const normalizeDate = (d) => {
+        if (!d) return '';
+        const p = String(d).trim().split(' ')[0].split('-');
+        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
+    };
+
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    if (!window._pbState.selectedDate) {
+        window._pbState.selectedDate = todayStr;
+    }
+
+    // Configura i limiti del date picker rapido
+    const maxFutureDate = new Date(today);
+    maxFutureDate.setDate(today.getDate() + maxDays);
+    const maxDateStr = `${maxFutureDate.getFullYear()}-${pad(maxFutureDate.getMonth() + 1)}-${pad(maxFutureDate.getDate())}`;
+
+    const quickPicker = document.getElementById('pb-quick-date-picker');
+    if (quickPicker) {
+        quickPicker.min = todayStr;
+        quickPicker.max = maxDateStr;
+        quickPicker.value = window._pbState.selectedDate;
+    }
+
+    for (let i = 0; i < maxDays; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const isSelected = (window._pbState.selectedDate === dateStr);
+
+        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
+        const dayNum = d.getDate();
+
+        // Controllo se il giorno è chiuso
+        const isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
+
+        html += `
+            <button type="button" class="btn pb-date-pill" id="pb-pill-${dateStr}" data-date="${dateStr}" onclick="setPublicDate('${dateStr}')" 
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : (isDayClosed ? '#fef2f2' : '#ffffff')}; color: ${isSelected ? 'white' : (isDayClosed ? '#dc2626' : '#1e1b4b')}; border: 1.5px solid ${isSelected ? 'var(--p)' : (isDayClosed ? '#fecaca' : '#cbd5e1')}; cursor: pointer; flex-shrink: 0;">
+                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
+                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
+                ${isDayClosed ? '<span style="font-size: 8.5px; font-weight: 800; color: #dc2626; margin-top: 1px;">Chiuso</span>' : ''}
+            </button>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+// Salto rapido dal date picker manuale
+function onPublicQuickDatePicked(dateVal) {
+    if (!dateVal) return;
+    setPublicDate(dateVal);
+    
+    // Fa scorrere la pillola corrispondente al centro
+    setTimeout(() => {
+        const pill = document.getElementById(`pb-pill-${dateVal}`);
+        if (pill) pill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 100);
+}
 
 
 // Funzione per normalizzare il numero di telefono (rimuove prefissi internazionali, spazi, trattini)
@@ -19235,6 +19337,75 @@ function switchBacTab(tabName) {
     document.getElementById('bac-tab-content-closures').style.display = (tabName === 'closures') ? 'block' : 'none';
 }
 
+// Recupera tutti gli appuntamenti futuri del cliente autenticato
+function loadCustomerUpcomingAppointments(customer) {
+    if (!customer) return;
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const custNameClean = `${customer.first_name || ''} ${customer.last_name || ''}`.trim().toLowerCase();
+    const cleanPhone = (customer.phone || '').replace(/\D/g, '');
+
+    const allApps = window._pbState.allExistingApps || [];
+    
+    // Filtra gli appuntamenti futuri di questo cliente
+    const myApps = allApps.filter(a => {
+        if (!a.date || a.date < todayStr) return false;
+        
+        const aName = (a.cust_name || '').trim().toLowerCase();
+        const aNotes = (a.notes || '');
+        const matchName = custNameClean && (aName === custNameClean || aName.includes(custNameClean));
+        const matchPhone = cleanPhone && aNotes.includes(cleanPhone);
+        
+        return matchName || matchPhone;
+    });
+
+    myApps.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+    window._pbState.customerUpcomingApps = myApps;
+
+    // Aggiorna badge in testata
+    const btnMyApps = document.getElementById('pb-my-apps-btn');
+    const countBadge = document.getElementById('pb-my-apps-count');
+    if (btnMyApps && countBadge) {
+        if (myApps.length > 0) {
+            countBadge.innerText = myApps.length;
+            btnMyApps.style.display = 'inline-flex';
+        } else {
+            btnMyApps.style.display = 'none';
+        }
+    }
+}
+
+// Apre il popup con l'elenco degli appuntamenti già confermati
+function openPublicMyAppointmentsModal() {
+    const list = document.getElementById('pb-my-apps-list-container');
+    const modal = document.getElementById('pb-modal-my-apps');
+    if (!list || !modal) return;
+
+    const apps = window._pbState.customerUpcomingApps || [];
+
+    if (apps.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:25px; color:#64748b; font-size:13px;">Non hai ancora appuntamenti futuri in programma.</div>`;
+    } else {
+        list.innerHTML = apps.map(a => `
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-left: 5px solid var(--p); border-radius: 12px; padding: 12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <b style="font-size:13.5px; color:#1e1b4b;">📅 ${formatDateIt(a.date)} alle ore ${a.time ? a.time.substring(0,5) : '--:--'}</b>
+                    <span style="font-size:10.5px; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:6px;">Confermato ✓</span>
+                </div>
+                <div style="font-size:12.5px; color:#475569;">Trattamento: <b>${a.service || 'Servizio'}</b></div>
+                <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Operatore: <b>${a.assigned_user || 'Admin'}</b> ${a.price ? `• € ${parseFloat(a.price).toFixed(2)}` : ''}</div>
+            </div>
+        `).join('');
+    }
+
+    modal.classList.add('active');
+}
+
+function closePublicMyAppointmentsModal() {
+    const modal = document.getElementById('pb-modal-my-apps');
+    if (modal) modal.classList.remove('active');
+}
+
 // 2. Lettura Configurazione Salvata
 function loadBacConfigFromStorage() {
     const raw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
@@ -19246,6 +19417,14 @@ function loadBacConfigFromStorage() {
 
     if (!_bacConfigState.weekly_hours) _bacConfigState.weekly_hours = {};
     if (!_bacConfigState.closures) _bacConfigState.closures = [];
+
+const maxDaysSelect = document.getElementById('bac-max-future-days');
+if (maxDaysSelect) {
+    maxDaysSelect.value = String(_bacConfigState.max_future_days || 60);
+}
+
+// In saveBookingAdvancedConfig():
+_bacConfigState.max_future_days = parseInt(document.getElementById('bac-max-future-days')?.value) || 60;
 
     // Orari standard predefiniti se non ancora personalizzati (09:00 - 20:00)
     for (let d = 0; d <= 6; d++) {
@@ -20000,9 +20179,10 @@ function onCustomerVerifiedSuccess(customer) {
         badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
         badge.style.display = 'inline-block';
     }
+    // 🌟 Carica subito gli appuntamenti già presi
+    loadCustomerUpcomingAppointments(customer);
     goToStep('pb-step-services');
 }
-
 // 4. STEP 2: Render Elenco Trattamenti con Selezione Multipla
 function renderPublicServicesList() {
     const list = document.getElementById('pb-services-list');
@@ -20064,10 +20244,29 @@ function goToStep3OperatorAndSlots() {
     if (window._pbState.selectedServices.length === 0) {
         return alert("Seleziona almeno un trattamento prima di procedere.");
     }
+
+    // ⚡ VERIFICA SE TUTTI I TRATTAMENTI SCELTI SONO AUTONOMI (SENZA OPERATORE)
+    const isEntirelyAutonomous = window._pbState.selectedServices.every(s => s.requires_operator === false || s.requires_operator === 0);
+    const opCard = document.getElementById('pb-operators-card');
+
+    if (opCard) {
+        if (isEntirelyAutonomous) {
+            // Se sono SOLO autonomi, nasconde completamente la scelta operatore!
+            opCard.style.display = 'none';
+            window._pbState.selectedOperator = 'Autonomo';
+        } else {
+            // Se c'è almeno un trattamento che richiede personale, mostra regolarmente la scelta operatore!
+            opCard.style.display = 'block';
+            if (window._pbState.selectedOperator === 'Autonomo') {
+                window._pbState.selectedOperator = 'any';
+            }
+            renderPublicOperatorsList();
+        }
+    }
+
     goToStep('pb-step-slots');
     computeAndRenderAvailableSlots();
 }
-
 // 5. STEP 3: Operatori, Date e Algoritmo Slot Orari
 function renderPublicOperatorsList() {
     const container = document.getElementById('pb-operators-pills');
@@ -20102,63 +20301,38 @@ function setPublicOperator(op) {
     computeAndRenderAvailableSlots();
 }
 
-function renderPublicDatesList() {
-    const container = document.getElementById('pb-dates-scroll');
-    if (!container) return;
 
-    let html = '';
-    const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    
-    // Recupera le chiusure configurate
-    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
-    let closuresList = [];
-    if (advConfigRaw) {
-        try { 
-            const parsed = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw;
-            closuresList = (parsed && parsed.closures) || [];
-        } catch(e) {}
-    }
-
-    const normalizeDate = (d) => {
-        if (!d) return '';
-        const p = String(d).trim().split(' ')[0].split('-');
-        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
-    };
-
-    window._pbState.selectedDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-
-    for (let i = 0; i < 21; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const isSelected = (i === 0);
-
-        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
-        const dayNum = d.getDate();
-
-        // Verifica se la data è chiusa
-        const isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
-
-        html += `
-            <button type="button" class="btn pb-date-pill" data-date="${dateStr}" onclick="setPublicDate('${dateStr}')" 
-                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : (isDayClosed ? '#fef2f2' : '#ffffff')}; color: ${isSelected ? 'white' : (isDayClosed ? '#dc2626' : '#1e1b4b')}; border: 1.5px solid ${isSelected ? 'var(--p)' : (isDayClosed ? '#fecaca' : '#cbd5e1')}; cursor: pointer;">
-                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
-                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
-            </button>
-        `;
-    }
-    container.innerHTML = html;
-}
 
 function setPublicDate(dateStr) {
     window._pbState.selectedDate = dateStr;
+    
+    // Aggiorna input date picker
+    const quickPicker = document.getElementById('pb-quick-date-picker');
+    if (quickPicker) quickPicker.value = dateStr;
+
+    // Aggiorna stile pillole
     document.querySelectorAll('.pb-date-pill').forEach(btn => {
         const isMatch = btn.getAttribute('data-date') === dateStr;
         btn.style.background = isMatch ? 'var(--p)' : '#ffffff';
         btn.style.color = isMatch ? 'white' : '#1e1b4b';
         btn.style.borderColor = isMatch ? 'var(--p)' : '#cbd5e1';
     });
+
+    // 🛡️ CONTROLLO ANTI-DOPPIA PRENOTAZIONE PER QUESTA DATA
+    const alertBox = document.getElementById('pb-existing-booking-alert');
+    const existingOnDate = (window._pbState.customerUpcomingApps || []).find(a => a.date === dateStr);
+
+    if (alertBox) {
+        if (existingOnDate) {
+            alertBox.innerHTML = `
+                ⚠️ <b>Promemoria:</b> Risulta che hai già un appuntamento fissato per questa data (${formatDateIt(dateStr)}) alle ore <b>${existingOnDate.time ? existingOnDate.time.substring(0,5) : ''}</b> per <b>${existingOnDate.service}</b>.
+            `;
+            alertBox.style.display = 'block';
+        } else {
+            alertBox.style.display = 'none';
+        }
+    }
+
     computeAndRenderAvailableSlots();
 }
 
@@ -20986,6 +21160,22 @@ function saveAppointmentToWhatsAppReminder() {
         </div>
 
         <!-- Tab Bar -->
+        <!-- Selettore Finestra Massima Prenotazione Futura -->
+<div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <div>
+        <b style="font-size: 12.5px; color: #1e1b4b;">📅 Finestra Massima di Prenotazione Futura</b>
+        <small style="color: #64748b; font-size: 11px; display: block;">Fino a quanti giorni nel futuro i clienti possono prenotare autonomamente.</small>
+    </div>
+    <select id="bac-max-future-days" style="width: 150px; margin: 0; font-weight: bold; background: white; font-size: 12px;">
+        <option value="15">15 Giorni (2 sett.)</option>
+        <option value="30">30 Giorni (1 mese)</option>
+        <option value="60" selected>60 Giorni (2 mesi)</option>
+        <option value="90">90 Giorni (3 mesi)</option>
+        <option value="120">120 Giorni (4 mesi)</option>
+        <option value="180">180 Giorni (6 mesi)</option>
+    </select>
+</div>
+
         <div style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; flex-shrink: 0;">
             <button type="button" class="btn active-tab" id="tab-btn-bac-hours" onclick="switchBacTab('hours')" style="background: transparent; border: none; border-bottom: 3px solid var(--p); border-radius: 0; font-size: 12.5px; font-weight: 800; color: var(--p); padding: 8px 12px;">
                 ⚡ Orari Cabine Autonome (Solarium)
@@ -21092,6 +21282,32 @@ function saveAppointmentToWhatsAppReminder() {
             </button>
         </div>
 
+    </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- 📅 MODALE "I MIEI APPUNTAMENTI" (PER IL CLIENTE ONLINE)  -->
+<!-- ======================================================== -->
+<div id="pb-modal-my-apps" class="modal" style="z-index: 99999;" onclick="if(event.target===this) closePublicMyAppointmentsModal()">
+    <div class="modal-box" style="width: 520px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">📅</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 16px; font-weight: 800;">I Tuoi Appuntamenti</h3>
+                    <small style="color: #64748b; font-size: 11px;">Riepilogo delle tue prenotazioni già confermate</small>
+                </div>
+            </div>
+            <button type="button" onclick="closePublicMyAppointmentsModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div id="pb-my-apps-list-container" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;">
+            <!-- Popolato dinamicamente da JS -->
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); text-align: right; flex-shrink: 0;">
+            <button type="button" class="btn btn-p" style="padding: 8px 16px; font-size: 12px;" onclick="closePublicMyAppointmentsModal()">Ho Capito ➔</button>
+        </div>
     </div>
 </div>
 
