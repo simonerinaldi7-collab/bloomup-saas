@@ -11038,17 +11038,7 @@ window.renderProducts = async function() {
 
 
 
-// Salto rapido dal date picker manuale
-function onPublicQuickDatePicked(dateVal) {
-    if (!dateVal) return;
-    setPublicDate(dateVal);
-    
-    // Fa scorrere la pillola corrispondente al centro
-    setTimeout(() => {
-        const pill = document.getElementById(`pb-pill-${dateVal}`);
-        if (pill) pill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }, 100);
-}
+
 
 
 // Funzione per normalizzare il numero di telefono (rimuove prefissi internazionali, spazi, trattini)
@@ -20236,12 +20226,333 @@ function setPublicOperator(op) {
 }
 
 
-
 // =========================================================================
-// 📅 GESTIONE STATO CROMATICO BOTTONI DATA (ROSSE PERMANENTI & ZERO SBIANCAMENTO)
+// 🌐 MOTORE COMPLETO BOOKING ONLINE: REAL-TIME, CROMATISMI PULITI & ANTI-CRASH
 // =========================================================================
 
-// 1. Funzione centrale che aggiorna gli stili di tutti i bottoni data senza sovrascritture
+window._pbState = {
+    salonId: null,
+    customer: null,
+    selectedServices: [],
+    selectedOperator: 'any',
+    selectedDate: null,
+    selectedSlot: null,
+    selectedSlotEnd: null,
+    allocatedWorkstationId: null,
+    calculatedTotalMinutes: 0,
+    calculatedTotalPrice: 0,
+    allServices: [],
+    allOperators: [],
+    allSchedules: [],
+    allWorkstations: [],
+    allBookings: [],
+    allExistingApps: [],
+    customerUpcomingApps: []
+};
+
+// 1. BOOTSTRAP: Intercetta ?book=SALON_ID all'avvio
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingSalonId = urlParams.get('book');
+
+    if (bookingSalonId) {
+        console.log("🌐 [PORTALE PUBBLICO] Inizializzazione per salone:", bookingSalonId);
+        window._pbState.salonId = bookingSalonId.trim();
+
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.style.display = 'none';
+        const appShell = document.getElementById('app-shell');
+        if (appShell) appShell.style.display = 'none';
+
+        const portal = document.getElementById('public-booking-portal');
+        if (portal) portal.style.display = 'block';
+
+        await initPublicBookingPortal(window._pbState.salonId);
+    }
+});
+
+// 2. Caricamento Dati del Salone con Chiusure e Impostazioni Sincronizzate
+async function initPublicBookingPortal(salonId) {
+    const titleEl = document.getElementById('pb-salon-name');
+    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
+
+    if (!currentUser || !currentUser.salon_id) {
+        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
+    }
+
+    try {
+        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
+        settingsRows.forEach(s => {
+            if (s && s.key) sysSettings[s.key] = s.value;
+        });
+        
+        if (typeof loadBacConfigFromStorage === 'function') {
+            loadBacConfigFromStorage();
+        }
+
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const nowIso = new Date().toISOString();
+
+        const services = inventory.filter(i => {
+            return i.type === 'servizio' && i.duration_minutes && parseInt(i.duration_minutes) > 0;
+        });
+
+        services.forEach(s => {
+            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
+            let currentPriceRow = sHistory.find(ph => {
+                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                return nowIso >= from && nowIso <= to;
+            });
+
+            if (!currentPriceRow && sHistory.length > 0) {
+                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                currentPriceRow = sHistory[0];
+            }
+
+            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
+        });
+
+        window._pbState.allServices = services;
+        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
+        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+
+        renderPublicServicesList();
+        renderPublicOperatorsList();
+    } catch (e) {
+        console.error("Errore inizializzazione portale:", e);
+    }
+}
+
+// 3. STEP 1: Autenticazione Cliente
+async function handlePublicAuthContinue() {
+    const phoneInput = document.getElementById('pb-auth-phone');
+    const rawPhone = phoneInput ? phoneInput.value.trim() : '';
+    
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('39') && cleanPhone.length >= 11) cleanPhone = cleanPhone.substring(2);
+    if (cleanPhone.startsWith('0') && cleanPhone.length >= 10) cleanPhone = cleanPhone.substring(1);
+
+    const feedback = document.getElementById('pb-auth-feedback');
+    const regFields = document.getElementById('pb-register-fields');
+
+    if (!cleanPhone || cleanPhone.length < 9) {
+        return alert("Inserisci un numero di cellulare valido (almeno 9-10 cifre).");
+    }
+
+    const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+    const matched = customers.find(c => {
+        if (!c.phone || c.phone.trim() === '') return false;
+        let cPhone = String(c.phone).replace(/\D/g, '');
+        if (cPhone.startsWith('39') && cPhone.length >= 11) cPhone = cPhone.substring(2);
+        if (cPhone.startsWith('0') && cPhone.length >= 10) cPhone = cPhone.substring(1);
+        return cPhone.length >= 9 && cPhone === cleanPhone;
+    });
+
+    const isApprovalRequired = (sysSettings && sysSettings['booking_require_approval'] !== '0');
+
+    if (matched) {
+        const status = matched.booking_status || 'approved';
+
+        if (status === 'blocked') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fee2e2';
+            feedback.style.color = '#dc2626';
+            feedback.style.border = '1px solid #fecaca';
+            feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Contatta direttamente il salone.`;
+            return;
+        }
+
+        if (status === 'pending') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il salone non ha ancora abilitato il tuo numero. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
+            return;
+        }
+
+        window._pbState.customer = matched;
+        onCustomerVerifiedSuccess(matched);
+    } else {
+        if (regFields.style.display === 'none') {
+            regFields.style.display = 'block';
+            feedback.style.display = 'block';
+            feedback.style.background = '#ede9fe';
+            feedback.style.color = '#6d28d9';
+            feedback.style.border = '1px solid #ddd6fe';
+            feedback.innerHTML = `👋 Non risulti ancora registrato nei nostri sistemi! Inserisci nome e cognome per creare la tua scheda.`;
+            document.getElementById('pb-btn-auth-continue').innerText = "Completa Registrazione ➔";
+            return;
+        }
+
+        const fn = document.getElementById('pb-auth-firstname')?.value.trim();
+        const ln = document.getElementById('pb-auth-lastname')?.value.trim();
+        const gdpr = document.getElementById('pb-auth-gdpr')?.checked;
+
+        if (!fn || !ln) return alert("Inserisci sia il nome che il cognome per continuare.");
+        if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR.");
+
+        const initialStatus = isApprovalRequired ? 'pending' : 'approved';
+        const newCustPayload = {
+            id: crypto.randomUUID(),
+            salon_id: window._pbState.salonId,
+            first_name: fn,
+            last_name: ln,
+            phone: rawPhone,
+            gdpr_consent: 1,
+            gdpr_date: new Date().toISOString().split('T')[0],
+            booking_status: initialStatus
+        };
+
+        await window.universalQuery({ action: 'INSERT', table: 'customers', data: newCustPayload });
+
+        if (isApprovalRequired) {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
+            document.getElementById('pb-btn-auth-continue').style.display = 'none';
+        } else {
+            window._pbState.customer = newCustPayload;
+            onCustomerVerifiedSuccess(newCustPayload);
+        }
+    }
+}
+
+function onCustomerVerifiedSuccess(customer) {
+    const badge = document.getElementById('pb-user-badge');
+    if (badge) {
+        badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
+        badge.style.display = 'inline-block';
+    }
+    loadCustomerUpcomingAppointments(customer);
+    goToStep('pb-step-services');
+}
+
+// 4. STEP 2: Selezione Trattamenti
+function renderPublicServicesList() {
+    const list = document.getElementById('pb-services-list');
+    if (!list) return;
+
+    if (window._pbState.allServices.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">Nessun trattamento disponibile per la prenotazione online.</div>`;
+        return;
+    }
+
+    list.innerHTML = window._pbState.allServices.map(s => {
+        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id);
+        const dur = s.duration_minutes || 30;
+        const price = parseFloat(s.price || 0).toFixed(2);
+
+        return `
+            <div onclick="togglePublicServiceSelection('${s.id}')" 
+                 style="background: white; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(108, 92, 231, 0.15)' : 'none'};">
+                <div style="flex: 1;">
+                    <div style="font-weight: 800; font-size: 14px; color: #1e1b4b; margin-bottom: 2px;">${s.name}</div>
+                    <div style="font-size: 11.5px; color: #64748b; display: flex; gap: 8px;">
+                        <span>⏱️ ${dur} min</span>
+                        <span>•</span>
+                        <span style="font-weight: 700; color: #1e1b4b;">€ ${price}</span>
+                    </div>
+                </div>
+                <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; background: ${isSelected ? 'var(--p)' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                    ${isSelected ? '✓' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function togglePublicServiceSelection(servId) {
+    const s = window._pbState.allServices.find(x => x.id === servId);
+    if (!s) return;
+
+    const idx = window._pbState.selectedServices.findIndex(x => x.id === servId);
+    if (idx >= 0) {
+        window._pbState.selectedServices.splice(idx, 1);
+    } else {
+        window._pbState.selectedServices.push(s);
+    }
+
+    window._pbState.calculatedTotalMinutes = window._pbState.selectedServices.reduce((sum, item) => sum + (item.duration_minutes || 30), 0);
+    window._pbState.calculatedTotalPrice = window._pbState.selectedServices.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+
+    const durEl = document.getElementById('pb-summary-duration');
+    const priceEl = document.getElementById('pb-summary-price');
+    if (durEl) durEl.innerText = `⏱️ Durata: ${window._pbState.calculatedTotalMinutes} min`;
+    if (priceEl) priceEl.innerText = `€ ${window._pbState.calculatedTotalPrice.toFixed(2)}`;
+
+    renderPublicServicesList();
+}
+
+function goToStep3OperatorAndSlots() {
+    if (window._pbState.selectedServices.length === 0) {
+        return alert("Seleziona almeno un trattamento prima di procedere.");
+    }
+
+    const isEntirelyAutonomous = window._pbState.selectedServices.every(s => s.requires_operator === false || s.requires_operator === 0);
+    const opCard = document.getElementById('pb-operators-card');
+
+    if (opCard) {
+        if (isEntirelyAutonomous) {
+            opCard.style.display = 'none';
+            window._pbState.selectedOperator = 'Autonomo';
+        } else {
+            opCard.style.display = 'block';
+            if (window._pbState.selectedOperator === 'Autonomo') {
+                window._pbState.selectedOperator = 'any';
+            }
+            renderPublicOperatorsList();
+        }
+    }
+
+    // 🌟 RIGENERA LE DATE PRIMA DI MOSTRARE LO STEP 3 COSÌ I BOTTONI HANNO TESTO E COLORI PERFETTI
+    renderPublicDatesList();
+    goToStep('pb-step-slots');
+    computeAndRenderAvailableSlots();
+}
+
+// 5. STEP 3: Operatori, Date e Stili Cromatici Intelligenti
+function renderPublicOperatorsList() {
+    const container = document.getElementById('pb-operators-pills');
+    if (!container) return;
+
+    let html = `
+        <button type="button" class="btn pb-op-pill" data-op="any" onclick="setPublicOperator('any')" 
+                style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; border-radius: 20px; background: var(--p); color: white; border: none; white-space: nowrap; flex-shrink: 0;">
+            🌟 Primo Disponibile
+        </button>
+    `;
+
+    window._pbState.allOperators.forEach(u => {
+        html += `
+            <button type="button" class="btn pb-op-pill" data-op="${u.username}" onclick="setPublicOperator('${u.username}')" 
+                    style="padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 20px; background: #f8fafc; color: #475569; border: 1.5px solid #cbd5e1; white-space: nowrap; flex-shrink: 0;">
+                ${u.username}
+            </button>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function setPublicOperator(op) {
+    window._pbState.selectedOperator = op;
+    document.querySelectorAll('.pb-op-pill').forEach(btn => {
+        const isMatch = btn.getAttribute('data-op') === op;
+        btn.style.background = isMatch ? 'var(--p)' : '#f8fafc';
+        btn.style.color = isMatch ? 'white' : '#475569';
+        btn.style.border = isMatch ? 'none' : '1.5px solid #cbd5e1';
+    });
+    computeAndRenderAvailableSlots();
+}
+
+// 🎨 APPLICAZIONE STILI BOTTONI DATA (ROSSO FISSO SENZA SBIANCAMENTO)
 function updatePublicDatePillStyles() {
     const activeDate = window._pbState.selectedDate;
 
@@ -20250,41 +20561,47 @@ function updatePublicDatePillStyles() {
         const isMatch = (bDate === activeDate);
         const isClosed = (btn.getAttribute('data-closed') === 'true');
 
+        const spanWeekday = btn.querySelector('.pb-pill-weekday');
+        const spanDaynum = btn.querySelector('.pb-pill-daynum');
+
         if (isClosed) {
             // 🔴 DATA CHIUSA / SENZA DISPONIBILITÀ
             if (isMatch) {
-                // Selezionata: ROSSO INTENSO / VIVO con testo bianco
+                // Selezionata: ROSSO INTENSO / VIVO
                 btn.style.setProperty('background', '#dc2626', 'important');
-                btn.style.setProperty('color', '#ffffff', 'important');
                 btn.style.setProperty('border-color', '#991b1b', 'important');
                 btn.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 38, 38, 0.25)', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#ffffff', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#ffffff', 'important');
             } else {
-                // Non selezionata: ROSSO CHIARO PERMANENTE (Non diventa mai bianca!)
+                // Non selezionata: ROSSO CHIARO PERMANENTE (NON DIVENTA MAI BIANCO!)
                 btn.style.setProperty('background', '#fef2f2', 'important');
-                btn.style.setProperty('color', '#dc2626', 'important');
                 btn.style.setProperty('border-color', '#fecaca', 'important');
                 btn.style.setProperty('box-shadow', 'none', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#dc2626', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#dc2626', 'important');
             }
         } else {
             // ⚪ DATA APERTA NORMALE
             if (isMatch) {
-                // Selezionata: VIOLA BRAND con testo bianco
+                // Selezionata: VIOLA BRAND
                 btn.style.setProperty('background', 'var(--p)', 'important');
-                btn.style.setProperty('color', '#ffffff', 'important');
                 btn.style.setProperty('border-color', 'var(--p)', 'important');
                 btn.style.setProperty('box-shadow', '0 0 0 3px rgba(108, 92, 231, 0.2)', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#ffffff', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#ffffff', 'important');
             } else {
-                // Non selezionata: BIANCO
+                // Non selezionata: BIANCO PULITO
                 btn.style.setProperty('background', '#ffffff', 'important');
-                btn.style.setProperty('color', '#1e1b4b', 'important');
                 btn.style.setProperty('border-color', '#cbd5e1', 'important');
                 btn.style.setProperty('box-shadow', 'none', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#64748b', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#1e1b4b', 'important');
             }
         }
     });
 }
 
-// 2. Render delle date con tracciamento dell'attributo data-closed
 function renderPublicDatesList() {
     const container = document.getElementById('pb-dates-scroll');
     if (!container) return;
@@ -20337,7 +20654,7 @@ function renderPublicDatesList() {
         const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
         const dayNum = d.getDate();
 
-        // Verifica se la data è chiusa (in Configurazione O in Agenda)
+        // Controllo se chiuso per intero
         let isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
         
         if (!isDayClosed) {
@@ -20355,29 +20672,25 @@ function renderPublicDatesList() {
                     data-closed="${isDayClosed ? 'true' : 'false'}" 
                     onclick="setPublicDate('${dateStr}')" 
                     style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; cursor: pointer; flex-shrink: 0; border: 1.5px solid #cbd5e1; transition: transform 0.1s ease;">
-                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
-                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
+                <span class="pb-pill-weekday" style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
+                <span class="pb-pill-daynum" style="font-size: 15px; font-weight: 900;">${dayNum}</span>
             </button>
         `;
     }
     
     container.innerHTML = html;
-    
-    // Applica subito i colori corretti (rossi per i chiusi, bianco per gli aperti)
     updatePublicDatePillStyles();
 }
 
-// 3. Selezione data pulita (preserva il colore rosso delle altre date)
 function setPublicDate(dateStr) {
     window._pbState.selectedDate = dateStr;
     
     const quickPicker = document.getElementById('pb-quick-date-picker');
     if (quickPicker) quickPicker.value = dateStr;
 
-    // 🌟 AGGIORNA GLI STILI SENZA MAI SBIANCARE I BOTTONI ROSSI!
+    // Preserva il colore rosso delle date chiuse
     updatePublicDatePillStyles();
 
-    // Allerta se il cliente ha già prenotato in questa data
     const alertBox = document.getElementById('pb-existing-booking-alert');
     const existingOnDate = (window._pbState.customerUpcomingApps || []).find(a => a.date === dateStr);
 
@@ -20395,13 +20708,16 @@ function setPublicDate(dateStr) {
     computeAndRenderAvailableSlots();
 }
 
-// 6. 🧠 ALGORITMO CALCOLO SLOT DISPONIBILI (Durata cumulata + Operatori + Cabine libere)
-// =========================================================================
-// 🧠 ALGORITMO SLOT CONDIZIONALE: OPERATORE VS CABINA AUTONOMA + CHIUSURE
-// =========================================================================
-// In computeAndRenderAvailableSlots (nel blocco <script>):
-// Sostituisci la prima parte della funzione con questo controllo potenziato:
+function onPublicQuickDatePicked(dateVal) {
+    if (!dateVal) return;
+    setPublicDate(dateVal);
+    setTimeout(() => {
+        const pill = document.getElementById(`pb-pill-${dateVal}`);
+        if (pill) pill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 100);
+}
 
+// 6. 🧠 ALGORITMO SLOT CORRETTO (SENZA CRASH E CON BOX ROSSO PERMANENTE)
 async function computeAndRenderAvailableSlots() {
     const grid = document.getElementById('pb-slots-grid');
     const badge = document.getElementById('pb-slots-count-badge');
@@ -20411,7 +20727,6 @@ async function computeAndRenderAvailableSlots() {
 
     const targetSalonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
 
-    // ⚡ 1. RECUPERO FRESCO AL VOLO DAL CLOUD (Elimina ogni ritardo di sync)
     if (navigator.onLine && targetSalonId) {
         await Promise.all([
             fetchFreshBookingSettingsFromCloud(targetSalonId),
@@ -20435,10 +20750,10 @@ async function computeAndRenderAvailableSlots() {
 
     const cleanTargetDate = normalizeDate(targetDateStr);
 
-    // 🛑 2. CONTROLLO CHIUSURE INTERA GIORNATA CON I DATI FRESCHI DEL CLOUD
     let isSalonClosedToday = false;
     let closureReason = "Chiusura Programmata";
 
+    // Controllo chiusure in Agenda
     const existingApps = window._pbState.allExistingApps || [];
     const closureApp = existingApps.find(a => {
         if (normalizeDate(a.date) !== cleanTargetDate) return false;
@@ -20452,6 +20767,7 @@ async function computeAndRenderAvailableSlots() {
         closureReason = closureApp.cust_name || "Giornata di Chiusura / Ferie";
     }
 
+    // Controllo chiusure in Configurazione
     const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
     let advConfig = null;
     if (advConfigRaw) {
@@ -20473,37 +20789,31 @@ async function computeAndRenderAvailableSlots() {
         });
     }
 
-// Dentro computeAndRenderAvailableSlots():
-// Subito prima o dopo aver mostrato il box rosso:
-
-    if (isSalonClosedToday || sortedSlots.length === 0) {
-        // Marca la pillola come chiusa/piena per mantenerla rossa
+    // 🛑 1. SE IL GIORNO È CHIUSO: BOX ROSSO PERMANENTE E PILLOLA ROSSA
+    if (isSalonClosedToday) {
+        if (badge) badge.innerText = "0 disponibili";
+        
         const currentPill = document.getElementById(`pb-pill-${cleanTargetDate}`);
         if (currentPill) {
             currentPill.setAttribute('data-closed', 'true');
             updatePublicDatePillStyles();
         }
-    }
 
-    if (isSalonClosedToday) {
-        if (badge) badge.innerText = "0 disponibili";
         grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align:center; padding:30px 15px; color:#dc2626; font-size:14px; font-weight:800; background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px;">
-                Nessuno slot disponibile ${formatDateIt(cleanTargetDate)}
-                <br><small style="font-weight:normal; color:#64748b; margin-top:8px; display:block;">Ti invitiamo a selezionare un'altra data disponibile.</small>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; color: #dc2626; font-size: 13.5px; font-weight: 800; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 14px; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.06);">
+                <span style="font-size: 28px; display: block; margin-bottom: 6px;">🏖️</span>
+                Nessuno slot disponibile per il giorno ${formatDateIt(cleanTargetDate)}
+                <br><span style="font-size: 12px; font-weight: 600; color: #991b1b; margin-top: 4px; display: inline-block;">Motivo: <b>${closureReason}</b></span>
+                <br><small style="font-weight: normal; color: #64748b; margin-top: 8px; display: block;">Ti invitiamo a selezionare un'altra data dal calendario in alto.</small>
             </div>
         `;
         return;
     }
 
-    // Funzione helper per verificare se uno slot interseca un blocco orario parziale
     const isSlotInPartialClosure = (slotStart, slotEnd) => {
-        return dayPartialClosures.some(pc => {
-            return slotStart < pc.end_time && slotEnd > pc.start_time;
-        });
+        return dayPartialClosures.some(pc => slotStart < pc.end_time && slotEnd > pc.start_time);
     };
 
-    // Raccoglie tutte le cabine richieste dai trattamenti
     const requiredWorkstations = new Set();
     window._pbState.selectedServices.forEach(s => {
         let wsList = [];
@@ -20519,11 +20829,9 @@ async function computeAndRenderAvailableSlots() {
     const availableSlotsMap = new Map();
     const now = new Date();
     const isToday = targetDateStr === now.toLocaleDateString('en-CA');
-    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30; // 30 min di preavviso minimo per oggi
+    const currentMinutesNow = now.getHours() * 60 + now.getMinutes() + 30;
 
-    // =========================================================================
-    // ⚡ CASO A: TRATTAMENTO AUTONOMO (SUPPORTO ORARIO CONTINUATO E SPEZZATO)
-    // =========================================================================
+    // CASO A: SERVIZIO AUTONOMO (SOLO CABINA)
     if (isEntirelyAutonomous && requiredWorkstations.size > 0) {
         const weeklyHours = advConfig && advConfig.weekly_hours ? advConfig.weekly_hours[targetDayOfWeek] : null;
         const bufferMinutes = (advConfig && advConfig.buffer_minutes) ? parseInt(advConfig.buffer_minutes) : 0;
@@ -20534,22 +20842,13 @@ async function computeAndRenderAvailableSlots() {
             return;
         }
 
-        // Costruzione delle fasce orarie della cabina (1 fascia se continuato, 2 fasce se spezzato)
         const cabinShifts = [];
         const hasBreak = weeklyHours && Boolean(weeklyHours.has_break);
 
         if (hasBreak) {
-            // Fascia Mattina
-            const s1 = weeklyHours.start_1 || "09:00";
-            const e1 = weeklyHours.end_1 || "13:00";
-            cabinShifts.push({ start: s1, end: e1 });
-
-            // Fascia Pomeriggio
-            const s2 = weeklyHours.start_2 || "14:30";
-            const e2 = weeklyHours.end_2 || "20:00";
-            cabinShifts.push({ start: s2, end: e2 });
+            cabinShifts.push({ start: weeklyHours.start_1 || "09:00", end: weeklyHours.end_1 || "13:00" });
+            cabinShifts.push({ start: weeklyHours.start_2 || "14:30", end: weeklyHours.end_2 || "20:00" });
         } else {
-            // Orario continuato unico
             const s1 = (weeklyHours && (weeklyHours.start_1 || weeklyHours.start)) || "09:00";
             const e1 = (weeklyHours && (weeklyHours.end_1 || weeklyHours.end)) || "20:00";
             cabinShifts.push({ start: s1, end: e1 });
@@ -20557,7 +20856,6 @@ async function computeAndRenderAvailableSlots() {
 
         const slotOccupancyDuration = totalMinutes + bufferMinutes;
 
-        // Genera gli slot liberi per ogni singola fascia aperta (esclude automaticamente la pausa pranzo!)
         for (let shift of cabinShifts) {
             const [oH, oM] = shift.start.split(':').map(Number);
             const [cH, cM] = shift.end.split(':').map(Number);
@@ -20577,13 +20875,11 @@ async function computeAndRenderAvailableSlots() {
                 const endOccupancyMin = curMin + slotOccupancyDuration;
                 const slotOccupancyEndStr = `${String(Math.floor(endOccupancyMin / 60)).padStart(2, '0')}:${String(endOccupancyMin % 60).padStart(2, '0')}`;
 
-                // Salta se ricade in un eventuale blocco orario straordinario
                 if (isSlotInPartialClosure(slotStartStr, slotEndStr)) {
                     curMin += 15;
                     continue;
                 }
 
-                // Verifica se almeno una delle cabine abilitate è libera
                 let freeWsId = null;
                 for (let wsId of requiredWorkstations) {
                     const isOccupied = window._pbState.allBookings.some(b => {
@@ -20611,10 +20907,7 @@ async function computeAndRenderAvailableSlots() {
             }
         }
     }
-
-    // =========================================================================
-    // ✂️ CASO B: TRATTAMENTO CON OPERATORE (SOLO TURNI STAFF, ZERO CABINE AUTONOME)
-    // =========================================================================
+    // CASO B: TRATTAMENTO CON OPERATORE
     else {
         const candidateOperators = targetOp === 'any' 
             ? window._pbState.allOperators.map(u => u.username)
@@ -20648,13 +20941,11 @@ async function computeAndRenderAvailableSlots() {
                     const endMinSlot = curMin + totalMinutes;
                     const slotEndStr = `${String(Math.floor(endMinSlot / 60)).padStart(2, '0')}:${String(endMinSlot % 60).padStart(2, '0')}`;
 
-                    // 🛑 Se lo slot cade in un blocco orario parziale del salone, saltalo!
                     if (isSlotInPartialClosure(slotStartStr, slotEndStr)) {
                         curMin += 15;
                         continue;
                     }
 
-                    // Controllo impegni dell'operatore
                     const opConflict = opAppointments.some(a => {
                         const aStart = (a.time || '00:00').substring(0, 5);
                         const aEnd = a.end_time ? a.end_time.substring(0, 5) : `${String(parseInt(aStart.split(':')[0]) + 1).padStart(2, '0')}:${aStart.split(':')[1]}`;
@@ -20700,11 +20991,25 @@ async function computeAndRenderAvailableSlots() {
         }
     }
 
+    // 🌟 RISOLUZIONE CORRETTA: sortedSlots È ORA DEFINITO QUI PRIMA DI ESSERE USATO!
     const sortedSlots = Array.from(availableSlotsMap.values()).sort((a, b) => a.time.localeCompare(b.time));
     if (badge) badge.innerText = `${sortedSlots.length} disponibili`;
 
+    // 🛑 2. SE NON CI SONO SLOT DISPONIBILI: BOX ROSSO PERMANENTE E PILLOLA ROSSA
     if (sortedSlots.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:25px; color:#e17055; font-size:12.5px; background:#fff1f0; border-radius:10px;">Nessun orario libero per questo trattamento in questa data. Prova a selezionare un altro giorno.</div>`;
+        const currentPill = document.getElementById(`pb-pill-${cleanTargetDate}`);
+        if (currentPill) {
+            currentPill.setAttribute('data-closed', 'true');
+            updatePublicDatePillStyles();
+        }
+
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; color: #dc2626; font-size: 13.5px; font-weight: 800; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 14px; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.06);">
+                <span style="font-size: 28px; display: block; margin-bottom: 6px;">🚫</span>
+                Nessun Orario Disponibile in data ${formatDateIt(cleanTargetDate)}
+                <br><small style="font-weight: normal; color: #64748b; margin-top: 6px; display: block; line-height: 1.4;">Tutti gli slot per i trattamenti scelti sono già occupati o non disponibili. Ti invitiamo a scegliere un'altra data dal calendario in alto.</small>
+            </div>
+        `;
         return;
     }
 
@@ -20726,7 +21031,7 @@ function selectPublicSlot(timeStr, endTimeStr, operator, workstationId) {
     goToStep('pb-step-confirm');
 }
 
-// 7. STEP 4: Riepilogo e Invio Atomico della Prenotazione
+// 7. STEP 4: Riepilogo e Invio Prenotazione
 function renderConfirmSummary() {
     const box = document.getElementById('pb-confirm-summary-box');
     if (!box) return;
@@ -20747,15 +21052,12 @@ function renderConfirmSummary() {
     `;
 }
 
-// 7. STEP 4: Invio e Creazione Appuntamento da Portale Pubblico (Corretto e Compatibile)
-// B. Sostituisci executePublicBooking con il Pre-Flight Check:
 async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
     if (btn) { btn.disabled = true; btn.innerText = "Verifica disponibilità in corso..."; }
 
     const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
 
-    // 🛡️ PRE-FLIGHT CHECK DIRETTO: Scarica gli ultimi dati dal Cloud prima di confermare!
     if (navigator.onLine && salonId) {
         await Promise.all([
             fetchFreshBookingSettingsFromCloud(salonId),
@@ -20764,7 +21066,6 @@ async function executePublicBooking() {
         if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
     }
 
-    // 1. Controllo: il giorno è stato appena chiuso?
     const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
     let advConfig = null;
     if (advConfigRaw) {
@@ -20778,7 +21079,6 @@ async function executePublicBooking() {
     let isConflict = false;
     let conflictMsg = "";
 
-    // Verifica se l'intera data è stata chiusa mentre il cliente compilava
     if (advConfig && advConfig.closures) {
         const fullDayClosed = advConfig.closures.some(c => c.date === checkDate && c.is_all_day !== false);
         if (fullDayClosed) {
@@ -20786,7 +21086,6 @@ async function executePublicBooking() {
             conflictMsg = "Questa giornata è stata appena chiusa dal salone.";
         }
         
-        // Verifica se lo slot ricade in un blocco orario aggiunto nel frattempo
         const inPartial = advConfig.closures.some(c => c.date === checkDate && c.is_all_day === false && (checkStart < c.end_time && checkEnd > c.start_time));
         if (inPartial) {
             isConflict = true;
@@ -20794,7 +21093,6 @@ async function executePublicBooking() {
         }
     }
 
-    // Verifica se qualcun altro ha preso l'operatore o la cabina nel frattempo
     const appConflict = (window._pbState.allExistingApps || []).some(a => {
         if (a.date !== checkDate) return false;
         if (window._pbState.selectedSlotOperator !== 'Autonomo') {
@@ -20811,7 +21109,6 @@ async function executePublicBooking() {
         conflictMsg = "Questo orario è appena stato prenotato da un altro cliente.";
     }
 
-    // 🛑 SE C'È STATO UN CAMBIO REGOLE: BLOCCA LA PRENOTAZIONE E AGGIORNA GLI SLOT!
     if (isConflict) {
         alert(`⚠️ ORARIO NON PIÙ DISPONIBILE. Ti chiediamo di scegliere un altro orario.`);
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
@@ -20820,7 +21117,6 @@ async function executePublicBooking() {
         return;
     }
 
-    // SE TUTTO È VALIDO: PROCEDI COL SALVATAGGIO
     btn.innerText = "Salvataggio in corso...";
 
     const appointmentId = crypto.randomUUID();
@@ -20894,7 +21190,7 @@ async function executePublicBooking() {
     }
 }
 
-// 8. Navigazione semplice del Wizard
+// 8. Navigazione del Wizard
 function goToStep(stepId) {
     document.querySelectorAll('.pb-wizard-step').forEach(step => step.style.display = 'none');
     const target = document.getElementById(stepId);
@@ -20904,13 +21200,61 @@ function goToStep(stepId) {
     }
 }
 
-// 9. Salva Promemoria su WhatsApp per il cliente
+// 9. Promemoria WhatsApp
 function saveAppointmentToWhatsAppReminder() {
     const s = window._pbState;
     const msg = encodeURIComponent(`📅 Promemoria Appuntamento:\nData: ${formatDateIt(s.selectedDate)} alle ${s.selectedSlot}\nTrattamento: ${s.selectedServices.map(x=>x.name).join(', ')}\nOperatore: ${s.selectedSlotOperator}`);
     const cleanPhone = (s.customer.phone || '').replace(/\D/g, '');
     window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
 }
+// =========================================================================
+// 📅 GESTIONE STATO CROMATICO BOTTONI DATA (ROSSE PERMANENTI & ZERO SBIANCAMENTO)
+// =========================================================================
+
+// 1. Funzione centrale che aggiorna gli stili di tutti i bottoni data senza sovrascritture
+function updatePublicDatePillStyles() {
+    const activeDate = window._pbState.selectedDate;
+
+    document.querySelectorAll('.pb-date-pill').forEach(btn => {
+        const bDate = btn.getAttribute('data-date');
+        const isMatch = (bDate === activeDate);
+        const isClosed = (btn.getAttribute('data-closed') === 'true');
+
+        if (isClosed) {
+            // 🔴 DATA CHIUSA / SENZA DISPONIBILITÀ
+            if (isMatch) {
+                // Selezionata: ROSSO INTENSO / VIVO con testo bianco
+                btn.style.setProperty('background', '#dc2626', 'important');
+                btn.style.setProperty('color', '#ffffff', 'important');
+                btn.style.setProperty('border-color', '#991b1b', 'important');
+                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 38, 38, 0.25)', 'important');
+            } else {
+                // Non selezionata: ROSSO CHIARO PERMANENTE (Non diventa mai bianca!)
+                btn.style.setProperty('background', '#fef2f2', 'important');
+                btn.style.setProperty('color', '#dc2626', 'important');
+                btn.style.setProperty('border-color', '#fecaca', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+            }
+        } else {
+            // ⚪ DATA APERTA NORMALE
+            if (isMatch) {
+                // Selezionata: VIOLA BRAND con testo bianco
+                btn.style.setProperty('background', 'var(--p)', 'important');
+                btn.style.setProperty('color', '#ffffff', 'important');
+                btn.style.setProperty('border-color', 'var(--p)', 'important');
+                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(108, 92, 231, 0.2)', 'important');
+            } else {
+                // Non selezionata: BIANCO
+                btn.style.setProperty('background', '#ffffff', 'important');
+                btn.style.setProperty('color', '#1e1b4b', 'important');
+                btn.style.setProperty('border-color', '#cbd5e1', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+            }
+        }
+    });
+}
+
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
