@@ -20569,7 +20569,7 @@ async function executePublicBooking() {
 
     // 🛑 SE C'È STATO UN CAMBIO REGOLE: BLOCCA LA PRENOTAZIONE E AGGIORNA GLI SLOT!
     if (isConflict) {
-        alert(`⚠️ ORARIO NON PIÙ DISPONIBILE:\n\n${conflictMsg}\n\nLa disponibilità è stata aggiornata in tempo reale. Ti chiediamo di scegliere un altro orario.`);
+        alert(`⚠️ ORARIO NON PIÙ DISPONIBILE. Ti chiediamo di scegliere un altro orario.`);
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
         goToStep('pb-step-slots');
         computeAndRenderAvailableSlots();
