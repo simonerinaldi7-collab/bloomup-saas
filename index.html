@@ -11036,73 +11036,7 @@ window.renderProducts = async function() {
 
 
 
-function renderPublicDatesList() {
-    const container = document.getElementById('pb-dates-scroll');
-    if (!container) return;
 
-    let html = '';
-    const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-
-    // Recupera la finestra massima configurata (default 60 giorni)
-    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
-    let maxDays = 60;
-    let closuresList = [];
-
-    if (advConfigRaw) {
-        try {
-            const parsed = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw;
-            if (parsed && parsed.max_future_days) maxDays = parseInt(parsed.max_future_days);
-            closuresList = (parsed && parsed.closures) || [];
-        } catch(e) {}
-    }
-
-    const normalizeDate = (d) => {
-        if (!d) return '';
-        const p = String(d).trim().split(' ')[0].split('-');
-        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
-    };
-
-    const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-    if (!window._pbState.selectedDate) {
-        window._pbState.selectedDate = todayStr;
-    }
-
-    // Configura i limiti del date picker rapido
-    const maxFutureDate = new Date(today);
-    maxFutureDate.setDate(today.getDate() + maxDays);
-    const maxDateStr = `${maxFutureDate.getFullYear()}-${pad(maxFutureDate.getMonth() + 1)}-${pad(maxFutureDate.getDate())}`;
-
-    const quickPicker = document.getElementById('pb-quick-date-picker');
-    if (quickPicker) {
-        quickPicker.min = todayStr;
-        quickPicker.max = maxDateStr;
-        quickPicker.value = window._pbState.selectedDate;
-    }
-
-    for (let i = 0; i < maxDays; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const isSelected = (window._pbState.selectedDate === dateStr);
-
-        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
-        const dayNum = d.getDate();
-
-        // Controllo se il giorno è chiuso
-        const isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
-
-        html += `
-            <button type="button" class="btn pb-date-pill" id="pb-pill-${dateStr}" data-date="${dateStr}" onclick="setPublicDate('${dateStr}')" 
-                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; padding: 8px 4px; border-radius: 12px; background: ${isSelected ? 'var(--p)' : (isDayClosed ? '#fef2f2' : '#ffffff')}; color: ${isSelected ? 'white' : (isDayClosed ? '#fef2f2' : '#ffffff')}; border: 1.5px solid ${isSelected ? 'var(--p)' : (isDayClosed ? '#fecaca' : '#cbd5e1')}; cursor: pointer; flex-shrink: 0;">
-                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
-                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
-                
-            </button>
-        `;
-    }
-    container.innerHTML = html;
-}
 
 // Salto rapido dal date picker manuale
 function onPublicQuickDatePicked(dateVal) {
@@ -20303,22 +20237,147 @@ function setPublicOperator(op) {
 
 
 
+// =========================================================================
+// 📅 GESTIONE STATO CROMATICO BOTTONI DATA (ROSSE PERMANENTI & ZERO SBIANCAMENTO)
+// =========================================================================
+
+// 1. Funzione centrale che aggiorna gli stili di tutti i bottoni data senza sovrascritture
+function updatePublicDatePillStyles() {
+    const activeDate = window._pbState.selectedDate;
+
+    document.querySelectorAll('.pb-date-pill').forEach(btn => {
+        const bDate = btn.getAttribute('data-date');
+        const isMatch = (bDate === activeDate);
+        const isClosed = (btn.getAttribute('data-closed') === 'true');
+
+        if (isClosed) {
+            // 🔴 DATA CHIUSA / SENZA DISPONIBILITÀ
+            if (isMatch) {
+                // Selezionata: ROSSO INTENSO / VIVO con testo bianco
+                btn.style.setProperty('background', '#dc2626', 'important');
+                btn.style.setProperty('color', '#ffffff', 'important');
+                btn.style.setProperty('border-color', '#991b1b', 'important');
+                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 38, 38, 0.25)', 'important');
+            } else {
+                // Non selezionata: ROSSO CHIARO PERMANENTE (Non diventa mai bianca!)
+                btn.style.setProperty('background', '#fef2f2', 'important');
+                btn.style.setProperty('color', '#dc2626', 'important');
+                btn.style.setProperty('border-color', '#fecaca', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+            }
+        } else {
+            // ⚪ DATA APERTA NORMALE
+            if (isMatch) {
+                // Selezionata: VIOLA BRAND con testo bianco
+                btn.style.setProperty('background', 'var(--p)', 'important');
+                btn.style.setProperty('color', '#ffffff', 'important');
+                btn.style.setProperty('border-color', 'var(--p)', 'important');
+                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(108, 92, 231, 0.2)', 'important');
+            } else {
+                // Non selezionata: BIANCO
+                btn.style.setProperty('background', '#ffffff', 'important');
+                btn.style.setProperty('color', '#1e1b4b', 'important');
+                btn.style.setProperty('border-color', '#cbd5e1', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+            }
+        }
+    });
+}
+
+// 2. Render delle date con tracciamento dell'attributo data-closed
+function renderPublicDatesList() {
+    const container = document.getElementById('pb-dates-scroll');
+    if (!container) return;
+
+    let html = '';
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    const advConfigRaw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    let maxDays = 60;
+    let closuresList = [];
+
+    if (advConfigRaw) {
+        try {
+            const parsed = typeof advConfigRaw === 'string' ? JSON.parse(advConfigRaw) : advConfigRaw;
+            if (parsed && parsed.max_future_days) maxDays = parseInt(parsed.max_future_days);
+            closuresList = (parsed && parsed.closures) || [];
+        } catch(e) {}
+    }
+
+    const normalizeDate = (d) => {
+        if (!d) return '';
+        const p = String(d).trim().split(' ')[0].split('-');
+        return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : String(d).trim();
+    };
+
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    if (!window._pbState.selectedDate) {
+        window._pbState.selectedDate = todayStr;
+    }
+
+    const maxFutureDate = new Date(today);
+    maxFutureDate.setDate(today.getDate() + maxDays);
+    const maxDateStr = `${maxFutureDate.getFullYear()}-${pad(maxFutureDate.getMonth() + 1)}-${pad(maxFutureDate.getDate())}`;
+
+    const quickPicker = document.getElementById('pb-quick-date-picker');
+    if (quickPicker) {
+        quickPicker.min = todayStr;
+        quickPicker.max = maxDateStr;
+        quickPicker.value = window._pbState.selectedDate;
+    }
+
+    const existingApps = window._pbState.allExistingApps || [];
+
+    for (let i = 0; i < maxDays; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
+        const dayNum = d.getDate();
+
+        // Verifica se la data è chiusa (in Configurazione O in Agenda)
+        let isDayClosed = closuresList.some(c => normalizeDate(c.date) === dateStr && c.is_all_day !== false);
+        
+        if (!isDayClosed) {
+            isDayClosed = existingApps.some(a => {
+                if (normalizeDate(a.date) !== dateStr) return false;
+                const srv = (a.service || '').toLowerCase();
+                const cust = (a.cust_name || '').toLowerCase();
+                return srv.includes('chiusura') || srv.includes('ferie') || cust.includes('chiusura') || cust.includes('ferie');
+            });
+        }
+
+        html += `
+            <button type="button" class="btn pb-date-pill" id="pb-pill-${dateStr}" 
+                    data-date="${dateStr}" 
+                    data-closed="${isDayClosed ? 'true' : 'false'}" 
+                    onclick="setPublicDate('${dateStr}')" 
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 52px; padding: 8px 4px; border-radius: 12px; cursor: pointer; flex-shrink: 0; border: 1.5px solid #cbd5e1; transition: transform 0.1s ease;">
+                <span style="font-size: 10px; text-transform: uppercase;">${weekday}</span>
+                <span style="font-size: 15px; font-weight: 900;">${dayNum}</span>
+            </button>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Applica subito i colori corretti (rossi per i chiusi, bianco per gli aperti)
+    updatePublicDatePillStyles();
+}
+
+// 3. Selezione data pulita (preserva il colore rosso delle altre date)
 function setPublicDate(dateStr) {
     window._pbState.selectedDate = dateStr;
     
-    // Aggiorna input date picker
     const quickPicker = document.getElementById('pb-quick-date-picker');
     if (quickPicker) quickPicker.value = dateStr;
 
-    // Aggiorna stile pillole
-    document.querySelectorAll('.pb-date-pill').forEach(btn => {
-        const isMatch = btn.getAttribute('data-date') === dateStr;
-        btn.style.background = isMatch ? 'var(--p)' : '#ffffff';
-        btn.style.color = isMatch ? 'white' : '#1e1b4b';
-        btn.style.borderColor = isMatch ? 'var(--p)' : '#cbd5e1';
-    });
+    // 🌟 AGGIORNA GLI STILI SENZA MAI SBIANCARE I BOTTONI ROSSI!
+    updatePublicDatePillStyles();
 
-    // 🛡️ CONTROLLO ANTI-DOPPIA PRENOTAZIONE PER QUESTA DATA
+    // Allerta se il cliente ha già prenotato in questa data
     const alertBox = document.getElementById('pb-existing-booking-alert');
     const existingOnDate = (window._pbState.customerUpcomingApps || []).find(a => a.date === dateStr);
 
@@ -20412,6 +20471,18 @@ async function computeAndRenderAvailableSlots() {
                 }
             }
         });
+    }
+
+// Dentro computeAndRenderAvailableSlots():
+// Subito prima o dopo aver mostrato il box rosso:
+
+    if (isSalonClosedToday || sortedSlots.length === 0) {
+        // Marca la pillola come chiusa/piena per mantenerla rossa
+        const currentPill = document.getElementById(`pb-pill-${cleanTargetDate}`);
+        if (currentPill) {
+            currentPill.setAttribute('data-closed', 'true');
+            updatePublicDatePillStyles();
+        }
     }
 
     if (isSalonClosedToday) {
