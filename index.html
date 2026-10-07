@@ -20752,9 +20752,7 @@ async function computeAndRenderAvailableSlots() {
 
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; color: #dc2626; font-size: 13.5px; font-weight: 800; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 14px; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.06);">
-                <span style="font-size: 28px; display: block; margin-bottom: 6px;">🏖️</span>
                 Nessuno slot disponibile per il giorno ${formatDateIt(cleanTargetDate)}
-                <br><span style="font-size: 12px; font-weight: 600; color: #991b1b; margin-top: 4px; display: inline-block;">Motivo: <b>${closureReason}</b></span>
                 <br><small style="font-weight: normal; color: #64748b; margin-top: 8px; display: block;">Ti invitiamo a selezionare un'altra data dal calendario in alto.</small>
             </div>
         `;
