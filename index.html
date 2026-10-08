@@ -3143,200 +3143,235 @@
 
 
 <!-- ======================================================== -->
-<!-- 📱 PORTALE PRENOTAZIONI CLIENTE FINALE (SELF-SERVICE)    -->
+<!-- 📱 PORTALE PRENOTAZIONI LUXURY VAI-MUP (GENDER-NEUTRAL)  -->
 <!-- ======================================================== -->
-<!-- CONTENITORE PORTALE CON SCORRIMENTO NATIVO FLUIDO (INDEPENDENT VIEWPORT SCROLL) -->
-<div id="public-booking-portal" style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; max-height: 100vh; overflow-y: auto !important; -webkit-overflow-scrolling: touch; background: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b; z-index: 10000;">    
-    <!-- Top Header Brand Salone con Tasto "I Miei Appuntamenti" -->
-<header style="background: white; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 8px;">
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <div style="width: 36px; height: 36px; background: #ede9fe; color: #6d28d9; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;">✂️</div>
-        <div>
-            <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">Prenotazione Online</h3>
-            <small id="pb-salon-subtitle" style="color: #64748b; font-size: 11px;">Scegli il tuo trattamento preferito</small>
-        </div>
-    </div>
+<div id="public-booking-portal" style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; max-height: 100vh; overflow-y: auto !important; -webkit-overflow-scrolling: touch; background: #0c0527; font-family: 'Inter', -apple-system, sans-serif; color: #f8fafc; z-index: 10000;">
     
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <!-- Tasto visualizzazione appuntamenti già presi dal cliente -->
-        <button type="button" id="pb-my-apps-btn" class="btn" style="display: none; padding: 5px 12px; font-size: 11.5px; font-weight: 800; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; border-radius: 20px;" onclick="openPublicMyAppointmentsModal()">
-            📅 I Miei Appuntamenti (<span id="pb-my-apps-count">0</span>)
-        </button>
-        <div id="pb-user-badge" style="display: none; background: #f1f5f9; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #475569;"></div>
-    </div>
-</header>
+    <!-- SFONDO GEOMETRICO VETTORIALE DINAMICO (RICHIAMO LOGO V & WING) -->
+    <div style="position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;">
+        <!-- Glow Neon alla base (come nel logo) -->
+        <div style="position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%); width: 340px; height: 260px; background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, transparent 80%); filter: blur(40px);"></div>
+        <!-- Luce dorata superiore (riflesso freccia) -->
+        <div style="position: absolute; top: -60px; right: -40px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, transparent 70%); filter: blur(50px);"></div>
 
-    <!-- Contenitore Wizard Funnel a Passi -->
-    <main style="max-width: 620px; margin: 0 auto; padding: 16px;">
+        <!-- Silhouette V-Wing e Barre Geometriche SVG in Filigrana -->
+        <svg viewBox="0 0 500 800" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.12;">
+            <!-- Barre di crescita geometriche (lato sinistro) -->
+            <rect x="30" y="620" width="16" height="50" rx="4" fill="#A855F7"/>
+            <rect x="52" y="585" width="16" height="85" rx="4" fill="#A855F7"/>
+            <rect x="74" y="550" width="16" height="120" rx="4" fill="#C084FC"/>
+            <rect x="96" y="510" width="16" height="160" rx="4" fill="#E879F9"/>
+            <!-- Linea "V" slanciata -->
+            <path d="M50 200 L180 680 L220 680 L350 320" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Ala curva ascendente dorata -->
+            <path d="M190 680 C210 520, 270 380, 420 220 C340 340, 280 480, 240 680 Z" fill="url(#goldGradBg)"/>
+            <path d="M260 580 C290 470, 360 380, 440 310 C390 390, 340 480, 310 590 Z" fill="url(#goldGradBg)" opacity="0.7"/>
+            <defs>
+                <linearGradient id="goldGradBg" x1="190" y1="680" x2="420" y2="220" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#F59E0B"/>
+                    <stop offset="0.6" stop-color="#FBBF24"/>
+                    <stop offset="1" stop-color="#FDE68A"/>
+                </linearGradient>
+            </defs>
+        </svg>
+    </div>
+
+    <!-- HEADER BRAND DI LUSSO -->
+    <header style="position: sticky; top: 0; z-index: 1000; background: rgba(18, 9, 54, 0.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 16px rgba(108, 92, 231, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;">
+                <img src="./icon-192.png" alt="VaiMUp" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div>
+                <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">Prenotazione Online</h3>
+                <small id="pb-salon-subtitle" style="color: #cbd5e1; font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
+                    Disponibilità in tempo reale
+                </small>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" id="pb-my-apps-btn" class="btn" style="display: none; padding: 6px 12px; font-size: 11px; font-weight: 800; background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1.5px solid #F59E0B; border-radius: 20px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);" onclick="openPublicMyAppointmentsModal()">
+                📅 I Miei Appuntamenti (<span id="pb-my-apps-count">0</span>)
+            </button>
+            <div id="pb-user-badge" style="display: none; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #f8fafc;"></div>
+        </div>
+    </header>
+
+    <!-- MAIN FUNNEL CONTAINER -->
+    <main style="position: relative; z-index: 10; max-width: 580px; margin: 0 auto; padding: 18px 14px 60px 14px;">
         
-        <!-- STEP 1: IDENTIFICAZIONE CLIENTE & TIER APPROVAZIONE -->
+        <!-- ========================================== -->
+        <!-- STEP 1: AUTHENTICATION / ONBOARDING        -->
+        <!-- ========================================== -->
         <section id="pb-step-auth" class="pb-wizard-step" style="display: block;">
-            <div style="background: white; border-radius: 20px; padding: 24px; border: 1.5px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <div style="width: 50px; height: 50px; background: #ede9fe; color: #6d28d9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 10px auto;">👤</div>
-                    <h2 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800; color: #1e1b4b;">Benvenuta/o!</h2>
-                    <p style="margin: 0; font-size: 12.5px; color: #64748b;">Inserisci il tuo cellulare per accedere o registrarti.</p>
+            <div style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: 24px; padding: 28px 22px; border: 1.5px solid rgba(255, 255, 255, 0.12); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);">
+                
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="width: 72px; height: 72px; margin: 0 auto 14px auto; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(108, 92, 231, 0.5); border: 2px solid rgba(255, 215, 0, 0.3);">
+                        <img src="./icon-192.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <h2 style="margin: 0 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Accedi o Registrati</h2>
+                    <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.4;">Inserisci il tuo recapito telefonico per visualizzare gli orari liberi.</p>
                 </div>
 
-                <div style="margin-bottom: 14px;">
-                    <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Cellulare (WhatsApp)</label>
-                    <input type="tel" id="pb-auth-phone" placeholder="Es. 3331234567" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 10px; box-sizing: border-box;">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">Cellulare (WhatsApp)</label>
+                    <div style="position: relative;">
+                        <input type="tel" id="pb-auth-phone" placeholder="Es. 333 1234567" style="width: 100%; padding: 14px 16px; font-size: 17px; font-weight: 800; border: 1.5px solid rgba(255, 255, 255, 0.18); border-radius: 12px; background: rgba(15, 8, 45, 0.85); color: #ffffff; outline: none; box-sizing: border-box; transition: all 0.2s;">
+                    </div>
                 </div>
 
                 <!-- Campi anagrafici per registrazione nuovo cliente -->
-                <div id="pb-register-fields" style="display: none; border-top: 1px dashed #cbd5e1; padding-top: 14px; margin-top: 14px;">
+                <div id="pb-register-fields" style="display: none; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 16px; margin-top: 16px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
                         <div>
-                            <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Nome *</label>
-                            <input type="text" id="pb-auth-firstname" placeholder="Es. Maria" style="width: 100%; padding: 10px; font-size: 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+                            <label style="display: block; font-size: 11px; font-weight: 800; color: #cbd5e1; text-transform: uppercase; margin-bottom: 4px;">Nome *</label>
+                            <input type="text" id="pb-auth-firstname" placeholder="Nome" style="width: 100%; padding: 12px; font-size: 14px; border: 1.5px solid rgba(255, 255, 255, 0.18); border-radius: 10px; background: rgba(15, 8, 45, 0.85); color: #ffffff; outline: none; box-sizing: border-box;">
                         </div>
                         <div>
-                            <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Cognome *</label>
-                            <input type="text" id="pb-auth-lastname" placeholder="Es. Rossi" style="width: 100%; padding: 10px; font-size: 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+                            <label style="display: block; font-size: 11px; font-weight: 800; color: #cbd5e1; text-transform: uppercase; margin-bottom: 4px;">Cognome *</label>
+                            <input type="text" id="pb-auth-lastname" placeholder="Cognome" style="width: 100%; padding: 12px; font-size: 14px; border: 1.5px solid rgba(255, 255, 255, 0.18); border-radius: 10px; background: rgba(15, 8, 45, 0.85); color: #ffffff; outline: none; box-sizing: border-box;">
                         </div>
                     </div>
 
-                    <div style="background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
-                        <label style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 11.5px; color: #475569; cursor: pointer; text-transform: none;">
-                            <input type="checkbox" id="pb-auth-gdpr" checked style="width: 16px; height: 16px; accent-color: var(--p); margin: 0;">
-                            <span>Accetto il trattamento dei dati personali (Privacy GDPR)</span>
+                    <div style="background: rgba(15, 8, 45, 0.6); padding: 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 10px; margin: 0; font-size: 11.5px; color: #cbd5e1; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="pb-auth-gdpr" checked style="width: 18px; height: 18px; accent-color: #F59E0B; margin: 0;">
+                            <span>Accetto il trattamento dei dati personali (Informativa Privacy)</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- Schermata di blocco profilo / approvazione in attesa -->
-                <div id="pb-auth-feedback" style="display: none; padding: 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45; margin-bottom: 14px;"></div>
+                <div id="pb-auth-feedback" style="display: none; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; margin-bottom: 16px;"></div>
 
-                <button type="button" id="pb-btn-auth-continue" class="btn btn-p" style="width: 100%; padding: 14px; justify-content: center; font-size: 14px; font-weight: 800; border-radius: 10px;" onclick="handlePublicAuthContinue()">
-                    Continua ➔
+                <!-- Bottone Oro Ascendente "Growth Action" -->
+                <button type="button" id="pb-btn-auth-continue" class="btn" style="width: 100%; padding: 15px; justify-content: center; font-size: 15px; font-weight: 900; letter-spacing: 0.3px; border-radius: 12px; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #0f172a; border: none; box-shadow: 0 4px 18px rgba(245, 158, 11, 0.4); cursor: pointer; transition: transform 0.15s ease;" onclick="handlePublicAuthContinue()">
+                    Continua al Calendario ➔
                 </button>
             </div>
         </section>
 
-        <!-- STEP 2: SELEZIONE TRATTAMENTI / SERVIZI -->
+        <!-- ========================================== -->
+        <!-- STEP 2: CATALOGO TRATTAMENTI & PACCHETTI   -->
+        <!-- ========================================== -->
         <section id="pb-step-services" class="pb-wizard-step" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #1e1b4b;">1. Scegli i Trattamenti</h4>
-                <small style="color: #64748b; font-size: 11px;">Puoi selezionarne anche più di uno</small>
+            
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px;">
+                <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">1. Seleziona i Trattamenti</h4>
+                <small style="color: #94a3b8; font-size: 11.5px;">Multi-selezione attiva</small>
             </div>
 
-<!-- 🎁 SEZIONE SEDUTE PREPAGATE / CARNET DEL CLIENTE -->
-<div id="pb-prepaid-packages-section" style="display: none; margin-bottom: 16px;">
-    <div style="background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%); border: 1.5px solid #c4b5fd; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">🎁</span>
-            <div>
-                <b style="font-size: 13px; color: #1e1b4b; display: block;">I Tuoi Trattamenti Prepagati (Carnet Attivi)</b>
-                <small style="color: #6d28d9; font-size: 11px;">Hai sedute disponibili già saldate: selezionale a costo € 0.00!</small>
-            </div>
-        </div>
-    </div>
-    <div id="pb-prepaid-services-list" style="display: flex; flex-direction: column; gap: 8px;">
-        <!-- Popolato dinamicamente da JS con le sedute del carnet -->
-    </div>
-</div>
-
-            <!-- Lista Card Servizi -->
-            <div id="pb-services-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 80px;">
-                <!-- Popolato dinamicamente da JS -->
-            </div>
-
-            <!-- Sticky Bottom Bar con Totali e Tasto Avanti -->
-            <div style="position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1.5px solid #cbd5e1; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 -4px 15px rgba(0,0,0,0.05);">
-                <div>
-                    <div id="pb-summary-duration" style="font-size: 11px; font-weight: 700; color: #6d28d9;">⏱️ Durata: 0 min</div>
-                    <div id="pb-summary-price" style="font-size: 17px; font-weight: 900; color: #1e1b4b;">€ 0.00</div>
+            <!-- 🎁 Sezione Carnet Prepagati a € 0.00 -->
+            <div id="pb-prepaid-packages-section" style="display: none; margin-bottom: 16px;">
+                <div style="background: rgba(124, 58, 237, 0.2); border: 1.5px solid rgba(168, 85, 247, 0.5); border-radius: 16px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.15);">
+                    <span style="font-size: 22px;">🎁</span>
+                    <div>
+                        <b style="font-size: 13.5px; color: #f3e8ff; display: block;">I Tuoi Carnet Attivi</b>
+                        <small style="color: #d8b4fe; font-size: 11.5px;">Sedute prepagate disponibili: riscattale a costo € 0.00</small>
+                    </div>
                 </div>
-                <button type="button" id="pb-btn-to-step3" class="btn btn-p" style="padding: 12px 20px; font-size: 13px; font-weight: 800; border-radius: 10px;" onclick="goToStep3OperatorAndSlots()">
+                <div id="pb-prepaid-services-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+
+            <!-- Lista Card Trattamenti di Listino -->
+            <div id="pb-services-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 100px;"></div>
+
+            <!-- Sticky Bottom Checkout Bar -->
+            <div style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(18, 9, 54, 0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 22px; display: flex; justify-content: space-between; align-items: center; z-index: 500; box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.6);">
+                <div>
+                    <div id="pb-summary-duration" style="font-size: 11.5px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 4px;">
+                        ⏱️ Durata: 0 min
+                    </div>
+                    <div id="pb-summary-price" style="font-size: 20px; font-weight: 900; color: #FBBF24;">€ 0.00</div>
+                </div>
+                <button type="button" id="pb-btn-to-step3" class="btn" style="padding: 13px 22px; font-size: 14px; font-weight: 900; border-radius: 12px; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #0f172a; border: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); cursor: pointer;" onclick="goToStep3OperatorAndSlots()">
                     Scegli Data e Ora ➔
                 </button>
             </div>
         </section>
 
-        <!-- STEP 3: SELEZIONE OPERATORE, DATA E SLOT ORARIO -->
-<section id="pb-step-slots" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: white; border: 1px solid #cbd5e1;" onclick="goToStep('pb-step-services')">◀ Cambia Servizi</button>
-        <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #1e1b4b;">2. Data e Orario</h4>
-    </div>
-
-    <!-- Scelta Operatore (Nascosta automaticamente se il servizio è autonomo!) -->
-    <div id="pb-operators-card" style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
-        <label style="display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px;">Operatore Preferito</label>
-        <div id="pb-operators-pills" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
-            <!-- Popolato da JS -->
-        </div>
-    </div>
-
-    <!-- Selezione Data con Scorrimento Pillole + Calendario Rapido per Prenotazioni Future -->
-    <div style="background: white; border-radius: 14px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Giorno del Trattamento</label>
-            <!-- Calendario rapido per saltare a settimane/mesi futuri -->
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <span style="font-size: 10px; color: #64748b; font-weight: bold;">Oppure scegli data:</span>
-                <input type="date" id="pb-quick-date-picker" onchange="onPublicQuickDatePicked(this.value)" style="margin: 0; padding: 2px 6px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: bold; width: 110px;">
+        <!-- ========================================== -->
+        <!-- STEP 3: OPERATORE, DATE & SLOT DISPONIBILI -->
+        <!-- ========================================== -->
+        <section id="pb-step-slots" class="pb-wizard-step" style="display: none; padding-bottom: 90px;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;" onclick="goToStep('pb-step-services')">◀ Cambia Servizi</button>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">2. Data e Orario</h4>
             </div>
-        </div>
 
-        <div id="pb-dates-scroll" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
-            <!-- Generato dinamicamente in base alla finestra impostata -->
-        </div>
-    </div>
+            <!-- Card Selezione Operatore (Nascosta se solo autonomo) -->
+            <div id="pb-operators-card" style="background: rgba(22, 13, 62, 0.7); backdrop-filter: blur(12px); border-radius: 18px; padding: 14px 16px; border: 1.5px solid rgba(255, 255, 255, 0.1); margin-bottom: 14px;">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">Operatore Preferito</label>
+                <div id="pb-operators-pills" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;"></div>
+            </div>
 
-    <!-- ⚠️ BANNER ANTI-DOPPIA PRENOTAZIONE IN QUESTA DATA -->
-    <div id="pb-existing-booking-alert" style="display: none; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: #92400e; line-height: 1.45;">
-        <!-- Popolato dinamicamente da JS se il cliente ha già un appuntamento nel giorno selezionato -->
-    </div>
+            <!-- Card Calendario & Date -->
+            <div style="background: rgba(22, 13, 62, 0.7); backdrop-filter: blur(12px); border-radius: 18px; padding: 16px; border: 1.5px solid rgba(255, 255, 255, 0.1); margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px;">Giorno del Trattamento</label>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Calendario:</span>
+                        <input type="date" id="pb-quick-date-picker" onchange="onPublicQuickDatePicked(this.value)" style="margin: 0; padding: 4px 8px; font-size: 11.5px; background: rgba(15, 8, 45, 0.8); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-weight: bold; color: #FBBF24; outline: none;">
+                    </div>
+                </div>
 
-    <!-- Griglia Slot Orari Disponibili -->
-    <div style="background: white; border-radius: 14px; padding: 16px; border: 1.5px solid #cbd5e1;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <label style="margin: 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Orari Disponibili</label>
-            <span id="pb-slots-count-badge" style="font-size: 11px; color: #047857; font-weight: bold;"></span>
-        </div>
+                <div id="pb-dates-scroll" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch;"></div>
+            </div>
 
-        <div id="pb-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px;">
-            <!-- Popolato da JS -->
-        </div>
-    </div>
-</section>
+            <!-- Banner Allerta se già prenotato in questa data -->
+            <div id="pb-existing-booking-alert" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1.5px solid #F59E0B; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; font-size: 12.5px; color: #FDE68A; line-height: 1.45;"></div>
 
-        <!-- STEP 4: RIEPILOGO FINALE & CONFERMA PRENOTAZIONE -->
-        <section id="pb-step-confirm" class="pb-wizard-step" style="display: none; padding-bottom: 40px;">
-            <div style="background: white; border-radius: 20px; padding: 22px; border: 1.5px solid #cbd5e1; box-shadow: 0 10px 25px rgba(0,0,0,0.03);">
-                <div style="text-align: center; margin-bottom: 16px;">
+            <!-- Griglia Slot Orari -->
+            <div style="background: rgba(22, 13, 62, 0.7); backdrop-filter: blur(12px); border-radius: 18px; padding: 18px; border: 1.5px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px;">Orari Disponibili</label>
+                    <span id="pb-slots-count-badge" style="font-size: 11.5px; color: #34D399; font-weight: 800;"></span>
+                </div>
+
+                <div id="pb-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;"></div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- STEP 4: RIEPILOGO & CONFERMA FINALE        -->
+        <!-- ========================================== -->
+        <section id="pb-step-confirm" class="pb-wizard-step" style="display: none; padding-bottom: 60px;">
+            <div style="background: rgba(22, 13, 62, 0.8); backdrop-filter: blur(16px); border-radius: 24px; padding: 26px 20px; border: 1.5px solid rgba(255, 255, 255, 0.12); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);">
+                <div style="text-align: center; margin-bottom: 18px;">
                     <span style="font-size: 32px;">✨</span>
-                    <h3 style="margin: 4px 0; font-size: 18px; font-weight: 800; color: #1e1b4b;">Riepilogo Prenotazione</h3>
-                    <p style="margin: 0; font-size: 12px; color: #64748b;">Controlla i dettagli prima di confermare</p>
+                    <h3 style="margin: 4px 0; font-size: 20px; font-weight: 800; color: #ffffff;">Riepilogo Prenotazione</h3>
+                    <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">Verifica i dettagli prima di confermare</p>
                 </div>
 
-                <div id="pb-confirm-summary-box" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; line-height: 1.6; font-size: 13px;">
-                    <!-- Popolato dinamicamente da JS -->
-                </div>
+                <div id="pb-confirm-summary-box" style="background: rgba(15, 8, 45, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 16px; margin-bottom: 18px; line-height: 1.6; font-size: 13.5px; color: #e2e8f0;"></div>
 
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn" style="flex: 1; padding: 12px; justify-content: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px;" onclick="goToStep('pb-step-slots')">Modifica</button>
-                    <button type="button" id="pb-btn-submit-booking" class="btn btn-p" style="flex: 2; padding: 12px; justify-content: center; font-size: 14px; font-weight: 800; border-radius: 10px;" onclick="executePublicBooking()">
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn" style="flex: 1; padding: 14px; justify-content: center; background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; font-weight: 700;" onclick="goToStep('pb-step-slots')">Modifica</button>
+                    <button type="button" id="pb-btn-submit-booking" class="btn" style="flex: 2; padding: 14px; justify-content: center; font-size: 14px; font-weight: 900; border-radius: 12px; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #0f172a; border: none; box-shadow: 0 4px 18px rgba(245, 158, 11, 0.4); cursor: pointer;" onclick="executePublicBooking()">
                         Conferma Prenotazione ✓
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- STEP 5: SUCCESSO / CONFERMA AVVENUTA -->
+        <!-- ========================================== -->
+        <!-- STEP 5: PRENOTAZIONE CONFERMATA CON SUCCESSO -->
+        <!-- ========================================== -->
         <section id="pb-step-success" class="pb-wizard-step" style="display: none;">
-            <div style="background: white; border-radius: 20px; padding: 30px 20px; border: 1.5px solid #bbf7d0; text-align: center; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.08);">
-                <div style="width: 65px; height: 65px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px auto;">✓</div>
-                <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 800; color: #1e1b4b;">Appuntamento Confermato!</h2>
-                <p id="pb-success-desc" style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px;"></p>
+            <div style="background: rgba(22, 13, 62, 0.85); backdrop-filter: blur(16px); border-radius: 24px; padding: 34px 22px; border: 1.5px solid rgba(52, 211, 153, 0.4); text-align: center; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
+                <div style="width: 70px; height: 70px; background: rgba(16, 185, 129, 0.2); color: #34D399; border: 2px solid #34D399; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 18px auto; box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);">✓</div>
+                <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Appuntamento Confermato!</h2>
+                <p id="pb-success-desc" style="font-size: 13.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 24px;"></p>
 
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button type="button" class="btn btn-w" style="width: 100%; padding: 14px; justify-content: center; font-size: 13.5px; font-weight: 700; border-radius: 10px;" onclick="saveAppointmentToWhatsAppReminder()">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="btn" style="width: 100%; padding: 15px; justify-content: center; font-size: 14px; font-weight: 800; border-radius: 12px; background: #25D366; color: white; border: none; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.35); cursor: pointer;" onclick="saveAppointmentToWhatsAppReminder()">
                         💬 Salva Promemoria su WhatsApp
                     </button>
-                    <button type="button" class="btn" style="width: 100%; padding: 12px; justify-content: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; color: #475569;" onclick="location.reload()">
-                        Fissa un altro appuntamento
+                    <button type="button" class="btn" style="width: 100%; padding: 13px; justify-content: center; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; font-size: 13px; color: #e2e8f0; cursor: pointer;" onclick="location.reload()">
+                        Prenota un altro trattamento
                     </button>
                 </div>
             </div>
@@ -20387,32 +20422,75 @@ function onCustomerVerifiedSuccess(customer) {
 }
 
 // 4. STEP 2: Selezione Trattamenti
+// Render Cataloghi con Grafica Luxury Koordinata
 function renderPublicServicesList() {
     const list = document.getElementById('pb-services-list');
+    const prepaidSection = document.getElementById('pb-prepaid-packages-section');
+    const prepaidList = document.getElementById('pb-prepaid-services-list');
     if (!list) return;
 
+    // A. SEZIONE SEDUTE PREPAGATE (CARNET ATTIVI A € 0.00)
+    const prepaidItems = window._pbState.customerPrepaidItems || [];
+    if (prepaidSection && prepaidList) {
+        if (prepaidItems.length > 0) {
+            prepaidSection.style.display = 'block';
+            prepaidList.innerHTML = prepaidItems.map(p => {
+                const uniqueKey = `pkg_${p.custPkgId}_${p.serviceId}`;
+                const isSelected = window._pbState.selectedServices.some(sel => sel.cartUid === uniqueKey);
+
+                return `
+                    <div onclick="togglePublicPrepaidServiceSelection('${p.custPkgId}', '${p.serviceId}')" 
+                         style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(10px); border: 1.5px solid ${isSelected ? '#A855F7' : 'rgba(168, 85, 247, 0.4)'}; border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 16px rgba(168, 85, 247, 0.35)' : 'none'};">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                                <span style="font-size: 10.5px; font-weight: 800; background: rgba(168, 85, 247, 0.25); color: #D8B4FE; border: 1px solid #C084FC; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.5px;">CARNET ATTIVO</span>
+                                <b style="font-size: 14px; color: #ffffff;">${p.serviceName}</b>
+                            </div>
+                            <div style="font-size: 12px; color: #94a3b8;">
+                                Pacchetto: <span style="color:#e2e8f0; font-weight:600;">${p.packageName}</span> • <span style="color: #34D399; font-weight: 800;">${p.remaining} su ${p.total} rimaste</span>
+                            </div>
+                            <div style="font-size: 11.5px; color: #C084FC; font-weight: 800; margin-top: 4px;">
+                                ⏱️ ${p.duration_minutes} min • <span style="color: #FBBF24; font-size: 13px;">€ 0.00 (Prepagato)</span>
+                            </div>
+                        </div>
+                        <div style="width: 26px; height: 26px; border-radius: 50%; border: 2px solid ${isSelected ? '#F59E0B' : 'rgba(255, 255, 255, 0.25)'}; background: ${isSelected ? '#F59E0B' : 'transparent'}; color: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900;">
+                            ${isSelected ? '✓' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            prepaidSection.style.display = 'none';
+        }
+    }
+
+    // B. LISTINO SERVIZI STANDARD
     if (window._pbState.allServices.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:30px; color:#888;">Nessun trattamento disponibile per la prenotazione online.</div>`;
+        list.innerHTML = `<div style="text-align:center; padding:35px; color:#94a3b8; font-size:13px;">Nessun trattamento disponibile per la prenotazione online.</div>`;
         return;
     }
 
     list.innerHTML = window._pbState.allServices.map(s => {
-        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id);
+        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id && !sel.isPackageRedemption);
         const dur = s.duration_minutes || 30;
         const price = parseFloat(s.price || 0).toFixed(2);
+        const isAutonomous = (s.requires_operator === false || s.requires_operator === 0);
 
         return `
             <div onclick="togglePublicServiceSelection('${s.id}')" 
-                 style="background: white; border: 1.5px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.15s; box-shadow: ${isSelected ? '0 0 0 3px rgba(108, 92, 231, 0.15)' : 'none'};">
+                 style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(10px); border: 1.5px solid ${isSelected ? '#818CF8' : 'rgba(255, 255, 255, 0.12)'}; border-radius: 16px; padding: 15px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 16px rgba(99, 102, 241, 0.35)' : 'none'};">
                 <div style="flex: 1;">
-                    <div style="font-weight: 800; font-size: 14px; color: #1e1b4b; margin-bottom: 2px;">${s.name}</div>
-                    <div style="font-size: 11.5px; color: #64748b; display: flex; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                        ${isAutonomous ? '<span style="font-size: 10px; font-weight: 800; background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid #F59E0B; padding: 2px 6px; border-radius: 6px;">CABINA AUTONOMA</span>' : ''}
+                        <div style="font-weight: 800; font-size: 14.5px; color: #ffffff;">${s.name}</div>
+                    </div>
+                    <div style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
                         <span>⏱️ ${dur} min</span>
                         <span>•</span>
-                        <span style="font-weight: 700; color: #1e1b4b;">€ ${price}</span>
+                        <span style="font-weight: 900; color: #FBBF24; font-size: 14px;">€ ${price}</span>
                     </div>
                 </div>
-                <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${isSelected ? 'var(--p)' : '#cbd5e1'}; background: ${isSelected ? 'var(--p)' : 'white'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                <div style="width: 26px; height: 26px; border-radius: 50%; border: 2px solid ${isSelected ? '#F59E0B' : 'rgba(255, 255, 255, 0.25)'}; background: ${isSelected ? '#F59E0B' : 'transparent'}; color: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900;">
                     ${isSelected ? '✓' : ''}
                 </div>
             </div>
@@ -20504,6 +20582,7 @@ function setPublicOperator(op) {
 }
 
 // 🎨 APPLICAZIONE STILI BOTTONI DATA (ROSSO FISSO SENZA SBIANCAMENTO)
+// Aggiornamento Cromatico Bottoni Data sul Tema Luxury Dark
 function updatePublicDatePillStyles() {
     const activeDate = window._pbState.selectedDate;
 
@@ -20516,38 +20595,38 @@ function updatePublicDatePillStyles() {
         const spanDaynum = btn.querySelector('.pb-pill-daynum');
 
         if (isClosed) {
-            // 🔴 DATA CHIUSA / SENZA DISPONIBILITÀ
+            // 🔴 DATA CHIUSA / FERIE
             if (isMatch) {
-                // Selezionata: ROSSO INTENSO / VIVO
-                btn.style.setProperty('background', '#dc2626', 'important');
-                btn.style.setProperty('border-color', '#991b1b', 'important');
-                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 38, 38, 0.25)', 'important');
+                // Selezionata: Rosso Intenso con bagliore
+                btn.style.setProperty('background', '#DC2626', 'important');
+                btn.style.setProperty('border-color', '#EF4444', 'important');
+                btn.style.setProperty('box-shadow', '0 0 14px rgba(239, 68, 68, 0.45)', 'important');
                 if (spanWeekday) spanWeekday.style.setProperty('color', '#ffffff', 'important');
                 if (spanDaynum) spanDaynum.style.setProperty('color', '#ffffff', 'important');
             } else {
-                // Non selezionata: ROSSO CHIARO PERMANENTE (NON DIVENTA MAI BIANCO!)
-                btn.style.setProperty('background', '#fef2f2', 'important');
-                btn.style.setProperty('border-color', '#fecaca', 'important');
+                // Non selezionata: Rosso scuro trasparente
+                btn.style.setProperty('background', 'rgba(220, 38, 38, 0.15)', 'important');
+                btn.style.setProperty('border-color', 'rgba(239, 68, 68, 0.4)', 'important');
                 btn.style.setProperty('box-shadow', 'none', 'important');
-                if (spanWeekday) spanWeekday.style.setProperty('color', '#dc2626', 'important');
-                if (spanDaynum) spanDaynum.style.setProperty('color', '#dc2626', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#FCA5A5', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#EF4444', 'important');
             }
         } else {
-            // ⚪ DATA APERTA NORMALE
+            // ⚪ DATA APERTA
             if (isMatch) {
-                // Selezionata: VIOLA BRAND
-                btn.style.setProperty('background', 'var(--p)', 'important');
-                btn.style.setProperty('border-color', 'var(--p)', 'important');
-                btn.style.setProperty('box-shadow', '0 0 0 3px rgba(108, 92, 231, 0.2)', 'important');
-                if (spanWeekday) spanWeekday.style.setProperty('color', '#ffffff', 'important');
-                if (spanDaynum) spanDaynum.style.setProperty('color', '#ffffff', 'important');
+                // Selezionata: Oro / Champagne Luxury
+                btn.style.setProperty('background', 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', 'important');
+                btn.style.setProperty('border-color', '#FBBF24', 'important');
+                btn.style.setProperty('box-shadow', '0 0 14px rgba(245, 158, 11, 0.45)', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#0f172a', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#0f172a', 'important');
             } else {
-                // Non selezionata: BIANCO PULITO
-                btn.style.setProperty('background', '#ffffff', 'important');
-                btn.style.setProperty('border-color', '#cbd5e1', 'important');
+                // Non selezionata: Slate Translucido
+                btn.style.setProperty('background', 'rgba(15, 8, 45, 0.8)', 'important');
+                btn.style.setProperty('border-color', 'rgba(255, 255, 255, 0.15)', 'important');
                 btn.style.setProperty('box-shadow', 'none', 'important');
-                if (spanWeekday) spanWeekday.style.setProperty('color', '#64748b', 'important');
-                if (spanDaynum) spanDaynum.style.setProperty('color', '#1e1b4b', 'important');
+                if (spanWeekday) spanWeekday.style.setProperty('color', '#94a3b8', 'important');
+                if (spanDaynum) spanDaynum.style.setProperty('color', '#ffffff', 'important');
             }
         }
     });
@@ -20964,7 +21043,7 @@ async function computeAndRenderAvailableSlots() {
 
     grid.innerHTML = sortedSlots.map(slot => `
         <button type="button" class="btn" onclick="selectPublicSlot('${slot.time}', '${slot.endTime}', '${slot.operator}', '${slot.workstationId || ''}')" 
-                style="padding: 10px 4px; font-size: 13.5px; font-weight: 800; border-radius: 8px; background: #ffffff; color: var(--p); border: 1.5px solid #cbd5e1; text-align: center; justify-content: center;">
+                style="padding: 12px 4px; font-size: 14px; font-weight: 800; border-radius: 12px; background: rgba(15, 8, 45, 0.85); color: #FBBF24; border: 1.5px solid rgba(255, 255, 255, 0.18); text-align: center; justify-content: center; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
             ${slot.time}
         </button>
     `).join('');
