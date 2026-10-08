@@ -19,6 +19,82 @@
 }
 
 
+
+/* ======================================================== */
+/* 📱 HEADER RESPONSIVE ULTRA-COMPATTO PORTALE CLIENTE      */
+/* ======================================================== */
+
+.pb-my-apps-header-btn {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #FBBF24 !important;
+    border: 1.5px solid #F59E0B !important;
+    border-radius: 20px !important;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.25) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    min-height: unset !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+}
+
+.pb-my-apps-counter {
+    background: #F59E0B;
+    color: #0f172a;
+    font-size: 10px;
+    font-weight: 900;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 2px;
+}
+
+.pb-user-header-pill {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f8fafc;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    max-width: 115px;
+    overflow: hidden;
+    flex-shrink: 0;
+    line-height: 1.2;
+}
+
+/* 📱 OTTIMIZZAZIONE SMARTPHONE (< 480px): Mostra [ 📅 (1) ] senza testo lungo */
+@media screen and (max-width: 480px) {
+    .pb-my-apps-label-text {
+        display: none !important; /* Nasconde "Appuntamenti", mostrando solo icona + numero */
+    }
+    .pb-my-apps-header-btn {
+        padding: 5px 8px !important;
+    }
+    .pb-user-header-pill {
+        max-width: 100px; /* Non spinge mai il titolo e non va a capo */
+        padding: 5px 8px;
+    }
+}
+
+/* 💻 TABLET E DESKTOP (> 481px): Mostra dicitura completa */
+@media screen and (min-width: 481px) {
+    .pb-my-apps-label-text {
+        display: inline !important;
+    }
+    .pb-user-header-pill {
+        max-width: 180px;
+    }
+}
+
  /* ======================================================== */
 /* 📈 REPORT VENDITE: TABELLA LUMINOSA, CHIARA E LEGGIBILE */
 /* ======================================================== */
@@ -3177,27 +3253,41 @@
     </div>
 
     <!-- HEADER BRAND DI LUSSO -->
-    <header style="position: sticky; top: 0; z-index: 1000; background: rgba(18, 9, 54, 0.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 16px rgba(108, 92, 231, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;">
-                <img src="./icon-192.png" alt="VaiMUp" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-            <div>
-                <h3 id="pb-salon-name" style="margin: 0; font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">Prenotazione Online</h3>
-                <small id="pb-salon-subtitle" style="color: #cbd5e1; font-size: 11px; display: flex; align-items: center; gap: 4px;">
-                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
-                    Disponibilità in tempo reale
-                </small>
-            </div>
+    <!-- HEADER BRAND LUXURY CON LAYOUT RESPONSIVE ZERO-WRAP -->
+<header style="position: sticky; top: 0; z-index: 1000; background: rgba(18, 9, 54, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); min-height: 54px; box-sizing: border-box;">
+    
+    <!-- LATO SINISTRO: Brand, Logo & Titolo (Flessibile con Ellipsis) -->
+    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+        <div style="width: 36px; height: 36px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 14px rgba(108, 92, 231, 0.5); border: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;">
+            <img src="./icon-192.png" alt="VaiMUp" style="width: 100%; height: 100%; object-fit: cover;">
         </div>
+        <div style="min-width: 0; overflow: hidden;">
+            <h3 id="pb-salon-name" style="margin: 0; font-size: 13.5px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Prenotazione Online</h3>
+            <small id="pb-salon-subtitle" style="color: #94a3b8; font-size: 10px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10B981; flex-shrink: 0;"></span>
+                <span>Disponibilità live</span>
+            </small>
+        </div>
+    </div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <button type="button" id="pb-my-apps-btn" class="btn" style="display: none; padding: 6px 12px; font-size: 11px; font-weight: 800; background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1.5px solid #F59E0B; border-radius: 20px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);" onclick="openPublicMyAppointmentsModal()">
-                📅 I Miei Appuntamenti (<span id="pb-my-apps-count">0</span>)
-            </button>
-            <div id="pb-user-badge" style="display: none; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #f8fafc;"></div>
+    <!-- LATO DESTRO: Azioni Rapide & Profilo (Sempre su 1 sola riga) -->
+    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+        
+        <!-- Tasto "I Miei Appuntamenti" con Badge Compatto per Smartphone -->
+        <button type="button" id="pb-my-apps-btn" class="btn pb-my-apps-header-btn" style="display: none;" onclick="openPublicMyAppointmentsModal()" title="Visualizza le tue prenotazioni già confermate">
+            <span style="font-size: 13px; line-height: 1;">📅</span>
+            <span class="pb-my-apps-label-text">Appuntamenti</span>
+            <span class="pb-my-apps-counter" id="pb-my-apps-count">0</span>
+        </button>
+
+        <!-- Badge Utente con Troncamento Automatico -->
+        <div id="pb-user-badge" class="pb-user-header-pill" style="display: none;" title="">
+            <span style="font-size: 11px; flex-shrink: 0;">👤</span>
+            <span id="pb-user-name-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
         </div>
-    </header>
+        
+    </div>
+</header>
 
     <!-- MAIN FUNNEL CONTAINER -->
     <main style="position: relative; z-index: 10; max-width: 580px; margin: 0 auto; padding: 18px 14px 60px 14px;">
@@ -20413,11 +20503,27 @@ async function handlePublicAuthContinue() {
 
 function onCustomerVerifiedSuccess(customer) {
     const badge = document.getElementById('pb-user-badge');
+    const nameText = document.getElementById('pb-user-name-text');
+    
     if (badge) {
-        badge.innerText = `👤 ${customer.first_name} ${customer.last_name}`;
-        badge.style.display = 'inline-block';
+        const fullName = `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Cliente';
+        
+        if (nameText) {
+            nameText.innerText = fullName;
+        } else {
+            badge.innerText = `👤 ${fullName}`;
+        }
+        
+        badge.title = fullName; // Mostra il nome per intero se si tocca sopra
+        badge.style.display = 'inline-flex';
     }
+
+    // Carica appuntamenti già presi e carnet attivi
     loadCustomerUpcomingAppointments(customer);
+    loadCustomerPrepaidPackages(customer).then(() => {
+        renderPublicServicesList();
+    });
+
     goToStep('pb-step-services');
 }
 
