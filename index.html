@@ -3378,34 +3378,22 @@
 <!-- ======================================================== -->
 <div id="public-booking-portal" style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; max-height: 100vh; overflow-y: auto !important; -webkit-overflow-scrolling: touch; background: #0c0527; font-family: 'Inter', -apple-system, sans-serif; color: #f8fafc; z-index: 10000;">
     
-    <!-- SFONDO GEOMETRICO VETTORIALE DINAMICO (RICHIAMO LOGO V & WING) -->
-    <div style="position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;">
-        <!-- Glow Neon alla base (come nel logo) -->
-        <div style="position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%); width: 340px; height: 260px; background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, transparent 80%); filter: blur(40px);"></div>
-        <!-- Luce dorata superiore (riflesso freccia) -->
-        <div style="position: absolute; top: -60px; right: -40px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, transparent 70%); filter: blur(50px);"></div>
+    <!-- ======================================================== -->
+<!-- 👑 SFONDO LUXURY AMBIENT CON VERO LOGO IN FILIGRANA     -->
+<!-- ======================================================== -->
+<div style="position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; background: linear-gradient(180deg, #120738 0%, #0a0320 60%, #060215 100%);">
+    
+    <!-- Bagliore Oro Caldo Superiore (Riflesso della freccia del tuo logo) -->
+    <div style="position: absolute; top: -100px; right: -60px; width: 340px; height: 340px; background: radial-gradient(circle, rgba(245, 158, 11, 0.16) 0%, rgba(217, 119, 6, 0.05) 50%, transparent 75%); filter: blur(60px);"></div>
 
-        <!-- Silhouette V-Wing e Barre Geometriche SVG in Filigrana -->
-        <svg viewBox="0 0 500 800" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.12;">
-            <!-- Barre di crescita geometriche (lato sinistro) -->
-            <rect x="30" y="620" width="16" height="50" rx="4" fill="#A855F7"/>
-            <rect x="52" y="585" width="16" height="85" rx="4" fill="#A855F7"/>
-            <rect x="74" y="550" width="16" height="120" rx="4" fill="#C084FC"/>
-            <rect x="96" y="510" width="16" height="160" rx="4" fill="#E879F9"/>
-            <!-- Linea "V" slanciata -->
-            <path d="M50 200 L180 680 L220 680 L350 320" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- Ala curva ascendente dorata -->
-            <path d="M190 680 C210 520, 270 380, 420 220 C340 340, 280 480, 240 680 Z" fill="url(#goldGradBg)"/>
-            <path d="M260 580 C290 470, 360 380, 440 310 C390 390, 340 480, 310 590 Z" fill="url(#goldGradBg)" opacity="0.7"/>
-            <defs>
-                <linearGradient id="goldGradBg" x1="190" y1="680" x2="420" y2="220" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#F59E0B"/>
-                    <stop offset="0.6" stop-color="#FBBF24"/>
-                    <stop offset="1" stop-color="#FDE68A"/>
-                </linearGradient>
-            </defs>
-        </svg>
+    <!-- Bagliore Neon Viola Centrale alla Base (Riflesso del punto luce del tuo logo) -->
+    <div style="position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%); width: 420px; height: 300px; background: radial-gradient(circle, rgba(124, 58, 237, 0.4) 0%, rgba(99, 102, 241, 0.2) 40%, transparent 75%); filter: blur(50px);"></div>
+
+    <!-- 🌟 IL TUO VERO LOGO COME WATERMARK D'AUTORE AL CENTRO DELLO SFONDO -->
+    <div style="position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); width: 360px; max-width: 85vw; opacity: 0.06; mix-blend-mode: screen; filter: drop-shadow(0 0 40px rgba(108, 92, 231, 0.6));">
+        <img src="./icon-512.png" alt="VaiMUp Watermark" style="width: 100%; height: auto; object-fit: contain;">
     </div>
+</div>
 
     <!-- HEADER BRAND DI LUSSO -->
     <!-- HEADER BRAND LUXURY CON LAYOUT RESPONSIVE ZERO-WRAP -->
@@ -3454,8 +3442,8 @@
             <div style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: 24px; padding: 28px 22px; border: 1.5px solid rgba(255, 255, 255, 0.12); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);">
                 
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="width: 72px; height: 72px; margin: 0 auto 14px auto; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(108, 92, 231, 0.5); border: 2px solid rgba(255, 215, 0, 0.3);">
-                        <img src="./icon-192.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div style="width: 78px; height: 78px; margin: 0 auto 16px auto; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 28px rgba(108, 92, 231, 0.45), 0 0 0 1.5px rgba(245, 158, 11, 0.35); background: #130a3e;">
+                        <img src="./icon-192.png" alt="Logo VaiMUp" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                     <h2 style="margin: 0 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Accedi o Registrati</h2>
                     <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.4;">Inserisci il tuo recapito telefonico per visualizzare gli orari liberi.</p>
