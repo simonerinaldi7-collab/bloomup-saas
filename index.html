@@ -17,7 +17,146 @@
     will-change: scroll-position;
     contain: content;
 }
+/* ======================================================== */
+/* 📱 HEADER GESTIONALE ADATTIVO ANTI-SOVRAPPOSIZIONE       */
+/* ======================================================== */
 
+.header {
+    height: 60px !important;
+    min-height: 60px !important;
+    max-height: 60px !important;
+    padding: 0 14px !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+}
+
+.header-main-title {
+    margin: 0 !important;
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    letter-spacing: -0.3px !important;
+}
+
+.header-actions-cluster {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+}
+
+/* Stile comune per le pillole notifica nell'header */
+.header-badge-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 5px 8px !important;
+    border-radius: 20px !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+    transition: transform 0.15s ease, opacity 0.15s ease !important;
+}
+
+.header-badge-pill:hover {
+    transform: translateY(-1px) scale(1.02);
+}
+
+.badge-counter-pill {
+    padding: 1px 6px !important;
+    border-radius: 10px !important;
+    font-size: 10.5px !important;
+    font-weight: 900 !important;
+}
+
+/* 🔔 Amber Badge (Clienti da approvare) */
+.badge-amber {
+    background: rgba(217, 119, 6, 0.12) !important;
+    color: #b45309 !important;
+    border: 1px solid rgba(217, 119, 6, 0.3) !important;
+}
+.badge-amber .badge-counter-pill {
+    background: #d97706 !important;
+    color: white !important;
+}
+
+/* 🎁 Purple Badge (Pacchetti in scadenza) */
+.badge-purple {
+    background: rgba(109, 40, 217, 0.12) !important;
+    color: #6d28d9 !important;
+    border: 1px solid rgba(109, 40, 217, 0.3) !important;
+}
+.badge-purple .badge-counter-pill {
+    background: #7c3aed !important;
+    color: white !important;
+}
+
+/* ⚠️ Red Badge (Promemoria da inviare) */
+.badge-red {
+    background: rgba(220, 38, 38, 0.12) !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(220, 38, 38, 0.3) !important;
+}
+.badge-red .badge-counter-pill {
+    background: #dc2626 !important;
+    color: white !important;
+}
+
+/* 🔄 Tasto Verifica Reminders */
+.header-sync-btn {
+    padding: 6px 10px !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    border-radius: 10px !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+    min-height: unset !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+}
+
+/* 📱 OTTIMIZZAZIONE SMARTPHONE (< 768px): Nasconde i testi e tiene solo Icona + Numero! */
+@media screen and (max-width: 768px) {
+    .header-main-title {
+        max-width: 120px !important; /* Non fa mai straripare il titolo della pagina */
+        font-size: 15px !important;
+    }
+    .badge-full-label {
+        display: none !important; /* Nasconde "Booking", "Pacchetti", "Reminders" */
+    }
+    .btn-sync-label {
+        display: none !important; /* Mostra solo l'icona 🔄 */
+    }
+    .header-badge-pill {
+        padding: 5px 6px !important;
+        gap: 3px !important;
+    }
+    .header-sync-btn {
+        padding: 6px 8px !important;
+    }
+}
+
+/* 💻 TABLET E DESKTOP (> 769px): Mostra diciture complete ed estese */
+@media screen and (min-width: 769px) {
+    .header-main-title {
+        max-width: 320px !important;
+    }
+    .badge-full-label {
+        display: inline !important;
+    }
+    .btn-sync-label {
+        display: inline !important;
+    }
+}
 
 
 /* ======================================================== */
@@ -1353,37 +1492,53 @@
 </nav>
 
         <main class="main">
-            <header class="header">
-                <div style="display:flex; align-items:center; gap: 15px;">
-                    <button id="burger-btn" class="burger-toggle" onclick="toggleSidebar()">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </button>
-                    <h3 id="page-title" style="margin:0; font-size: 18px; font-weight: 700; color: #1e1b4b;">Dashboard</h3>
-                </div>
-                <div style="display:flex; align-items:center; gap:12px">
-                    <div id="reminder-alert" style="color:var(--d); font-size:12px; font-weight:bold; cursor:pointer; background: #fff1f0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--d);" onclick="changePage('logs')" class="hidden"></div>
-                    <button class="btn btn-s" style="padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="if(typeof window.api.checkReminders === 'function') window.api.checkReminders()">🔄 Verifica Reminders</button>
-                </div>
-               <!-- Pulsante di attivazione rapida assistente vocale nell'Header -->
-<!-- <div style="display:flex; align-items:center; gap:8px;">
-    <button class="btn" style="padding: 6px 14px; font-size: 11px; border-radius: 8px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;" onclick="toggleAiDrawer(true)" title="Apri Assistente IA">
-    🤖 Assistente IA
-</button>
-</div> */-->
+           <!-- ======================================================== -->
+<!-- 📱 HEADER GESTIONALE RESPONSIVE AD ALTO ORDINE VISIVO    -->
+<!-- ======================================================== -->
+<header class="header">
+    
+    <!-- LATO SINISTRO: Burger Menu & Titolo Pagina Flessibile -->
+    <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+        <button id="burger-btn" class="burger-toggle" onclick="toggleSidebar()" title="Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <h3 id="page-title" class="header-main-title">Dashboard</h3>
+    </div>
 
-<!-- Inserire all'interno di <header class="header"> nel div con i tasti di destra: -->
-<div id="pkg-expiry-alert" style="display: none; color: #6d28d9; font-size: 12px; font-weight: bold; cursor: pointer; background: #ede9fe; padding: 6px 12px; border-radius: 8px; border: 1px solid #c4b5fd; align-items: center; gap: 6px;" onclick="openPackageExpiryModal()" title="Clienti con pacchetti in scadenza">
-    🎁 <span id="pkg-expiry-badge-count">0</span> Pacchetti in Scadenza
-</div>
+    <!-- LATO DESTRO: Cluster Notifiche & Azioni Rapide (Sempre su 1 sola riga) -->
+    <div class="header-actions-cluster">
+        
+        <!-- 🔔 Badge Nuovi Clienti Booking Online -->
+        <div id="pending-cust-alert" class="header-badge-pill badge-amber" onclick="changePage('customers')" title="Nuovi clienti da approvare per il booking online" style="display: none;">
+            <span class="badge-icon">🔔</span>
+            <span class="badge-full-label">Booking</span>
+            <span id="pending-cust-count" class="badge-counter-pill">0</span>
+        </div>
 
-<!-- 🔔 BADGE NOTIFICA CLIENTI IN ATTESA DI APPROVAZIONE -->
-<div id="pending-cust-alert" style="display: none; color: #92400e; font-size: 12px; font-weight: 800; cursor: pointer; background: #fef3c7; padding: 6px 12px; border-radius: 8px; border: 1.5px solid #fde68a; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="changePage('customers')" title="Ci sono nuovi profili cliente da approvare per il booking online">
-    🔔 <span id="pending-cust-count">0</span> Clienti da Approvare
-</div>
+        <!-- 🎁 Badge Pacchetti & Carnet in Scadenza -->
+        <div id="pkg-expiry-alert" class="header-badge-pill badge-purple" onclick="openPackageExpiryModal()" title="Clienti con pacchetti in scadenza" style="display: none;">
+            <span class="badge-icon">🎁</span>
+            <span class="badge-full-label">Pacchetti</span>
+            <span id="pkg-expiry-badge-count" class="badge-counter-pill">0</span>
+        </div>
 
-            </header>
+        <!-- ⚠️ Badge Promemoria WhatsApp / SMS da Inviare -->
+        <div id="reminder-alert" class="header-badge-pill badge-red hidden" onclick="changePage('logs')" title="Promemoria pronti da inviare">
+            <span class="badge-icon">⚠️</span>
+            <span class="badge-full-label">Reminders</span>
+            <span id="reminder-badge-count" class="badge-counter-pill">0</span>
+        </div>
+
+        <!-- 🔄 Tasto Compatto Verifica Promemoria -->
+        <button type="button" class="btn header-sync-btn" onclick="if(typeof window.api.checkReminders === 'function') window.api.checkReminders()" title="Verifica e aggiorna promemoria">
+            <span style="font-size: 13px;">🔄</span>
+            <span class="btn-sync-label">Verifica</span>
+        </button>
+
+    </div>
+</header>
 
             <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -14111,9 +14266,9 @@ async function requestSnoozeBroadcast(appId, minutes) {
     }
 }
 
+// Aggiornamento contatore promemoria con supporto layout compatto
 async function updateReminderBadgeCount() {
     try {
-        // Usiamo la logica esistente di calcolo dei promemoria da inviare
         const targetHours = parseInt(sysSettings.reminder_hours) || 48;
         const targetDate = new Date();
         targetDate.setHours(targetDate.getHours() + targetHours);
@@ -14121,7 +14276,7 @@ async function updateReminderBadgeCount() {
         const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
 
         let pendingCount = 0;
-        allAppointments.forEach(a => {
+        (allAppointments || []).forEach(a => {
             const custNameLower = (a.cust_name || '').toLowerCase();
             const serviceLower = (a.service || '').toLowerCase();
             const isPausa = custNameLower.includes('pausa') || serviceLower.includes('pausa');
@@ -14131,7 +14286,7 @@ async function updateReminderBadgeCount() {
             if (isPausa || isChiusura) return;
 
             const logKey = `${salonId} | ${a.cust_name} | ${a.date} | ${a.time} | ${a.service}`;
-            const alreadySent = allLogs.some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
+            const alreadySent = (allLogs || []).some(l => l.appointment_info === logKey && l.msg_type.includes('REMINDER'));
 
             if (a.date === dateStr && !alreadySent) {
                 pendingCount++;
@@ -14139,16 +14294,22 @@ async function updateReminderBadgeCount() {
         });
 
         const alertBox = document.getElementById('reminder-alert');
+        const alertCount = document.getElementById('reminder-badge-count');
+
         if (alertBox) {
             if (pendingCount > 0) {
-                alertBox.innerText = `⚠️ ${pendingCount} Messaggi pronti!`;
+                if (alertCount) {
+                    alertCount.innerText = pendingCount;
+                } else {
+                    alertBox.innerText = `⚠️ ${pendingCount}`;
+                }
                 alertBox.classList.remove('hidden');
             } else {
                 alertBox.classList.add('hidden');
             }
         }
     } catch (e) {
-        console.error("Errore aggiornamento badge reminder:", e);
+        console.warn("Errore aggiornamento badge reminder:", e);
     }
 }
 
