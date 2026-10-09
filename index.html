@@ -20268,70 +20268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-// 2. Caricamento Dati del Salone con Chiusure e Impostazioni Sincronizzate
-async function initPublicBookingPortal(salonId) {
-    const titleEl = document.getElementById('pb-salon-name');
-    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
 
-    if (!currentUser || !currentUser.salon_id) {
-        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
-    }
-
-    try {
-        // 🌟 1. SCARICA SUBITO LE IMPOSTAZIONI E LE CHIUSURE DEL SALONE DA SUPABASE!
-        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
-        settingsRows.forEach(s => {
-            if (s && s.key) {
-                sysSettings[s.key] = s.value;
-            }
-        });
-        
-        // Idrata lo stato delle chiusure e delle cabine in memoria
-        if (typeof loadBacConfigFromStorage === 'function') {
-            loadBacConfigFromStorage();
-        }
-
-        // 2. Recupero listino, prezzi e appuntamenti
-        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-        const nowIso = new Date().toISOString();
-
-        const services = inventory.filter(i => {
-            const isService = i.type === 'servizio';
-            const hasDur = i.duration_minutes && parseInt(i.duration_minutes) > 0;
-            return isService && hasDur;
-        });
-
-        services.forEach(s => {
-            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
-            let currentPriceRow = sHistory.find(ph => {
-                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
-                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
-                return nowIso >= from && nowIso <= to;
-            });
-
-            if (!currentPriceRow && sHistory.length > 0) {
-                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                currentPriceRow = sHistory[0];
-            }
-
-            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
-        });
-
-        window._pbState.allServices = services;
-        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
-        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
-        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
-        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-
-        renderPublicServicesList();
-        renderPublicOperatorsList();
-        renderPublicDatesList();
-    } catch (e) {
-        console.error("Errore inizializzazione portale pubblico:", e);
-    }
-}
 
 // 3. STEP 1: Autenticazione & Verifica Approvazione Cliente
 // STEP 1: Autenticazione & Verifica Approvazione Cliente (Corretto e Blindato)
@@ -20746,6 +20683,75 @@ function onCustomerVerifiedSuccess(customer) {
 // =========================================================================
 // 🔥 RENDER CATALOGO: VETRINA OFFERTE PROTETTA + CARNET + LISTINO
 // =========================================================================
+
+
+// =========================================================================
+// 1. CARICAMENTO DATI PORTALE CON OFFERTE FRESCHE DA CLOUD GARANTITE
+// =========================================================================
+async function initPublicBookingPortal(salonId) {
+    const titleEl = document.getElementById('pb-salon-name');
+    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
+
+    if (!currentUser || !currentUser.salon_id) {
+        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
+    }
+
+    try {
+        // 🌟 SCARICA SUBITO LE IMPOSTAZIONI E LE OFFERTE DAL CLOUD (ZERO CACHE)
+        await fetchFreshBookingSettingsFromCloud(salonId);
+        
+        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
+        settingsRows.forEach(s => {
+            if (s && s.key) sysSettings[s.key] = s.value;
+        });
+        
+        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
+        if (typeof loadBookingOffersFromStorage === 'function') loadBookingOffersFromStorage();
+
+        // Recupero catalogo e storico prezzi
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        allInventory = inventory; // 👈 Mantiene sincronizzato anche allInventory
+        
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+        const nowIso = new Date().toISOString();
+
+        const services = inventory.filter(i => {
+            return i.type === 'servizio' && i.duration_minutes && parseInt(i.duration_minutes) > 0;
+        });
+
+        services.forEach(s => {
+            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
+            let currentPriceRow = sHistory.find(ph => {
+                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                return nowIso >= from && nowIso <= to;
+            });
+
+            if (!currentPriceRow && sHistory.length > 0) {
+                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                currentPriceRow = sHistory[0];
+            }
+
+            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
+        });
+
+        window._pbState.allServices = services;
+        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
+        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+
+        renderPublicServicesList();
+        renderPublicOperatorsList();
+    } catch (e) {
+        console.error("Errore inizializzazione portale:", e);
+    }
+}
+
+// =========================================================================
+// 2. RENDERING VETRINA OFFERTE IN EVIDENZA (AUTO-INIEZIONE SE MANCA IL DIV)
+// =========================================================================
 function renderPublicServicesList() {
     const list = document.getElementById('pb-services-list');
     if (!list) return;
@@ -20755,11 +20761,11 @@ function renderPublicServicesList() {
     const prepaidSection = document.getElementById('pb-prepaid-packages-section');
     const prepaidList = document.getElementById('pb-prepaid-services-list');
 
-    // 🛡️ INIEZIONE DIFENSIVA AUTOMATICA: Se il div manca nell'HTML, lo crea da solo!
+    // 🛡️ AUTO-INIEZIONE: Se il contenitore manca nell'HTML, lo crea automaticamente sopra la lista!
     if (!offersShowcase) {
         offersShowcase = document.createElement('div');
         offersShowcase.id = 'pb-special-offers-showcase';
-        offersShowcase.style.cssText = 'display: none; margin-bottom: 18px;';
+        offersShowcase.style.cssText = 'display: none; margin-bottom: 20px;';
         offersShowcase.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -20776,63 +20782,64 @@ function renderPublicServicesList() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // ==========================================
-    // 1. 🔥 RENDERING VETRINA OFFERTE ONLINE
-    // ==========================================
+    // Lettura Offerte
     let activeOffers = [];
     const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
     
     if (rawOffers) {
         try {
             const parsed = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers;
-            activeOffers = (parsed || []).filter(o => o.active !== false && (!o.expiry || o.expiry >= todayStr));
-        } catch(e) { 
-            activeOffers = []; 
-        }
+            activeOffers = (parsed || []).filter(o => {
+                const notExpired = !o.expiry || o.expiry.trim() === '' || o.expiry >= todayStr;
+                return o.active !== false && notExpired;
+            });
+        } catch(e) { activeOffers = []; }
     }
+
+    console.log(`🔥 [VETRINA OFFERTE] Trovate ${activeOffers.length} promozioni attive:`, activeOffers);
 
     if (offersShowcase && offersList) {
         if (activeOffers.length > 0) {
             offersShowcase.style.display = 'block';
-            
-            const cardsHtml = activeOffers.map(o => {
-                // Ricerca robusta del servizio sia in allServices che in allInventory
-                const sObj = (window._pbState.allServices || []).find(s => String(s.id).trim() === String(o.service_id).trim()) ||
-                             (allInventory || []).find(i => String(i.id).trim() === String(o.service_id).trim());
 
-                if (!sObj) return '';
+            offersList.innerHTML = activeOffers.map(o => {
+                // Ricerca tollerante del servizio collegato (senza fallire se non trovato!)
+                const sObj = (window._pbState.allServices || []).find(s => String(s.id).trim().toLowerCase() === String(o.service_id).trim().toLowerCase()) ||
+                             (allInventory || []).find(i => String(i.id).trim().toLowerCase() === String(o.service_id).trim().toLowerCase());
 
+                const serviceName = (sObj && sObj.name) || o.service_name || 'Trattamento Speciale';
+                const dur = (sObj && sObj.duration_minutes) || o.duration_minutes || 30;
+                const fullPrice = parseFloat(o.original_price || (sObj ? sObj.price : 0) || 0);
+                const promoPrice = parseFloat(o.promo_price || 0);
+                const discountPct = fullPrice > promoPrice && fullPrice > 0 ? Math.round(((fullPrice - promoPrice) / fullPrice) * 100) : 0;
+                
                 const uniqueCartKey = `promo_${o.id}`;
                 const isSelected = window._pbState.selectedServices.some(sel => sel.cartUid === uniqueCartKey);
-                const dur = sObj.duration_minutes || 30;
-                const fullPrice = parseFloat(o.original_price || sObj.price || 0);
-                const promoPrice = parseFloat(o.promo_price || 0);
-                const discountPct = fullPrice > 0 ? Math.round(((fullPrice - promoPrice) / fullPrice) * 100) : 0;
 
                 return `
                     <div onclick="togglePublicPromoServiceSelection('${o.id}')" 
-                         style="background: radial-gradient(ellipse at top left, rgba(245, 158, 11, 0.22) 0%, rgba(22, 13, 62, 0.85) 75%); border: 1.5px solid ${isSelected ? '#FBBF24' : 'rgba(245, 158, 11, 0.55)'}; border-radius: 18px; padding: 15px 16px; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 20px rgba(245, 158, 11, 0.45)' : '0 4px 15px rgba(0,0,0,0.3)'};">
+                         style="background: radial-gradient(ellipse at top left, rgba(245, 158, 11, 0.25) 0%, rgba(22, 13, 62, 0.92) 80%); border: 2px solid ${isSelected ? '#FBBF24' : 'rgba(245, 158, 11, 0.65)'}; border-radius: 18px; padding: 15px 16px; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 22px rgba(245, 158, 11, 0.5)' : '0 6px 18px rgba(0,0,0,0.45)'};">
                         
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                             <div style="flex: 1;">
                                 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
                                     <span style="font-size: 10px; font-weight: 900; background: linear-gradient(135deg, #F59E0B, #D97706); color: #0f172a; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.5px;">${o.badge_text || 'HOT DEAL'}</span>
-                                    ${discountPct > 0 ? `<span style="font-size: 10px; font-weight: 900; background: rgba(220, 38, 38, 0.3); color: #FCA5A5; border: 1px solid rgba(220, 38, 38, 0.5); padding: 1px 6px; border-radius: 6px;">RISPARMI ${discountPct}%</span>` : ''}
+                                    ${discountPct > 0 ? `<span style="font-size: 10px; font-weight: 900; background: rgba(220, 38, 38, 0.4); color: #FCA5A5; border: 1px solid rgba(220, 38, 38, 0.6); padding: 1px 6px; border-radius: 6px;">RISPARMI ${discountPct}%</span>` : ''}
                                 </div>
-                                <div style="font-weight: 900; font-size: 15px; color: #ffffff; letter-spacing: -0.2px;">${o.title}</div>
-                                <small style="color: #cbd5e1; font-size: 11.5px; display: block; margin-top: 1px;">Trattamento: <b>${sObj.name}</b></small>
-                                ${o.description ? `<small style="color: #94a3b8; font-size: 11px; font-style: italic; display: block; margin-top: 3px;">"${o.description}"</small>` : ''}
+                                <div style="font-weight: 900; font-size: 15.5px; color: #ffffff; letter-spacing: -0.2px;">${o.title}</div>
+                                <small style="color: #cbd5e1; font-size: 12px; display: block; margin-top: 1px;">Trattamento: <b>${serviceName}</b></small>
+                                ${o.description ? `<small style="color: #94a3b8; font-size: 11.5px; font-style: italic; display: block; margin-top: 3px;">"${o.description}"</small>` : ''}
                             </div>
 
                             <div style="text-align: right; flex-shrink: 0;">
-                                <div style="font-size: 12px; color: #94a3b8; text-decoration: line-through;">€ ${fullPrice.toFixed(2)}</div>
-                                <div style="font-size: 19px; font-weight: 900; color: #FBBF24;">€ ${promoPrice.toFixed(2)}</div>
+                                ${fullPrice > promoPrice ? `<div style="font-size: 12px; color: #94a3b8; text-decoration: line-through;">€ ${fullPrice.toFixed(2)}</div>` : ''}
+                                <div style="font-size: 21px; font-weight: 900; color: #FBBF24;">€ ${promoPrice.toFixed(2)}</div>
                             </div>
                         </div>
 
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.12);">
-                            <span style="font-size: 11px; color: #a78bfa; font-weight: 700;">⏱️ Durata: ${dur} min</span>
-                            <div style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 900; color: ${isSelected ? '#FBBF24' : '#ffffff'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 9px; border-top: 1px dashed rgba(255, 255, 255, 0.15);">
+                            <span style="font-size: 11.5px; color: #c084fc; font-weight: 800;">⏱️ Durata: ${dur} min</span>
+                            <div style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 900; color: ${isSelected ? '#FBBF24' : '#ffffff'};">
                                 <span>${isSelected ? '✓ Selezionato in Offerta' : 'Approfitta dell\'Offerta ➔'}</span>
                             </div>
                         </div>
@@ -20840,19 +20847,12 @@ function renderPublicServicesList() {
                     </div>
                 `;
             }).join('');
-
-            offersList.innerHTML = cardsHtml;
-            if (!cardsHtml.trim()) {
-                offersShowcase.style.display = 'none';
-            }
         } else {
             offersShowcase.style.display = 'none';
         }
     }
 
-    // ==========================================
-    // 2. 🎁 SEZIONE CARNET PREPAGATI (€ 0.00)
-    // ==========================================
+    // A. SEZIONE SEDUTE CARNET
     const prepaidItems = window._pbState.customerPrepaidItems || [];
     if (prepaidSection && prepaidList) {
         if (prepaidItems.length > 0) {
@@ -20866,7 +20866,7 @@ function renderPublicServicesList() {
                          style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(10px); border: 1.5px solid ${isSelected ? '#A855F7' : 'rgba(168, 85, 247, 0.4)'}; border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 16px rgba(168, 85, 247, 0.35)' : 'none'};">
                         <div style="flex: 1;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
-                                <span style="font-size: 10.5px; font-weight: 800; background: rgba(168, 85, 247, 0.25); color: #D8B4FE; border: 1px solid #C084FC; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.5px;">CARNET ATTIVO</span>
+                                <span style="font-size: 10.5px; font-weight: 800; background: rgba(168, 85, 247, 0.25); color: #D8B4FE; border: 1px solid #C084FC; padding: 2px 7px; border-radius: 6px;">CARNET ATTIVO</span>
                                 <b style="font-size: 14px; color: #ffffff;">${p.serviceName}</b>
                             </div>
                             <div style="font-size: 12px; color: #94a3b8;">
@@ -20887,9 +20887,7 @@ function renderPublicServicesList() {
         }
     }
 
-    // ==========================================
-    // 3. LISTINO SERVIZI STANDARD
-    // ==========================================
+    // B. LISTINO STANDARD
     if (window._pbState.allServices.length === 0) {
         list.innerHTML = `<div style="text-align:center; padding:35px; color:#94a3b8; font-size:13px;">Nessun trattamento disponibile per la prenotazione online.</div>`;
         return;
@@ -20923,17 +20921,19 @@ function renderPublicServicesList() {
     }).join('');
 }
 
-// 6. Selezione / Deselezione di un'Offerta Speciale
+// =========================================================================
+// 3. SELEZIONE PROMOZIONE SICURA (FUNZIONA ANCHE SE L'OGGETTO NON È IN ALLSERVICES)
+// =========================================================================
 function togglePublicPromoServiceSelection(offerId) {
     const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
     let offersList = [];
     try { offersList = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers; } catch(e) {}
     
-    const offer = (offersList || []).find(o => o.id === offerId);
+    const offer = (offersList || []).find(o => String(o.id) === String(offerId));
     if (!offer) return;
 
-    const sObj = (window._pbState.allServices || []).find(s => s.id === offer.service_id);
-    if (!sObj) return;
+    const sObj = (window._pbState.allServices || []).find(s => String(s.id).trim().toLowerCase() === String(offer.service_id).trim().toLowerCase()) ||
+                 (allInventory || []).find(i => String(i.id).trim().toLowerCase() === String(offer.service_id).trim().toLowerCase());
 
     const uniqueKey = `promo_${offer.id}`;
     const idx = window._pbState.selectedServices.findIndex(x => x.cartUid === uniqueKey);
@@ -20943,12 +20943,12 @@ function togglePublicPromoServiceSelection(offerId) {
     } else {
         window._pbState.selectedServices.push({
             cartUid: uniqueKey,
-            id: sObj.id,
-            name: `🔥 [${offer.title}] ${sObj.name}`,
+            id: (sObj && sObj.id) || offer.service_id,
+            name: `🔥 [${offer.title}] ${(sObj && sObj.name) || offer.service_name || 'Trattamento'}`,
             price: parseFloat(offer.promo_price || 0),
-            duration_minutes: sObj.duration_minutes || 30,
-            requires_operator: sObj.requires_operator,
-            required_workstations: sObj.required_workstations,
+            duration_minutes: (sObj && sObj.duration_minutes) || 30,
+            requires_operator: sObj ? sObj.requires_operator : true,
+            required_workstations: sObj ? (sObj.required_workstations || []) : [],
             isPromo: true,
             promoTitle: offer.title
         });
