@@ -2766,6 +2766,22 @@
             <button type="button" class="btn btn-p booking-subcard-btn" style="padding: 9px 14px; font-size: 12px; font-weight: 800; border-radius: 8px; white-space: nowrap; flex-shrink: 0;" onclick="openBookingAdvancedConfigModal()">
                 Configura Regole ➔
             </button>
+
+<!-- 🏷️ PULSANTE APERTURA GESTIONE OFFERTE & PROMOZIONI ONLINE -->
+<div class="booking-responsive-subcard" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
+    <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 16px;">🔥</span>
+            <b style="font-size: 13px; color: #1e1b4b;">Vetrina Offerte & Promozioni Speciali</b>
+            <span id="set-active-offers-count-badge" style="font-size: 10px; font-weight: 800; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 6px; border: 1px solid #fde68a;">0 attive</span>
+        </div>
+        <small style="color: #64748b; font-size: 11.5px; line-height: 1.35; display: block; margin-top: 2px;">Crea promozioni con prezzi scontati e badge evidenti per i clienti online.</small>
+    </div>
+    <button type="button" class="btn booking-subcard-btn" style="padding: 9px 14px; font-size: 12px; font-weight: 800; border-radius: 8px; white-space: nowrap; flex-shrink: 0; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #0f172a; border: none;" onclick="openBookingOffersModal()">
+        Gestisci Offerte ➔
+    </button>
+</div>
+
         </div>
 
         <!-- 📲 CARD CONDIVISIONE LINK & QR CODE (ADATTIVA SMARTPHONE/PC) -->
@@ -3529,6 +3545,23 @@
                 <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">1. Seleziona i Trattamenti</h4>
                 <small style="color: #94a3b8; font-size: 11.5px;">Multi-selezione attiva</small>
             </div>
+
+
+<!-- 🔥 VETRINA OFFERTE SPECIALI & PROMO ONLINE IN EVIDENZA -->
+<div id="pb-special-offers-showcase" style="display: none; margin-bottom: 18px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 16px;">🔥</span>
+            <span style="font-size: 12.5px; font-weight: 900; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.8px;">Offerte Esclusive Online</span>
+        </div>
+        <small style="color: #94a3b8; font-size: 11px;">Posti limitati</small>
+    </div>
+
+    <div id="pb-special-offers-list" style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Card luxury delle offerte popolate dinamicamente da JS -->
+    </div>
+</div>
+
 
             <!-- 🎁 Sezione Carnet Prepagati a € 0.00 -->
             <div id="pb-prepaid-packages-section" style="display: none; margin-bottom: 16px;">
@@ -20710,15 +20743,82 @@ function onCustomerVerifiedSuccess(customer) {
     goToStep('pb-step-services');
 }
 
-// 4. STEP 2: Selezione Trattamenti
-// Render Cataloghi con Grafica Luxury Koordinata
+// Render Cataloghi: Vetrina Offerte Speciali + Carnet Prepagati + Servizi Normali
 function renderPublicServicesList() {
     const list = document.getElementById('pb-services-list');
+    const offersShowcase = document.getElementById('pb-special-offers-showcase');
+    const offersList = document.getElementById('pb-special-offers-list');
     const prepaidSection = document.getElementById('pb-prepaid-packages-section');
     const prepaidList = document.getElementById('pb-prepaid-services-list');
     if (!list) return;
 
-    // A. SEZIONE SEDUTE PREPAGATE (CARNET ATTIVI A € 0.00)
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // ==========================================
+    // 1. 🔥 VETRINA OFFERTE SPECIALI & PROMO ONLINE
+    // ==========================================
+    let activeOffers = [];
+    const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
+    if (rawOffers) {
+        try {
+            const parsed = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers;
+            activeOffers = (parsed || []).filter(o => o.active !== false && (!o.expiry || o.expiry >= todayStr));
+        } catch(e) { activeOffers = []; }
+    }
+
+    if (offersShowcase && offersList) {
+        if (activeOffers.length > 0) {
+            offersShowcase.style.display = 'block';
+            offersList.innerHTML = activeOffers.map(o => {
+                const sObj = (window._pbState.allServices || []).find(s => s.id === o.service_id);
+                if (!sObj) return '';
+
+                const uniqueCartKey = `promo_${o.id}`;
+                const isSelected = window._pbState.selectedServices.some(sel => sel.cartUid === uniqueCartKey);
+                const dur = sObj.duration_minutes || 30;
+                const fullPrice = parseFloat(o.original_price || sObj.price || 0);
+                const promoPrice = parseFloat(o.promo_price || 0);
+                const discountPct = fullPrice > 0 ? Math.round(((fullPrice - promoPrice) / fullPrice) * 100) : 0;
+
+                return `
+                    <div onclick="togglePublicPromoServiceSelection('${o.id}')" 
+                         style="background: radial-gradient(ellipse at top left, rgba(245, 158, 11, 0.22) 0%, rgba(22, 13, 62, 0.85) 75%); border: 1.5px solid ${isSelected ? '#FBBF24' : 'rgba(245, 158, 11, 0.55)'}; border-radius: 18px; padding: 15px 16px; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 20px rgba(245, 158, 11, 0.45)' : '0 4px 15px rgba(0,0,0,0.3)'};">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                    <span style="font-size: 10px; font-weight: 900; background: linear-gradient(135deg, #F59E0B, #D97706); color: #0f172a; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.5px;">${o.badge_text || 'HOT DEAL'}</span>
+                                    ${discountPct > 0 ? `<span style="font-size: 10px; font-weight: 900; background: rgba(220, 38, 38, 0.3); color: #FCA5A5; border: 1px solid rgba(220, 38, 38, 0.5); padding: 1px 6px; border-radius: 6px;">RISPARMI ${discountPct}%</span>` : ''}
+                                </div>
+                                <div style="font-weight: 900; font-size: 15px; color: #ffffff; letter-spacing: -0.2px;">${o.title}</div>
+                                <small style="color: #cbd5e1; font-size: 11.5px; display: block; margin-top: 1px;">Trattamento: <b>${sObj.name}</b></small>
+                                ${o.description ? `<small style="color: #94a3b8; font-size: 11px; font-style: italic; display: block; margin-top: 3px;">"${o.description}"</small>` : ''}
+                            </div>
+
+                            <div style="text-align: right; flex-shrink: 0;">
+                                <div style="font-size: 12px; color: #94a3b8; text-decoration: line-through;">€ ${fullPrice.toFixed(2)}</div>
+                                <div style="font-size: 19px; font-weight: 900; color: #FBBF24;">€ ${promoPrice.toFixed(2)}</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.12);">
+                            <span style="font-size: 11px; color: #a78bfa; font-weight: 700;">⏱️ Durata: ${dur} min</span>
+                            <div style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 900; color: ${isSelected ? '#FBBF24' : '#ffffff'};">
+                                <span>${isSelected ? '✓ Selezionato in Offerta' : 'Approfitta dell\'Offerta ➔'}</span>
+                            </div>
+                        </div>
+
+                    </div>
+                `;
+            }).join('');
+        } else {
+            offersShowcase.style.display = 'none';
+        }
+    }
+
+    // ==========================================
+    // 2. 🎁 SEZIONE CARNET PREPAGATI (€ 0.00)
+    // ==========================================
     const prepaidItems = window._pbState.customerPrepaidItems || [];
     if (prepaidSection && prepaidList) {
         if (prepaidItems.length > 0) {
@@ -20753,14 +20853,16 @@ function renderPublicServicesList() {
         }
     }
 
-    // B. LISTINO SERVIZI STANDARD
+    // ==========================================
+    // 3. LISTINO SERVIZI STANDARD
+    // ==========================================
     if (window._pbState.allServices.length === 0) {
         list.innerHTML = `<div style="text-align:center; padding:35px; color:#94a3b8; font-size:13px;">Nessun trattamento disponibile per la prenotazione online.</div>`;
         return;
     }
 
     list.innerHTML = window._pbState.allServices.map(s => {
-        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id && !sel.isPackageRedemption);
+        const isSelected = window._pbState.selectedServices.some(sel => sel.id === s.id && !sel.isPackageRedemption && !sel.isPromo);
         const dur = s.duration_minutes || 30;
         const price = parseFloat(s.price || 0).toFixed(2);
         const isAutonomous = (s.requires_operator === false || s.requires_operator === 0);
@@ -20785,6 +20887,41 @@ function renderPublicServicesList() {
             </div>
         `;
     }).join('');
+}
+
+// 6. Selezione / Deselezione di un'Offerta Speciale
+function togglePublicPromoServiceSelection(offerId) {
+    const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
+    let offersList = [];
+    try { offersList = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers; } catch(e) {}
+    
+    const offer = (offersList || []).find(o => o.id === offerId);
+    if (!offer) return;
+
+    const sObj = (window._pbState.allServices || []).find(s => s.id === offer.service_id);
+    if (!sObj) return;
+
+    const uniqueKey = `promo_${offer.id}`;
+    const idx = window._pbState.selectedServices.findIndex(x => x.cartUid === uniqueKey);
+
+    if (idx >= 0) {
+        window._pbState.selectedServices.splice(idx, 1);
+    } else {
+        window._pbState.selectedServices.push({
+            cartUid: uniqueKey,
+            id: sObj.id,
+            name: `🔥 [${offer.title}] ${sObj.name}`,
+            price: parseFloat(offer.promo_price || 0),
+            duration_minutes: sObj.duration_minutes || 30,
+            requires_operator: sObj.requires_operator,
+            required_workstations: sObj.required_workstations,
+            isPromo: true,
+            promoTitle: offer.title
+        });
+    }
+
+    recalculatePublicCartTotals();
+    renderPublicServicesList();
 }
 
 function togglePublicServiceSelection(servId) {
@@ -21827,6 +21964,254 @@ function updatePublicDatePillStyles() {
 
 
 
+// =========================================================================
+// 🏷️ MOTORE OFFERTE & PROMOZIONI SPECIALI BOOKING ONLINE
+// =========================================================================
+
+let _bookingOffersCache = [];
+
+// 1. Apertura e Popolamento del Modale Offerte
+async function openBookingOffersModal() {
+    loadBookingOffersFromStorage();
+    populateOfferServiceDropdown();
+    renderBookingOffersAdminList();
+    document.getElementById('mod-booking-offers').classList.add('active');
+}
+
+function closeBookingOffersModal() {
+    document.getElementById('mod-booking-offers').classList.remove('active');
+}
+
+function loadBookingOffersFromStorage() {
+    const raw = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
+    if (raw) {
+        try {
+            _bookingOffersCache = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch(e) { _bookingOffersCache = []; }
+    } else {
+        _bookingOffersCache = [];
+    }
+    updateActiveOffersCounterBadge();
+}
+
+function updateActiveOffersCounterBadge() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const activeCount = _bookingOffersCache.filter(o => o.active !== false && (!o.expiry || o.expiry >= todayStr)).length;
+    const badge = document.getElementById('set-active-offers-count-badge');
+    if (badge) {
+        badge.innerText = `${activeCount} attiv${activeCount === 1 ? 'a' : 'e'}`;
+    }
+}
+
+// 2. Popola la tendina con i trattamenti disponibili
+function populateOfferServiceDropdown(selectedId = '') {
+    const select = document.getElementById('bo-offer-service-select');
+    if (!select) return;
+
+    const services = (allInventory || []).filter(i => i.type === 'servizio');
+    
+    select.innerHTML = '<option value="">-- Seleziona un Trattamento --</option>' + 
+        services.map(s => `<option value="${s.id}" data-price="${s.price || 0}" ${s.id === selectedId ? 'selected' : ''}>${s.name} (Listino: € ${parseFloat(s.price || 0).toFixed(2)})</option>`).join('');
+
+    if (selectedId) {
+        onBookingOfferServiceChanged(selectedId);
+    }
+}
+
+async function onBookingOfferServiceChanged(serviceId) {
+    const select = document.getElementById('bo-offer-service-select');
+    const display = document.getElementById('bo-original-price-display');
+    const titleInput = document.getElementById('bo-offer-title');
+
+    if (!serviceId) {
+        if (display) display.innerText = "€ 0.00";
+        return;
+    }
+
+    const s = (allInventory || []).find(i => i.id === serviceId);
+    if (!s) return;
+
+    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: s.id });
+    const fullPrice = pInfo ? (parseFloat(pInfo.price) || 0) : (parseFloat(s.price) || 0);
+
+    if (display) {
+        display.innerText = `€ ${fullPrice.toFixed(2)}`;
+        display.setAttribute('data-full-price', fullPrice);
+    }
+
+    // Se il titolo è vuoto, propone un titolo accattivante
+    if (titleInput && !titleInput.value.trim()) {
+        titleInput.value = `Promo: ${s.name}`;
+    }
+
+    calculateOfferDiscountBadge();
+}
+
+function calculateOfferDiscountBadge() {
+    const display = document.getElementById('bo-original-price-display');
+    const promoInput = document.getElementById('bo-promo-price-input');
+    const badge = document.getElementById('bo-discount-pct-badge');
+
+    const fullPrice = parseFloat(display?.getAttribute('data-full-price') || 0);
+    const promoPrice = parseFloat(promoInput?.value || 0);
+
+    if (fullPrice > 0 && promoPrice > 0 && promoPrice < fullPrice) {
+        const diff = fullPrice - promoPrice;
+        const pct = Math.round((diff / fullPrice) * 100);
+        if (badge) badge.innerText = `-${pct}%`;
+    } else {
+        if (badge) badge.innerText = `-0%`;
+    }
+}
+
+// 3. Salvataggio Offerta
+async function saveBookingOfferRecord() {
+    const editId = document.getElementById('bo-edit-offer-id').value;
+    const title = document.getElementById('bo-offer-title').value.trim();
+    const badgeText = document.getElementById('bo-offer-badge').value;
+    const serviceId = document.getElementById('bo-offer-service-select').value;
+    const promoPrice = parseFloat(document.getElementById('bo-promo-price-input').value) || 0;
+    const desc = document.getElementById('bo-offer-desc').value.trim();
+    const expiry = document.getElementById('bo-offer-expiry').value || null;
+
+    const fullPrice = parseFloat(document.getElementById('bo-original-price-display')?.getAttribute('data-full-price') || 0);
+
+    if (!title) return alert("Inserisci un titolo per la promozione!");
+    if (!serviceId) return alert("Seleziona il trattamento collegato all'offerta!");
+    if (promoPrice <= 0) return alert("Inserisci un prezzo promozionale valido!");
+    if (promoPrice >= fullPrice && fullPrice > 0) {
+        if (!confirm("Il prezzo promozionale è uguale o superiore al prezzo di listino. Vuoi procedere comunque?")) return;
+    }
+
+    const sObj = (allInventory || []).find(i => i.id === serviceId);
+
+    const offerPayload = {
+        id: (editId !== "-1" && editId) ? editId : crypto.randomUUID(),
+        title: title,
+        badge_text: badgeText,
+        service_id: serviceId,
+        service_name: sObj ? sObj.name : 'Trattamento',
+        original_price: fullPrice,
+        promo_price: promoPrice,
+        description: desc,
+        expiry: expiry,
+        active: true,
+        updated_at: new Date().toISOString()
+    };
+
+    if (editId !== "-1" && editId) {
+        const idx = _bookingOffersCache.findIndex(o => o.id === editId);
+        if (idx >= 0) _bookingOffersCache[idx] = offerPayload;
+    } else {
+        _bookingOffersCache.unshift(offerPayload);
+    }
+
+    await persistBookingOffers();
+    resetBookingOfferForm();
+    renderBookingOffersAdminList();
+    alert("✅ Offerta salvata e pubblicata nella vetrina online!");
+}
+
+async function persistBookingOffers() {
+    const jsonStr = JSON.stringify(_bookingOffersCache);
+    localStorage.setItem('vaimup_online_booking_offers', jsonStr);
+    sysSettings['online_booking_offers'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'online_booking_offers', value: jsonStr }
+    });
+
+    updateActiveOffersCounterBadge();
+}
+
+function resetBookingOfferForm() {
+    document.getElementById('bo-edit-offer-id').value = "-1";
+    document.getElementById('bo-offer-title').value = "";
+    document.getElementById('bo-offer-service-select').value = "";
+    document.getElementById('bo-promo-price-input').value = "";
+    document.getElementById('bo-offer-desc').value = "";
+    document.getElementById('bo-offer-expiry').value = "";
+    document.getElementById('bo-original-price-display').innerText = "€ 0.00";
+    document.getElementById('bo-original-price-display').removeAttribute('data-full-price');
+    document.getElementById('bo-discount-pct-badge').innerText = "-0%";
+    document.getElementById('bo-form-title').innerText = "+ Crea Nuova Offerta in Vetrina";
+}
+
+function renderBookingOffersAdminList() {
+    const container = document.getElementById('bo-existing-offers-list');
+    if (!container) return;
+
+    if (_bookingOffersCache.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 12px; padding: 20px; font-style: italic;">Nessuna offerta creata. Crea la prima offerta per farla apparire ai clienti!</div>`;
+        return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    container.innerHTML = _bookingOffersCache.map(o => {
+        const isExpired = o.expiry && o.expiry < todayStr;
+        const isActive = o.active !== false && !isExpired;
+
+        return `
+            <div style="background: white; border: 1.5px solid ${isActive ? '#F59E0B' : '#e2e8f0'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                        <span style="font-size: 10px; font-weight: 900; background: #fef3c7; color: #b45309; padding: 1px 6px; border-radius: 4px;">${o.badge_text || 'PROMO'}</span>
+                        <b style="font-size: 13px; color: #1e1b4b;">${o.title}</b>
+                        ${isExpired ? '<span style="font-size: 10px; color: #dc2626; font-weight: bold;">(Scaduta)</span>' : ''}
+                    </div>
+                    <small style="color: #64748b; font-size: 11.5px; display: block;">
+                        Servizio: <b>${o.service_name}</b> • <span style="text-decoration: line-through;">€ ${parseFloat(o.original_price).toFixed(2)}</span> ➔ <b style="color: #047857; font-size: 13px;">€ ${parseFloat(o.promo_price).toFixed(2)}</b>
+                    </small>
+                    ${o.description ? `<small style="color: #475569; font-size: 11px; font-style: italic;">"${o.description}"</small>` : ''}
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button type="button" class="btn" style="padding: 4px 8px; font-size: 11px; background: ${isActive ? '#dcfce7; color:#15803d' : '#f1f5f9; color:#64748b'}; border: 1px solid #cbd5e1;" onclick="toggleBookingOfferActiveState('${o.id}')">
+                        ${isActive ? '✓ Attiva' : 'Disattivata'}
+                    </button>
+                    <button type="button" class="btn btn-s" style="padding: 4px 8px; font-size: 11px;" onclick="editBookingOffer('${o.id}')">✎</button>
+                    <button type="button" class="btn btn-d" style="padding: 4px 8px; font-size: 11px;" onclick="deleteBookingOffer('${o.id}')">✕</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function toggleBookingOfferActiveState(offerId) {
+    const o = _bookingOffersCache.find(x => x.id === offerId);
+    if (!o) return;
+    o.active = !(o.active !== false);
+    await persistBookingOffers();
+    renderBookingOffersAdminList();
+}
+
+function editBookingOffer(offerId) {
+    const o = _bookingOffersCache.find(x => x.id === offerId);
+    if (!o) return;
+
+    document.getElementById('bo-edit-offer-id').value = o.id;
+    document.getElementById('bo-offer-title').value = o.title;
+    document.getElementById('bo-offer-badge').value = o.badge_text || '🔥 HOT DEAL';
+    populateOfferServiceDropdown(o.service_id);
+    document.getElementById('bo-promo-price-input').value = o.promo_price;
+    document.getElementById('bo-offer-desc').value = o.description || '';
+    document.getElementById('bo-offer-expiry').value = o.expiry || '';
+    document.getElementById('bo-form-title').innerText = "Modifica Offerta";
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deleteBookingOffer(offerId) {
+    if (!confirm("Eliminare questa offerta dalla vetrina?")) return;
+    _bookingOffersCache = _bookingOffersCache.filter(x => x.id !== offerId);
+    await persistBookingOffers();
+    renderBookingOffersAdminList();
+}
+
+
+
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
         // Mostriamo solo la schermata di login che è già gestita dall'HTML.
@@ -22293,6 +22678,107 @@ function updatePublicDatePillStyles() {
 
         <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); text-align: right; flex-shrink: 0;">
             <button type="button" class="btn btn-p" style="padding: 8px 16px; font-size: 12px;" onclick="closePublicMyAppointmentsModal()">Ho Capito ➔</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ======================================================== -->
+<!-- 🏷️ MODALE GESTIONE OFFERTE & PROMOZIONI BOOKING          -->
+<!-- ======================================================== -->
+<div id="mod-booking-offers" class="modal" style="z-index: 99999;" onclick="if(event.target===this) closeBookingOffersModal()">
+    <div class="modal-box" style="width: 650px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; padding: 22px;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">🔥</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Offerte & Promozioni Booking Online</h3>
+                    <small style="color: #64748b; font-size: 11px;">Metti in vetrina sconti speciali per attirare clienti</small>
+                </div>
+            </div>
+            <button type="button" onclick="closeBookingOffersModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            
+            <!-- FORM CREAZIONE / MODIFICA OFFERTA -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+                <input type="hidden" id="bo-edit-offer-id" value="-1">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <b id="bo-form-title" style="font-size: 13px; color: #1e1b4b;">+ Crea Nuova Offerta in Vetrina</b>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetBookingOfferForm()">Pulisci</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Titolo Promozione *</label>
+                        <input type="text" id="bo-offer-title" placeholder="Es. Special Balayage & Piega" style="margin: 0; background: white; font-weight: bold;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Badge Visivo</label>
+                        <select id="bo-offer-badge" style="margin: 0; background: white; font-weight: bold; font-size: 12px;">
+                            <option value="🔥 HOT DEAL" selected>🔥 HOT DEAL</option>
+                            <option value="⚡ FLASH SALE">⚡ FLASH SALE</option>
+                            <option value="✨ PROMO ESCLUSIVA">✨ PROMO ESCLUSIVA</option>
+                            <option value="🏷️ OFFERTA DEL MESE">🏷️ OFFERTA DEL MESE</option>
+                            <option value="👑 TOP CLIENT">👑 TOP CLIENT</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label style="margin: 0 0 3px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Trattamento del Listino Associato *</label>
+                    <select id="bo-offer-service-select" onchange="onBookingOfferServiceChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
+                        <!-- Popolato dinamicamente dai servizi -->
+                    </select>
+                </div>
+
+                <!-- Prezzi e Sconto Percentuale Calcolato -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 100px; gap: 10px; align-items: center; margin-bottom: 10px; background: white; padding: 10px 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                    <div>
+                        <small style="display: block; font-size: 10px; color: #64748b; font-weight: 700;">Prezzo Listino Pieno</small>
+                        <div id="bo-original-price-display" style="font-size: 14px; font-weight: bold; color: #64748b; text-decoration: line-through; margin-top: 2px;">€ 0.00</div>
+                    </div>
+                    <div>
+                        <small style="display: block; font-size: 10px; color: #047857; font-weight: 800;">PREZZO IN OFFERTA (€) *</small>
+                        <input type="number" id="bo-promo-price-input" step="0.5" min="0" placeholder="Es. 45.00" oninput="calculateOfferDiscountBadge()" style="margin: 0; padding: 6px; font-size: 15px; font-weight: 900; color: #047857; border: 1.5px solid #10b981; border-radius: 6px; text-align: center;">
+                    </div>
+                    <div>
+                        <small style="display: block; font-size: 10px; color: #64748b; font-weight: 700;">Risparmio:</small>
+                        <span id="bo-discount-pct-badge" style="display: inline-block; font-size: 12px; font-weight: 900; background: #fee2e2; color: #dc2626; padding: 3px 8px; border-radius: 6px; margin-top: 2px;">-0%</span>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center;">
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 10.5px; font-weight: bold;">Descrizione Breve (Opzionale)</label>
+                        <input type="text" id="bo-offer-desc" placeholder="Es. Valida solo per prenotazioni infrasettimanali" style="margin: 0; background: white; font-size: 12px;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 10.5px; font-weight: bold;">Scadenza Promo</label>
+                        <input type="date" id="bo-offer-expiry" style="margin: 0; background: white; font-size: 11px;">
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-p" style="width: 100%; margin-top: 12px; padding: 12px; justify-content: center; font-size: 13px; font-weight: 800;" onclick="saveBookingOfferRecord()">
+                    Salva Offerta nella Vetrina Online ✓
+                </button>
+            </div>
+
+            <!-- ELENCO OFFERTE ESISTENTI -->
+            <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; display: block;">Offerte Attive & Archiviate</label>
+            <div id="bo-existing-offers-list" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Popolato da JS -->
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); text-align: right; flex-shrink: 0;">
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 16px;" onclick="closeBookingOffersModal()">Chiudi</button>
         </div>
     </div>
 </div>
