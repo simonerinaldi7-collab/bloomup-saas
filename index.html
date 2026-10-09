@@ -21970,13 +21970,7 @@ function updatePublicDatePillStyles() {
 
 let _bookingOffersCache = [];
 
-// 1. Apertura e Popolamento del Modale Offerte
-async function openBookingOffersModal() {
-    loadBookingOffersFromStorage();
-    populateOfferServiceDropdown();
-    renderBookingOffersAdminList();
-    document.getElementById('mod-booking-offers').classList.add('active');
-}
+
 
 function closeBookingOffersModal() {
     document.getElementById('mod-booking-offers').classList.remove('active');
@@ -22003,49 +21997,7 @@ function updateActiveOffersCounterBadge() {
     }
 }
 
-// 2. Popola la tendina con i trattamenti disponibili
-function populateOfferServiceDropdown(selectedId = '') {
-    const select = document.getElementById('bo-offer-service-select');
-    if (!select) return;
 
-    const services = (allInventory || []).filter(i => i.type === 'servizio');
-    
-    select.innerHTML = '<option value="">-- Seleziona un Trattamento --</option>' + 
-        services.map(s => `<option value="${s.id}" data-price="${s.price || 0}" ${s.id === selectedId ? 'selected' : ''}>${s.name} (Listino: € ${parseFloat(s.price || 0).toFixed(2)})</option>`).join('');
-
-    if (selectedId) {
-        onBookingOfferServiceChanged(selectedId);
-    }
-}
-
-async function onBookingOfferServiceChanged(serviceId) {
-    const select = document.getElementById('bo-offer-service-select');
-    const display = document.getElementById('bo-original-price-display');
-    const titleInput = document.getElementById('bo-offer-title');
-
-    if (!serviceId) {
-        if (display) display.innerText = "€ 0.00";
-        return;
-    }
-
-    const s = (allInventory || []).find(i => i.id === serviceId);
-    if (!s) return;
-
-    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: s.id });
-    const fullPrice = pInfo ? (parseFloat(pInfo.price) || 0) : (parseFloat(s.price) || 0);
-
-    if (display) {
-        display.innerText = `€ ${fullPrice.toFixed(2)}`;
-        display.setAttribute('data-full-price', fullPrice);
-    }
-
-    // Se il titolo è vuoto, propone un titolo accattivante
-    if (titleInput && !titleInput.value.trim()) {
-        titleInput.value = `Promo: ${s.name}`;
-    }
-
-    calculateOfferDiscountBadge();
-}
 
 function calculateOfferDiscountBadge() {
     const display = document.getElementById('bo-original-price-display');
@@ -22187,14 +22139,104 @@ async function toggleBookingOfferActiveState(offerId) {
     renderBookingOffersAdminList();
 }
 
-function editBookingOffer(offerId) {
+// =========================================================================
+// 🏷️ RISOLUZIONE PREZZI CORRETTI NELLA TENDINA OFFERTE
+// =========================================================================
+
+// 1. Popola la tendina risolvendo il prezzo reale da price_history per ciascun servizio
+async function populateOfferServiceDropdown(selectedId = '') {
+    const select = document.getElementById('bo-offer-service-select');
+    if (!select) return;
+
+    const services = (allInventory || []).filter(i => i.type === 'servizio');
+    
+    // Recupero rapido in memoria dello storico prezzi
+    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+    const nowIso = new Date().toISOString();
+
+    const optionsHtml = services.map(s => {
+        // Risolve il prezzo in vigore oggi per questo specifico servizio
+        const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
+        let currentPriceRow = sHistory.find(ph => {
+            const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+            const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+            return nowIso >= from && nowIso <= to;
+        });
+
+        if (!currentPriceRow && sHistory.length > 0) {
+            sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+            currentPriceRow = sHistory[0];
+        }
+
+        const realPrice = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
+        const isSelected = String(s.id) === String(selectedId) ? 'selected' : '';
+
+        return `<option value="${s.id}" data-price="${realPrice}" ${isSelected}>${s.name} (Listino: € ${realPrice.toFixed(2)})</option>`;
+    }).join('');
+
+    select.innerHTML = '<option value="">-- Seleziona un Trattamento --</option>' + optionsHtml;
+
+    if (selectedId) {
+        await onBookingOfferServiceChanged(selectedId);
+    }
+}
+
+// 2. Quando l'utente sceglie un servizio, aggiorna il prezzo barrato e il titolo promo
+async function onBookingOfferServiceChanged(serviceId) {
+    const select = document.getElementById('bo-offer-service-select');
+    const display = document.getElementById('bo-original-price-display');
+    const titleInput = document.getElementById('bo-offer-title');
+
+    if (!serviceId) {
+        if (display) {
+            display.innerText = "€ 0.00";
+            display.removeAttribute('data-full-price');
+        }
+        calculateOfferDiscountBadge();
+        return;
+    }
+
+    const selectedOption = select ? select.options[select.selectedIndex] : null;
+    let fullPrice = parseFloat(selectedOption?.getAttribute('data-price') || 0);
+
+    // Fallback di sicurezza se data-price non fosse valorizzato
+    if (fullPrice <= 0) {
+        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: serviceId });
+        if (pInfo && pInfo.price) fullPrice = parseFloat(pInfo.price);
+    }
+
+    if (display) {
+        display.innerText = `€ ${fullPrice.toFixed(2)}`;
+        display.setAttribute('data-full-price', fullPrice);
+    }
+
+    const s = (allInventory || []).find(i => i.id === serviceId);
+    if (titleInput && (!titleInput.value.trim() || titleInput.value.startsWith('Promo:'))) {
+        titleInput.value = `Promo: ${s ? s.name : 'Trattamento'}`;
+    }
+
+    calculateOfferDiscountBadge();
+}
+
+// 3. Apertura del Modale con Await su populateOfferServiceDropdown
+async function openBookingOffersModal() {
+    loadBookingOffersFromStorage();
+    await populateOfferServiceDropdown(); // 👈 Risolve prima tutti i prezzi reali!
+    renderBookingOffersAdminList();
+    document.getElementById('mod-booking-offers').classList.add('active');
+}
+
+// 4. Modifica Offerta con Await su populateOfferServiceDropdown
+async function editBookingOffer(offerId) {
     const o = _bookingOffersCache.find(x => x.id === offerId);
     if (!o) return;
 
     document.getElementById('bo-edit-offer-id').value = o.id;
     document.getElementById('bo-offer-title').value = o.title;
     document.getElementById('bo-offer-badge').value = o.badge_text || '🔥 HOT DEAL';
-    populateOfferServiceDropdown(o.service_id);
+    
+    await populateOfferServiceDropdown(o.service_id); // 👈 Risolve i prezzi e preseleziona l'opzione
+    
     document.getElementById('bo-promo-price-input').value = o.promo_price;
     document.getElementById('bo-offer-desc').value = o.description || '';
     document.getElementById('bo-offer-expiry').value = o.expiry || '';
