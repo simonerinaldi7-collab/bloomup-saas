@@ -3547,29 +3547,28 @@
             </div>
 
 
-<!-- 🔥 VETRINA OFFERTE SPECIALI & PROMO ONLINE IN EVIDENZA -->
-<div id="pb-special-offers-showcase" style="display: none; margin-bottom: 18px;">
-    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 16px;">🔥</span>
-            <span style="font-size: 12.5px; font-weight: 900; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.8px;">Offerte Esclusive Online</span>
-        </div>
-        <small style="color: #94a3b8; font-size: 11px;">Posti limitati</small>
-    </div>
+<!-- 🔥 VETRINA OFFERTE SPECIALI & PROMO ONLINE (IN EVIDENZA) -->
+            <div id="pb-special-offers-showcase" style="display: none; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 18px;">🔥</span>
+                        <span style="font-size: 13px; font-weight: 900; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.8px;">Offerte Esclusive Online</span>
+                    </div>
+                    <small style="color: #94a3b8; font-size: 11px;">Posti limitati</small>
+                </div>
 
-    <div id="pb-special-offers-list" style="display: flex; flex-direction: column; gap: 10px;">
-        <!-- Card luxury delle offerte popolate dinamicamente da JS -->
-    </div>
-</div>
+                <div id="pb-special-offers-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Popolato dinamicamente da JS -->
+                </div>
+            </div>
 
-
-            <!-- 🎁 Sezione Carnet Prepagati a € 0.00 -->
+            <!-- 🎁 SEZIONE CARNET PREPAGATI (A COSTO € 0.00) -->
             <div id="pb-prepaid-packages-section" style="display: none; margin-bottom: 16px;">
-                <div style="background: rgba(124, 58, 237, 0.2); border: 1.5px solid rgba(168, 85, 247, 0.5); border-radius: 16px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.15);">
-                    <span style="font-size: 22px;">🎁</span>
+                <div style="background: rgba(124, 58, 237, 0.2); border: 1.5px solid rgba(168, 85, 247, 0.5); border-radius: 16px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🎁</span>
                     <div>
                         <b style="font-size: 13.5px; color: #f3e8ff; display: block;">I Tuoi Carnet Attivi</b>
-                        <small style="color: #d8b4fe; font-size: 11.5px;">Sedute prepagate disponibili: riscattale a costo € 0.00</small>
+                        <small style="color: #d8b4fe; font-size: 11px;">Sedute prepagate disponibili: riscattale a costo € 0.00</small>
                     </div>
                 </div>
                 <div id="pb-prepaid-services-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -20744,33 +20743,63 @@ function onCustomerVerifiedSuccess(customer) {
 }
 
 // Render Cataloghi: Vetrina Offerte Speciali + Carnet Prepagati + Servizi Normali
+// =========================================================================
+// 🔥 RENDER CATALOGO: VETRINA OFFERTE PROTETTA + CARNET + LISTINO
+// =========================================================================
 function renderPublicServicesList() {
     const list = document.getElementById('pb-services-list');
-    const offersShowcase = document.getElementById('pb-special-offers-showcase');
-    const offersList = document.getElementById('pb-special-offers-list');
+    if (!list) return;
+
+    let offersShowcase = document.getElementById('pb-special-offers-showcase');
+    let offersList = document.getElementById('pb-special-offers-list');
     const prepaidSection = document.getElementById('pb-prepaid-packages-section');
     const prepaidList = document.getElementById('pb-prepaid-services-list');
-    if (!list) return;
+
+    // 🛡️ INIEZIONE DIFENSIVA AUTOMATICA: Se il div manca nell'HTML, lo crea da solo!
+    if (!offersShowcase) {
+        offersShowcase = document.createElement('div');
+        offersShowcase.id = 'pb-special-offers-showcase';
+        offersShowcase.style.cssText = 'display: none; margin-bottom: 18px;';
+        offersShowcase.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 18px;">🔥</span>
+                    <span style="font-size: 13px; font-weight: 900; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.8px;">Offerte Esclusive Online</span>
+                </div>
+                <small style="color: #94a3b8; font-size: 11px;">Posti limitati</small>
+            </div>
+            <div id="pb-special-offers-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        `;
+        list.parentElement.insertBefore(offersShowcase, list);
+        offersList = document.getElementById('pb-special-offers-list');
+    }
 
     const todayStr = new Date().toISOString().split('T')[0];
 
     // ==========================================
-    // 1. 🔥 VETRINA OFFERTE SPECIALI & PROMO ONLINE
+    // 1. 🔥 RENDERING VETRINA OFFERTE ONLINE
     // ==========================================
     let activeOffers = [];
     const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
+    
     if (rawOffers) {
         try {
             const parsed = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers;
             activeOffers = (parsed || []).filter(o => o.active !== false && (!o.expiry || o.expiry >= todayStr));
-        } catch(e) { activeOffers = []; }
+        } catch(e) { 
+            activeOffers = []; 
+        }
     }
 
     if (offersShowcase && offersList) {
         if (activeOffers.length > 0) {
             offersShowcase.style.display = 'block';
-            offersList.innerHTML = activeOffers.map(o => {
-                const sObj = (window._pbState.allServices || []).find(s => s.id === o.service_id);
+            
+            const cardsHtml = activeOffers.map(o => {
+                // Ricerca robusta del servizio sia in allServices che in allInventory
+                const sObj = (window._pbState.allServices || []).find(s => String(s.id).trim() === String(o.service_id).trim()) ||
+                             (allInventory || []).find(i => String(i.id).trim() === String(o.service_id).trim());
+
                 if (!sObj) return '';
 
                 const uniqueCartKey = `promo_${o.id}`;
@@ -20811,6 +20840,11 @@ function renderPublicServicesList() {
                     </div>
                 `;
             }).join('');
+
+            offersList.innerHTML = cardsHtml;
+            if (!cardsHtml.trim()) {
+                offersShowcase.style.display = 'none';
+            }
         } else {
             offersShowcase.style.display = 'none';
         }
