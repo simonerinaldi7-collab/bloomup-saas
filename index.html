@@ -2731,59 +2731,93 @@
 <!-- ======================================================== -->
 <!-- 🌐 PORTALE PRENOTAZIONI ONLINE (SELF-SERVICE CLIENTI)   -->
 <!-- ======================================================== -->
-<!-- SEZIONE DENTRO V-SETTINGS -->
 <div style="margin: 25px 0 15px 0; padding-top: 15px; border-top: 1.5px dashed var(--border);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <div>
-            <label style="color: var(--p); font-size: 13px; font-weight: 800; margin: 0;">🌐 Prenotazione Autonoma Online (Clienti)</label>
-            <small style="color: #64748b; font-size: 11.5px; display: block;">Permetti ai tuoi clienti di prenotare gli slot liberi da smartphone tramite link o QR Code.</small>
+    
+    <!-- Testata Sezione con Switch iOS-like Protetto da Compressione -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px;">
+        <div style="flex: 1; min-width: 0;">
+            <label style="color: var(--p); font-size: 13.5px; font-weight: 800; margin: 0;">🌐 Prenotazione Autonoma Online</label>
+            <small style="color: #64748b; font-size: 11.5px; display: block; line-height: 1.4; margin-top: 2px;">Permetti ai tuoi clienti di prenotare gli slot liberi da smartphone tramite link o QR Code.</small>
         </div>
-        <!-- Toggle Switch -->
-        <label style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer;">
+        <!-- Toggle Switch protetto con flex-shrink: 0 -->
+        <label style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer; flex-shrink: 0;">
             <input type="checkbox" id="set-online-booking-toggle" onchange="onToggleOnlineBooking(this.checked)" style="opacity: 0; width: 0; height: 0;">
             <span id="slider-booking-toggle" style="position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1; transition: .3s; border-radius: 26px;"></span>
         </label>
     </div>
 
-    <!-- Pannello attivo solo se il booking è abilitato -->
-    <div id="online-booking-active-pane" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 16px; margin-top: 12px;">
+    <!-- PANNELLO ATTIVO (TOTALMENTE RESPONSIVE) -->
+    <div id="online-booking-active-pane" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; margin-top: 12px;">
         
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-            <input type="checkbox" id="set-booking-approval" checked style="width: 18px; height: 18px; accent-color: var(--p); margin: 0; cursor: pointer;">
-            <label for="set-booking-approval" style="margin: 0; font-size: 12.5px; font-weight: 700; color: #1e1b4b; text-transform: none; cursor: pointer;">
+        <!-- Checkbox Approvazione Profilo -->
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px;">
+            <input type="checkbox" id="set-booking-approval" checked style="width: 18px; height: 18px; accent-color: var(--p); margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer;">
+            <label for="set-booking-approval" style="margin: 0; font-size: 12px; font-weight: 700; color: #1e1b4b; text-transform: none; line-height: 1.4; cursor: pointer;">
                 🛡️ Richiedi approvazione profilo prima di consentire la prima prenotazione
             </label>
         </div>
 
+        <!-- ⚙️ CARD REGOLE CABINE & CHIUSURE (AUTO-STACK SU MOBILE: ZERO SOVRAPPOSIZIONI!) -->
+        <div class="booking-responsive-subcard" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
+            <div style="flex: 1; min-width: 0;">
+                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 2px;">⚙️ Orari Cabine Autonome & Chiusure</b>
+                <small style="color: #64748b; font-size: 11.5px; line-height: 1.35; display: block;">Fasce orarie solarium, pause tecniche e date di chiusura.</small>
+            </div>
+            <button type="button" class="btn btn-p booking-subcard-btn" style="padding: 9px 14px; font-size: 12px; font-weight: 800; border-radius: 8px; white-space: nowrap; flex-shrink: 0;" onclick="openBookingAdvancedConfigModal()">
+                Configura Regole ➔
+            </button>
+        </div>
 
-
-<!-- PULSANTE APERTURA PANNELLO ORARI CABINE & CHIUSURE -->
-<div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px;">
-    <div>
-        <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⚙️ Orari Cabine Autonome & Chiusure Straordinarie</b>
-        <small style="color: #64748b; font-size: 11px;">Imposta fasce orarie per i solarium, pause tecniche e date di chiusura del salone.</small>
-    </div>
-    <button type="button" class="btn btn-p" style="padding: 7px 14px; font-size: 11.5px; font-weight: bold; border-radius: 8px;" onclick="openBookingAdvancedConfigModal()">
-        Configura Regole ➔
-    </button>
-</div>
-
-        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-            <div style="width: 120px; height: 120px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+        <!-- 📲 CARD CONDIVISIONE LINK & QR CODE (ADATTIVA SMARTPHONE/PC) -->
+        <div class="booking-qr-responsive-card" style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; display: flex; gap: 14px; align-items: center;">
+            <div style="width: 105px; height: 105px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin: 0 auto;">
                 <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
 
-            <div style="flex: 1; min-width: 220px;">
-                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 4px;">Link Diretto per i tuoi Clienti:</b>
-                <input type="text" id="booking-portal-url" readonly style="margin: 0 0 8px 0; padding: 8px 10px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569;" onclick="this.select()">
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn btn-p" style="padding: 6px 12px; font-size: 11.5px;" onclick="copyBookingLink()">📋 Copia Link</button>
-                    <button type="button" class="btn btn-w" style="padding: 6px 12px; font-size: 11.5px;" onclick="shareBookingWhatsApp()">💬 Invia su WhatsApp</button>
+            <div style="flex: 1; min-width: 0; width: 100%;">
+                <b style="font-size: 12.5px; color: #1e1b4b; display: block; margin-bottom: 4px;">Link Diretto per i tuoi Clienti:</b>
+                <input type="text" id="booking-portal-url" readonly style="margin: 0 0 8px 0; padding: 8px 10px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569; width: 100%; box-sizing: border-box;" onclick="this.select()">
+                <div style="display: flex; gap: 8px; width: 100%;">
+                    <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 8px 10px; font-size: 11.5px;" onclick="copyBookingLink()">📋 Copia</button>
+                    <button type="button" class="btn btn-w" style="flex: 1; justify-content: center; padding: 8px 10px; font-size: 11.5px;" onclick="shareBookingWhatsApp()">💬 WhatsApp</button>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
+
+<style>
+/* Regole Switch Toggle iOS */
+#set-online-booking-toggle:checked + #slider-booking-toggle {
+    background-color: var(--p) !important;
+}
+#set-online-booking-toggle:checked + #slider-booking-toggle:before {
+    transform: translateX(24px);
+}
+#slider-booking-toggle:before {
+    position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;
+}
+
+/* 📱 OTTIMIZZAZIONE RESPONSIVE SCHERMI STRETTI (< 540px) */
+@media screen and (max-width: 540px) {
+    .booking-responsive-subcard {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .booking-subcard-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 11px !important;
+    }
+    .booking-qr-responsive-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        text-align: center !important;
+    }
+}
+</style>
 
 <style>
 /* Stile Toggle Switch iOS-Like */
