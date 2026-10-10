@@ -4254,15 +4254,6 @@
     // ⚡ INTERCETTAZIONE FULMINEA ANTI-CONFLITTO (Esegue prima di qualsiasi DOMContentLoaded)
     (function() {
         const urlParams = new URLSearchParams(window.location.search);
-        const bookingSalonId = urlParams.get('book');
-
-        // Se c'è ?book= nell'URL, attiva la modalità pubblica isolata
-        if (bookingSalonId) {
-            console.log("🌐 [PORTALE PUBBLICO] Modalità Self-Booking per salone:", bookingSalonId);
-            window._isPublicBookingMode = true;
-            window._publicBookingSalonId = bookingSalonId.trim();
-        }
-
         const isAlarmAction = urlParams.get('alarm_action');
         const alertAppId = urlParams.get('open_alert');
 
@@ -4270,16 +4261,21 @@
             console.log("🚀 [QUICK ALARM] Rilevato click su notifica imminente per ID:", alertAppId);
             window._isQuickAlarmMode = true;
             window._quickAlarmAppId = alertAppId;
+
+            // Puliamo subito l'URL per evitare loop se si ricarica
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        const generalParams = new URLSearchParams(window.location.search);
-        if (generalParams.get('open_tab') === 'calendar') {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setTimeout(() => {
-                if (typeof changePage === 'function') changePage('calendar');
-            }, 500);
-        }
+        // Controlliamo se veniamo da un'azione rapida che richiede di aprire l'agenda
+const generalParams = new URLSearchParams(window.location.search);
+if (generalParams.get('open_tab') === 'calendar') {
+    // Puliamo l'URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Cambiamo pagina sull'agenda non appena l'app è pronta
+    setTimeout(() => {
+        if (typeof changePage === 'function') changePage('calendar');
+    }, 500);
+}
     })();
 </script>
         
@@ -4429,20 +4425,19 @@ console.error = function(...args) {
 
 // ⚡ BOOTSTRAP UNICO DI SESSIONE E AUTOLOGIN (Garantisce l'avvio del Delta Sync)
 document.addEventListener('DOMContentLoaded', async () => {
-    // 🛑 SE SIAMO NEL SELF-BOOKING, NON TOCCARE LA SESSIONE DEL GESTIONALE
-    if (window._isPublicBookingMode) {
-        console.log("🌐 [SELF-BOOKING] Sessione interna disattivata per isolamento multi-tenant.");
-        return;
-    }
-
     console.log("🔒 [BOOT SESSIONE] Verifica credenziali salvate...");
+    
     const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
     if (savedSessionJson) {
         try {
             const sessionData = JSON.parse(savedSessionJson);
             if (sessionData && sessionData.username && sessionData.salon_id) {
                 console.log("⚡ [AUTO-LOGIN] Sessione ripristinata per l'utente:", sessionData.username);
+                
+                // 1. Assegniamo l'utente globale
                 currentUser = sessionData;
+                
+                // 2. Avviamo la funzione di successo del login che accende anche il delta sync
                 await loginSuccess();
                 return;
             }
@@ -9716,7 +9711,7 @@ function resetExpenseForm() {
         area.innerHTML = html + '</div>';
     }
 
-/*document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () => {
         console.log("App avviata. Controllo sessione persistente...");
         
         const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
@@ -9743,7 +9738,7 @@ function resetExpenseForm() {
         // Se non c'è sessione salvata, mostra regolarmente la schermata di login
         console.log("In attesa di login manuale...");
     });
-*/
+
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
         const sidebarLinks = document.querySelectorAll('.sidebar .nav-item');
@@ -19972,105 +19967,128 @@ async function saveBookingAdvancedConfig() {
 }
 
 // =========================================================================
-// 🌐 MOTORE SELF-BOOKING ISOLATO CLOUD-DIRECT (ZERO CONTAMINAZIONE LOCALE)
+// 🌐 MOTORE UNIFICATO PORTALE SELF-BOOKING CLIENTE (ZERO DUPLICAZIONI)
 // =========================================================================
-// 🚀 AVVIO PRIORITARIO PORTALE SELF-BOOKING AL CARICAMENTO DELLA PAGINA
+
+window._pbState = {
+    salonId: null,
+    customer: null,
+    selectedServices: [],
+    selectedOperator: 'any',
+    selectedDate: null,
+    selectedSlot: null,
+    selectedSlotEnd: null,
+    selectedSlotOperator: null,
+    allocatedWorkstationId: null,
+    calculatedTotalMinutes: 0,
+    calculatedTotalPrice: 0,
+    allServices: [],
+    allOperators: [],
+    allSchedules: [],
+    allWorkstations: [],
+    allBookings: [],
+    allExistingApps: [],
+    customerUpcomingApps: [],
+    customerPrepaidItems: []
+};
+
+// BOOTSTRAP: Intercetta ?book=SALON_ID all'avvio
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const bookingSalonId = urlParams.get('book') || window._publicBookingSalonId;
+    const bookingSalonId = urlParams.get('book');
 
     if (bookingSalonId) {
         console.log("🌐 [PORTALE PUBBLICO] Inizializzazione per salone:", bookingSalonId);
-        window._isPublicBookingMode = true;
         window._pbState.salonId = bookingSalonId.trim();
 
-        // 1. Nascondi tassativamente la schermata di login e l'applicazione gestionale
         const loginScreen = document.getElementById('login-screen');
-        if (loginScreen) {
-            loginScreen.style.setProperty('display', 'none', 'important');
-        }
+        if (loginScreen) loginScreen.style.display = 'none';
         const appShell = document.getElementById('app-shell');
-        if (appShell) {
-            appShell.style.setProperty('display', 'none', 'important');
-        }
+        if (appShell) appShell.style.display = 'none';
 
-        // 2. Rendi visibile e porta in primo piano il Portale Self-Booking
         const portal = document.getElementById('public-booking-portal');
-        if (portal) {
-            portal.style.setProperty('display', 'block', 'important');
-            portal.style.setProperty('z-index', '99999', 'important');
-        }
+        if (portal) portal.style.display = 'block';
 
-        // 3. Scarica direttamente da Supabase Cloud i dati del salone indicato nel QR
         await initPublicBookingPortal(window._pbState.salonId);
     }
 });
 
-
-const SUPABASE_BASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
-const SUPABASE_ANON_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
-
-// Helper per query dirette a Supabase senza toccare Dexie
-async function publicCloudFetch(endpoint, method = 'GET', bodyData = null) {
-    const url = `${SUPABASE_BASE_URL}/rest/v1/${endpoint}`;
-    const headers = {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-    };
-
-    if (method === 'POST') {
-        headers['Prefer'] = 'return=representation';
-    }
-
-    const options = { method, headers };
-    if (bodyData && method !== 'GET') {
-        options.body = JSON.stringify(bodyData);
-    }
-
-    const res = await fetch(url, options);
-    if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`[Cloud Error ${res.status}] ${errText}`);
-    }
-    return await res.json();
-}
-// Inizializzazione isolata del Portale Clienti
-async function initPublicBookingPortal(salonId) {
-    const targetSalonId = String(salonId).trim();
-    window._pbState.salonId = targetSalonId;
-
-    // Isola completamente currentUser per il portale
-    currentUser = { salon_id: targetSalonId, role: 'guest_customer', username: 'cliente_online' };
-
-    const titleEl = document.getElementById('pb-salon-name');
-    if (titleEl) titleEl.innerText = `Prenotazione: ${targetSalonId}`;
+async function fetchFreshBookingSettingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    const supUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.key) || '';
 
     try {
-        // 1. Lettura Impostazioni Salone ESCLUSIVAMENTE da Cloud
-        const settingsRows = await publicCloudFetch(`settings?salon_id=eq.${targetSalonId}&select=key,value`) || [];
-        sysSettings = {};
+        const res = await fetch(`${supUrl}/rest/v1/settings?salon_id=eq.${salonId}&select=key,value`, {
+            headers: {
+                'apikey': supKey,
+                'Authorization': 'Bearer ' + supKey,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+        });
+        if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) {
+                rows.forEach(r => {
+                    if (r && r.key) sysSettings[r.key] = r.value;
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Avviso aggiornamento impostazioni cloud:", err);
+    }
+}
+
+async function fetchFreshAppointmentsAndBookingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    const supUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.key) || '';
+
+    try {
+        const [resApps, resBookings] = await Promise.all([
+            fetch(`${supUrl}/rest/v1/appointments?salon_id=eq.${salonId}&select=id,date,time,end_time,service,cust_name,assigned_user`, {
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+            }),
+            fetch(`${supUrl}/rest/v1/workstation_bookings?salon_id=eq.${salonId}&select=id,workstation_id,date,start_time,end_time`, {
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+            })
+        ]);
+
+        if (resApps.ok) window._pbState.allExistingApps = await resApps.json() || [];
+        if (resBookings.ok) window._pbState.allBookings = await resBookings.json() || [];
+    } catch(e) {}
+}
+
+async function initPublicBookingPortal(salonId) {
+    const titleEl = document.getElementById('pb-salon-name');
+    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
+
+    if (!currentUser || !currentUser.salon_id) {
+        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
+    }
+
+    try {
+        await fetchFreshBookingSettingsFromCloud(salonId);
+
+        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
         settingsRows.forEach(s => {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
 
-        // Configurazione orari cabine autonome e offerte da settings
         if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
         if (typeof loadBookingOffersFromStorage === 'function') loadBookingOffersFromStorage();
 
-        // 2. Lettura Servizi dal Cloud per QUESTO salon_id
-        const services = await publicCloudFetch(`inventory?salon_id=eq.${targetSalonId}&type=eq.servizio&select=*`) || [];
-        
-        // Lettura storico prezzi dal Cloud per risolvere i prezzi corretti
-        const priceHistory = await publicCloudFetch(`price_history?salon_id=eq.${targetSalonId}&select=*`) || [];
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        allInventory = inventory;
+
+        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
         const nowIso = new Date().toISOString();
 
-        // Filtra solo servizi con durata valida (> 0 minuti)
-        const validServices = services.filter(i => i.duration_minutes && parseInt(i.duration_minutes) > 0);
+        const services = inventory.filter(i => {
+            return i.type === 'servizio' && i.duration_minutes && parseInt(i.duration_minutes) > 0;
+        });
 
-        validServices.forEach(s => {
+        services.forEach(s => {
             const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
             let currentPriceRow = sHistory.find(ph => {
                 const from = ph.date_from || '1900-01-01T00:00:00.000Z';
@@ -20086,40 +20104,21 @@ async function initPublicBookingPortal(salonId) {
             s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
         });
 
-        window._pbState.allServices = validServices;
-
-        // 3. Lettura Operatori, Turni, Postazioni e Appuntamenti ESCLUSIVAMENTE da Cloud
-        const [operators, schedules, workstations, bookings, existingApps] = await Promise.all([
-            publicCloudFetch(`users?salon_id=eq.${targetSalonId}&status=eq.active&select=id,username,role,color,salon_id`),
-            publicCloudFetch(`operator_schedules?salon_id=eq.${targetSalonId}&select=*`),
-            publicCloudFetch(`shared_workstations?or=(salon_id.eq.${targetSalonId},shared_salons.cs.{"${targetSalonId}"})&select=*`),
-            publicCloudFetch(`workstation_bookings?salon_id=eq.${targetSalonId}&select=id,workstation_id,date,start_time,end_time`),
-            publicCloudFetch(`appointments?salon_id=eq.${targetSalonId}&select=id,date,time,end_time,service,cust_name,assigned_user`)
-        ]);
-
-        window._pbState.allOperators = (operators || []).filter(u => u.role !== 'guest_customer');
-        window._pbState.allSchedules = schedules || [];
-        window._pbState.allWorkstations = workstations || [];
-        window._pbState.allBookings = bookings || [];
-        window._pbState.allExistingApps = existingApps || [];
-
-        console.log(`✅ [SELF-BOOKING] Dati Cloud caricati per '${targetSalonId}':`, {
-            servizi: window._pbState.allServices.length,
-            operatori: window._pbState.allOperators.length,
-            turni: window._pbState.allSchedules.length
-        });
+        window._pbState.allServices = services;
+        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
+        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
+        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
         renderPublicServicesList();
         renderPublicOperatorsList();
-
     } catch (e) {
-        console.error("❌ [SELF-BOOKING ERROR] Errore caricamento da Cloud:", e);
-        alert("Impossibile caricare i dati del salone selezionato. Verifica la connessione.");
+        console.error("Errore inizializzazione portale:", e);
     }
 }
-// Verifica e autenticazione cliente su Cloud
+
 async function handlePublicAuthContinue() {
-    const targetSalonId = window._pbState.salonId;
     const phoneInput = document.getElementById('pb-auth-phone');
     const rawPhone = phoneInput ? phoneInput.value.trim() : '';
 
@@ -20134,91 +20133,84 @@ async function handlePublicAuthContinue() {
         return alert("Inserisci un numero di cellulare valido (almeno 9-10 cifre).");
     }
 
-    try {
-        // Cerca il cliente direttamente su Cloud per QUESTO salon_id
-        const customers = await publicCloudFetch(`customers?salon_id=eq.${targetSalonId}&select=*`) || [];
-        const matched = customers.find(c => {
-            if (!c.phone || c.phone.trim() === '') return false;
-            let cPhone = String(c.phone).replace(/\D/g, '');
-            if (cPhone.startsWith('39') && cPhone.length >= 11) cPhone = cPhone.substring(2);
-            if (cPhone.startsWith('0') && cPhone.length >= 10) cPhone = cPhone.substring(1);
-            return cPhone.length >= 9 && cPhone === cleanPhone;
-        });
+    const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+    const matched = customers.find(c => {
+        if (!c.phone || c.phone.trim() === '') return false;
+        let cPhone = String(c.phone).replace(/\D/g, '');
+        if (cPhone.startsWith('39') && cPhone.length >= 11) cPhone = cPhone.substring(2);
+        if (cPhone.startsWith('0') && cPhone.length >= 10) cPhone = cPhone.substring(1);
+        return cPhone.length >= 9 && cPhone === cleanPhone;
+    });
 
-        const isApprovalRequired = (sysSettings && sysSettings['booking_require_approval'] !== '0');
+    const isApprovalRequired = (sysSettings && sysSettings['booking_require_approval'] !== '0');
 
-        if (matched) {
-            const status = matched.booking_status || 'approved';
+    if (matched) {
+        const status = matched.booking_status || 'approved';
 
-            if (status === 'blocked') {
-                feedback.style.display = 'block';
-                feedback.style.background = '#fee2e2';
-                feedback.style.color = '#dc2626';
-                feedback.style.border = '1px solid #fecaca';
-                feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Ti invitiamo a contattare telefonicamente il salone.`;
-                return;
-            }
-
-            if (status === 'pending') {
-                feedback.style.display = 'block';
-                feedback.style.background = '#fef3c7';
-                feedback.style.color = '#92400e';
-                feedback.style.border = '1px solid #fde68a';
-                feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il salone non ha ancora abilitato il tuo numero. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
-                return;
-            }
-
-            window._pbState.customer = matched;
-            onCustomerVerifiedSuccess(matched);
-        } else {
-            if (regFields.style.display === 'none') {
-                regFields.style.display = 'block';
-                feedback.style.display = 'block';
-                feedback.style.background = '#ede9fe';
-                feedback.style.color = '#6d28d9';
-                feedback.style.border = '1px solid #ddd6fe';
-                feedback.innerHTML = `👋 Non risulti ancora registrato per questo salone! Inserisci il tuo nome e cognome per creare la tua scheda.`;
-                document.getElementById('pb-btn-auth-continue').innerText = "Completa Registrazione ➔";
-                return;
-            }
-
-            const fn = document.getElementById('pb-auth-firstname')?.value.trim();
-            const ln = document.getElementById('pb-auth-lastname')?.value.trim();
-            const gdpr = document.getElementById('pb-auth-gdpr')?.checked;
-
-            if (!fn || !ln) return alert("Inserisci sia il nome che il cognome per continuare.");
-            if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR.");
-
-            const initialStatus = isApprovalRequired ? 'pending' : 'approved';
-            const newCustPayload = {
-                id: crypto.randomUUID(),
-                salon_id: targetSalonId,
-                first_name: fn,
-                last_name: ln,
-                phone: rawPhone,
-                gdpr_consent: 1,
-                gdpr_date: new Date().toISOString().split('T')[0],
-                booking_status: initialStatus
-            };
-
-            // Scrittura diretta su Cloud
-            await publicCloudFetch('customers', 'POST', newCustPayload);
-
-            if (isApprovalRequired) {
-                feedback.style.display = 'block';
-                feedback.style.background = '#fef3c7';
-                feedback.style.color = '#92400e';
-                feedback.style.border = '1px solid #fde68a';
-                feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
-                document.getElementById('pb-btn-auth-continue').style.display = 'none';
-            } else {
-                window._pbState.customer = newCustPayload;
-                onCustomerVerifiedSuccess(newCustPayload);
-            }
+        if (status === 'blocked') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fee2e2';
+            feedback.style.color = '#dc2626';
+            feedback.style.border = '1px solid #fecaca';
+            feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Ti invitiamo a contattare telefonicamente il salone.`;
+            return;
         }
-    } catch (err) {
-        console.error("Errore autenticazione cliente su Cloud:", err);
-        alert("Errore di comunicazione con il server. Riprova.");
+
+        if (status === 'pending') {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il salone non ha ancora abilitato il tuo numero. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
+            return;
+        }
+
+        window._pbState.customer = matched;
+        onCustomerVerifiedSuccess(matched);
+    } else {
+        if (regFields.style.display === 'none') {
+            regFields.style.display = 'block';
+            feedback.style.display = 'block';
+            feedback.style.background = '#ede9fe';
+            feedback.style.color = '#6d28d9';
+            feedback.style.border = '1px solid #ddd6fe';
+            feedback.innerHTML = `👋 Non risulti ancora registrato nei nostri sistemi! Inserisci il tuo nome e cognome per creare la tua scheda.`;
+            document.getElementById('pb-btn-auth-continue').innerText = "Completa Registrazione ➔";
+            return;
+        }
+
+        const fn = document.getElementById('pb-auth-firstname')?.value.trim();
+        const ln = document.getElementById('pb-auth-lastname')?.value.trim();
+        const gdpr = document.getElementById('pb-auth-gdpr')?.checked;
+
+        if (!fn || !ln) return alert("Inserisci sia il nome che il cognome per continuare.");
+        if (!gdpr) return alert("È necessario accettare il consenso Privacy GDPR.");
+
+        const initialStatus = isApprovalRequired ? 'pending' : 'approved';
+        const newCustPayload = {
+            id: crypto.randomUUID(),
+            salon_id: window._pbState.salonId,
+            first_name: fn,
+            last_name: ln,
+            phone: rawPhone,
+            gdpr_consent: 1,
+            gdpr_date: new Date().toISOString().split('T')[0],
+            booking_status: initialStatus
+        };
+
+        await window.universalQuery({ action: 'INSERT', table: 'customers', data: newCustPayload });
+
+        if (isApprovalRequired) {
+            feedback.style.display = 'block';
+            feedback.style.background = '#fef3c7';
+            feedback.style.color = '#92400e';
+            feedback.style.border = '1px solid #fde68a';
+            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
+            document.getElementById('pb-btn-auth-continue').style.display = 'none';
+        } else {
+            window._pbState.customer = newCustPayload;
+            onCustomerVerifiedSuccess(newCustPayload);
+        }
     }
 }
 
@@ -20241,45 +20233,42 @@ function onCustomerVerifiedSuccess(customer) {
     goToStep('pb-step-services');
 }
 
-// Recupero pacchetti prepagati del cliente su Cloud
 async function loadCustomerPrepaidPackages(customer) {
     if (!customer) return;
-    const targetSalonId = window._pbState.salonId;
+    const currentSalon = String(window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001')).trim().toLowerCase();
     const todayStr = new Date().toISOString().split('T')[0];
 
     try {
-        const [allCustPkgs, allPkgConfigs] = await Promise.all([
-            publicCloudFetch(`customer_packages?customer_id=eq.${customer.id}&select=*`),
-            publicCloudFetch(`packages_config?select=*`)
-        ]);
-
+        const allCustPkgs = await window.universalQuery({ action: 'GET_ALL', table: 'customer_packages' }) || [];
+        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
         const inventory = window._pbState.allServices || [];
 
-        const clientPkgs = (allCustPkgs || []).filter(cp => {
+        const clientPkgs = allCustPkgs.filter(cp => {
+            const matchCustId = String(cp.customer_id).trim() === String(customer.id).trim();
             const notExpired = !cp.expiry_date || cp.expiry_date >= todayStr;
-            return notExpired;
+            return matchCustId && notExpired;
         });
 
         const eligiblePrepaidServices = [];
 
         for (let cp of clientPkgs) {
-            const parentConfig = (allPkgConfigs || []).find(p => String(p.id).trim() === String(cp.package_id).trim());
+            const parentConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
             const pkgName = parentConfig ? parentConfig.name : 'Pacchetto Trattamenti';
 
-            let isAllowed = String(cp.salon_id || '').trim().toLowerCase() === targetSalonId.toLowerCase();
+            let isAllowed = String(cp.salon_id || '').trim().toLowerCase() === currentSalon;
 
             if (!isAllowed && parentConfig && parentConfig.shared_salons) {
                 let sharedArr = parentConfig.shared_salons;
                 if (typeof sharedArr === 'string') { try { sharedArr = JSON.parse(sharedArr); } catch(e) { sharedArr = []; } }
                 if (Array.isArray(sharedArr)) {
-                    isAllowed = sharedArr.some(s => String(s).trim().toLowerCase() === targetSalonId.toLowerCase());
+                    isAllowed = sharedArr.some(s => String(s).trim().toLowerCase() === currentSalon);
                 }
             }
 
             if (!isAllowed && cp.revenue_allocations) {
                 let allocs = cp.revenue_allocations;
                 if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch(e) { allocs = {}; } }
-                if (allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === targetSalonId.toLowerCase() && parseFloat(allocs[k]) > 0)) {
+                if (allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === currentSalon && parseFloat(allocs[k]) > 0)) {
                     isAllowed = true;
                 }
             }
@@ -20315,7 +20304,7 @@ async function loadCustomerPrepaidPackages(customer) {
 
         window._pbState.customerPrepaidItems = eligiblePrepaidServices;
     } catch(err) {
-        console.warn("Avviso caricamento carnet cliente da Cloud:", err);
+        console.warn("Errore caricamento carnet cliente nel booking:", err);
         window._pbState.customerPrepaidItems = [];
     }
 }
@@ -21107,12 +21096,20 @@ function renderConfirmSummary() {
     `;
 }
 
-// Esecuzione e scrittura atomica dell'appuntamento su Cloud
 async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
     if (btn) { btn.disabled = true; btn.innerText = "Verifica disponibilità in corso..."; }
 
-    const targetSalonId = window._pbState.salonId;
+    const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
+
+    if (navigator.onLine && salonId) {
+        await Promise.all([
+            fetchFreshBookingSettingsFromCloud(salonId),
+            fetchFreshAppointmentsAndBookingsFromCloud(salonId)
+        ]);
+        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
+    }
+
     const checkDate = window._pbState.selectedDate;
     const checkStart = window._pbState.selectedSlot;
     const checkEnd = window._pbState.selectedSlotEnd;
@@ -21123,18 +21120,19 @@ async function executePublicBooking() {
     const custFullName = `${custFirst} ${custLast}`.trim() || 'Cliente Online';
     const custPhone = window._pbState.customer ? (window._pbState.customer.phone || '') : '';
 
-    // Prenotazione atomica postazione via RPC diretta su Cloud
     if (window._pbState.allocatedWorkstationId) {
         try {
-            const wsRes = await publicCloudFetch('rpc/book_workstation_atomic', 'POST', {
-                p_workstation_id: window._pbState.allocatedWorkstationId,
-                p_salon_id: targetSalonId,
-                p_appointment_id: appointmentId,
-                p_date: checkDate,
-                p_start_time: checkStart,
-                p_end_time: checkEnd,
-                p_operator_name: window._pbState.selectedSlotOperator || 'Autonomo',
-                p_notes: `Prenotazione Online: ${custFullName}`
+            const wsRes = await window.universalQuery({
+                action: 'BOOK_WORKSTATION_ATOMIC',
+                data: {
+                    workstationId: window._pbState.allocatedWorkstationId,
+                    date: checkDate,
+                    startTime: checkStart,
+                    endTime: checkEnd,
+                    appointmentId: appointmentId,
+                    operatorName: window._pbState.selectedSlotOperator || 'Autonomo',
+                    notes: `Prenotazione Online: ${custFullName}`
+                }
             });
 
             if (wsRes && wsRes.success === false) {
@@ -21145,16 +21143,17 @@ async function executePublicBooking() {
                 return;
             }
         } catch(wsErr) {
-            console.warn("Avviso prenotazione postazione:", wsErr);
+            console.warn("Avviso prenotazione postazione atomica:", wsErr);
         }
     }
 
     const prepaidRedemptions = window._pbState.selectedServices.filter(s => s.isPackageRedemption);
     let pkgNotesTag = '';
+
     if (prepaidRedemptions.length > 0) {
         pkgNotesTag = prepaidRedemptions.map(p => `[PKG:${p.custPkgId}:${p.id}]`).join(' ');
     }
-
+// 🏷️ Riconoscimento offerte promozionali per la cassa
     const promoOffers = window._pbState.selectedServices.filter(s => s.isPromo);
     let promoNotesTag = '';
     if (promoOffers.length > 0) {
@@ -21166,11 +21165,15 @@ async function executePublicBooking() {
     if (promoNotesTag) notes += ` ${promoNotesTag}`;
     if (window._pbState.allocatedWorkstationId) notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
 
+
     const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
 
+
+
+    
     const appPayload = {
         id: appointmentId,
-        salon_id: targetSalonId,
+        salon_id: salonId,
         cust_name: custFullName,
         date: checkDate,
         time: checkStart,
@@ -21182,14 +21185,12 @@ async function executePublicBooking() {
     };
 
     try {
-        // Scrittura diretta dell'appuntamento su Cloud
-        await publicCloudFetch('appointments', 'POST', appPayload);
+        const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
+        if (res && res.status === 'error') throw new Error(res.message);
 
-        // Decremento carnet prepagato su Cloud
         for (let prep of prepaidRedemptions) {
             try {
-                const targetPkgs = await publicCloudFetch(`customer_packages?id=eq.${prep.custPkgId}&select=*`) || [];
-                const targetPkg = targetPkgs[0];
+                const targetPkg = await localDb.customer_packages.get(prep.custPkgId);
                 if (targetPkg) {
                     let sessionsList = Array.isArray(targetPkg.sessions_state) 
                         ? targetPkg.sessions_state 
@@ -21199,15 +21200,24 @@ async function executePublicBooking() {
                     if (sessionItem && parseInt(sessionItem.remaining) > 0) {
                         sessionItem.remaining = parseInt(sessionItem.remaining) - 1;
 
-                        await publicCloudFetch(`customer_packages?id=eq.${prep.custPkgId}`, 'PATCH', {
+                        const updatePayload = {
                             sessions_state: sessionsList,
-                            updated_at: new Date().toISOString()
-                        });
+                            updated_at: getNowLocal()
+                        };
+
+                        await localDb.customer_packages.update(targetPkg.id, updatePayload);
+                        if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
+                            await sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, targetPkg.id);
+                        }
                     }
                 }
             } catch(pkgErr) {
-                console.error("Errore decremento carnet su Cloud:", pkgErr);
+                console.error("Errore decremento carnet:", pkgErr);
             }
+        }
+
+        if (typeof refreshAllData === 'function') {
+            refreshAllData().catch(() => {});
         }
 
         document.getElementById('pb-success-desc').innerHTML = `
@@ -21218,9 +21228,9 @@ async function executePublicBooking() {
         goToStep('pb-step-success');
 
     } catch (err) {
-        console.error("Errore salvataggio prenotazione su Cloud:", err);
+        console.error("Errore salvataggio:", err);
         if (window._pbState.allocatedWorkstationId) {
-            publicCloudFetch('rpc/release_workstation_booking', 'POST', { p_appointment_id: appointmentId, p_salon_id: targetSalonId }).catch(() => {});
+            window.universalQuery({ action: 'RELEASE_WORKSTATION_BOOKING', data: { appointmentId: appointmentId } }).catch(() => {});
         }
         alert("Si è verificato un errore durante la prenotazione: " + err.message);
         if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
