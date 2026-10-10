@@ -2760,8 +2760,8 @@
         <!-- ⚙️ CARD REGOLE CABINE & CHIUSURE (AUTO-STACK SU MOBILE: ZERO SOVRAPPOSIZIONI!) -->
         <div class="booking-responsive-subcard" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
             <div style="flex: 1; min-width: 0;">
-                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 2px;">⚙️ Orari Cabine Autonome & Chiusure</b>
-                <small style="color: #64748b; font-size: 11.5px; line-height: 1.35; display: block;">Fasce orarie solarium, pause tecniche e date di chiusura.</small>
+                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 2px;">⚙️ Orari Servizi Autonomi & Chiusure</b>
+                <small style="color: #64748b; font-size: 11.5px; line-height: 1.35; display: block;">Fasce orarie, pause tecniche e date di chiusura.</small>
             </div>
             <button type="button" class="btn btn-p booking-subcard-btn" style="padding: 9px 14px; font-size: 12px; font-weight: 800; border-radius: 8px; white-space: nowrap; flex-shrink: 0;" onclick="openBookingAdvancedConfigModal()">
                 Configura Regole ➔
@@ -4089,7 +4089,7 @@
         <div>
             <b style="font-size: 12px; color: #1e1b4b;">⚡ Trattamento Autonomo (Senza Operatore)</b>
             <small style="color: #64748b; font-size: 11px; display: block; line-height: 1.3;">
-                Ideale per lampade solari, docce solari o macchinari automatici. In prenotazione impegna solo la cabina libera senza vincolare il turno dello staff.
+                Ideale per lampade solari, docce solari o macchinari automatici. In prenotazione impegna solo la postazione libera senza vincolare il turno dello staff.
             </small>
         </div>
     </label>
@@ -16112,26 +16112,26 @@ function updateWorkstationHelperBadge() {
             badge.style.background = '#fef2f2';
             badge.style.border = '1.5px solid #fecaca';
             badge.style.color = '#dc2626';
-            badge.innerHTML = `⚠️ <b>Attenzione:</b> Un servizio autonomo senza operatore richiede obbligatoriamente che sia spuntata almeno una cabina in cui si svolge!`;
+            badge.innerHTML = `⚠️ <b>Attenzione:</b> Un servizio autonomo senza operatore richiede obbligatoriamente che sia spuntata almeno una postazione in cui si svolge!`;
         } else {
             const names = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-name')).filter(Boolean);
             badge.style.background = '#fef3c7';
             badge.style.border = '1.5px solid #fde68a';
             badge.style.color = '#b45309';
-            badge.innerHTML = `⚡ <b>Servizio Autonomo su ${count} cabine (${names.join(', ')}):</b> Non impegna nessun operatore. Verrà verificata solo la disponibilità della prima cabina libera tra quelle scelte.`;
+            badge.innerHTML = `⚡ <b>Servizio Autonomo su ${count} postazioni (${names.join(', ')}):</b> Non impegna nessun operatore. Verrà verificata solo la disponibilità della prima postazione libera tra quelle scelte.`;
         }
     } else {
         if (count === 0) {
             badge.style.background = '#dcfce7';
             badge.style.border = '1.5px solid #bbf7d0';
             badge.style.color = '#15803d';
-            badge.innerHTML = `🟢 <b>Lavoro Libero / Poltrona Generica:</b> Non richiede una cabina specifica. In fase di prenotazione verrà controllata solo la disponibilità dell'operatore.`;
+            badge.innerHTML = `🟢 <b>Lavoro Libero / Poltrona Generica:</b> Non richiede una postazione specifica. In fase di prenotazione verrà controllata solo la disponibilità dell'operatore.`;
         } else {
             const names = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-name')).filter(Boolean);
             badge.style.background = '#ede9fe';
             badge.style.border = '1.5px solid #ddd6fe';
             badge.style.color = '#6d28d9';
-            badge.innerHTML = `🏢 <b>Vincolato a ${count} cabine (${names.join(', ')}):</b> Richiede che sia l'operatore SIA una delle cabine siano liberi contemporaneamente.`;
+            badge.innerHTML = `🏢 <b>Vincolato a ${count} postazioni (${names.join(', ')}):</b> Richiede che sia l'operatore SIA una delle postazioni siano liberi contemporaneamente.`;
         }
     }
 }
@@ -16452,7 +16452,7 @@ async function renderServices() {
             if (wsList.length > 0) {
                 const names = wsList.map(id => workstations.find(w => String(w.id) === String(id))?.name).filter(Boolean);
                 if (names.length > 0) {
-                    wsBadge = `<br><small style="color:#0284c7; font-weight:700;">🏢 Cabine: ${names.join(', ')}</small>`;
+                    wsBadge = `<br><small style="color:#0284c7; font-weight:700;">🏢 Postazioni: ${names.join(', ')}</small>`;
                 }
             }
 
@@ -20031,7 +20031,7 @@ async function saveBookingAdvancedConfig() {
         data: { key: 'booking_autonomous_config', value: jsonStr }
     });
 
-    alert("✅ Orari cabine (anche spezzati) e chiusure salvati con successo!");
+    alert("✅ Orari postazioni (anche spezzati) e chiusure salvati con successo!");
     closeBookingAdvancedConfigModal();
 }
 
@@ -20551,7 +20551,7 @@ function renderPublicServicesList() {
                  style="background: rgba(22, 13, 62, 0.75); backdrop-filter: blur(10px); border: 1.5px solid ${isSelected ? '#818CF8' : 'rgba(255, 255, 255, 0.12)'}; border-radius: 16px; padding: 15px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease; box-shadow: ${isSelected ? '0 0 16px rgba(99, 102, 241, 0.35)' : 'none'};">
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
-                        ${isAutonomous ? '<span style="font-size: 10px; font-weight: 800; background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid #F59E0B; padding: 2px 6px; border-radius: 6px;">CABINA AUTONOMA</span>' : ''}
+                        ${isAutonomous ? '<span style="font-size: 10px; font-weight: 800; background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid #F59E0B; padding: 2px 6px; border-radius: 6px;">POSTAZIONE AUTONOMA</span>' : ''}
                         <div style="font-weight: 800; font-size: 14.5px; color: #ffffff;">${s.name}</div>
                     </div>
                     <div style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
@@ -20992,7 +20992,7 @@ async function computeAndRenderAvailableSlots() {
 
         if (weeklyHours && weeklyHours.is_open === false) {
             if (badge) badge.innerText = "0 disponibili";
-            grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:20px; color:#dc2626; font-size:12.5px; background:#fef2f2; border-radius:10px;">Le cabine per questo trattamento sono chiuse il ${BAC_DAYS_NAMES[targetDayOfWeek]}.</div>`;
+            grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:20px; color:#dc2626; font-size:12.5px; background:#fef2f2; border-radius:10px;">Le postazioni per questo trattamento sono chiuse il ${BAC_DAYS_NAMES[targetDayOfWeek]}.</div>`;
             return;
         }
 
@@ -21238,7 +21238,7 @@ async function executePublicBooking() {
             });
 
             if (wsRes && wsRes.success === false) {
-                alert(`⚠️ La cabina selezionata è appena stata occupata da un'altra prenotazione (${wsRes.message || ''}). Seleziona un altro orario.`);
+                alert(`⚠️ La postazione selezionata è appena stata occupata da un'altra prenotazione (${wsRes.message || ''}). Seleziona un altro orario.`);
                 if (btn) { btn.disabled = false; btn.innerText = "Conferma Prenotazione ✓"; }
                 goToStep('pb-step-slots');
                 computeAndRenderAvailableSlots();
@@ -22251,7 +22251,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 24px;">⚙️</span>
                 <div>
-                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Regole Orari Cabine & Chiusure</h3>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Regole Orari Postazioni & Chiusure</h3>
                     <small style="color: #64748b; font-size: 11.5px;">Gestione indipendente per servizi senza operatore e festività</small>
                 </div>
             </div>
@@ -22294,7 +22294,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
                 <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <b style="font-size: 12.5px; color: #1e1b4b;">⏱️ Pausa Sanificazione / Pulizia tra Clienti</b>
-                        <small style="color: #64748b; font-size: 11px; display: block;">Minuti aggiunti automaticamente dopo ogni seduta autonoma per igienizzare la cabina.</small>
+                        <small style="color: #64748b; font-size: 11px; display: block;">Minuti aggiunti automaticamente dopo ogni seduta autonoma per igienizzare la postazione.</small>
                     </div>
                     <select id="bac-buffer-minutes" style="width: 120px; margin: 0; font-weight: bold; background: white;">
                         <option value="0">Nessuna (0m)</option>
@@ -22305,7 +22305,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
                 </div>
 
                 <label style="color: var(--p); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; display: block;">
-                    Fasce Orarie Giornaliere Cabine Autonome (Lun - Dom)
+                    Fasce Orarie Giornaliere Postazioni Autonome (Lun - Dom)
                 </label>
                 <div id="bac-weekly-hours-container" style="display: flex; flex-direction: column; gap: 8px;">
                     <!-- Generato dinamicamente da JS: Lun-Dom con Apertura, Chiusura ed eventuale pausa pranzo -->
