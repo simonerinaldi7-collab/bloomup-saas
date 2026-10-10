@@ -1183,6 +1183,168 @@
             .modal-box { width: 95% !important; padding: 20px !important; }
             .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
         }
+
+/* ======================================================== */
+/* 🖨️ VAIMUP PRINT STUDIO: STILI DI ANTEPRIMA & STAMPA     */
+/* ======================================================== */
+
+.print-studio-container {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+}
+
+@media screen and (max-width: 900px) {
+    .print-studio-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+    }
+}
+
+.print-controls-pane {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.print-preview-pane {
+    background: #475569;
+    border-radius: 16px;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* 📄 Foglio di Stampa Base (Screen Preview) */
+.print-sheet {
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    position: relative;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+/* Dimensioni Carta Responsive per Anteprima a Schermo */
+.format-a4-portrait { width: 210mm; min-height: 297mm; padding: 14mm; }
+.format-a4-landscape { width: 297mm; min-height: 210mm; padding: 12mm; }
+.format-a5-portrait { width: 148mm; min-height: 210mm; padding: 10mm; }
+.format-labels-grid { width: 210mm; min-height: 297mm; padding: 10mm; }
+.format-thermal-label { width: 50mm; min-height: 30mm; padding: 2mm; margin: 0 auto; }
+
+/* 👑 TEMA 1: LUXURY GOLD & NOIR */
+.theme-luxury-gold {
+    --ps-bg: #11141a;
+    --ps-text: #f8fafc;
+    --ps-text-sub: #cbd5e1;
+    --ps-accent: #D4AF37;
+    --ps-accent-border: #D4AF37;
+    --ps-card-bg: rgba(255,255,255,0.04);
+    --ps-font-title: 'Cinzel', 'Playfair Display', Georgia, serif;
+    --ps-font-body: 'Inter', sans-serif;
+    background: var(--ps-bg) !important;
+    color: var(--ps-text) !important;
+    border: 2px solid var(--ps-accent) !important;
+}
+
+/* 🌸 TEMA 2: ROSE GOLD & GLAMOUR CHIC */
+.theme-rose-glamour {
+    --ps-bg: #fff8f8;
+    --ps-text: #2e1c24;
+    --ps-text-sub: #785361;
+    --ps-accent: #b76e79;
+    --ps-accent-border: #e8c4ca;
+    --ps-card-bg: #ffffff;
+    --ps-font-title: 'Montserrat', 'Inter', sans-serif;
+    --ps-font-body: 'Inter', sans-serif;
+    background: var(--ps-bg) !important;
+    color: var(--ps-text) !important;
+    border: 2px solid var(--ps-accent-border) !important;
+}
+
+/* 💈 TEMA 3: BARBER VINTAGE & EXECUTIVE */
+.theme-barber-vintage {
+    --ps-bg: #1c1917;
+    --ps-text: #fafaf9;
+    --ps-text-sub: #a8a29e;
+    --ps-accent: #d97706;
+    --ps-accent-border: #78350f;
+    --ps-card-bg: #292524;
+    --ps-font-title: 'Cinzel', 'Courier New', serif;
+    --ps-font-body: 'Courier New', monospace;
+    background: var(--ps-bg) !important;
+    color: var(--ps-text) !important;
+    border: 3px double var(--ps-accent) !important;
+}
+
+/* 🌿 TEMA 4: CLEAN BOTANICAL & MINIMAL */
+.theme-botanical-minimal {
+    --ps-bg: #ffffff;
+    --ps-text: #1e293b;
+    --ps-text-sub: #64748b;
+    --ps-accent: #059669;
+    --ps-accent-border: #a7f3d0;
+    --ps-card-bg: #f8fafc;
+    --ps-font-title: 'Inter', sans-serif;
+    --ps-font-body: 'Inter', sans-serif;
+    background: var(--ps-bg) !important;
+    color: var(--ps-text) !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* 🖨️ REGOLE RIGIDE @MEDIA PRINT (Zero UI gestionale visibile su carta) */
+@media print {
+    body, html {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .sidebar, .header, #burger-btn, #sidebar-overlay,
+    .print-controls-pane, .login-screen, .modal,
+    #quick-alarm-screen, #pwa-install-banner, .no-print {
+        display: none !important;
+    }
+    #app-shell, .main, .content, #v-print {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    .print-studio-container {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .print-preview-pane {
+        background: transparent !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    .print-sheet {
+        box-shadow: none !important;
+        margin: 0 !important;
+        page-break-after: always;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}
+
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1192,6 +1354,8 @@
     <script src="data-service.js"></script>
     <script src="api-bridge.js"></script>
     <script src="ai-agent.js"></script>
+    <!-- 📊 Generatore Barcode Vettoriale ad Alta Risoluzione per Stampa -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6C5CE7">
 </head>
@@ -1485,6 +1649,7 @@
         <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
         <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
         <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
+        <a href="#" class="nav-item" id="n-print" onclick="changePageMobileWrapper('print')">🖨️ Stampa & Listini</a>
     </div>
     <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
         <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
@@ -2069,6 +2234,136 @@
             </div>
         </div>
     </section>
+
+    <!-- ======================================================== -->
+<!-- 🖨️ VISTA PRINT STUDIO: STAMPA LISTINI & BARCODE          -->
+<!-- ======================================================== -->
+<section id="v-print" class="view" style="padding: 15px !important; overflow: hidden;">
+    
+    <div class="print-studio-container">
+        
+        <!-- ========================================== -->
+        <!-- COLONNA SINISTRA: PANNELLO DI CONTROLLO    -->
+        <!-- ========================================== -->
+        <div class="print-controls-pane no-print">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 24px;">🖨️</span>
+                    <div>
+                        <b style="font-size: 15px; color: #1e1b4b;">VaiMUp Print Studio</b>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Listini & Etichette Barcode</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TASTO DI STAMPA PRINCIPALE -->
+            <button type="button" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-size: 14px; font-weight: 900; justify-content: center; padding: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);" onclick="triggerDirectPrint()">
+                🖨️ Stampa Ora / Salva PDF ➔
+            </button>
+
+            <!-- 1. MODALITÀ DI STAMPA -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">1. Modalità Documento</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <button type="button" class="btn" id="btn-mode-pricelist" style="padding: 8px; font-size: 11.5px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="setPrintMode('pricelist')">
+                        📑 Listino Prezzi
+                    </button>
+                    <button type="button" class="btn" id="btn-mode-barcodes" style="padding: 8px; font-size: 11.5px; font-weight: 800; justify-content: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px;" onclick="setPrintMode('barcodes')">
+                        🏷️ Barcode Cassa
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. FORMATO CARTA -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Stampa</label>
+                <select id="ps-format-select" onchange="onPrintFormatChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
+                    <option value="a4_portrait" selected>A4 Verticale (Standard Listino)</option>
+                    <option value="a4_landscape">A4 Orizzontale (Listino 3 Colonne)</option>
+                    <option value="a5_portrait">A5 Verticale (Brochure / Flyer da Banco)</option>
+                    <option value="labels_grid">Griglia 24 Etichette Barcode (Foglio A4)</option>
+                    <option value="thermal_label">Etichetta Termica Singola (50x30mm)</option>
+                </select>
+            </div>
+
+            <!-- 3. TEMA GRAFICO -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Tema Grafico d'Autore</label>
+                <select id="ps-theme-select" onchange="onPrintThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
+                    <option value="luxury-gold" selected>👑 Luxury Gold & Noir (Elegante / Salone Top)</option>
+                    <option value="rose-glamour">🌸 Rose Gold & Glamour Chic (Beauty & Spa)</option>
+                    <option value="barber-vintage">💈 Barber Vintage & Executive (Grooming / Retrò)</option>
+                    <option value="botanical-minimal">🌿 Clean Botanical & Minimal (Moderno Pulito)</option>
+                </select>
+            </div>
+
+            <!-- 4. LOGO & BRANDING SALONE -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">4. Loghi & Branding</label>
+                
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                    <div id="ps-salon-logo-preview" style="width: 48px; height: 48px; border-radius: 8px; border: 1px dashed #cbd5e1; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                        <span style="font-size: 20px;">🖼️</span>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <input type="file" id="ps-logo-file-input" accept="image/*" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: bold; width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px;" onclick="document.getElementById('ps-logo-file-input').click()">
+                            📁 Carica Logo Salone
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11.5px;">
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ps-toggle-show-logo" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Mostra Logo del Negozio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ps-toggle-show-vaimup" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Co-branding Logo VaiMUp Suite</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ps-toggle-show-qr" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Includi QR Code Prenotazione Online</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 5. SELEZIONE ARTICOLI DA STAMPARE -->
+            <div style="flex-grow: 1; display: flex; flex-direction: column; min-height: 180px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">5. Articoli Selezionati</label>
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(true)">Tutti</button>
+                        <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(false)">Nessuno</button>
+                    </div>
+                </div>
+
+                <input type="text" id="ps-filter-items-input" placeholder="Filtra per nome o tipo..." onkeyup="filterPrintItemsCheckboxes(this.value)" style="margin: 0 0 6px 0; padding: 6px 10px; font-size: 12px; background: white;">
+
+                <div id="ps-items-checklist-container" style="flex-grow: 1; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Popolato dinamicamente da JS -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- COLONNA DESTRA: ANTEPRIMA LIVE INTERATTIVA -->
+        <!-- ========================================== -->
+        <div class="print-preview-pane">
+            <div id="print-sheet-canvas" class="print-sheet format-a4-portrait theme-luxury-gold" contenteditable="false">
+                <!-- Generato in tempo reale da renderLivePrintSheet() -->
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+
+
 
     <!-- Viste standard restanti -->
     <section id="v-supplier-payouts" class="view">
@@ -8385,7 +8680,7 @@ function addPackageToCart(name, price, packageId) {
         'v-customers':'Clienti', 'v-services':'Listino servizi', 'v-products':'Magazzino Prodotti',
         'v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni', 'v-users': 'Gestione Utenti',
         'v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff',
-        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti'
+        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti','v-workstations':'Spazi & Postazioni','v-print':'Stampa Listini & Barcode'
     };
     
     document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
@@ -8436,7 +8731,10 @@ if (active === 'v-workstations') {
         renderCalendar();
     }
 
-
+// Subito dopo nel corpo di renderActiveView():
+    if (active === 'v-print' && typeof initPrintStudioView === 'function') {
+        initPrintStudioView();
+    }
     if(active === 'v-sales-report') renderSalesReport();
     if(active === 'v-sales') renderSalesList();
     if(active === 'v-supplier-payouts') renderSupplierPayouts();
@@ -12382,6 +12680,7 @@ window.chooseAppTheme = function(themeName) {
             'logs': 'n-logs',
             'settings': 'n-sett',
             'sales-report': 'n-repo',
+            'print': 'n-print',
             'supplier-payouts': 'n-payouts',
             'schedules': 'n-schedules',
             'workstations': 'n-workstations'
@@ -21939,6 +22238,464 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
         promoPrice: promoPrice
     };
 }
+
+
+// =========================================================================
+// 🖨️ VAIMUP PRINT STUDIO: MOTORE DI ANTEPRIMA & STAMPA D'AUTORE
+// =========================================================================
+
+window._printStudioState = {
+    mode: 'pricelist',            // 'pricelist' | 'barcodes'
+    format: 'a4_portrait',        // 'a4_portrait' | 'a4_landscape' | 'a5_portrait' | 'labels_grid' | 'thermal_label'
+    theme: 'luxury-gold',         // 'luxury-gold' | 'rose-glamour' | 'barber-vintage' | 'botanical-minimal'
+    showSalonLogo: true,
+    showVaimupLogo: true,
+    showBookingQr: true,
+    salonLogoBase64: null,
+    title: 'LISTINO TRATTAMENTI ESCLUSIVI',
+    subtitle: 'Esperienza di Bellezza & Cura della Persona',
+    footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
+    selectedItemIds: new Set()
+};
+
+// Inizializzazione della vista Stampa
+async function initPrintStudioView() {
+    console.log("🖨️ [PRINT STUDIO] Inizializzazione vista...");
+    
+    // 1. Recupero logo salone salvato nelle impostazioni
+    const savedLogo = sysSettings['salon_logo'] || localStorage.getItem('vaimup_salon_logo');
+    if (savedLogo) {
+        window._printStudioState.salonLogoBase64 = savedLogo;
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+    }
+
+    // 2. Preselezione di tutti i servizi e prodotti disponibili
+    const inventory = allInventory || await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+    window._printStudioState.selectedItemIds.clear();
+    inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
+
+    // 3. Renderizza checklist articoli e foglio live
+    renderPrintItemsChecklist();
+    renderLivePrintSheet();
+}
+
+// Switch tra Listino Prezzi e Fogli Barcode
+function setPrintMode(mode) {
+    window._printStudioState.mode = mode;
+    const btnPrice = document.getElementById('btn-mode-pricelist');
+    const btnBarcodes = document.getElementById('btn-mode-barcodes');
+
+    if (mode === 'pricelist') {
+        if (btnPrice) { btnPrice.style.background = 'var(--p)'; btnPrice.style.color = '#fff'; }
+        if (btnBarcodes) { btnBarcodes.style.background = '#f1f5f9'; btnBarcodes.style.color = '#475569'; }
+        window._printStudioState.title = 'LISTINO TRATTAMENTI ESCLUSIVI';
+        if (window._printStudioState.format === 'labels_grid' || window._printStudioState.format === 'thermal_label') {
+            onPrintFormatChanged('a4_portrait');
+            document.getElementById('ps-format-select').value = 'a4_portrait';
+        }
+    } else {
+        if (btnBarcodes) { btnBarcodes.style.background = 'var(--p)'; btnBarcodes.style.color = '#fff'; }
+        if (btnPrice) { btnPrice.style.background = '#f1f5f9'; btnPrice.style.color = '#475569'; }
+        window._printStudioState.title = 'FOGLIO SCANSIONE BARCODE CASSA';
+        onPrintFormatChanged('labels_grid');
+        document.getElementById('ps-format-select').value = 'labels_grid';
+    }
+
+    renderLivePrintSheet();
+}
+
+function onPrintFormatChanged(formatVal) {
+    window._printStudioState.format = formatVal;
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    // Aggiorna classi CSS di formato
+    sheet.className = `print-sheet format-${formatVal.replace('_', '-')} theme-${window._printStudioState.theme}`;
+
+    // Aggiorna regola @page per la stampa fisica
+    let pageCss = '@page { size: A4 portrait; margin: 8mm; }';
+    if (formatVal === 'a4_landscape') pageCss = '@page { size: A4 landscape; margin: 8mm; }';
+    else if (formatVal === 'a5_portrait') pageCss = '@page { size: A5 portrait; margin: 6mm; }';
+    else if (formatVal === 'thermal_label') pageCss = '@page { size: 50mm 30mm; margin: 2mm; }';
+    else if (formatVal === 'labels_grid') pageCss = '@page { size: A4 portrait; margin: 6mm; }';
+
+    let styleTag = document.getElementById('dynamic-print-page-style');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-print-page-style';
+        document.head.appendChild(styleTag);
+    }
+    styleTag.innerHTML = pageCss;
+
+    renderLivePrintSheet();
+}
+
+function onPrintThemeChanged(themeVal) {
+    window._printStudioState.theme = themeVal;
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (sheet) {
+        sheet.className = `print-sheet format-${window._printStudioState.format.replace('_', '-')} theme-${themeVal}`;
+    }
+    renderLivePrintSheet();
+}
+
+// Upload e persistenza del Logo Salone
+async function handleSalonLogoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const base64 = e.target.result;
+        window._printStudioState.salonLogoBase64 = base64;
+
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${base64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+
+        // Persistenza sia locale che su Supabase Cloud
+        localStorage.setItem('vaimup_salon_logo', base64);
+        sysSettings['salon_logo'] = base64;
+        await window.universalQuery({
+            action: 'UPSERT_SETTING',
+            data: { key: 'salon_logo', value: base64 }
+        });
+
+        renderLivePrintSheet();
+    };
+    reader.readAsDataURL(file);
+}
+
+// Checklist articoli
+function renderPrintItemsChecklist() {
+    const container = document.getElementById('ps-items-checklist-container');
+    if (!container) return;
+
+    const inventory = allInventory || [];
+    if (inventory.length === 0) {
+        container.innerHTML = `<span style="font-size:11px; color:#888; padding:8px;">Nessun articolo a listino.</span>`;
+        return;
+    }
+
+    container.innerHTML = inventory.map(item => {
+        const isChecked = window._printStudioState.selectedItemIds.has(String(item.id));
+        const icon = item.type === 'servizio' ? '✂️' : '📦';
+        return `
+            <label class="ps-item-check-row" data-name="${(item.name || '').toLowerCase()}" data-type="${item.type || ''}" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; margin: 0; background: ${isChecked ? '#f8fafc' : 'transparent'};">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                    <input type="checkbox" value="${item.id}" ${isChecked ? 'checked' : ''} onchange="toggleSinglePrintItem('${item.id}', this.checked)" style="width: 14px; height: 14px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${icon} ${item.name}</span>
+                </div>
+                <b style="font-size: 10.5px; color: #475569; margin-left: 6px;">€ ${parseFloat(item.price || 0).toFixed(2)}</b>
+            </label>
+        `;
+    }).join('');
+}
+
+function filterPrintItemsCheckboxes(filterText) {
+    const clean = filterText.toLowerCase().trim();
+    document.querySelectorAll('.ps-item-check-row').forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        const type = row.getAttribute('data-type') || '';
+        row.style.display = (name.includes(clean) || type.includes(clean)) ? 'flex' : 'none';
+    });
+}
+
+function toggleSinglePrintItem(itemId, isChecked) {
+    if (isChecked) window._printStudioState.selectedItemIds.add(String(itemId));
+    else window._printStudioState.selectedItemIds.delete(String(itemId));
+    renderLivePrintSheet();
+}
+
+function toggleAllPrintItems(selectAll) {
+    const inventory = allInventory || [];
+    if (selectAll) {
+        inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
+    } else {
+        window._printStudioState.selectedItemIds.clear();
+    }
+    renderPrintItemsChecklist();
+    renderLivePrintSheet();
+}
+
+// Fallback generatore SVG barcode nativo offline se CDN non raggiungibile
+function generateFallbackBarcodeSvg(codeText) {
+    // Genera un mockup vettoriale SVG di barre nitide leggibili
+    return `
+        <svg viewBox="0 0 160 45" style="width: 100%; height: 38px; display: block;" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#ffffff"/>
+            <g fill="#000000">
+                <rect x="5" y="4" width="3" height="30"/>
+                <rect x="11" y="4" width="1.5" height="30"/>
+                <rect x="15" y="4" width="4" height="30"/>
+                <rect x="22" y="4" width="2" height="30"/>
+                <rect x="26" y="4" width="1.5" height="30"/>
+                <rect x="30" y="4" width="3.5" height="30"/>
+                <rect x="36" y="4" width="2" height="30"/>
+                <rect x="41" y="4" width="4" height="30"/>
+                <rect x="48" y="4" width="1.5" height="30"/>
+                <rect x="52" y="4" width="3" height="30"/>
+                <rect x="58" y="4" width="2.5" height="30"/>
+                <rect x="63" y="4" width="1.5" height="30"/>
+                <rect x="67" y="4" width="3.5" height="30"/>
+                <rect x="73" y="4" width="2" height="30"/>
+                <rect x="78" y="4" width="1.5" height="30"/>
+                <rect x="82" y="4" width="4" height="30"/>
+                <rect x="89" y="4" width="2" height="30"/>
+                <rect x="94" y="4" width="3" height="30"/>
+                <rect x="100" y="4" width="1.5" height="30"/>
+                <rect x="104" y="4" width="3.5" height="30"/>
+                <rect x="110" y="4" width="2" height="30"/>
+                <rect x="115" y="4" width="3" height="30"/>
+                <rect x="121" y="4" width="1.5" height="30"/>
+                <rect x="125" y="4" width="4" height="30"/>
+                <rect x="132" y="4" width="2" height="30"/>
+                <rect x="137" y="4" width="3" height="30"/>
+                <rect x="143" y="4" width="2" height="30"/>
+                <rect x="148" y="4" width="4" height="30"/>
+                <rect x="154" y="4" width="2" height="30"/>
+            </g>
+            <text x="80" y="42" font-family="monospace" font-size="8" font-weight="bold" text-anchor="middle" fill="#000000">${codeText}</text>
+        </svg>
+    `;
+}
+
+// =========================================================================
+// 🎨 RENDERIZZATORE PRINCIPALE WYSIWYG DEL FOGLIO
+// =========================================================================
+
+function renderLivePrintSheet() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    const s = window._printStudioState;
+    s.showSalonLogo = document.getElementById('ps-toggle-show-logo')?.checked ?? true;
+    s.showVaimupLogo = document.getElementById('ps-toggle-show-vaimup')?.checked ?? true;
+    s.showBookingQr = document.getElementById('ps-toggle-show-qr')?.checked ?? true;
+
+    const currentSalon = (currentUser ? currentUser.salon_id : 'SALON_001');
+    const inventory = (allInventory || []).filter(i => s.selectedItemIds.has(String(i.id)));
+
+    // QR Code URL Prenotazione Online
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const qrSrc = `https://quickchart.io/qr?text=${encodeURIComponent(bookingUrl)}&size=160&dark=1e1b4b`;
+
+    // ─────────────────────────────────────────────────────────────
+    // CASO A: FOGLIO ETICHETTE BARCODE (Griglia o Termica)
+    // ─────────────────────────────────────────────────────────────
+    if (s.mode === 'barcodes' || s.format === 'labels_grid' || s.format === 'thermal_label') {
+        renderBarcodesSheet(sheet, inventory, s, currentSalon);
+        return;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CASO B: LISTINO PREZZI & MENU TRATTAMENTI
+    // ─────────────────────────────────────────────────────────────
+    
+    // Raggruppamento intelligente: Servizi vs Prodotti vs Pacchetti
+    const services = inventory.filter(i => i.type === 'servizio');
+    const products = inventory.filter(i => i.type === 'prodotto');
+
+    let servicesHtml = '';
+    if (services.length > 0) {
+        servicesHtml = `
+            <div style="margin-bottom: 22px;">
+                <div style="font-family: var(--ps-font-title); font-size: 15px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 4px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                    <span>✂️ Trattamenti & Servizi</span>
+                    <small style="font-size: 10px; font-weight: normal; opacity: 0.8;">${services.length} voci</small>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 9px;">
+                    ${services.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <span style="font-weight: 700; font-size: 13.5px; color: var(--ps-text);" contenteditable="true">${item.name}</span>
+                                ${item.duration_minutes ? `<small style="color: var(--ps-text-sub); font-size: 11px; margin-left: 6px;">(${item.duration_minutes} min)</small>` : ''}
+                                ${item.model ? `<div style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.2;" contenteditable="true">${item.model}</div>` : ''}
+                            </div>
+                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 6px; opacity: 0.4;"></div>
+                            <span style="font-family: var(--ps-font-title); font-weight: 900; font-size: 14.5px; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    let productsHtml = '';
+    if (products.length > 0) {
+        productsHtml = `
+            <div style="margin-bottom: 22px;">
+                <div style="font-family: var(--ps-font-title); font-size: 15px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 4px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                    <span>📦 Prodotti Home Care & Rivendita</span>
+                    <small style="font-size: 10px; font-weight: normal; opacity: 0.8;">${products.length} prodotti</small>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 9px;">
+                    ${products.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <span style="font-weight: 700; font-size: 13.5px; color: var(--ps-text);" contenteditable="true">${item.name}</span>
+                                ${item.size ? `<small style="color: var(--ps-text-sub); font-size: 11px; margin-left: 6px;">[${item.size}]</small>` : ''}
+                            </div>
+                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 6px; opacity: 0.4;"></div>
+                            <span style="font-family: var(--ps-font-title); font-weight: 900; font-size: 14.5px; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Se il formato è A4 Landscape (Orizzontale), organizza in 2 o 3 colonne
+    const isLandscape = s.format === 'a4_landscape';
+    const contentColumnsLayout = isLandscape ? `display: grid; grid-template-columns: 1fr 1fr; gap: 24px;` : ``;
+
+    sheet.innerHTML = `
+        <!-- HEADER DEL FOGLIO -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--ps-accent); padding-bottom: 14px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                ${s.showSalonLogo && s.salonLogoBase64 ? `
+                    <div style="width: 65px; height: 65px; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
+                        <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
+                    </div>
+                ` : ''}
+                <div>
+                    <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: 20px; font-weight: 900; letter-spacing: 1px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
+                    <div style="font-size: 12px; color: var(--ps-text-sub); margin-top: 3px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
+                </div>
+            </div>
+
+            ${s.showBookingQr ? `
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 6px 10px; border-radius: 10px; border: 1px solid var(--ps-accent-border);">
+                    <img src="${qrSrc}" alt="QR Booking" style="width: 48px; height: 48px; border-radius: 4px; background: white; padding: 2px;">
+                    <div style="font-size: 10px; line-height: 1.2; color: var(--ps-text-sub);">
+                        <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
+                        Inquadra con il cellulare
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+
+        <!-- CORPO VOCI DI LISTINO -->
+        <div style="${contentColumnsLayout}">
+            <div>${servicesHtml || '<p style="color:var(--ps-text-sub); font-size:12px;">Nessun servizio selezionato.</p>'}</div>
+            <div>${productsHtml}</div>
+        </div>
+
+        <!-- FOOTER & CO-BRANDING -->
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--ps-text-sub);">
+            <div contenteditable="true">${s.footerNotes}</div>
+            
+            ${s.showVaimupLogo ? `
+                <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
+                    <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
+                    <span>Powered by <b>VaiMUp Suite</b></span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDERIZZATORE FOGLI BARCODE (PER SCANNER LASER IN CASSA)
+// ─────────────────────────────────────────────────────────────
+function renderBarcodesSheet(sheet, inventory, s, currentSalon) {
+    const isThermal = s.format === 'thermal_label';
+    const isGrid = s.format === 'labels_grid';
+
+    if (inventory.length === 0) {
+        sheet.innerHTML = `<div style="text-align:center; padding:50px; color:#64748b;">Seleziona almeno un articolo per generare i barcode.</div>`;
+        return;
+    }
+
+    if (isThermal) {
+        const item = inventory[0];
+        const barcodeVal = item.barcode || `VMP-${item.id.substring(0,8)}`;
+        sheet.innerHTML = `
+            <div style="text-align: center; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box; background: white; color: black; padding: 2mm;">
+                <div style="font-size: 8px; font-weight: bold; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${currentSalon}</div>
+                <div style="font-size: 9px; font-weight: 800; line-height: 1.1; overflow: hidden; max-height: 20px;">${item.name}</div>
+                <div id="svg-thermal-barcode" style="margin: 1px 0;"></div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 8px;">
+                    <span>${item.size || ''}</span>
+                    <b style="font-size: 11px;">€ ${parseFloat(item.price || 0).toFixed(2)}</b>
+                </div>
+            </div>
+        `;
+        drawBarcode('#svg-thermal-barcode', barcodeVal);
+        return;
+    }
+
+    // Griglia A4 (3 colonne per riga, etichette adesive o foglio barcode da cassa)
+    sheet.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 14px;">
+            <div>
+                <h2 style="margin: 0; font-size: 16px; font-weight: 900; text-transform: uppercase;">${s.title}</h2>
+                <small style="color: #64748b;">Punta la pistola laser su ciascun barcode per inserirlo al volo in cassa</small>
+            </div>
+            <div style="text-align: right; font-size: 11px; font-weight: bold;">
+                Salone: ${currentSalon}<br>
+                <small style="font-weight: normal; color: #64748b;">VaiMUp POS Barcode Sheet</small>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            ${inventory.map((item, idx) => {
+                const barcodeVal = item.barcode || `VMP-${String(item.id).substring(0,8).toUpperCase()}`;
+                const svgId = `barcode-canvas-item-${idx}`;
+                return `
+                    <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; min-height: 90px; color: #000000; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        <div style="font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #475569; margin: 2px 0;">
+                            <span>${item.type === 'servizio' ? '✂️ Servizio' : '📦 Prodotto'}</span>
+                            <b style="font-size: 12px; color: #000000;">€ ${parseFloat(item.price || 0).toFixed(2)}</b>
+                        </div>
+                        <div id="${svgId}" style="width: 100%; margin-top: 2px;"></div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    // Disegna tutti i barcode con JsBarcode o fallback SVG
+    inventory.forEach((item, idx) => {
+        const barcodeVal = item.barcode || `VMP-${String(item.id).substring(0,8).toUpperCase()}`;
+        drawBarcode(`#barcode-canvas-item-${idx}`, barcodeVal);
+    });
+}
+
+function drawBarcode(targetSelector, barcodeValue) {
+    const el = document.querySelector(targetSelector);
+    if (!el) return;
+
+    if (typeof JsBarcode === 'function') {
+        try {
+            el.innerHTML = `<svg style="width: 100%; height: 35px;"></svg>`;
+            JsBarcode(el.querySelector('svg'), barcodeValue, {
+                format: "CODE128",
+                width: 1.4,
+                height: 28,
+                displayValue: true,
+                fontSize: 9,
+                margin: 0
+            });
+            return;
+        } catch(e) {
+            console.warn("JsBarcode render fallback:", e);
+        }
+    }
+    el.innerHTML = generateFallbackBarcodeSvg(barcodeValue);
+}
+
+// Stampa Diretta del Foglio
+function triggerDirectPrint() {
+    window.print();
+}
+
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
