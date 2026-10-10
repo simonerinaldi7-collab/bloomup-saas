@@ -20234,7 +20234,7 @@ async function handlePublicAuthContinue() {
             feedback.style.background = '#fee2e2';
             feedback.style.color = '#dc2626';
             feedback.style.border = '1px solid #fecaca';
-            feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Ti invitiamo a contattare telefonicamente il salone.`;
+            feedback.innerHTML = `⚠️ <b>Prenotazione online non disponibile</b> per questo numero. Ti invitiamo a contattare telefonicamente il negozio.`;
             return;
         }
 
@@ -20243,7 +20243,7 @@ async function handlePublicAuthContinue() {
             feedback.style.background = '#fef3c7';
             feedback.style.color = '#92400e';
             feedback.style.border = '1px solid #fde68a';
-            feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il salone non ha ancora abilitato il tuo numero. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
+            feedback.innerHTML = `⏳ <b>Profilo in attesa di approvazione:</b> Il tuo numero non è ancora stato abilitato. Riceverai un messaggio WhatsApp appena sarai abilitata/o!`;
             return;
         }
 
@@ -20299,7 +20299,7 @@ async function handlePublicAuthContinue() {
             feedback.style.background = '#fef3c7';
             feedback.style.color = '#92400e';
             feedback.style.border = '1px solid #fde68a';
-            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il salone verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
+            feedback.innerHTML = `🎉 <b>Registrazione inviata!</b> Il gestore verificherà il tuo profilo a breve. Ti avviseremo su WhatsApp appena potrai prenotare autonomamente.`;
             document.getElementById('pb-btn-auth-continue').style.display = 'none';
         } else {
             window._pbState.customer = newCustPayload;
@@ -21197,7 +21197,7 @@ function renderConfirmSummary() {
         <div style="margin-bottom: 8px;">⏱️ <b>Durata Complessiva:</b> ${window._pbState.calculatedTotalMinutes} minuti</div>
         <div style="margin-bottom: 8px;">📋 <b>Trattamenti:</b><br>${sNames}</div>
         <div style="border-top: 1px dashed #cbd5e1; padding-top: 8px; font-size: 15px; font-weight: 900; color: var(--p);">
-            Totale da saldare in salone: € ${window._pbState.calculatedTotalPrice.toFixed(2)}
+            Totale da saldare in negozio: € ${window._pbState.calculatedTotalPrice.toFixed(2)}
         </div>
     `;
 }
@@ -22277,10 +22277,10 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
 
         <div style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; flex-shrink: 0;">
             <button type="button" class="btn active-tab" id="tab-btn-bac-hours" onclick="switchBacTab('hours')" style="background: transparent; border: none; border-bottom: 3px solid var(--p); border-radius: 0; font-size: 12.5px; font-weight: 800; color: var(--p); padding: 8px 12px;">
-                ⚡ Orari Cabine Autonome (Solarium)
+                ⚡ Orari Servizi Autonomi (senza operatore)
             </button>
             <button type="button" class="btn" id="tab-btn-bac-closures" onclick="switchBacTab('closures')" style="background: transparent; border: none; border-bottom: 3px solid transparent; border-radius: 0; font-size: 12.5px; font-weight: 600; color: #64748b; padding: 8px 12px;">
-                🏖️ Chiusure & Blocchi Salone
+                🏖️ Chiusure & Blocchi prenotazioni
             </button>
         </div>
 
@@ -22317,7 +22317,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
     
     <!-- Box Integrazione Agenda -->
     <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #1e40af; line-height: 1.5;">
-        💡 <b>Chiusure già presenti in Agenda:</b> I giorni segnati in Agenda con <b>🏖️ Chiusura / Ferie</b> bloccano già automaticamente l'intera giornata sul booking online per tutto il salone.
+        💡 <b>Chiusure già presenti in Agenda:</b> I giorni segnati in Agenda con <b>🏖️ Chiusura / Ferie</b> bloccano già automaticamente l'intera giornata sul booking online per tutto il negozio.
     </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 14px;">
@@ -22362,7 +22362,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
         </div>
     </div>
 
-    <label style="margin: 0 0 6px 0; font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Elenco Chiusure e Blocchi Salone Attivi</label>
+    <label style="margin: 0 0 6px 0; font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Elenco Chiusure e Blocchi Attivi</label>
     <div id="bac-closures-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
         <!-- Elenco blocchi popolato dinamicamente -->
     </div>
