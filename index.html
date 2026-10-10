@@ -8270,13 +8270,17 @@ async function quickAlarmAction(actionType) {
             const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
 
             if (Array.isArray(settingsData)) {
-                // Reset e popolamento pulito dell'oggetto di configurazione globale
                 sysSettings = {};
                 settingsData.forEach(s => {
                     if (s && s.key) {
                         sysSettings[s.key] = s.value;
                     }
                 });
+
+                // 🌟 Pre-idrata la memoria offerte e aggiorna il badge
+                if (typeof loadBookingOffersFromStorage === 'function') {
+                    loadBookingOffersFromStorage();
+                }
             } else {
                 console.warn("Nessuna impostazione trovata o errore nel caricamento.");
             }
@@ -9026,43 +9030,47 @@ async function loadSettingsFields() {
         // 1. Proviamo a leggerle dalla tabella settings di Dexie / memoria
         const settingsTable = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
         
-        // Mppiamo i valori trovati nell'oggetto globale sysSettings
+        // Mappiamo i valori trovati nell'oggetto globale sysSettings
         settingsTable.forEach(s => {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
 
-// Dentro loadSettingsFields():
-const isBookingOn = (sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true');
-const toggleBooking = document.getElementById('set-online-booking-toggle');
-const paneBooking = document.getElementById('online-booking-active-pane');
+        // 🌟 AGGIORNAMENTO IMMEDIATO BADGE OFFERTE ALL'APERTURA CONFIGURAZIONE
+        if (typeof loadBookingOffersFromStorage === 'function') {
+            loadBookingOffersFromStorage();
+        }
 
-if (toggleBooking) toggleBooking.checked = isBookingOn;
-if (paneBooking) paneBooking.style.display = isBookingOn ? 'block' : 'none';
+        // Stato toggle Booking Online
+        const isBookingOn = (sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true');
+        const toggleBooking = document.getElementById('set-online-booking-toggle');
+        const paneBooking = document.getElementById('online-booking-active-pane');
 
-if (isBookingOn) {
-    updateBookingQrAndUrl(currentUser ? currentUser.salon_id : 'SALON_001');
-}
+        if (toggleBooking) toggleBooking.checked = isBookingOn;
+        if (paneBooking) paneBooking.style.display = isBookingOn ? 'block' : 'none';
 
+        if (isBookingOn) {
+            updateBookingQrAndUrl(currentUser ? currentUser.salon_id : 'SALON_001');
+        }
 
-        // Dentro loadSettingsFields():
-const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
-const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
+        // Impostazioni Scadenza Pacchetti
+        const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
+        const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
 
-if (pkgExpiryDaysEl) pkgExpiryDaysEl.value = sysSettings['package_expiry_days'] || '15';
-if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'] || 
-    "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in negozio per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
-        // 2. Popoliamo i campi del form HTML con i dati trovati
+        if (pkgExpiryDaysEl) pkgExpiryDaysEl.value = sysSettings['package_expiry_days'] || '15';
+        if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'] || 
+            "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in negozio per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
+
+        // Popolamento campi promemoria e notifiche
         const remHoursEl = document.getElementById('set-rem-hours');
         const confirmMsgEl = document.getElementById('set-msg-confirm');
         const reminderMsgEl = document.getElementById('set-msg-reminder');
         const imminentLeadEl = document.getElementById('set-imminent-lead');
 
+        const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
+        window.applyAppTheme(currentTheme);
 
-const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
-window.applyAppTheme(currentTheme);
-
-const currentHdrStyle = sysSettings['header_style'] || localStorage.getItem('VaiMUp_header_style') || 'auto';
-window.setHeaderStyle(currentHdrStyle, false);
+        const currentHdrStyle = sysSettings['header_style'] || localStorage.getItem('VaiMUp_header_style') || 'auto';
+        window.setHeaderStyle(currentHdrStyle, false);
 
         if (remHoursEl) remHoursEl.value = sysSettings['reminder_hours'] || '48';
         if (confirmMsgEl) confirmMsgEl.value = sysSettings['template_confirm'] || '';
@@ -19756,18 +19764,40 @@ function loadBacConfigFromStorage() {
     if (bufSelect) bufSelect.value = String(_bacConfigState.buffer_minutes || 10);
 }
 
-// In loadBookingOffersFromStorage:
 function loadBookingOffersFromStorage() {
-    // 🛡️ Se siamo in modalità public booking, legge SOLO da sysSettings cloud
     const raw = sysSettings['online_booking_offers'] || (window._isPublicBookingMode ? null : localStorage.getItem('vaimup_online_booking_offers'));
     if (raw) {
         try {
             _bookingOffersCache = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } catch(e) { _bookingOffersCache = []; }
+            if (!Array.isArray(_bookingOffersCache)) _bookingOffersCache = [];
+        } catch(e) { 
+            _bookingOffersCache = []; 
+        }
     } else {
         _bookingOffersCache = [];
     }
     updateActiveOffersCounterBadge();
+}
+
+function updateActiveOffersCounterBadge() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const activeCount = (_bookingOffersCache || []).filter(o => o.active !== false && (!o.expiry || o.expiry >= todayStr)).length;
+    const badge = document.getElementById('set-active-offers-count-badge');
+    
+    if (badge) {
+        badge.innerText = `${activeCount} attiv${activeCount === 1 ? 'a' : 'e'}`;
+        
+        // Risalto visivo immediato: ambra con bordo se ci sono promozioni, grigio se 0
+        if (activeCount > 0) {
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#b45309';
+            badge.style.borderColor = '#fde68a';
+        } else {
+            badge.style.background = '#f1f5f9';
+            badge.style.color = '#64748b';
+            badge.style.borderColor = '#cbd5e1';
+        }
+    }
 }
 
 
