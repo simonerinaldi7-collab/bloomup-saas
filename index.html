@@ -15549,31 +15549,47 @@ function stopCameraScanner() {
     const pkgMatch = (a.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
     const isPackageCovered = Boolean(pkgMatch) || (parseFloat(a.price) === 0 && (a.service || '').includes('Pacchetto'));
     
-    // Pulizia delle note per visualizzazione utente (nasconde il tag tecnico [PKG:...])
-    const cleanDisplayNotes = (a.notes || '').replace(/\[PKG:[^\]]+\]\s*/g, '').trim();
+    // Pulizia note per visualizzazione utente (nasconde i tag tecnici)
+    const cleanDisplayNotes = (a.notes || '')
+        .replace(/\[PKG:[^\]]+\]\s*/g, '')
+        .replace(/\[PROMO:[^\]]+\]\s*/g, '')
+        .replace(/\[WS:[^\]]+\]\s*/g, '')
+        .trim();
 
     const services = (a.service || "").split(',').map(s => s.trim());
     let calculatedTotalPrice = 0;
+    let promoDetailsHtml = '';
 
     for (let servName of services) {
         if (servName.toLowerCase().includes('pausa') || servName.toLowerCase().includes('pranzo')) continue;
 
-        // Se l'appuntamento è coperto da pacchetto prepagato, il costo per il cliente è € 0.00
         if (isPackageCovered && (servName.includes('Pacchetto') || services.length === 1)) {
             continue; 
         }
 
-        const product = allInventory.find(p => p.name.trim().toLowerCase() === servName.toLowerCase());
+        const parsed = parseAppointmentServiceItem(servName, a.notes, a.price);
+        const cleanName = parsed.cleanName;
+
+        if (parsed.isPromo) {
+            promoDetailsHtml = `<b>OFFERTA ONLINE:</b> <span style="color:#d97706; font-weight:bold;">🔥 ${parsed.promoTitle || 'Promozione Attiva'}</span><br>`;
+        }
+
+        const product = allInventory.find(p => p.name.trim().toLowerCase() === cleanName.toLowerCase());
         if (product) {
             try {
-                const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
-                const validPriceRow = (historyRecords || []).find(ph => 
-                    a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
-                );
-                if (validPriceRow && validPriceRow.price) {
-                    calculatedTotalPrice += parseFloat(validPriceRow.price);
-                } else if (historyRecords && historyRecords.length > 0) {
-                    calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
+                // Se è un'offerta, consideriamo il prezzo promozionale
+                if (parsed.isPromo && parsed.promoPrice !== null) {
+                    calculatedTotalPrice += parsed.promoPrice;
+                } else {
+                    const historyRecords = await window.universalQuery({ action: 'GET_HISTORY', id: product.id });
+                    const validPriceRow = (historyRecords || []).find(ph => 
+                        a.date >= ph.date_from && (a.date <= ph.date_to || !ph.date_to)
+                    );
+                    if (validPriceRow && validPriceRow.price) {
+                        calculatedTotalPrice += parseFloat(validPriceRow.price);
+                    } else if (historyRecords && historyRecords.length > 0) {
+                        calculatedTotalPrice += parseFloat(historyRecords[0].price || 0);
+                    }
                 }
             } catch (e) {
                 console.error("Errore recupero storico prezzi:", e);
@@ -15581,13 +15597,16 @@ function stopCameraScanner() {
         }
     }
 
-    const finalDisplayPrice = isPackageCovered ? 0.00 : (calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0));
+    const finalDisplayPrice = isPackageCovered 
+        ? 0.00 
+        : (calculatedTotalPrice > 0 ? calculatedTotalPrice : (parseFloat(a.price) || 0));
 
     const isOtherSalon = a.salon_id && currentUser && String(a.salon_id).trim().toLowerCase() !== String(currentUser.salon_id).trim().toLowerCase();
     const salonTag = isOtherSalon ? `<br><b>SEDE PRENOTAZIONE:</b> <span style="color:var(--p); font-weight:bold;">${a.salon_id}</span>` : '';
 
     document.getElementById('v-app-content').innerHTML = `
         <b>STATO:</b> ${isPaid ? '<span style="color:#047857; font-weight:bold;">💶 Pagato in Cassa</span>' : '<span style="color:#d97706; font-weight:bold;">⏳ Da Saldare</span>'}<br>
+        ${promoDetailsHtml}
         ${isPackageCovered ? '<b>COPERTURA:</b> <span style="color:var(--p); font-weight:bold;">🎁 Seduta Prepagata da Pacchetto</span><br>' : ''}
         <b>CLIENTE:</b> ${a.cust_name}<br>
         <b>ORARIO:</b> ${a.date} @ ${a.time}<br>
@@ -15596,34 +15615,34 @@ function stopCameraScanner() {
         <b>NOTE:</b> ${cleanDisplayNotes || '-'}
     `;
 
+    // 🛒 GESTIONE TRASFERIMENTO A CASSA
     const btnCheckout = document.getElementById('btn-to-checkout');
     if (btnCheckout) {
         btnCheckout.onclick = async () => { 
             const targetAppId = currentViewApp.id;
 
-            // Controllo se già pagato
             try {
                 const sales = await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [];
                 const alreadyPaid = sales.some(s => s.appointment_id === targetAppId);
 
                 if (alreadyPaid) {
-                    const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto specifico appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
+                    const proceed = confirm(`⚠️ ATTENZIONE:\n\nQuesto appuntamento risulta GIÀ PAGATO in cassa in precedenza.\n\nVuoi aprire comunque la cassa per un nuovo pagamento?`);
                     if (!proceed) return;
                 }
             } catch (e) {
-                console.warn("Controllo appuntamento già pagato non riuscito:", e);
+                console.warn("Controllo già pagato:", e);
             }
 
             currentCheckoutAppointmentId = targetAppId;
 
             const cartServices = (currentViewApp.service || "").split(',').map(s => s.trim());
             cart = []; 
+
             for (let servizio of cartServices) {
                 if (servizio.toLowerCase().includes('pausa') || servizio.toLowerCase().includes('pranzo')) continue;
 
-                // 🌟 RICONOSCIMENTO COPERTURA PACCHETTO IN CASSA (€ 0.00)
+                // 1. Carnet Prepagato (€ 0.00)
                 const isItemPackageRedeemed = isPackageCovered && (servizio.includes('Pacchetto') || cartServices.length === 1);
-
                 if (isItemPackageRedeemed) {
                     cart.push({ 
                         name: servizio.includes('Pacchetto') ? servizio : `🎁 [Pacchetto] ${servizio}`, 
@@ -15632,37 +15651,74 @@ function stopCameraScanner() {
                         discountVal: 0, 
                         discountType: 'euro' 
                     });
-                } else {
-                    const product = allInventory.find(p => p.name.trim().toLowerCase() === servizio.toLowerCase());
-                    if (product) {
-                        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
-                        const price = pInfo ? parseFloat(pInfo.price) : 0;
-                        cart.push({ name: servizio, price: price, id: product.id, discountVal: 0, discountType: 'euro' });
+                    continue;
+                }
+
+                // 2. Trattamento con Offerta Promozionale o Standard
+                const parsed = parseAppointmentServiceItem(servizio, currentViewApp.notes, currentViewApp.price);
+                const cleanServiceName = parsed.cleanName;
+
+                // Cerca il prodotto reale nel listino
+                const product = allInventory.find(p => p.name.trim().toLowerCase() === cleanServiceName.toLowerCase());
+
+                if (product) {
+                    const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+                    const listPrice = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(product.price) || 0);
+
+                    if (parsed.isPromo) {
+                        // Prezzo pattuito in offerta
+                        const promoPrice = parsed.promoPrice !== null ? parsed.promoPrice : (parseFloat(currentViewApp.price) || listPrice);
+                        // Calcola lo sconto automatico (Listino - Promo)
+                        const discountEuro = Math.max(listPrice - promoPrice, 0);
+
+                        cart.push({
+                            name: product.name,           // Nome pulito dal listino
+                            price: listPrice,             // Prezzo pieno di listino
+                            id: product.id,               // ID reale di magazzino
+                            discountVal: discountEuro,    // Sconto applicato per arrivare al prezzo offerta
+                            discountType: 'euro',
+                            qty: 1
+                        });
                     } else {
-                        cart.push({ name: servizio, price: 0, id: null, discountVal: 0, discountType: 'euro' });
+                        // Servizio normale
+                        cart.push({ 
+                            name: product.name, 
+                            price: listPrice, 
+                            id: product.id, 
+                            discountVal: 0, 
+                            discountType: 'euro',
+                            qty: 1
+                        });
                     }
+                } else {
+                    // Fallback se il servizio non è nel listino: porta comunque l'importo dell'appuntamento
+                    cart.push({ 
+                        name: cleanServiceName || servizio, 
+                        price: parseFloat(currentViewApp.price) || 0, 
+                        id: null, 
+                        discountVal: 0, 
+                        discountType: 'euro',
+                        qty: 1
+                    });
                 }
             }
 
+            // Associazione Cliente
             let rawCustName = (currentViewApp.cust_name || 'Occasionale').replace(/⭐\s*\[Preview\]/gi, '').trim();
-
             const fc = allCustomers.find(c => {
                 const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
                 const legacyName = (c.name || "").trim().toLowerCase();
-                return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase() || fullName.includes(rawCustName.toLowerCase());
+                return fullName === rawCustName.toLowerCase() || legacyName === rawCustName.toLowerCase();
             });
 
             if (fc) {
-                const formattedName = `${fc.first_name || ''} ${fc.last_name || ''}`.trim() || fc.name || rawCustName;
-                currentCheckoutCustomer = { id: fc.id, name: formattedName };
+                currentCheckoutCustomer = { id: fc.id, name: `${fc.first_name || ''} ${fc.last_name || ''}`.trim() };
             } else {
                 currentCheckoutCustomer = { id: 0, name: rawCustName };
             }
 
             const custDisplayEl = document.getElementById('cart-selected-cust');
-            if (custDisplayEl) {
-                custDisplayEl.innerText = currentCheckoutCustomer.name;
-            }
+            if (custDisplayEl) custDisplayEl.innerText = currentCheckoutCustomer.name;
 
             renderCart(); 
             closeMod(); 
@@ -15684,66 +15740,12 @@ function stopCameraScanner() {
     if (btnDel) {
         btnDel.onclick = async () => {
             if(!confirm("Eliminare l'appuntamento?")) return;
-
-
             await window.universalQuery({
-        action: 'RELEASE_WORKSTATION_BOOKING',
-        data: { appointmentId: currentViewApp.id }
-    });
-
-            // 🔄 RIPRISTINO AUTOMATICO SEDUTA PACCHETTO (+1) SE ERA STATO RISCATTATO
-            if (currentViewApp && currentViewApp.notes) {
-                const match = currentViewApp.notes.match(/\[PKG:([^:]+):([^\]]+)\]/);
-                if (match) {
-                    const custPkgId = match[1];
-                    const serviceId = match[2];
-                    try {
-                        const targetCustPkg = await localDb.customer_packages.get(custPkgId);
-                        if (targetCustPkg) {
-                            let sessionsList = [];
-                            if (Array.isArray(targetCustPkg.sessions_state)) sessionsList = targetCustPkg.sessions_state;
-                            else if (typeof targetCustPkg.sessions_state === 'string') {
-                                try { sessionsList = JSON.parse(targetCustPkg.sessions_state); } catch(e) { sessionsList = []; }
-                            }
-
-                            const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(serviceId).trim());
-                            if (sessionItem) {
-                                // Riaccredito della seduta
-                                sessionItem.remaining = Math.min((parseInt(sessionItem.remaining) || 0) + 1, parseInt(sessionItem.total) || 999);
-
-                                await localDb.customer_packages.update(targetCustPkg.id, {
-                                    sessions_state: sessionsList,
-                                    updated_at: getNowLocal()
-                                });
-
-                                if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                                    await sendToCloudDirectly('PATCH', 'customer_packages', {
-                                        sessions_state: sessionsList,
-                                        updated_at: getNowLocal()
-                                    }, targetCustPkg.id);
-                                }
-
-                                console.log(`🔄 [RIPRISTINO PACCHETTO] Appuntamento eliminato. Seduta riaccreditata (Disponibili: ${sessionItem.remaining} su ${sessionItem.total}).`);
-                            }
-                        }
-                    } catch (err) {
-                        console.error("Errore durante il ripristino della seduta del pacchetto:", err);
-                    }
-                }
-            }
-
+                action: 'RELEASE_WORKSTATION_BOOKING',
+                data: { appointmentId: currentViewApp.id }
+            });
+            await restorePackageSessionIfApplicable(currentViewApp);
             await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
-            
-            // Gestione cancellazione pause pranzo
-            const srvCheck = (currentViewApp.service || '').toLowerCase();
-            const custCheck = (currentViewApp.cust_name || '').toLowerCase();
-            if (srvCheck.includes('pausa') || custCheck.includes('pausa')) {
-                const cleanUser = (currentViewApp.assigned_user || 'admin').trim().toLowerCase();
-                const dismissedBreaks = JSON.parse(localStorage.getItem('VaiMUp_dismissed_breaks') || '{}');
-                dismissedBreaks[`${cleanUser}_${currentViewApp.date}`] = true;
-                localStorage.setItem('VaiMUp_dismissed_breaks', JSON.stringify(dismissedBreaks));
-            }
-            
             closeMod(); 
             await refreshAllData();
             renderCalendar();
@@ -15807,10 +15809,12 @@ function stopCameraScanner() {
     for (let nameStr of savedServiceNames) {
         if (!nameStr || nameStr.toLowerCase() === 'servizio' || nameStr.toLowerCase() === 'trattamento' || nameStr.toLowerCase().includes('pausa')) continue;
         
-        const isPkgItem = nameStr.includes('🎁') || nameStr.includes('[') || Boolean(pkgMatch);
-        const cleanServiceName = nameStr.replace(/🎁\s*\[[^\]]+\]\s*/gi, '').trim().toLowerCase();
+        // 🛑 Distingue nettamente il pacchetto prepagato dalle offerte speciali
+        const isPkgItem = nameStr.includes('🎁') || Boolean(pkgMatch);
+        const parsed = parseAppointmentServiceItem(nameStr, a.notes, a.price);
+        const cleanServiceName = parsed.cleanName.toLowerCase();
 
-        // Ricerca del servizio nel catalogo locale completo
+        // Ricerca del servizio nel catalogo
         let foundServ = null;
         if (isPkgItem && existingServiceId) {
             foundServ = allLocalInventory.find(i => String(i.id).trim() === String(existingServiceId).trim());
@@ -15819,22 +15823,24 @@ function stopCameraScanner() {
             foundServ = allLocalInventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().trim() === cleanServiceName || String(i.id).trim() === nameStr));
         }
 
-        // Calcolo prezzo (se da pacchetto è sempre € 0.00)
         let price = 0.00;
-        if (!isPkgItem && foundServ) {
+        if (isPkgItem) {
+            price = 0.00;
+        } else if (parsed.isPromo && parsed.promoPrice !== null) {
+            price = parsed.promoPrice;
+        } else if (foundServ) {
             const pInfo = await window.api.query({ action: 'GET_CURRENT_PRICE', id: foundServ.id });
             price = pInfo && pInfo.price ? parseFloat(pInfo.price) : (parseFloat(foundServ.price) || 0);
         }
 
-        // 🌟 Se è un servizio da pacchetto, lo aggiungiamo SEMPRE anche se il servizio appartiene al listino dell'altro salone
         const displayName = isPkgItem 
-            ? (nameStr.startsWith('🎁') ? nameStr : `🎁 [Pacchetto] ${foundServ ? foundServ.name : cleanServiceName}`) 
-            : (foundServ ? foundServ.name : nameStr);
+            ? (nameStr.startsWith('🎁') ? nameStr : `🎁 [Pacchetto] ${foundServ ? foundServ.name : cleanServiceName}`)
+            : (parsed.isPromo ? `🔥 [${parsed.promoTitle || 'Offerta'}] ${foundServ ? foundServ.name : cleanServiceName}` : (foundServ ? foundServ.name : nameStr));
 
         const uniqueInstanceId = 'srv_' + Math.random().toString(36).substring(2, 9);
         matchedServiceItems.push({
             uid: uniqueInstanceId,
-            id: foundServ ? foundServ.id : (existingServiceId || 'pkg_service'),
+            id: foundServ ? foundServ.id : (existingServiceId || 'service_item'),
             name: displayName,
             price: price,
             isPackageRedemption: isPkgItem
@@ -21147,13 +21153,23 @@ async function executePublicBooking() {
     if (prepaidRedemptions.length > 0) {
         pkgNotesTag = prepaidRedemptions.map(p => `[PKG:${p.custPkgId}:${p.id}]`).join(' ');
     }
+// 🏷️ Riconoscimento offerte promozionali per la cassa
+    const promoOffers = window._pbState.selectedServices.filter(s => s.isPromo);
+    let promoNotesTag = '';
+    if (promoOffers.length > 0) {
+        promoNotesTag = promoOffers.map(p => `[PROMO:${p.id}:${p.price}:${p.promoTitle || 'Offerta'}]`).join(' ');
+    }
 
     let notes = `[ONLINE_BOOKING] Tel: ${custPhone}`;
     if (pkgNotesTag) notes += ` ${pkgNotesTag}`;
+    if (promoNotesTag) notes += ` ${promoNotesTag}`;
     if (window._pbState.allocatedWorkstationId) notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
 
     const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
 
+
+
+    
     const appPayload = {
         id: appointmentId,
         salon_id: salonId,
@@ -21709,7 +21725,45 @@ async function deleteBookingOffer(offerId) {
     renderBookingOffersAdminList();
 }
 
+// 🏷️ HELPER: Decodifica un trattamento distinguendo Promozioni, Carnet e Servizi Standard
+function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, inventory = null) {
+    if (!nameStr) return { cleanName: '', isPromo: false, promoTitle: '', promoPrice: null };
+    
+    let clean = nameStr.trim();
+    let isPromo = false;
+    let promoTitle = '';
+    let promoPrice = null;
 
+    // Rileva tag promozionale tra parentesi quadre con o senza emoji (es. 🔥 [Promo Balayage] Servizio)
+    const promoMatch = clean.match(/^[🔥⚡✨🏷️👑]?\s*\[([^\]]+)\]\s*(.*)$/);
+    if (promoMatch && !clean.includes('🎁') && !promoMatch[1].toLowerCase().includes('pacchetto')) {
+        isPromo = true;
+        promoTitle = promoMatch[1].trim();
+        clean = promoMatch[2].trim();
+    } else if (clean.includes('🔥')) {
+        isPromo = true;
+        clean = clean.replace(/🔥/g, '').trim();
+    }
+
+    // Verifica se c'è un tag di blocco nelle note: [PROMO:servId:promoPrice:listPrice:offerId]
+    const tagMatch = (appNotes || '').match(/\[PROMO:([^:]+):([^:]+):?([^:]*)\]/);
+    if (tagMatch) {
+        isPromo = true;
+        promoPrice = parseFloat(tagMatch[2]) || null;
+    }
+
+    // Se il prezzo promozionale non è nel tag, lo ricava dal prezzo dell'appuntamento
+    if (isPromo && promoPrice === null && appPrice !== null && !isNaN(parseFloat(appPrice))) {
+        promoPrice = parseFloat(appPrice);
+    }
+
+    return {
+        cleanName: clean,
+        isPromo: isPromo,
+        promoTitle: promoTitle,
+        promoPrice: promoPrice
+    };
+}
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
