@@ -9716,7 +9716,7 @@ function resetExpenseForm() {
         area.innerHTML = html + '</div>';
     }
 
-document.addEventListener('DOMContentLoaded', async () => {
+/*document.addEventListener('DOMContentLoaded', async () => {
         console.log("App avviata. Controllo sessione persistente...");
         
         const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
@@ -9743,7 +9743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Se non c'è sessione salvata, mostra regolarmente la schermata di login
         console.log("In attesa di login manuale...");
     });
-
+*/
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
         const sidebarLinks = document.querySelectorAll('.sidebar .nav-item');
@@ -19974,6 +19974,38 @@ async function saveBookingAdvancedConfig() {
 // =========================================================================
 // 🌐 MOTORE SELF-BOOKING ISOLATO CLOUD-DIRECT (ZERO CONTAMINAZIONE LOCALE)
 // =========================================================================
+// 🚀 AVVIO PRIORITARIO PORTALE SELF-BOOKING AL CARICAMENTO DELLA PAGINA
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingSalonId = urlParams.get('book') || window._publicBookingSalonId;
+
+    if (bookingSalonId) {
+        console.log("🌐 [PORTALE PUBBLICO] Inizializzazione per salone:", bookingSalonId);
+        window._isPublicBookingMode = true;
+        window._pbState.salonId = bookingSalonId.trim();
+
+        // 1. Nascondi tassativamente la schermata di login e l'applicazione gestionale
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) {
+            loginScreen.style.setProperty('display', 'none', 'important');
+        }
+        const appShell = document.getElementById('app-shell');
+        if (appShell) {
+            appShell.style.setProperty('display', 'none', 'important');
+        }
+
+        // 2. Rendi visibile e porta in primo piano il Portale Self-Booking
+        const portal = document.getElementById('public-booking-portal');
+        if (portal) {
+            portal.style.setProperty('display', 'block', 'important');
+            portal.style.setProperty('z-index', '99999', 'important');
+        }
+
+        // 3. Scarica direttamente da Supabase Cloud i dati del salone indicato nel QR
+        await initPublicBookingPortal(window._pbState.salonId);
+    }
+});
+
 
 const SUPABASE_BASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
 const SUPABASE_ANON_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
