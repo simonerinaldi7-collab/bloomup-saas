@@ -4251,9 +4251,26 @@
 
     <div id="mod-warning" class="modal"><div class="modal-box" style="text-align:center;"><h3>Sessione in scadenza</h3><button class="btn btn-p" onclick="closeWarning()">Rimani Connesso</button></div></div>
         <script>
-    // ⚡ INTERCETTAZIONE FULMINEA ANTI-CONFLITTO (Esegue prima di qualsiasi DOMContentLoaded)
+   // ⚡ INTERCETTAZIONE FULMINEA ANTI-CONFLITTO (Esegue prima di qualsiasi DOMContentLoaded)
     (function() {
         const urlParams = new URLSearchParams(window.location.search);
+        
+        // 🌐 1. INTERCETTAZIONE PORTALE PUBBLICO BOOKING (QR CODE O LINK DIRETTO)
+        const bookingSalonId = urlParams.get('book');
+        if (bookingSalonId && bookingSalonId.trim() !== '') {
+            window._isPublicBookingMode = true;
+            window._publicBookingSalonId = bookingSalonId.trim();
+            console.log("🌐 [BOOT BLINDATO] Rilevato accesso Self-Booking per salone:", window._publicBookingSalonId);
+            
+            // Impostiamo subito currentUser guest con il salone corretto per isolare qualsiasi chiamata
+            window.currentUser = {
+                salon_id: window._publicBookingSalonId,
+                role: 'guest_customer',
+                username: 'cliente_online'
+            };
+            return;
+        }
+
         const isAlarmAction = urlParams.get('alarm_action');
         const alertAppId = urlParams.get('open_alert');
 
@@ -4261,25 +4278,64 @@
             console.log("🚀 [QUICK ALARM] Rilevato click su notifica imminente per ID:", alertAppId);
             window._isQuickAlarmMode = true;
             window._quickAlarmAppId = alertAppId;
-
-            // Puliamo subito l'URL per evitare loop se si ricarica
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        // Controlliamo se veniamo da un'azione rapida che richiede di aprire l'agenda
-const generalParams = new URLSearchParams(window.location.search);
-if (generalParams.get('open_tab') === 'calendar') {
-    // Puliamo l'URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-    // Cambiamo pagina sull'agenda non appena l'app è pronta
-    setTimeout(() => {
-        if (typeof changePage === 'function') changePage('calendar');
-    }, 500);
-}
+        const generalParams = new URLSearchParams(window.location.search);
+        if (generalParams.get('open_tab') === 'calendar') {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setTimeout(() => {
+                if (typeof changePage === 'function') changePage('calendar');
+            }, 500);
+        }
     })();
 </script>
         
         <script>
+
+
+
+
+
+// ⚡ INTERCETTAZIONE FULMINEA ANTI-CONFLITTO (Esegue prima di qualsiasi DOMContentLoaded)
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // 🌐 INTERCETTAZIONE PRECOCE DEL PORTALE SELF-BOOKING
+        const bookingSalonId = urlParams.get('book');
+        if (bookingSalonId && bookingSalonId.trim() !== '') {
+            window._isPublicBookingMode = true;
+            window._publicBookingSalonId = bookingSalonId.trim();
+            console.log("🌐 [BOOT BLINDATO] Rilevato Self-Booking per salone:", window._publicBookingSalonId);
+            
+            // Imposta subito currentUser guest per isolare qualsiasi chiamata
+            window.currentUser = {
+                salon_id: window._publicBookingSalonId,
+                role: 'guest_customer',
+                username: 'cliente_online'
+            };
+            return;
+        }
+
+        const isAlarmAction = urlParams.get('alarm_action');
+        const alertAppId = urlParams.get('open_alert');
+
+        if (isAlarmAction && alertAppId) {
+            console.log("🚀 [QUICK ALARM] Rilevato click su notifica imminente per ID:", alertAppId);
+            window._isQuickAlarmMode = true;
+            window._quickAlarmAppId = alertAppId;
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        const generalParams = new URLSearchParams(window.location.search);
+        if (generalParams.get('open_tab') === 'calendar') {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setTimeout(() => {
+                if (typeof changePage === 'function') changePage('calendar');
+            }, 500);
+        }
+    })();
+
             let currentUser = null;
             const GEMINI_KEY = "INSERISCI_CHIAVE_QUI";
             let allCustomers=[], allInventory=[], allAppointments=[], allSales=[], allLogs=[],allUsers=[],  sysSettings={};
@@ -4425,6 +4481,12 @@ console.error = function(...args) {
 
 // ⚡ BOOTSTRAP UNICO DI SESSIONE E AUTOLOGIN (Garantisce l'avvio del Delta Sync)
 document.addEventListener('DOMContentLoaded', async () => {
+    // 🛑 SE SIAMO NEL PORTALE PUBBLICO, NON ESEGUIRE IL LOGIN DEL VECCHIO SALONE!
+    if (window._isPublicBookingMode) {
+        console.log("🛑 [SESSIONE GESTIONALE IGNORATA] Modalità self-service attiva per", window._publicBookingSalonId);
+        return;
+    }
+
     console.log("🔒 [BOOT SESSIONE] Verifica credenziali salvate...");
     
     const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
@@ -4433,11 +4495,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const sessionData = JSON.parse(savedSessionJson);
             if (sessionData && sessionData.username && sessionData.salon_id) {
                 console.log("⚡ [AUTO-LOGIN] Sessione ripristinata per l'utente:", sessionData.username);
-                
-                // 1. Assegniamo l'utente globale
                 currentUser = sessionData;
-                
-                // 2. Avviamo la funzione di successo del login che accende anche il delta sync
                 await loginSuccess();
                 return;
             }
@@ -9711,33 +9769,6 @@ function resetExpenseForm() {
         area.innerHTML = html + '</div>';
     }
 
-document.addEventListener('DOMContentLoaded', async () => {
-        console.log("App avviata. Controllo sessione persistente...");
-        
-        const savedSessionJson = localStorage.getItem('VaiMUp_logged_session');
-        if (savedSessionJson) {
-            try {
-                const sessionData = JSON.parse(savedSessionJson);
-                if (sessionData && sessionData.username) {
-                    console.autoLogin = true;
-                    console.log("⚡ [AUTO-LOGIN] Trovata sessione attiva per:", sessionData.username);
-                    
-                    // Ripristiniamo l'utente corrente in memoria
-                    currentUser = sessionData;
-                    
-                    // Eseguiamo direttamente il flusso di successo senza mostrare il login
-                    await loginSuccess();
-                    return;
-                }
-            } catch (e) {
-                console.error("Errore nel parsing della sessione salvata:", e);
-                localStorage.removeItem('VaiMUp_logged_session');
-            }
-        }
-        
-        // Se non c'è sessione salvata, mostra regolarmente la schermata di login
-        console.log("In attesa di login manuale...");
-    });
 
 // 🛡️ CHIUSURA AUTOMATICA GLOBALE DEL BURGER MENU AL CLICK SU QUALSIASI VOCE
     document.addEventListener('DOMContentLoaded', () => {
@@ -19693,30 +19724,25 @@ function closePublicMyAppointmentsModal() {
 }
 
 // 2. Lettura Configurazione Salvata
+// In loadBacConfigFromStorage:
 function loadBacConfigFromStorage() {
-    const raw = sysSettings['booking_autonomous_config'] || localStorage.getItem('vaimup_booking_autonomous_config');
+    // 🛡️ Se siamo in modalità public booking, legge SOLO da sysSettings cloud, MAI da localStorage globale
+    const raw = sysSettings['booking_autonomous_config'] || (window._isPublicBookingMode ? null : localStorage.getItem('vaimup_booking_autonomous_config'));
     if (raw) {
         try {
             _bacConfigState = typeof raw === 'string' ? JSON.parse(raw) : raw;
         } catch(e) {}
+    } else {
+        _bacConfigState = { buffer_minutes: 10, weekly_hours: {}, closures: [], max_future_days: 60 };
     }
 
     if (!_bacConfigState.weekly_hours) _bacConfigState.weekly_hours = {};
     if (!_bacConfigState.closures) _bacConfigState.closures = [];
 
-const maxDaysSelect = document.getElementById('bac-max-future-days');
-if (maxDaysSelect) {
-    maxDaysSelect.value = String(_bacConfigState.max_future_days || 60);
-}
-
-// In saveBookingAdvancedConfig():
-_bacConfigState.max_future_days = parseInt(document.getElementById('bac-max-future-days')?.value) || 60;
-
-    // Orari standard predefiniti se non ancora personalizzati (09:00 - 20:00)
     for (let d = 0; d <= 6; d++) {
         if (!_bacConfigState.weekly_hours[d]) {
             _bacConfigState.weekly_hours[d] = {
-                is_open: d !== 0, // domenica chiusa di default
+                is_open: d !== 0,
                 start: "09:00",
                 end: "20:00",
                 has_break: false,
@@ -19730,6 +19756,19 @@ _bacConfigState.max_future_days = parseInt(document.getElementById('bac-max-futu
     if (bufSelect) bufSelect.value = String(_bacConfigState.buffer_minutes || 10);
 }
 
+// In loadBookingOffersFromStorage:
+function loadBookingOffersFromStorage() {
+    // 🛡️ Se siamo in modalità public booking, legge SOLO da sysSettings cloud
+    const raw = sysSettings['online_booking_offers'] || (window._isPublicBookingMode ? null : localStorage.getItem('vaimup_online_booking_offers'));
+    if (raw) {
+        try {
+            _bookingOffersCache = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch(e) { _bookingOffersCache = []; }
+    } else {
+        _bookingOffersCache = [];
+    }
+    updateActiveOffersCounterBadge();
+}
 
 
 // Mostra o nasconde i campi Dalle / Alle
@@ -19992,34 +20031,123 @@ window._pbState = {
     customerPrepaidItems: []
 };
 
-// BOOTSTRAP: Intercetta ?book=SALON_ID all'avvio
+// BOOTSTRAP: Avvio isolato del portale
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const bookingSalonId = urlParams.get('book');
 
-    if (bookingSalonId) {
-        console.log("🌐 [PORTALE PUBBLICO] Inizializzazione per salone:", bookingSalonId);
-        window._pbState.salonId = bookingSalonId.trim();
+    if (bookingSalonId && bookingSalonId.trim() !== '') {
+        const cleanSalonId = bookingSalonId.trim();
+        window._isPublicBookingMode = true;
+        window._publicBookingSalonId = cleanSalonId;
+        window._pbState.salonId = cleanSalonId;
 
+        window.currentUser = { 
+            salon_id: cleanSalonId, 
+            role: 'guest_customer', 
+            username: 'cliente_online' 
+        };
+        window.sysSettings = {};
+
+        // Gestione Display e Stacking Context anti-sovrapposizione
         const loginScreen = document.getElementById('login-screen');
-        if (loginScreen) loginScreen.style.display = 'none';
+        if (loginScreen) {
+            loginScreen.style.setProperty('display', 'none', 'important');
+            loginScreen.classList.add('hidden');
+        }
         const appShell = document.getElementById('app-shell');
-        if (appShell) appShell.style.display = 'none';
+        if (appShell) appShell.style.setProperty('display', 'none', 'important');
+
+        const quickAlarm = document.getElementById('quick-alarm-screen');
+        if (quickAlarm) quickAlarm.style.setProperty('display', 'none', 'important');
 
         const portal = document.getElementById('public-booking-portal');
-        if (portal) portal.style.display = 'block';
+        if (portal) {
+            portal.style.setProperty('display', 'block', 'important');
+            portal.style.setProperty('z-index', '25000', 'important');
+        }
 
-        await initPublicBookingPortal(window._pbState.salonId);
+        console.log("🌐 [PORTALE PUBBLICO] Inizializzazione isolata per salone:", cleanSalonId);
+        await initPublicBookingPortal(cleanSalonId);
     }
 });
 
-async function fetchFreshBookingSettingsFromCloud(salonId) {
-    if (!salonId || !navigator.onLine) return;
-    const supUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || 'https://uartaeqbcfxxsyksbnty.supabase.co';
-    const supKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.key) || '';
+async function initPublicBookingPortal(salonId) {
+    const titleEl = document.getElementById('pb-salon-name');
+    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
+
+    window.sysSettings = {};
+    const todayStr = new Date().toISOString().split('T')[0];
 
     try {
-        const res = await fetch(`${supUrl}/rest/v1/settings?salon_id=eq.${salonId}&select=key,value`, {
+        // 1. CARICAMENTO IMPOSTAZIONI DEL SALONE DAL CLOUD SUPABASE
+        const settingsRows = await fetchPublicTenantTable('settings', `salon_id=eq.${encodeURIComponent(salonId)}&select=key,value`);
+        settingsRows.forEach(s => {
+            if (s && s.key) sysSettings[s.key] = s.value;
+        });
+
+        loadBacConfigFromStorage();
+        loadBookingOffersFromStorage();
+
+        // 2. CARICAMENTO SERVIZI DEL SALONE DAL CLOUD
+        const inventoryServices = await fetchPublicTenantTable('inventory', `salon_id=eq.${encodeURIComponent(salonId)}&type=eq.servizio&select=*`);
+        const priceHistory = await fetchPublicTenantTable('price_history', `salon_id=eq.${encodeURIComponent(salonId)}&select=*`);
+        const nowIso = new Date().toISOString();
+
+        const validServices = inventoryServices.filter(i => i.duration_minutes && parseInt(i.duration_minutes) > 0);
+        validServices.forEach(s => {
+            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
+            let currentPriceRow = sHistory.find(ph => {
+                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                return nowIso >= from && nowIso <= to;
+            });
+            if (!currentPriceRow && sHistory.length > 0) {
+                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                currentPriceRow = sHistory[0];
+            }
+            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
+        });
+
+        window._pbState.allServices = validServices;
+
+        // 3. CARICAMENTO OPERATORI E TURNI ESCLUSIVAMENTE DI QUESTO SALONE
+        window._pbState.allOperators = await fetchPublicTenantTable('users', `salon_id=eq.${encodeURIComponent(salonId)}&status=eq.active&select=id,username,role,color,status,salon_id`);
+        window._pbState.allSchedules = await fetchPublicTenantTable('operator_schedules', `salon_id=eq.${encodeURIComponent(salonId)}&select=*`);
+
+        // 4. CARICAMENTO RISORSE FISICHE E APPUNTAMENTI
+        const allStations = await fetchPublicTenantTable('shared_workstations', 'select=*');
+        const salonIdLower = salonId.toLowerCase();
+        window._pbState.allWorkstations = allStations.filter(ws => {
+            const isOwner = String(ws.salon_id || '').trim().toLowerCase() === salonIdLower;
+            let shared = ws.shared_salons;
+            if (typeof shared === 'string') { try { shared = JSON.parse(shared); } catch(e) { shared = []; } }
+            const isShared = Array.isArray(shared) && shared.some(s => String(s).trim().toLowerCase() === salonIdLower);
+            return isOwner || isShared;
+        });
+
+        window._pbState.allBookings = await fetchPublicTenantTable('workstation_bookings', `date=gte.${todayStr}&select=id,workstation_id,salon_id,date,start_time,end_time`);
+        window._pbState.allExistingApps = await fetchPublicTenantTable('appointments', `salon_id=eq.${encodeURIComponent(salonId)}&date=gte.${todayStr}&select=id,salon_id,date,time,end_time,service,cust_name,assigned_user,notes`);
+
+        renderPublicServicesList();
+        renderPublicOperatorsList();
+    } catch (e) {
+        console.error("Errore inizializzazione isolata portale:", e);
+    }
+}
+
+
+
+// ✨ NUOVA FUNZIONE: Client HTTP Cloud Isolato Anti-Cache per il Portale Clienti
+async function fetchPublicTenantTable(table, queryParams = '') {
+    const supUrl = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+    const sep = (queryParams.startsWith('&') || queryParams.startsWith('?')) ? queryParams : `?${queryParams}`;
+    const url = `${supUrl}/rest/v1/${table}${sep}`;
+    
+    try {
+        const res = await fetch(url, {
+            method: 'GET',
             headers: {
                 'apikey': supKey,
                 'Authorization': 'Bearer ' + supKey,
@@ -20027,97 +20155,17 @@ async function fetchFreshBookingSettingsFromCloud(salonId) {
             }
         });
         if (res.ok) {
-            const rows = await res.json();
-            if (Array.isArray(rows)) {
-                rows.forEach(r => {
-                    if (r && r.key) sysSettings[r.key] = r.value;
-                });
-            }
+            return await res.json();
         }
     } catch (err) {
-        console.warn("Avviso aggiornamento impostazioni cloud:", err);
+        console.warn(`[PUBLIC CLOUD FETCH] Errore su ${table}:`, err);
     }
+    return [];
 }
 
-async function fetchFreshAppointmentsAndBookingsFromCloud(salonId) {
-    if (!salonId || !navigator.onLine) return;
-    const supUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || 'https://uartaeqbcfxxsyksbnty.supabase.co';
-    const supKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.key) || '';
 
-    try {
-        const [resApps, resBookings] = await Promise.all([
-            fetch(`${supUrl}/rest/v1/appointments?salon_id=eq.${salonId}&select=id,date,time,end_time,service,cust_name,assigned_user`, {
-                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
-            }),
-            fetch(`${supUrl}/rest/v1/workstation_bookings?salon_id=eq.${salonId}&select=id,workstation_id,date,start_time,end_time`, {
-                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
-            })
-        ]);
 
-        if (resApps.ok) window._pbState.allExistingApps = await resApps.json() || [];
-        if (resBookings.ok) window._pbState.allBookings = await resBookings.json() || [];
-    } catch(e) {}
-}
-
-async function initPublicBookingPortal(salonId) {
-    const titleEl = document.getElementById('pb-salon-name');
-    if (titleEl) titleEl.innerText = `Prenotazione: ${salonId}`;
-
-    if (!currentUser || !currentUser.salon_id) {
-        currentUser = { salon_id: salonId, role: 'guest_customer', username: 'cliente_online' };
-    }
-
-    try {
-        await fetchFreshBookingSettingsFromCloud(salonId);
-
-        const settingsRows = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
-        settingsRows.forEach(s => {
-            if (s && s.key) sysSettings[s.key] = s.value;
-        });
-
-        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
-        if (typeof loadBookingOffersFromStorage === 'function') loadBookingOffersFromStorage();
-
-        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        allInventory = inventory;
-
-        const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-        const nowIso = new Date().toISOString();
-
-        const services = inventory.filter(i => {
-            return i.type === 'servizio' && i.duration_minutes && parseInt(i.duration_minutes) > 0;
-        });
-
-        services.forEach(s => {
-            const sHistory = priceHistory.filter(ph => ph.product_id === s.id);
-            let currentPriceRow = sHistory.find(ph => {
-                const from = ph.date_from || '1900-01-01T00:00:00.000Z';
-                const to = ph.date_to || '9999-12-31T23:59:59.999Z';
-                return nowIso >= from && nowIso <= to;
-            });
-
-            if (!currentPriceRow && sHistory.length > 0) {
-                sHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                currentPriceRow = sHistory[0];
-            }
-
-            s.price = currentPriceRow ? (parseFloat(currentPriceRow.price) || 0) : (parseFloat(s.price) || 0);
-        });
-
-        window._pbState.allServices = services;
-        window._pbState.allOperators = await window.universalQuery({ action: 'GET_ALL', table: 'users' }) || [];
-        window._pbState.allSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-        window._pbState.allWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
-        window._pbState.allBookings = await window.universalQuery({ action: 'GET_ALL', table: 'workstation_bookings' }) || [];
-        window._pbState.allExistingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-
-        renderPublicServicesList();
-        renderPublicOperatorsList();
-    } catch (e) {
-        console.error("Errore inizializzazione portale:", e);
-    }
-}
-
+// In handlePublicAuthContinue():
 async function handlePublicAuthContinue() {
     const phoneInput = document.getElementById('pb-auth-phone');
     const rawPhone = phoneInput ? phoneInput.value.trim() : '';
@@ -20133,7 +20181,11 @@ async function handlePublicAuthContinue() {
         return alert("Inserisci un numero di cellulare valido (almeno 9-10 cifre).");
     }
 
-    const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+    const salonId = window._pbState.salonId;
+    
+    // 🌐 Ricerca clienti DIRETTA SUL CLOUD per salon_id specifico (Zero letture Dexie dell'altro salone)
+    const customers = await fetchPublicTenantTable('customers', `salon_id=eq.${encodeURIComponent(salonId)}&select=*`);
+    
     const matched = customers.find(c => {
         if (!c.phone || c.phone.trim() === '') return false;
         let cPhone = String(c.phone).replace(/\D/g, '');
@@ -20189,7 +20241,7 @@ async function handlePublicAuthContinue() {
         const initialStatus = isApprovalRequired ? 'pending' : 'approved';
         const newCustPayload = {
             id: crypto.randomUUID(),
-            salon_id: window._pbState.salonId,
+            salon_id: salonId,
             first_name: fn,
             last_name: ln,
             phone: rawPhone,
@@ -20198,7 +20250,19 @@ async function handlePublicAuthContinue() {
             booking_status: initialStatus
         };
 
-        await window.universalQuery({ action: 'INSERT', table: 'customers', data: newCustPayload });
+        // 🌐 Scrittura DIRETTA SU SUPABASE CLOUD
+        const supUrl = window.SUPABASE_CONFIG.url;
+        const supKey = window.SUPABASE_CONFIG.key;
+        await fetch(`${supUrl}/rest/v1/customers`, {
+            method: 'POST',
+            headers: {
+                'apikey': supKey,
+                'Authorization': 'Bearer ' + supKey,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(newCustPayload)
+        });
 
         if (isApprovalRequired) {
             feedback.style.display = 'block';
@@ -20235,18 +20299,17 @@ function onCustomerVerifiedSuccess(customer) {
 
 async function loadCustomerPrepaidPackages(customer) {
     if (!customer) return;
-    const currentSalon = String(window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001')).trim().toLowerCase();
+    const currentSalon = String(window._pbState.salonId).trim().toLowerCase();
     const todayStr = new Date().toISOString().split('T')[0];
 
     try {
-        const allCustPkgs = await window.universalQuery({ action: 'GET_ALL', table: 'customer_packages' }) || [];
-        const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
+        const allCustPkgs = await fetchPublicTenantTable('customer_packages', `customer_id=eq.${encodeURIComponent(customer.id)}&select=*`);
+        const allPkgConfigs = await fetchPublicTenantTable('packages_config', 'select=*');
         const inventory = window._pbState.allServices || [];
 
         const clientPkgs = allCustPkgs.filter(cp => {
-            const matchCustId = String(cp.customer_id).trim() === String(customer.id).trim();
             const notExpired = !cp.expiry_date || cp.expiry_date >= todayStr;
-            return matchCustId && notExpired;
+            return notExpired;
         });
 
         const eligiblePrepaidServices = [];
@@ -20340,8 +20403,7 @@ function renderPublicServicesList() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     let activeOffers = [];
-    const rawOffers = sysSettings['online_booking_offers'] || localStorage.getItem('vaimup_online_booking_offers');
-
+    const rawOffers = sysSettings['online_booking_offers'] || (window._isPublicBookingMode ? null : localStorage.getItem('vaimup_online_booking_offers'));
     if (rawOffers) {
         try {
             const parsed = typeof rawOffers === 'string' ? JSON.parse(rawOffers) : rawOffers;
@@ -20790,7 +20852,21 @@ async function computeAndRenderAvailableSlots() {
 
     grid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:15px; color:#64748b; font-size:12px;">Verifica disponibilità in tempo reale...</div>`;
 
-    const targetSalonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
+    const targetSalonId = window._pbState.salonId;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Refresh cloud mirato degli appuntamenti e blocchi postazioni prima di generare gli slot
+    if (navigator.onLine && targetSalonId) {
+        const [freshSettings, freshApps, freshBookings] = await Promise.all([
+            fetchPublicTenantTable('settings', `salon_id=eq.${encodeURIComponent(targetSalonId)}&select=key,value`),
+            fetchPublicTenantTable('appointments', `salon_id=eq.${encodeURIComponent(targetSalonId)}&date=gte.${todayStr}&select=id,salon_id,date,time,end_time,service,cust_name,assigned_user`),
+            fetchPublicTenantTable('workstation_bookings', `date=gte.${todayStr}&select=id,workstation_id,salon_id,date,start_time,end_time`)
+        ]);
+        freshSettings.forEach(s => { if (s && s.key) sysSettings[s.key] = s.value; });
+        window._pbState.allExistingApps = freshApps;
+        window._pbState.allBookings = freshBookings;
+        loadBacConfigFromStorage();
+    }
 
     if (navigator.onLine && targetSalonId) {
         await Promise.all([
@@ -21100,32 +21176,28 @@ async function executePublicBooking() {
     const btn = document.getElementById('pb-btn-submit-booking');
     if (btn) { btn.disabled = true; btn.innerText = "Verifica disponibilità in corso..."; }
 
-    const salonId = window._pbState.salonId || (currentUser ? currentUser.salon_id : 'SALON_001');
-
-    if (navigator.onLine && salonId) {
-        await Promise.all([
-            fetchFreshBookingSettingsFromCloud(salonId),
-            fetchFreshAppointmentsAndBookingsFromCloud(salonId)
-        ]);
-        if (typeof loadBacConfigFromStorage === 'function') loadBacConfigFromStorage();
-    }
+    const salonId = window._pbState.salonId;
+    const supUrl = window.SUPABASE_CONFIG.url;
+    const supKey = window.SUPABASE_CONFIG.key;
 
     const checkDate = window._pbState.selectedDate;
     const checkStart = window._pbState.selectedSlot;
     const checkEnd = window._pbState.selectedSlotEnd;
-
     const appointmentId = crypto.randomUUID();
+
     const custFirst = window._pbState.customer ? (window._pbState.customer.first_name || '') : '';
     const custLast = window._pbState.customer ? (window._pbState.customer.last_name || '') : '';
     const custFullName = `${custFirst} ${custLast}`.trim() || 'Cliente Online';
     const custPhone = window._pbState.customer ? (window._pbState.customer.phone || '') : '';
 
+    // 1. Blocco Atomico Postazione Condivisa
     if (window._pbState.allocatedWorkstationId) {
         try {
             const wsRes = await window.universalQuery({
                 action: 'BOOK_WORKSTATION_ATOMIC',
                 data: {
                     workstationId: window._pbState.allocatedWorkstationId,
+                    salon_id: salonId,
                     date: checkDate,
                     startTime: checkStart,
                     endTime: checkEnd,
@@ -21149,11 +21221,10 @@ async function executePublicBooking() {
 
     const prepaidRedemptions = window._pbState.selectedServices.filter(s => s.isPackageRedemption);
     let pkgNotesTag = '';
-
     if (prepaidRedemptions.length > 0) {
         pkgNotesTag = prepaidRedemptions.map(p => `[PKG:${p.custPkgId}:${p.id}]`).join(' ');
     }
-// 🏷️ Riconoscimento offerte promozionali per la cassa
+
     const promoOffers = window._pbState.selectedServices.filter(s => s.isPromo);
     let promoNotesTag = '';
     if (promoOffers.length > 0) {
@@ -21165,12 +21236,8 @@ async function executePublicBooking() {
     if (promoNotesTag) notes += ` ${promoNotesTag}`;
     if (window._pbState.allocatedWorkstationId) notes += ` [WS:${window._pbState.allocatedWorkstationId}]`;
 
-
     const serviceNames = window._pbState.selectedServices.map(s => s.name).join(', ');
 
-
-
-    
     const appPayload = {
         id: appointmentId,
         salon_id: salonId,
@@ -21185,13 +21252,29 @@ async function executePublicBooking() {
     };
 
     try {
-        const res = await window.universalQuery({ action: 'INSERT', table: 'appointments', data: appPayload });
-        if (res && res.status === 'error') throw new Error(res.message);
+        // 2. Invio Diretto dell'Appuntamento su Supabase Cloud per salon_id specifico
+        const res = await fetch(`${supUrl}/rest/v1/appointments`, {
+            method: 'POST',
+            headers: {
+                'apikey': supKey,
+                'Authorization': 'Bearer ' + supKey,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(appPayload)
+        });
 
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+        }
+
+        // 3. Decremento Sedute Carnet Direttamente su Supabase
         for (let prep of prepaidRedemptions) {
             try {
-                const targetPkg = await localDb.customer_packages.get(prep.custPkgId);
-                if (targetPkg) {
+                const pkgRows = await fetchPublicTenantTable('customer_packages', `id=eq.${prep.custPkgId}&select=*`);
+                if (pkgRows && pkgRows.length > 0) {
+                    const targetPkg = pkgRows[0];
                     let sessionsList = Array.isArray(targetPkg.sessions_state) 
                         ? targetPkg.sessions_state 
                         : JSON.parse(targetPkg.sessions_state || '[]');
@@ -21200,24 +21283,24 @@ async function executePublicBooking() {
                     if (sessionItem && parseInt(sessionItem.remaining) > 0) {
                         sessionItem.remaining = parseInt(sessionItem.remaining) - 1;
 
-                        const updatePayload = {
-                            sessions_state: sessionsList,
-                            updated_at: getNowLocal()
-                        };
-
-                        await localDb.customer_packages.update(targetPkg.id, updatePayload);
-                        if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-                            await sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, targetPkg.id);
-                        }
+                        await fetch(`${supUrl}/rest/v1/customer_packages?id=eq.${prep.custPkgId}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'apikey': supKey,
+                                'Authorization': 'Bearer ' + supKey,
+                                'Content-Type': 'application/json',
+                                'Prefer': 'return=representation'
+                            },
+                            body: JSON.stringify({
+                                sessions_state: sessionsList,
+                                updated_at: getNowLocal()
+                            })
+                        });
                     }
                 }
             } catch(pkgErr) {
-                console.error("Errore decremento carnet:", pkgErr);
+                console.error("Errore decremento carnet su cloud:", pkgErr);
             }
-        }
-
-        if (typeof refreshAllData === 'function') {
-            refreshAllData().catch(() => {});
         }
 
         document.getElementById('pb-success-desc').innerHTML = `

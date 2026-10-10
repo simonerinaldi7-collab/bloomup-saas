@@ -61,9 +61,15 @@ let backgroundSyncTickCounter = 0;
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
+    // 🛑 SE L'APP È APERTA DA UN CLIENTE TRAMITE QR CODE SELF-BOOKING, DISATTIVA IL SYNC GESTIONALE
+    if (window._isPublicBookingMode || (currentUser && currentUser.role === 'guest_customer')) {
+        console.log("🌐 [SMART-SYNC] Disattivato: portale self-booking pubblico cliente attivo.");
+        return;
+    }
+
     const runSyncCycle = async () => {
-        // 🛑 Se la scheda è in background o siamo offline, preserva batteria e banda
-        if (document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id) {
+        // 🛑 Se la scheda è in background, siamo offline o in modalità self-booking cliente, non sincronizzare
+        if (window._isPublicBookingMode || document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id || currentUser.role === 'guest_customer') {
             return;
         }
 
@@ -95,7 +101,6 @@ function startBackgroundMultiOperatorSync() {
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
 
-            // Re-render dell'agenda SOLO se visibile e nessun modale è aperto
             const activeView = document.querySelector('.view.active');
             if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
                 const isModalOpen = document.querySelector('.modal.active');
@@ -105,20 +110,14 @@ function startBackgroundMultiOperatorSync() {
             }
             
             if (typeof updateStats === 'function') updateStats();
-
-            // Subito dopo allCustomers = await getVisibleCustomersForSalon(salonId);
-if (typeof checkPendingCustomersAlert === 'function') {
-    checkPendingCustomersAlert();
-}
+            if (typeof checkPendingCustomersAlert === 'function') checkPendingCustomersAlert();
         } catch (err) {
             console.warn("⚠️ [SMART-SYNC] Errore non bloccante nel ciclo di background:", err);
         }
     };
 
-    // Intervallo equilibrato a 35 secondi (riduce del 70% il carico rispetto ai 20s)
     backgroundSyncInterval = setInterval(runSyncCycle, 35000);
 
-    // 📱 Esecuzione immediata al ritorno del focus sulla scheda
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             runSyncCycle();
@@ -909,6 +908,11 @@ function computeItemSalonCompetence(si, saleDate, inventory, productSuppliers, p
 
 // 🏢 CONTROLLO DISPONIBILITÀ POSTAZIONE IN LOCALE (Zero Latenza)
 async function checkLocalWorkstationAvailability(workstationId, dateStr, startTimeStr, endTimeStr, excludeBookingId = null) {
+    // 🛡️ Se siamo nel portale self-booking pubblico, delega la verifica interamente al Cloud Supabase
+    if (window._isPublicBookingMode) {
+        return { available: true };
+    }
+
     if (!workstationId || !dateStr || !startTimeStr || !endTimeStr) {
         return { available: true };
     }
