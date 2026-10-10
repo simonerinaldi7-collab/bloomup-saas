@@ -21320,6 +21320,67 @@ async function executePublicBooking() {
     }
 }
 
+
+// =========================================================================
+// 🌐 CLIENT CLOUD ISOLATO & HELPER DI AGGIORNAMENTO LIVE ANTI-CACHE
+// =========================================================================
+
+// 1. Client HTTP Cloud Diretto (Bypassa completamente Dexie.js e le sessioni locali)
+async function fetchPublicTenantTable(table, queryParams = '') {
+    const supUrl = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+    const sep = (queryParams.startsWith('&') || queryParams.startsWith('?')) ? queryParams : `?${queryParams}`;
+    const url = `${supUrl}/rest/v1/${table}${sep}`;
+    
+    try {
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'apikey': supKey,
+                'Authorization': 'Bearer ' + supKey,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+        });
+        if (res.ok) {
+            return await res.json();
+        }
+    } catch (err) {
+        console.warn(`[PUBLIC CLOUD FETCH] Errore su ${table}:`, err);
+    }
+    return [];
+}
+
+// 2. Helper di aggiornamento live delle impostazioni (Elimina il ReferenceError)
+async function fetchFreshBookingSettingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    try {
+        const rows = await fetchPublicTenantTable('settings', `salon_id=eq.${encodeURIComponent(salonId)}&select=key,value`);
+        if (Array.isArray(rows)) {
+            rows.forEach(r => {
+                if (r && r.key) sysSettings[r.key] = r.value;
+            });
+        }
+    } catch (err) {
+        console.warn("Avviso aggiornamento impostazioni cloud:", err);
+    }
+}
+
+// 3. Helper di aggiornamento live di appuntamenti e postazioni del giorno
+async function fetchFreshAppointmentsAndBookingsFromCloud(salonId) {
+    if (!salonId || !navigator.onLine) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    try {
+        const [freshApps, freshBookings] = await Promise.all([
+            fetchPublicTenantTable('appointments', `salon_id=eq.${encodeURIComponent(salonId)}&date=gte.${todayStr}&select=id,salon_id,date,time,end_time,service,cust_name,assigned_user`),
+            fetchPublicTenantTable('workstation_bookings', `date=gte.${todayStr}&select=id,workstation_id,salon_id,date,start_time,end_time`)
+        ]);
+        window._pbState.allExistingApps = freshApps || [];
+        window._pbState.allBookings = freshBookings || [];
+    } catch (err) {
+        console.warn("Avviso aggiornamento appuntamenti/postazioni cloud:", err);
+    }
+}
+
 function goToStep(stepId) {
     document.querySelectorAll('.pb-wizard-step').forEach(step => step.style.display = 'none');
     const target = document.getElementById(stepId);
