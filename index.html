@@ -22276,7 +22276,7 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
 
 
 // =========================================================================
-// 🖨️ VAIMUP PRINT STUDIO: MOTORE LISTINI MULTI-CATEGORIA & PREZZI REALI
+// 🖨️ VAIMUP PRINT STUDIO: MOTORE COMPLETO LISTINI, CATEGORIE & CARTELLO QR
 // =========================================================================
 
 window._printStudioState = {
@@ -22291,12 +22291,12 @@ window._printStudioState = {
     subtitle: 'Esperienza di Bellezza & Cura della Persona',
     footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
     selectedItemIds: new Set(),
-    categories: []                // [{ id: 'cat_1', name: 'Taglio & Piega', itemIds: ['uuid1', 'uuid2'] }]
+    categories: []
 };
 
-// 1. Inizializzazione della vista Stampa con Risoluzione Prezzi da price_history
+// 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
 async function initPrintStudioView() {
-    console.log("🖨️ [PRINT STUDIO] Inizializzazione con risoluzione prezzi reali...");
+    console.log("🖨️ [PRINT STUDIO] Inizializzazione completa con prezzi reali...");
     
     // A. Recupero logo salone
     const savedLogo = sysSettings['salon_logo'] || localStorage.getItem('vaimup_salon_logo');
@@ -22310,11 +22310,11 @@ async function initPrintStudioView() {
 
     // B. Recupero inventario
     const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    let inventory = (allInventory && allInventory.length > 0) 
-        ? allInventory 
+    let inventory = (window.allInventory && window.allInventory.length > 0) 
+        ? window.allInventory 
         : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
 
-    // 🌟 C. RISOLUZIONE IMMEDIATA DEI PREZZI DA price_history (ELIMINA I PREZZI A 0!)
+    // 🌟 C. RISOLUZIONE IMMEDIATA DEI PREZZI DA price_history (ELIMINA I PREZZI A 0)
     const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
     const nowIso = new Date().toISOString();
 
@@ -22340,22 +22340,165 @@ async function initPrintStudioView() {
         }
     });
 
-    allInventory = inventory;
+    window.allInventory = inventory;
 
     // D. Preselezione iniziale di tutti gli articoli
     window._printStudioState.selectedItemIds.clear();
     inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
 
-    // E. Caricamento Categorie Personalizzate Salvate (o generazione default smart)
+    // E. Caricamento categorie salvate o default
     loadPrintCategoriesFromStorage(inventory, currentSalon);
 
-    // F. Renderizza interfaccia comandi e foglio live
+    // F. Renderizza tutte le sezioni
     renderPrintCategoriesManager();
     renderPrintItemsChecklist();
     renderLivePrintSheet();
 }
 
-// 2. Caricamento / Inizializzazione Categorie Salone
+// 2. Switch tra Listino Prezzi e Cartello QR Code
+function setPrintMode(mode) {
+    window._printStudioState.mode = mode;
+    const btnPrice = document.getElementById('btn-mode-pricelist');
+    const btnQr = document.getElementById('btn-mode-qrbooking');
+    const qrOptionsBox = document.getElementById('ps-qr-booking-options-box');
+    const categoriesControlBox = document.getElementById('ps-categories-control-box');
+    const itemsChecklistContainer = document.getElementById('ps-items-checklist-container')?.parentElement;
+
+    if (mode === 'pricelist') {
+        if (btnPrice) { btnPrice.style.background = 'var(--p)'; btnPrice.style.color = '#fff'; }
+        if (btnQr) { btnQr.style.background = '#f1f5f9'; btnQr.style.color = '#475569'; }
+        if (qrOptionsBox) qrOptionsBox.style.display = 'none';
+        if (categoriesControlBox) categoriesControlBox.style.display = 'block';
+        if (itemsChecklistContainer) itemsChecklistContainer.style.display = 'flex';
+        window._printStudioState.title = 'LISTINO TRATTAMENTI ESCLUSIVI';
+        window._printStudioState.subtitle = 'Esperienza di Bellezza & Cura della Persona';
+    } else {
+        if (btnQr) { btnQr.style.background = 'var(--p)'; btnQr.style.color = '#fff'; }
+        if (btnPrice) { btnPrice.style.background = '#f1f5f9'; btnPrice.style.color = '#475569'; }
+        if (qrOptionsBox) qrOptionsBox.style.display = 'block';
+        if (categoriesControlBox) categoriesControlBox.style.display = 'none';
+        if (itemsChecklistContainer) itemsChecklistContainer.style.display = 'none';
+        window._printStudioState.title = 'PRENOTA IN UN ATTIMO DAL TUO SMARTPHONE';
+        window._printStudioState.subtitle = 'Scegli trattamenti, orari e operatore preferito in totale comodità';
+    }
+
+    renderLivePrintSheet();
+}
+
+// 3. Cambio Formato Carta
+function onPrintFormatChanged(formatVal) {
+    window._printStudioState.format = formatVal;
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    sheet.className = `print-sheet format-${formatVal.replace('_', '-')} theme-${window._printStudioState.theme}`;
+
+    let pageCss = '@page { size: A4 portrait; margin: 8mm; }';
+    if (formatVal === 'a4_landscape') pageCss = '@page { size: A4 landscape; margin: 8mm; }';
+    else if (formatVal === 'a5_portrait') pageCss = '@page { size: A5 portrait; margin: 6mm; }';
+
+    let styleTag = document.getElementById('dynamic-print-page-style');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-print-page-style';
+        document.head.appendChild(styleTag);
+    }
+    styleTag.innerHTML = pageCss;
+
+    renderLivePrintSheet();
+}
+
+// 4. Cambio Tema Grafico
+function onPrintThemeChanged(themeVal) {
+    window._printStudioState.theme = themeVal;
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (sheet) {
+        sheet.className = `print-sheet format-${window._printStudioState.format.replace('_', '-')} theme-${themeVal}`;
+    }
+    renderLivePrintSheet();
+}
+
+// 5. Upload Logo Salone
+async function handleSalonLogoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const base64 = e.target.result;
+        window._printStudioState.salonLogoBase64 = base64;
+
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${base64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+
+        localStorage.setItem('vaimup_salon_logo', base64);
+        sysSettings['salon_logo'] = base64;
+        await window.universalQuery({
+            action: 'UPSERT_SETTING',
+            data: { key: 'salon_logo', value: base64 }
+        });
+
+        renderLivePrintSheet();
+    };
+    reader.readAsDataURL(file);
+}
+
+// 6. Checklist Articoli Selezionabili
+function renderPrintItemsChecklist() {
+    const container = document.getElementById('ps-items-checklist-container');
+    if (!container) return;
+
+    const inventory = window.allInventory || [];
+    if (inventory.length === 0) {
+        container.innerHTML = `<span style="font-size:11px; color:#888; padding:8px;">Nessun articolo a listino.</span>`;
+        return;
+    }
+
+    container.innerHTML = inventory.map(item => {
+        const isChecked = window._printStudioState.selectedItemIds.has(String(item.id));
+        const icon = item.type === 'servizio' ? '✂️' : '📦';
+        const priceFmt = parseFloat(item.price || 0).toFixed(2);
+        return `
+            <label class="ps-item-check-row" data-name="${(item.name || '').toLowerCase()}" data-type="${item.type || ''}" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; margin: 0; background: ${isChecked ? '#f8fafc' : 'transparent'};">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                    <input type="checkbox" value="${item.id}" ${isChecked ? 'checked' : ''} onchange="toggleSinglePrintItem('${item.id}', this.checked)" style="width: 14px; height: 14px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${icon} ${item.name}</span>
+                </div>
+                <b style="font-size: 10.5px; color: #475569; margin-left: 6px;">€ ${priceFmt}</b>
+            </label>
+        `;
+    }).join('');
+}
+
+function filterPrintItemsCheckboxes(filterText) {
+    const clean = (filterText || '').toLowerCase().trim();
+    document.querySelectorAll('.ps-item-check-row').forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        const type = row.getAttribute('data-type') || '';
+        row.style.display = (name.includes(clean) || type.includes(clean)) ? 'flex' : 'none';
+    });
+}
+
+function toggleSinglePrintItem(itemId, isChecked) {
+    if (isChecked) window._printStudioState.selectedItemIds.add(String(itemId));
+    else window._printStudioState.selectedItemIds.delete(String(itemId));
+    renderLivePrintSheet();
+}
+
+function toggleAllPrintItems(selectAll) {
+    const inventory = window.allInventory || [];
+    if (selectAll) {
+        inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
+    } else {
+        window._printStudioState.selectedItemIds.clear();
+    }
+    renderPrintItemsChecklist();
+    renderLivePrintSheet();
+}
+
+// 7. Gestione Dati Categorie
 function loadPrintCategoriesFromStorage(inventory, currentSalon) {
     const rawSaved = sysSettings['print_listino_categories'] || localStorage.getItem(`vaimup_print_listino_categories_${currentSalon}`);
     let loaded = [];
@@ -22366,7 +22509,6 @@ function loadPrintCategoriesFromStorage(inventory, currentSalon) {
         } catch(e) { loaded = []; }
     }
 
-    // Se non ci sono ancora categorie create, genera due sezioni di partenza intuitive
     if (!Array.isArray(loaded) || loaded.length === 0) {
         const serviceIds = inventory.filter(i => i.type === 'servizio').map(i => String(i.id));
         const productIds = inventory.filter(i => i.type === 'prodotto').map(i => String(i.id));
@@ -22380,7 +22522,6 @@ function loadPrintCategoriesFromStorage(inventory, currentSalon) {
     window._printStudioState.categories = loaded;
 }
 
-// 3. Salvataggio Categorie
 async function persistPrintCategories() {
     const currentSalon = currentUser ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
     const jsonStr = JSON.stringify(window._printStudioState.categories);
@@ -22394,7 +22535,6 @@ async function persistPrintCategories() {
     });
 }
 
-// 4. Renderizzazione del Gestore Categorie nel Pannello Sinistro
 function renderPrintCategoriesManager() {
     const container = document.getElementById('ps-categories-accordion-list');
     if (!container) return;
@@ -22406,7 +22546,7 @@ function renderPrintCategoriesManager() {
         return;
     }
 
-    container.innerHTML = cats.map((cat, idx) => {
+    container.innerHTML = cats.map(cat => {
         const count = Array.isArray(cat.itemIds) ? cat.itemIds.length : 0;
         return `
             <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
@@ -22427,9 +22567,8 @@ function renderPrintCategoriesManager() {
     }).join('');
 }
 
-// 5. Creazione Nuova Sezione
 async function promptCreateNewPrintCategory() {
-    const name = prompt("Inserisci il nome della nuova sezione del listino:\n(Es. 🎨 Colore & Schiariture, 💇‍♀️ Taglio & Piega, 💅 Nails, 💆‍♀️ Massaggi & Spa)");
+    const name = prompt("Inserisci il nome della nuova sezione del listino:\n(Es. 🎨 Colore & Schiariture, 💇‍♀️ Taglio & Styling, 💅 Nails, 💆‍♀️ Massaggi & Spa)");
     if (!name || name.trim() === '') return;
 
     const newCat = {
@@ -22443,13 +22582,11 @@ async function promptCreateNewPrintCategory() {
     renderPrintCategoriesManager();
     renderLivePrintSheet();
 
-    // Apre subito il modale per selezionare gli articoli di questa nuova categoria!
     openCategoryItemsModal(newCat.id);
 }
 
-// 6. Eliminazione Sezione
 async function deletePrintCategory(catId) {
-    if (!confirm("Eliminare questa sezione dal listino? Gli articoli non verranno cancellati dal gestionale, ma solo disassociati da questa categoria.")) return;
+    if (!confirm("Eliminare questa sezione dal listino? Gli articoli non verranno cancellati dal gestionale.")) return;
 
     window._printStudioState.categories = window._printStudioState.categories.filter(c => c.id !== catId);
     await persistPrintCategories();
@@ -22457,7 +22594,6 @@ async function deletePrintCategory(catId) {
     renderLivePrintSheet();
 }
 
-// 7. Modale Assegnazione Articoli alla Categoria
 function openCategoryItemsModal(catId) {
     const cat = window._printStudioState.categories.find(c => c.id === catId);
     if (!cat) return;
@@ -22467,7 +22603,7 @@ function openCategoryItemsModal(catId) {
     document.getElementById('pci-filter-search').value = '';
 
     const checklistContainer = document.getElementById('pci-items-checklist');
-    const inventory = allInventory || [];
+    const inventory = window.allInventory || [];
     const assignedSet = new Set((cat.itemIds || []).map(String));
 
     checklistContainer.innerHTML = inventory.map(item => {
@@ -22490,7 +22626,7 @@ function openCategoryItemsModal(catId) {
 }
 
 function filterPciModalChecklist(query) {
-    const clean = query.toLowerCase().trim();
+    const clean = (query || '').toLowerCase().trim();
     document.querySelectorAll('.pci-item-row').forEach(row => {
         const name = row.getAttribute('data-name') || '';
         row.style.display = name.includes(clean) ? 'flex' : 'none';
@@ -22515,16 +22651,135 @@ async function savePrintCategoryItemsAssignment() {
     renderLivePrintSheet();
 }
 
-// 8. RENDERIZZATORE DEL LISTINO PREZZI (CATEGORIE DINAMICHE & PREZZI REALI)
+// 8. RENDERIZZATORE GENERALE DEL FOGLIO
+function renderLivePrintSheet() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    const s = window._printStudioState;
+    s.showSalonLogo = document.getElementById('ps-toggle-show-logo')?.checked ?? true;
+    s.showVaimupLogo = document.getElementById('ps-toggle-show-vaimup')?.checked ?? true;
+    s.showBookingQr = document.getElementById('ps-toggle-show-qr')?.checked ?? true;
+
+    const currentSalon = (currentUser ? currentUser.salon_id : 'SALON_001');
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+
+    let qrDarkColor = '1e1b4b';
+    if (s.theme === 'luxury-gold') qrDarkColor = '121212';
+    else if (s.theme === 'rose-glamour') qrDarkColor = '2e1c24';
+    else if (s.theme === 'barber-vintage') qrDarkColor = '1c1917';
+    else if (s.theme === 'botanical-minimal') qrDarkColor = '059669';
+
+    const qrSrc = `https://quickchart.io/qr?text=${encodeURIComponent(bookingUrl)}&size=450&dark=${qrDarkColor}&ecLevel=H`;
+
+    if (s.mode === 'qrbooking') {
+        renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc);
+    } else {
+        renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc);
+    }
+}
+
+// 9. RENDERIZZATORE CARTELLO QR CODE
+function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
+    const showSteps = document.getElementById('ps-qr-show-steps')?.checked ?? true;
+    const showPerks = document.getElementById('ps-qr-show-perks')?.checked ?? true;
+    const showDirectUrl = document.getElementById('ps-qr-show-direct-url')?.checked ?? true;
+
+    sheet.innerHTML = `
+        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: inherit; box-sizing: border-box; text-align: center;">
+            <div style="margin-bottom: 15px;">
+                ${s.showSalonLogo && s.salonLogoBase64 ? `
+                    <div style="width: 80px; height: 80px; margin: 0 auto 12px auto; border-radius: 16px; overflow: hidden; border: 2px solid var(--ps-accent-border); box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
+                        <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
+                    </div>
+                ` : `
+                    <div style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(255,255,255,0.08); border: 1.5px solid var(--ps-accent); color: var(--ps-accent); margin-bottom: 10px;">
+                        SALONE • ${currentSalon}
+                    </div>
+                `}
+
+                <h1 style="margin: 0 0 6px 0; font-family: var(--ps-font-title); font-size: 26px; font-weight: 900; letter-spacing: 0.8px; color: var(--ps-accent); line-height: 1.2;" contenteditable="true">
+                    ${s.title}
+                </h1>
+                
+                <p style="margin: 0 auto; max-width: 85%; font-size: 13.5px; color: var(--ps-text-sub); line-height: 1.45;" contenteditable="true">
+                    ${s.subtitle}
+                </p>
+            </div>
+
+            <div style="margin: 15px auto; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #ffffff; padding: 18px; border-radius: 24px; border: 3px solid var(--ps-accent); box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: inline-block;">
+                    <img src="${qrSrc}" alt="QR Code Prenotazione" style="width: 195px; height: 195px; display: block; border-radius: 8px;">
+                    <div style="margin-top: 8px; font-family: var(--ps-font-title); font-size: 11px; font-weight: 900; color: #1e1b4b; letter-spacing: 0.5px;">
+                        INQUADRA CON LA FOTOCAMERA
+                    </div>
+                </div>
+
+                ${showDirectUrl ? `
+                    <div style="margin-top: 10px; font-family: monospace; font-size: 11px; font-weight: 700; color: var(--ps-text-sub); opacity: 0.85;" contenteditable="true">
+                        🔗 ${bookingUrl}
+                    </div>
+                ` : ''}
+            </div>
+
+            ${showSteps ? `
+                <div style="margin: 15px 0;">
+                    <div style="font-family: var(--ps-font-title); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ps-accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>✦ COME FUNZIONA IN 3 SEMPLICI PASSI ✦</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center;">
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">1</div>
+                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Inquadra il QR</b>
+                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Apri la fotocamera del cellulare e tocca il link.</small>
+                        </div>
+
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">2</div>
+                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Scegli Trattamento</b>
+                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Seleziona i servizi, operatore e orario preferito.</small>
+                        </div>
+
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">3</div>
+                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Conferma Live</b>
+                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Ricevi subito promemoria e conferma su WhatsApp.</small>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${showPerks ? `
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; font-size: 11.5px; font-weight: 700; color: var(--ps-accent);">
+                    <span>✓ Disponibile h24 7 giorni su 7</span>
+                    <span>✓ Zero attese telefoniche</span>
+                    <span>✓ Promemoria automatici</span>
+                </div>
+            ` : ''}
+
+            <div style="margin-top: auto; padding-top: 14px; border-top: 1.5px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--ps-text-sub);">
+                <div contenteditable="true">${s.footerNotes}</div>
+                ${s.showVaimupLogo ? `
+                    <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; opacity: 0.9;">
+                        <img src="./icon-192.png" alt="VaiMUp" style="width: 15px; height: 15px; border-radius: 3px; object-fit: contain;">
+                        <span>Powered by <b>VaiMUp Suite</b></span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// 10. RENDERIZZATORE LISTINO STANDARD MULTI-CATEGORIA
 function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
-    const inventory = allInventory || [];
+    const inventory = window.allInventory || [];
     const selectedItemIds = s.selectedItemIds;
     const categories = s.categories || [];
 
     const isLandscape = s.format === 'a4_landscape';
     const contentColumnsLayout = isLandscape ? `display: grid; grid-template-columns: 1fr 1fr; gap: 24px;` : ``;
 
-    // Traccia tutti gli articoli stampati per individuare eventuali articoli non ancora categorizzati
     const printedItemIds = new Set();
     let sectionsHtml = '';
 
@@ -22532,7 +22787,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         const catItemIds = (cat.itemIds || []).filter(id => selectedItemIds.has(String(id)));
         const catItems = catItemIds.map(id => inventory.find(i => String(i.id) === String(id))).filter(Boolean);
 
-        if (catItems.length === 0) return; // Salta categorie vuote se nessun articolo è selezionato
+        if (catItems.length === 0) return;
 
         catItems.forEach(i => printedItemIds.add(String(i.id)));
 
@@ -22560,7 +22815,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         `;
     });
 
-    // Se ci sono articoli selezionati nella checklist che non appartengono a nessuna categoria personalizzata
+    // Articoli selezionati non ancora assegnati a categorie
     const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
         sectionsHtml += `
@@ -22587,7 +22842,6 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     }
 
     sheet.innerHTML = `
-        <!-- HEADER DEL FOGLIO -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--ps-accent); padding-bottom: 14px; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 ${s.showSalonLogo && s.salonLogoBase64 ? `
@@ -22612,15 +22866,12 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
             ` : ''}
         </div>
 
-        <!-- SEZIONI CATEGORIZZATE DINAMICHE -->
         <div style="${contentColumnsLayout}">
             ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
         </div>
 
-        <!-- FOOTER & CO-BRANDING -->
         <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--ps-text-sub);">
             <div contenteditable="true">${s.footerNotes}</div>
-            
             ${s.showVaimupLogo ? `
                 <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
                     <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
@@ -22631,10 +22882,31 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     `;
 }
 
-
+// 11. Stampa Diretta del Foglio
 function triggerDirectPrint() {
     window.print();
 }
+
+// =========================================================================
+// 🛡️ REGISTRAZIONE ESPLICITA GLOBALE SU WINDOW (ZERO REFERENCE ERROR)
+// =========================================================================
+window.initPrintStudioView = initPrintStudioView;
+window.setPrintMode = setPrintMode;
+window.onPrintFormatChanged = onPrintFormatChanged;
+window.onPrintThemeChanged = onPrintThemeChanged;
+window.handleSalonLogoUpload = handleSalonLogoUpload;
+window.renderPrintItemsChecklist = renderPrintItemsChecklist;
+window.filterPrintItemsCheckboxes = filterPrintItemsCheckboxes;
+window.toggleSinglePrintItem = toggleSinglePrintItem;
+window.toggleAllPrintItems = toggleAllPrintItems;
+window.promptCreateNewPrintCategory = promptCreateNewPrintCategory;
+window.deletePrintCategory = deletePrintCategory;
+window.openCategoryItemsModal = openCategoryItemsModal;
+window.filterPciModalChecklist = filterPciModalChecklist;
+window.closePrintCategoryItemsModal = closePrintCategoryItemsModal;
+window.savePrintCategoryItemsAssignment = savePrintCategoryItemsAssignment;
+window.renderLivePrintSheet = renderLivePrintSheet;
+window.triggerDirectPrint = triggerDirectPrint;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
