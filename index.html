@@ -1313,14 +1313,29 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 
-.print-preview-pane {
-    background: #475569;
-    border-radius: 16px;
-    padding: 24px;
-    overflow-y: auto;
+/* Colonna destra: Flex column con barra zoom fissa in alto */
+.print-preview-column-wrapper {
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 🌟 AREA DI SCROLL: La toolbar è fuori, quindi parte sempre da 0 in alto */
+.print-preview-pane {
+    background: #334155;
+    border-radius: 14px;
+    padding: 20px 20px 60px 20px;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    flex: 1;
+    min-height: 0;
+    text-align: center !important;
+    display: block !important;
+    position: relative;
+    scroll-behavior: smooth;
 }
 
 /* 📄 Foglio di Stampa Base (Screen Preview) */
@@ -1356,6 +1371,11 @@
     display: flex;
     justify-content: center;
     margin-bottom: 30px;
+}
+
+#print-sheet-canvas {
+    transform-origin: top left !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Dimensioni fisiche su schermo */
@@ -2568,32 +2588,36 @@
                         </div>
                     </div>
 
-                    <!-- COLONNA DESTRA: ANTEPRIMA LIVE (UNICA NEL DOM) -->
-                    <div class="print-preview-column-wrapper">
-                        <!-- TOOLBAR ZOOM FISSA -->
-                        <div class="ps-zoom-toolbar no-print" style="flex-shrink: 0; background: #1e293b; padding: 7px 14px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border: 1.5px solid #334155;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 12px; color: #94a3b8; font-weight: bold;">Anteprima Schermo:</span>
-                                <button type="button" class="btn" style="padding: 3px 10px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Intero Foglio</button>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.35)">35%</button>
-                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.50)">50%</button>
-                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.75)">75%</button>
-                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(1.00)">100%</button>
-                                <span id="ps-preview-zoom-label" style="font-size: 11px; color: #FBBF24; font-weight: 800; margin-left: 6px;">100%</span>
-                            </div>
-                        </div>
+                    <!-- ========================================== -->
+        <!-- COLONNA DESTRA: ANTEPRIMA LIVE FIT-TO-SCREEN -->
+        <!-- ========================================== -->
+        <div class="print-preview-column-wrapper">
+            
+            <!-- 🌟 BARRA ZOOM FISSA IN CIMA (NON COPRE MAI IL FOGLIO) -->
+            <div class="ps-zoom-toolbar no-print" style="flex-shrink: 0; background: #1e293b; padding: 7px 14px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border: 1.5px solid #334155;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 12px; color: #94a3b8; font-weight: bold;">Anteprima Schermo:</span>
+                    <button type="button" class="btn" style="padding: 3px 10px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Intero Foglio</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.35)">35%</button>
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.50)">50%</button>
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.75)">75%</button>
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(1.00)">100%</button>
+                    <span id="ps-preview-zoom-label" style="font-size: 11px; color: #FBBF24; font-weight: 800; margin-left: 6px;">100%</span>
+                </div>
+            </div>
 
-                        <!-- AREA DI SCROLL ANTEPRIMA -->
-                        <div class="print-preview-pane" id="ps-preview-scroll-pane">
-                            <div id="print-sheet-scaler-wrapper">
-                                <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
-                                    <!-- Popolato da renderLivePrintSheet() -->
-                                </div>
-                            </div>
-                        </div>
+            <!-- 🌟 AREA DI SCROLL PULITA: IL FOGLIO PARTE DA 0 SENZA ESSERE COPERTO -->
+            <div class="print-preview-pane" id="ps-preview-scroll-pane">
+                <div id="print-sheet-scaler-wrapper">
+                    <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
+                        <!-- Generato dinamicamente -->
                     </div>
+                </div>
+            </div>
+
+        </div>
 
                 </div>
             </section>
@@ -22483,41 +22507,68 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
 
 window._previewScaleFactor = 1.0;
 
+// 🔍 FUNZIONI ZOOM ANTEPRIMA CON RIDIMENSIONAMENTO DOM AL PIXEL
 function autoFitPrintPreviewToScreen() {
-    const pane = document.querySelector('.print-preview-pane');
+    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
     const sheet = document.getElementById('print-sheet-canvas');
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
-    const label = document.getElementById('ps-preview-zoom-label');
 
     if (!pane || !sheet || !wrapper) return;
 
-    // Rimuove temporaneamente il transform per calcolare la larghezza reale del foglio in pixel
-    wrapper.style.transform = 'none';
+    // Reset per misurare le dimensioni naturali unscaled
+    sheet.style.transform = 'none';
+    wrapper.style.width = 'auto';
+    wrapper.style.height = 'auto';
 
-    const paneWidth = pane.clientWidth - 40; // Margine di respiro
+    const paneWidth = pane.clientWidth - 40;
+    const paneHeight = pane.clientHeight - 40;
     const sheetWidth = sheet.offsetWidth;
+    const sheetHeight = sheet.offsetHeight;
 
     if (sheetWidth > 0 && paneWidth > 0) {
-        // Se il foglio (es. 50x70) è più largo dello schermo, calcola la scala esatta di riduzione
-        let factor = paneWidth / sheetWidth;
-        if (factor > 1.0) factor = 1.0; // Se è A4/A5 non lo ingigantire oltre il 100%
-        factor = Math.max(factor, 0.25); // Limite minimo
+        // Calcola sia in larghezza che in altezza per far rientrare l'INTERO foglio a video
+        const factorW = paneWidth / sheetWidth;
+        const factorH = paneHeight > 100 ? (paneHeight / sheetHeight) : 1;
+        let factor = Math.min(factorW, factorH);
 
-        window._previewScaleFactor = factor;
-        wrapper.style.transform = `scale(${factor})`;
+        if (factor > 1.0) factor = 1.0;
+        factor = Math.max(factor, 0.25);
 
-        if (label) label.innerText = `${Math.round(factor * 100)}% (Adattato)`;
+        applyPreviewZoom(factor, `${Math.round(factor * 100)}% (Adattato)`);
     }
 }
 
 function setManualPreviewZoom(factor) {
+    applyPreviewZoom(factor, `${Math.round(factor * 100)}%`);
+}
+
+
+function applyPreviewZoom(factor, textLabel = null) {
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
+    const sheet = document.getElementById('print-sheet-canvas');
     const label = document.getElementById('ps-preview-zoom-label');
-    if (!wrapper) return;
+    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
+
+    if (!wrapper || !sheet) return;
 
     window._previewScaleFactor = factor;
-    wrapper.style.transform = `scale(${factor})`;
-    if (label) label.innerText = `${Math.round(factor * 100)}%`;
+
+    // Misura le dimensioni naturali
+    sheet.style.transform = 'none';
+    const unscaledW = sheet.offsetWidth;
+    const unscaledH = sheet.offsetHeight;
+
+    // 🌟 CHIAVE DEL FIX: Imposta larghezza e altezza del wrapper ESATTAMENTE scalate
+    // In questo modo il browser sa dove finisce e dove INIZIA il foglio a coordinate 0,0!
+    wrapper.style.width = `${unscaledW * factor}px`;
+    wrapper.style.height = `${unscaledH * factor}px`;
+
+    // Scala ancorando l'angolo in alto a sinistra
+    sheet.style.transformOrigin = 'top left';
+    sheet.style.transform = `scale(${factor})`;
+
+    if (label) label.innerText = textLabel || `${Math.round(factor * 100)}%`;
+    if (pane) pane.scrollTop = 0; // Riporta sempre lo scroll in cima
 }
 
 // =========================================================================
@@ -23784,6 +23835,10 @@ window.onPrintItemDragOver = onPrintItemDragOver;
 window.onPrintItemDrop = onPrintItemDrop;
 window.onPrintItemDragEnd = onPrintItemDragEnd;
 
+// Registrazione globale su window
+window.autoFitPrintPreviewToScreen = autoFitPrintPreviewToScreen;
+window.setManualPreviewZoom = setManualPreviewZoom;
+window.applyPreviewZoom = applyPreviewZoom
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
