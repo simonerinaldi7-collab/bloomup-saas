@@ -1398,6 +1398,39 @@
 .paper-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
 .paper-50x70 .ps-footer-text { font-size: 16px !important; }
 
+/* 🌟 MOTORE COLONNE DINAMICHE: Attiva la divisione a 1, 2, 3 o 4 colonne */
+.ps-content-columns-wrapper {
+    column-count: var(--ps-columns, 2);
+    -webkit-column-count: var(--ps-columns, 2);
+    column-gap: 26px;
+    -webkit-column-gap: 26px;
+    width: 100%;
+    display: block;
+}
+
+/* Le sezioni fluiscono nelle colonne senza spezzare i singoli articoli */
+.ps-category-block {
+    break-inside: auto;
+    page-break-inside: auto;
+    width: 100%;
+    box-sizing: border-box;
+    display: block;
+}
+
+/* L'intestazione della categoria non rimane mai da sola a fondo colonna */
+.ps-cat-header-block {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+}
+
+/* La singola riga articolo non viene mai troncata a metà tra due colonne */
+.ps-item-row {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}
+
+
 /* 🖨️ REGOLE RIGIDE @MEDIA PRINT: GARANTISCE 1 PAGINA & ZERO SALTI FOGLIO */
 @media print {
     html, body {
@@ -23609,7 +23642,8 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
             </div>
 
             <!-- CONTENITORE COLONNE DINAMICHE CON SCALING -->
-            <div class="ps-content-columns-wrapper" style="--ps-columns: ${s.columns};">
+            <!-- CONTENITORE COLONNE DINAMICHE CON SCALING -->
+<div class="ps-content-columns-wrapper" style="--ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px; width: 100%;">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
