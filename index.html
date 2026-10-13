@@ -1323,20 +1323,6 @@
     position: relative;
 }
 
-/* 🌟 AREA DI SCROLL: La toolbar è fuori, quindi parte sempre da 0 in alto */
-.print-preview-pane {
-    background: #334155;
-    border-radius: 14px;
-    padding: 20px 20px 60px 20px;
-    overflow-y: auto !important;
-    overflow-x: auto !important;
-    flex: 1;
-    min-height: 0;
-    text-align: center !important;
-    display: block !important;
-    position: relative;
-    scroll-behavior: smooth;
-}
 
 /* 📄 Foglio di Stampa Base (Screen Preview) */
 .print-sheet {
@@ -1352,28 +1338,39 @@
 /* 📄 DIMENSIONI CARTA CON SUPPORTO ZOOM FIT & 1-PAGE PRINT */
 /* ======================================================== */
 
+
+
+/* 🌟 AREA DI SCROLL: Nessun flexbox, scroll orizzontale e verticale naturale */
 .print-preview-pane {
     background: #334155;
-    border-radius: 16px;
-    padding: 20px;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    border-radius: 14px;
+    padding: 20px 20px 60px 20px;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    flex: 1;
+    min-height: 0;
+    text-align: center !important;
+    display: block !important;
     position: relative;
-    max-height: calc(100vh - 120px);
+    scroll-behavior: smooth;
+    box-sizing: border-box;
 }
 
-/* Wrapper di scala visiva a schermo (permette al 50x70 di stare nello schermo) */
+/* 🌟 WRAPPER DI SCALA: Ancoraggio solido X=0 e Y=0, centrato senza tagliare a sinistra */
 #print-sheet-scaler-wrapper {
-    transform-origin: top center;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
-    justify-content: center;
-    margin-bottom: 30px;
+    position: relative;
+    display: block !important;
+    margin: 0 auto !important;
+    text-align: left !important;
+    transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 🌟 IL FOGLIO: Incollato sempre a top: 0 e left: 0 del wrapper */
 #print-sheet-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0 !important;
     transform-origin: top left !important;
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -22553,22 +22550,26 @@ function applyPreviewZoom(factor, textLabel = null) {
 
     window._previewScaleFactor = factor;
 
-    // Misura le dimensioni naturali
+    // 1. Misura le dimensioni naturali a scala 1
     sheet.style.transform = 'none';
     const unscaledW = sheet.offsetWidth;
     const unscaledH = sheet.offsetHeight;
 
-    // 🌟 CHIAVE DEL FIX: Imposta larghezza e altezza del wrapper ESATTAMENTE scalate
-    // In questo modo il browser sa dove finisce e dove INIZIA il foglio a coordinate 0,0!
+    // 2. Imposta la larghezza e altezza esatte sul box DOM del wrapper
     wrapper.style.width = `${unscaledW * factor}px`;
     wrapper.style.height = `${unscaledH * factor}px`;
 
-    // Scala ancorando l'angolo in alto a sinistra
+    // 3. Scala geometrica ancorata a top-left (0,0)
     sheet.style.transformOrigin = 'top left';
     sheet.style.transform = `scale(${factor})`;
 
     if (label) label.innerText = textLabel || `${Math.round(factor * 100)}%`;
-    if (pane) pane.scrollTop = 0; // Riporta sempre lo scroll in cima
+    
+    // 4. Riporta lo scroll perfettamente in cima e tutto a sinistra
+    if (pane) {
+        pane.scrollTop = 0;
+        pane.scrollLeft = 0;
+    }
 }
 
 // =========================================================================
