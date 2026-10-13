@@ -1271,9 +1271,19 @@
     border-top: 2px solid var(--ps-accent, #6C5CE7);
 }
 
-/* ======================================================== */
-/* 🖨️ ANTEPRIMA SCHERMO SENZA TAGLI & STAMPA IN 1 PAGINA   */
-/* ======================================================== */
+/* 🖨️ IN STAMPA: TUTTI I CONTROLLI, FRECCE E MANIGLIE SCOMPAIONO TOTALMENTE */
+@media print {
+    .ps-item-inline-actions, .ps-cat-inline-actions, .ps-add-custom-row-btn, .ps-drag-handle, .no-print {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    .ps-item-row {
+        background: transparent !important;
+        outline: none !important;
+        padding: 0 !important;
+    }
+}
+
 
 .print-studio-container {
     display: grid;
@@ -1303,51 +1313,65 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 
-/* Colonna destra: Flex column con barra zoom fissa in alto */
-.print-preview-column-wrapper {
+.print-preview-pane {
+    background: #475569;
+    border-radius: 16px;
+    padding: 24px;
+    overflow-y: auto;
     display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+    justify-content: center;
+    align-items: flex-start;
 }
 
-/* 🌟 AREA DI SCROLL: display: block e text-align: center eliminano il taglio in alto! */
+/* 📄 Foglio di Stampa Base (Screen Preview) */
+.print-sheet {
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    position: relative;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+/* ======================================================== */
+/* 📄 DIMENSIONI CARTA CON SUPPORTO ZOOM FIT & 1-PAGE PRINT */
+/* ======================================================== */
+
 .print-preview-pane {
     background: #334155;
-    border-radius: 14px;
-    padding: 25px 20px 80px 20px;
-    overflow-y: auto !important;
-    overflow-x: auto !important;
-    flex: 1;
-    min-height: 0;
-    text-align: center !important;
-    display: block !important; /* MAI flex qui: previene il clipping negativo in alto */
+    border-radius: 16px;
+    padding: 20px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    max-height: calc(100vh - 120px);
 }
 
-/* Wrapper di scala: centra il foglio e permette di scalare il 50x70 senza sbordare */
+/* Wrapper di scala visiva a schermo (permette al 50x70 di stare nello schermo) */
 #print-sheet-scaler-wrapper {
-    display: inline-block !important;
-    text-align: left !important;
     transform-origin: top center;
-    margin: 0 auto;
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
 }
 
-/* Dimensioni Carta Fisiche su Schermo */
-.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 12mm 14mm; }
-.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 12mm 14mm; }
+/* Dimensioni fisiche su schermo */
+.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 10mm; }
+.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 10mm; }
 
-.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 8mm 10mm; }
-.paper-a5.orient-landscape { width: 210mm; min-height: 148mm; padding: 8mm 10mm; }
+.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 8mm; }
+.paper-a5.orient-landscape { width: 210mm; min-height: 148mm; padding: 8mm; }
 
-.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 16mm 18mm; }
-.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 16mm 18mm; }
+.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 15mm; }
+.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 15mm; }
 
-.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 25mm 30mm; }
-.paper-50x70.orient-landscape { width: 700mm; min-height: 500mm; padding: 25mm 30mm; }
+.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 25mm; }
+.paper-50x70.orient-landscape { width: 700mm; min-height: 500mm; padding: 25mm; }
 
-/* Tipografia Proporzionale per Maxi Formato 50x70 */
+/* Tipografia Maxi per 50x70 */
 .paper-50x70 h1 { font-size: 38px !important; }
 .paper-50x70 .ps-cat-header { font-size: 26px !important; margin-bottom: 18px !important; }
 .paper-50x70 .ps-item-title { font-size: 20px !important; }
@@ -1357,34 +1381,7 @@
 .paper-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
 .paper-50x70 .ps-footer-text { font-size: 16px !important; }
 
-/* Motore Colonne Dinamiche e Densità */
-.ps-content-columns-wrapper {
-    column-count: var(--ps-columns, 2);
-    column-gap: 26px;
-    width: 100%;
-}
-.ps-category-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    display: inline-block;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.density-compact {
-    --ps-item-gap: 5.5px;
-    --ps-cat-margin: 14px;
-    --ps-font-size-title: 12.5px;
-    --ps-font-size-price: 13.5px;
-}
-.density-normal {
-    --ps-item-gap: 9px;
-    --ps-cat-margin: 22px;
-    --ps-font-size-title: 13.5px;
-    --ps-font-size-price: 14.5px;
-}
-
-/* 🖨️ REGOLE RIGIDE @MEDIA PRINT: GARANZIA 1 SOLA PAGINA (ZERO SALTI FOGLIO) */
+/* 🖨️ REGOLE RIGIDE @MEDIA PRINT: GARANTISCE 1 PAGINA & ZERO SALTI FOGLIO */
 @media print {
     html, body {
         background: #ffffff !important;
@@ -1399,8 +1396,7 @@
     #quick-alarm-screen, #pwa-install-banner, .ps-zoom-toolbar, .no-print {
         display: none !important;
     }
-    #app-shell, .main, .content, #v-print, .print-studio-container,
-    .print-preview-column-wrapper, .print-preview-pane {
+    #app-shell, .main, .content, #v-print, .print-studio-container, .print-preview-pane {
         display: block !important;
         position: static !important;
         width: 100% !important;
@@ -1410,36 +1406,25 @@
         padding: 0 !important;
         overflow: visible !important;
         background: transparent !important;
-        box-shadow: none !important;
     }
     #print-sheet-scaler-wrapper {
-        transform: none !important;
-        margin: 0 auto !important;
+        transform: none !important; /* Zero scala in stampa: stampa a grandezza fisica reale */
+        margin: 0 !important;
         display: block !important;
-        width: 100% !important;
     }
     .print-sheet {
         box-shadow: none !important;
         border: none !important;
         margin: 0 auto !important;
-        padding: 4mm 6mm !important;
-        min-height: 0 !important;         /* 👈 AZZERA L'ALTEZZA FORZATA (Elimina la pagina 2 vuota) */
+        padding: 6mm 8mm !important;
+        min-height: 0 !important;     /* 👈 CRUCIALE: Rimosso 297mm forzato che creava la pagina 2 */
         height: auto !important;
-        page-break-after: auto !important; /* 👈 NESSUN SALTO PAGINA ARTIFICIALE */
+        page-break-after: auto !important; /* 👈 CRUCIALE: Rimosso always che creava la pagina 2 */
         break-after: auto !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-    }
-    .ps-sheet-inner-container {
-        min-height: 0 !important;
-        height: auto !important;
-    }
-    .ps-footer-block {
-        margin-top: 16px !important;      /* 👈 Margine naturale invece di margin-top: auto */
-        break-inside: avoid !important;
-        page-break-inside: avoid !important;
     }
     .ps-category-block {
         break-inside: avoid !important;
@@ -2350,32 +2335,35 @@
                 </div>
             </div>
 
-            <!-- ========================================== -->
-        <!-- COLONNA DESTRA: ANTEPRIMA LIVE SENZA TAGLI -->
-        <!-- ========================================== -->
-        <div class="print-preview-column-wrapper">
-            
-            <!-- 🌟 BARRA STRUMENTI ZOOM FISSA IN CIMA (NON SI SOVRAPPONE MAI AL FOGLIO) -->
-            <div class="ps-zoom-toolbar no-print" style="flex-shrink: 0; background: #1e293b; padding: 7px 14px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border: 1.5px solid #334155;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 12px; color: #94a3b8; font-weight: bold;">Anteprima Schermo:</span>
-                    <button type="button" class="btn" style="padding: 3px 10px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Intero Foglio</button>
+            <!-- COLONNA DESTRA / MODALE: RIEPILOGO CARRELLO -->
+            <div id="pos-cart-pane" class="card pos-cart-pane">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="margin:0">Riepilogo Carrello</h4>
+                    <!-- Tasto chiusura carrello visibile solo su mobile quando si apre il pannello -->
+                    <button id="close-cart-mobile-btn" class="btn" style="display: none; padding: 4px 10px; font-size: 11px; background: #f1f5f9;" onclick="toggleMobileCart(false)">✕ Chiudi</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.35)">35%</button>
-                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.50)">50%</button>
-                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.75)">75%</button>
-                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(1.00)">100%</button>
-                    <span id="ps-preview-zoom-label" style="font-size: 11px; color: #FBBF24; font-weight: 800; margin-left: 6px;">100%</span>
-                </div>
-            </div>
 
-            <!-- 🌟 AREA DI SCROLL PULITA: IL FOGLIO PARTE DA 0 SENZA ESSERE CLIPPATO -->
-            <div class="print-preview-pane" id="ps-preview-scroll-pane">
-                <div id="print-sheet-scaler-wrapper">
-                    <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
-                        <!-- Generato dinamicamente -->
-                    </div>
+                <label style="margin-top:0;">Cliente</label>
+                <div style="position:relative">
+                    <input type="text" id="sale-cust-search" placeholder="Cerca cliente..." onkeyup="filterClients(this.value, 'sale')" style="margin: 4px 0 10px 0;">
+                    <div id="sale-search-results" class="search-results"></div>
+                </div>
+                <div id="cart-selected-cust" style="font-weight:bold; color:var(--p); margin-bottom:12px; padding: 8px 12px; background: #fff; border-radius: 8px; border: 1px solid #eee; font-size: 13px;">Occasionale</div>
+                <!-- ✍️ SEZIONE AGGIUNTA RAPIDA ARTICOLO / SERVIZIO LIBERO -->
+<div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 12px;">
+    <label style="margin-top:0; font-size: 10px; color: #475569;">Voce Libera / Pagamento al Volo</label>
+    <div style="display: grid; grid-template-columns: 1fr 90px auto; gap: 6px; align-items: center; margin-top: 4px;">
+        <input type="text" id="manual-item-desc" placeholder="Descrizione (es. Servizio extra)" style="margin:0; padding: 8px 10px; font-size: 13px; background: white;" autocomplete="off">
+        <input type="number" id="manual-item-price" placeholder="€ 0.00" step="0.01" style="margin:0; padding: 8px 6px; font-size: 13px; background: white; text-align: center;">
+        <button type="button" class="btn btn-p" style="padding: 8px 12px; margin:0; font-size: 14px; justify-content: center;" onclick="addManualItemToCart()" title="Aggiungi al carrello">+</button>
+    </div>
+</div>
+                <div style="flex-grow:1; overflow-y:auto; max-height: calc(100vh - 360px);" id="cart-items"></div>
+                
+                <div style="margin-top: auto; padding-top: 10px;">
+                    <div style="font-size:24px; font-weight:bold; text-align:right; border-top:3px solid var(--p); padding-top:10px; margin-bottom: 10px;" id="cart-total">€ 0.00</div>
+                    <button class="btn btn-s" id="btn-complete-sale" style="width:100%; margin-top:5px; justify-content:center; padding: 14px;" onclick="completeSale()">PAGA E CHIUDI</button>
+                    <button class="btn" style="width:100%; margin-top:6px; justify-content:center; background:#fff; padding: 10px;" onclick="resetCassa()">ANNULLA</button>
                 </div>
             </div>
 
@@ -22788,7 +22776,7 @@ async function deleteSelectedPrintPreset() {
 }
 
 // =========================================================================
-// 🖨️ VAIMUP PRINT STUDIO: MOTORE BLINDATO RESILIENTE (ZERO CRASH & PREZZI REALI)
+// 🖨️ VAIMUP PRINT STUDIO: MOTORE COMPLETO INTERATTIVO (DRAG & DROP E FONT ZOOM)
 // =========================================================================
 
 window._printStudioState = {
@@ -22811,355 +22799,113 @@ window._printStudioState = {
     customItems: []
 };
 
-// 1. Inizializzazione della vista Stampa
+// 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
 async function initPrintStudioView() {
-    console.log("🖨️ [PRINT STUDIO] Inizializzazione protetta avviata...");
+    console.log("🖨️ [PRINT STUDIO] Inizializzazione protetta con controlli drag & drop...");
 
-    try {
-        if (!window._printStudioState || typeof window._printStudioState !== 'object') {
-            window._printStudioState = {
-                mode: 'pricelist', paperSize: 'a4', orientation: 'portrait', columns: 2,
-                compactness: 'normal', fontScale: 1.00, theme: 'luxury-gold', showSalonLogo: true,
-                showVaimupLogo: true, showBookingQr: true, salonLogoBase64: null,
-                title: 'LISTINO TRATTAMENTI ESCLUSIVI', subtitle: 'Esperienza di Bellezza & Cura della Persona',
-                footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
-                selectedItemIds: new Set(), categories: [], customItems: []
-            };
+    if (!window._printStudioState || typeof window._printStudioState !== 'object') {
+        window._printStudioState = {
+            mode: 'pricelist',
+            paperSize: 'a4',
+            orientation: 'portrait',
+            columns: 2,
+            compactness: 'normal',
+            fontScale: 1.00,
+            theme: 'luxury-gold',
+            showSalonLogo: true,
+            showVaimupLogo: true,
+            showBookingQr: true,
+            salonLogoBase64: null,
+            title: 'LISTINO TRATTAMENTI ESCLUSIVI',
+            subtitle: 'Esperienza di Bellezza & Cura della Persona',
+            footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
+            selectedItemIds: new Set(),
+            categories: [],
+            customItems: []
+        };
+    }
+    if (!window._printStudioState.selectedItemIds) window._printStudioState.selectedItemIds = new Set();
+    if (!Array.isArray(window._printStudioState.categories)) window._printStudioState.categories = [];
+    if (!Array.isArray(window._printStudioState.customItems)) window._printStudioState.customItems = [];
+    
+    // Recupero logo salone
+    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
+    if (savedLogo) {
+        window._printStudioState.salonLogoBase64 = savedLogo;
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
         }
-        if (!window._printStudioState.selectedItemIds) window._printStudioState.selectedItemIds = new Set();
-        if (!Array.isArray(window._printStudioState.categories)) window._printStudioState.categories = [];
-        if (!Array.isArray(window._printStudioState.customItems)) window._printStudioState.customItems = [];
+    }
 
-        // A. Recupero logo salone
-        const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
-        if (savedLogo) {
-            window._printStudioState.salonLogoBase64 = savedLogo;
-            const previewEl = document.getElementById('ps-salon-logo-preview');
-            if (previewEl) {
-                previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
-            }
+    // Risoluzione prezzi reali da price_history
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    let inventory = (window.allInventory && window.allInventory.length > 0) 
+        ? window.allInventory 
+        : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
+
+    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+    const nowIso = new Date().toISOString();
+
+    inventory.forEach(item => {
+        const itemHistory = priceHistory.filter(ph => String(ph.product_id).trim() === String(item.id).trim());
+        let activeRow = itemHistory.find(ph => {
+            const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+            const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+            return nowIso >= from && nowIso <= to;
+        });
+
+        if (!activeRow && itemHistory.length > 0) {
+            itemHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+            activeRow = itemHistory[0];
         }
 
-        const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim() : 'SALON_001';
-
-        // 🌟 B. RECUPERO INVENTARIO IBRIDO: Controlla sia allInventory che window.allInventory o query DB
-        let inventory = [];
-        if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
-            inventory = allInventory;
-        } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
-            inventory = window.allInventory;
+        if (activeRow && activeRow.price !== undefined && activeRow.price !== null) {
+            item.price = parseFloat(activeRow.price);
+        } else if (item.price === undefined || item.price === null || isNaN(parseFloat(item.price))) {
+            item.price = 0;
         } else {
-            inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+            item.price = parseFloat(item.price);
         }
-
-        // Assicura che inventory sia un array valido
-        if (!Array.isArray(inventory)) inventory = [];
-
-        // 🌟 C. RISOLUZIONE DEI PREZZI DA price_history CON CONTROLLO DI SICUREZZA
-        let priceHistory = [];
-        try {
-            const rawPh = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' });
-            priceHistory = Array.isArray(rawPh) ? rawPh : [];
-        } catch(phErr) {
-            console.warn("Avviso lettura price_history:", phErr);
-            priceHistory = [];
-        }
-
-        const nowIso = new Date().toISOString();
-
-        inventory.forEach(item => {
-            if (!item) return;
-
-            let realPrice = 0;
-            if (priceHistory.length > 0) {
-                const itemHistory = priceHistory.filter(ph => ph && String(ph.product_id).trim() === String(item.id).trim());
-                let activeRow = itemHistory.find(ph => {
-                    const from = ph.date_from || '1900-01-01T00:00:00.000Z';
-                    const to = ph.date_to || '9999-12-31T23:59:59.999Z';
-                    return nowIso >= from && nowIso <= to;
-                });
-
-                if (!activeRow && itemHistory.length > 0) {
-                    itemHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                    activeRow = itemHistory[0];
-                }
-
-                if (activeRow && activeRow.price !== undefined && activeRow.price !== null) {
-                    realPrice = parseFloat(activeRow.price);
-                }
-            }
-
-            // Fallback sul prezzo presente sull'oggetto o a listino
-            if (realPrice === 0 && item.price !== undefined && item.price !== null && !isNaN(parseFloat(item.price))) {
-                realPrice = parseFloat(item.price);
-            }
-
-            item.price = realPrice;
-        });
-
-        // Sincronizza sia allInventory che window.allInventory
-        if (typeof allInventory !== 'undefined') allInventory = inventory;
-        window.allInventory = inventory;
-
-        // D. Preselezione articoli per la stampa
-        window._printStudioState.selectedItemIds.clear();
-        inventory.forEach(i => {
-            if (i && i.id) window._printStudioState.selectedItemIds.add(String(i.id));
-        });
-
-        // E. Caricamento categorie
-        loadPrintCategoriesFromStorage(inventory, currentSalon);
-
-        // F. Caricamento listini salvati
-        const savedPresets = loadAllPresetsFromStorage(currentSalon);
-        renderSavedPresetsDropdown(savedPresets);
-
-        // G. Renderizza interfaccia comandi e foglio live
-        applyPrintPaperClasses();
-        updateDynamicPrintPageCss();
-        renderPrintCategoriesManager();
-        renderPrintItemsChecklist();
-        renderLivePrintSheet();
-
-        // H. Auto-fit adattivo dello schermo
-        setTimeout(autoFitPrintPreviewToScreen, 150);
-
-        console.log("✅ [PRINT STUDIO] Inizializzazione completata con successo! Articoli caricati:", inventory.length);
-
-    } catch (err) {
-        console.error("❌ [PRINT STUDIO CRASH PREVENTED]:", err);
-        // Fallback di emergenza: disegna comunque il foglio con quello che abbiamo
-        renderLivePrintSheet();
-    }
-}
-
-// 2. ZOOM ADATTIVO DELLO SCHERMO
-window._previewScaleFactor = 1.0;
-
-function autoFitPrintPreviewToScreen() {
-    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
-    const sheet = document.getElementById('print-sheet-canvas');
-    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
-
-    if (!pane || !sheet || !wrapper) return;
-
-    wrapper.style.transform = 'none';
-    wrapper.style.marginBottom = '0px';
-
-    const paneWidth = pane.clientWidth - 50;
-    const sheetWidth = sheet.offsetWidth;
-
-    if (sheetWidth > 0 && paneWidth > 0) {
-        let factor = paneWidth / sheetWidth;
-        if (factor > 1.0) factor = 1.0;
-        factor = Math.max(factor, 0.25);
-
-        applyPreviewZoom(factor, `${Math.round(factor * 100)}% (Adattato)`);
-    }
-}
-
-function setManualPreviewZoom(factor) {
-    applyPreviewZoom(factor, `${Math.round(factor * 100)}%`);
-}
-
-function applyPreviewZoom(factor, textLabel = null) {
-    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
-    const sheet = document.getElementById('print-sheet-canvas');
-    const label = document.getElementById('ps-preview-zoom-label');
-    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
-
-    if (!wrapper || !sheet) return;
-
-    window._previewScaleFactor = factor;
-    wrapper.style.transformOrigin = 'top center';
-    wrapper.style.transform = `scale(${factor})`;
-
-    const deadHeight = sheet.offsetHeight * (1 - factor);
-    wrapper.style.marginBottom = `-${deadHeight}px`;
-
-    if (label) label.innerText = textLabel || `${Math.round(factor * 100)}%`;
-    if (pane) pane.scrollTop = 0;
-}
-
-// 3. SALVATAGGIO E CARICAMENTO DEI LISTINI PERSONALIZZATI (PRESETS)
-async function saveCurrentPrintPreset() {
-    const nameInput = document.getElementById('ps-preset-name-input');
-    const presetName = (nameInput?.value || '').trim();
-
-    if (!presetName) {
-        return alert("Inserisci un nome per il listino prima di salvare (es. Listino Salone A4, Poster Vetrina 50x70).");
-    }
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    const s = window._printStudioState;
-
-    const presetData = {
-        id: 'preset_' + Date.now(),
-        name: presetName,
-        salon_id: currentSalon,
-        saved_at: new Date().toISOString(),
-        config: {
-            mode: s.mode,
-            paperSize: s.paperSize,
-            orientation: s.orientation,
-            columns: s.columns,
-            compactness: s.compactness,
-            fontScale: s.fontScale,
-            theme: s.theme,
-            showSalonLogo: s.showSalonLogo,
-            showVaimupLogo: s.showVaimupLogo,
-            showBookingQr: s.showBookingQr,
-            title: s.title,
-            subtitle: s.subtitle,
-            footerNotes: s.footerNotes,
-            selectedItemIds: Array.from(s.selectedItemIds || []),
-            categories: s.categories || [],
-            customItems: s.customItems || []
-        }
-    };
-
-    let allPresets = loadAllPresetsFromStorage(currentSalon);
-
-    const existingIdx = allPresets.findIndex(p => p.name.toLowerCase() === presetName.toLowerCase());
-    if (existingIdx >= 0) {
-        if (!confirm(`Esiste già un listino salvato denominato "${presetName}". Vuoi sovrascriverlo con le modifiche attuali?`)) {
-            return;
-        }
-        allPresets[existingIdx] = presetData;
-    } else {
-        allPresets.unshift(presetData);
-    }
-
-    await persistAllPresets(allPresets, currentSalon);
-    renderSavedPresetsDropdown(allPresets, presetData.id);
-    alert(`✅ Listino "${presetName}" salvato! Potrai ricaricarlo in qualsiasi momento.`);
-}
-
-function loadAllPresetsFromStorage(currentSalon) {
-    const raw = (typeof sysSettings !== 'undefined' && sysSettings['print_saved_presets']) || localStorage.getItem(`vaimup_print_presets_${currentSalon}`);
-    if (raw) {
-        try {
-            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            return Array.isArray(parsed) ? parsed : [];
-        } catch(e) { return []; }
-    }
-    return [];
-}
-
-async function persistAllPresets(presetsArray, currentSalon) {
-    const jsonStr = JSON.stringify(presetsArray);
-    localStorage.setItem(`vaimup_print_presets_${currentSalon}`, jsonStr);
-    if (typeof sysSettings !== 'undefined') sysSettings['print_saved_presets'] = jsonStr;
-
-    await window.universalQuery({
-        action: 'UPSERT_SETTING',
-        data: { key: 'print_saved_presets', value: jsonStr }
     });
-}
 
-function renderSavedPresetsDropdown(presetsArray, selectedId = '') {
-    const dropdown = document.getElementById('ps-presets-dropdown');
-    const badge = document.getElementById('ps-saved-count-badge');
-    if (!dropdown) return;
+    window.allInventory = inventory;
 
-    if (badge) badge.innerText = `${presetsArray.length} salvat${presetsArray.length === 1 ? 'o' : 'i'}`;
+    // Preselezione di tutti gli articoli
+    window._printStudioState.selectedItemIds.clear();
+    inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
 
-    if (presetsArray.length === 0) {
-        dropdown.innerHTML = `<option value="">-- Nessun listino salvato --</option>`;
-        return;
-    }
+    // Caricamento categorie
+    loadPrintCategoriesFromStorage(inventory, currentSalon);
 
-    dropdown.innerHTML = `<option value="">-- Seleziona un listino salvato --</option>` +
-        presetsArray.map(p => {
-            const dateStr = p.saved_at ? new Date(p.saved_at).toLocaleDateString('it-IT') : '';
-            return `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${dateStr})</option>`;
-        }).join('');
-}
-
-function loadSelectedPrintPreset() {
-    const dropdown = document.getElementById('ps-presets-dropdown');
-    const selectedId = dropdown?.value;
-
-    if (!selectedId) return alert("Seleziona prima un listino dalla tendina.");
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    const allPresets = loadAllPresetsFromStorage(currentSalon);
-    const target = allPresets.find(p => p.id === selectedId);
-
-    if (!target || !target.config) return alert("Impossibile caricare il listino selezionato.");
-
-    const c = target.config;
-    const s = window._printStudioState;
-
-    s.mode = c.mode || 'pricelist';
-    s.paperSize = c.paperSize || 'a4';
-    s.orientation = c.orientation || 'portrait';
-    s.columns = c.columns || 2;
-    s.compactness = c.compactness || 'normal';
-    s.fontScale = c.fontScale || 1.00;
-    s.theme = c.theme || 'luxury-gold';
-    s.showSalonLogo = c.showSalonLogo ?? true;
-    s.showVaimupLogo = c.showVaimupLogo ?? true;
-    s.showBookingQr = c.showBookingQr ?? true;
-    s.title = c.title || s.title;
-    s.subtitle = c.subtitle || s.subtitle;
-    s.footerNotes = c.footerNotes || s.footerNotes;
-    s.selectedItemIds = new Set(c.selectedItemIds || []);
-    s.categories = c.categories || [];
-    s.customItems = c.customItems || [];
-
-    setPrintMode(s.mode);
-    if (document.getElementById('ps-paper-size-select')) document.getElementById('ps-paper-size-select').value = s.paperSize;
-    if (document.getElementById('ps-theme-select')) document.getElementById('ps-theme-select').value = s.theme;
-    if (document.getElementById('ps-preset-name-input')) document.getElementById('ps-preset-name-input').value = target.name;
-    if (document.getElementById('ps-toggle-compactness')) document.getElementById('ps-toggle-compactness').checked = (s.compactness === 'compact');
-
-    onPrintOrientationChanged(s.orientation);
-    onPrintColumnsChanged(s.columns);
-
-    const slider = document.getElementById('ps-font-scale-slider');
-    const scaleLabel = document.getElementById('ps-font-scale-label');
-    if (slider) slider.value = s.fontScale.toFixed(2);
-    if (scaleLabel) scaleLabel.innerText = `${Math.round(s.fontScale * 100)}%`;
-
+    // Sincronizzazione controlli UI
     applyPrintPaperClasses();
     updateDynamicPrintPageCss();
     renderPrintCategoriesManager();
     renderPrintItemsChecklist();
     renderLivePrintSheet();
 
-    setTimeout(autoFitPrintPreviewToScreen, 150);
-    alert(`📖 Listino "${target.name}" caricato!`);
+// In coda a initPrintStudioView():
+    const savedPresets = loadAllPresetsFromStorage(currentSalon);
+    renderSavedPresetsDropdown(savedPresets);
+
+    // Auto-fit immediato per mostrare tutto il foglio senza scroll
+    setTimeout(autoFitPrintPreviewToScreen, 200);
+
 }
 
-async function deleteSelectedPrintPreset() {
-    const dropdown = document.getElementById('ps-presets-dropdown');
-    const selectedId = dropdown?.value;
+// =========================================================================
+// 🔍 CONTROLLO SCALA DEL CARATTERE (FONT SIZE ZOOM)
+// =========================================================================
 
-    if (!selectedId) return alert("Seleziona prima il listino da eliminare.");
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    let allPresets = loadAllPresetsFromStorage(currentSalon);
-    const target = allPresets.find(p => p.id === selectedId);
-
-    if (!target) return;
-    if (!confirm(`Eliminare definitivamente la configurazione "${target.name}"?`)) return;
-
-    allPresets = allPresets.filter(p => p.id !== selectedId);
-    await persistAllPresets(allPresets, currentSalon);
-
-    renderSavedPresetsDropdown(allPresets);
-    if (document.getElementById('ps-preset-name-input')) document.getElementById('ps-preset-name-input').value = '';
-    alert("🗑️ Listino eliminato.");
-}
-
-// 4. CONTROLLI SCALA FONT
 function onPrintFontScaleChanged(scaleVal) {
     const scale = parseFloat(scaleVal) || 1.00;
     window._printStudioState.fontScale = scale;
 
     const sheet = document.getElementById('print-sheet-canvas');
-    if (sheet) sheet.style.setProperty('--ps-scale', scale);
+    if (sheet) {
+        sheet.style.setProperty('--ps-scale', scale);
+    }
 
     const label = document.getElementById('ps-font-scale-label');
     if (label) label.innerText = `${Math.round(scale * 100)}%`;
@@ -23176,7 +22922,11 @@ function adjustPrintFontScale(step) {
     onPrintFontScaleChanged(next);
 }
 
-// 5. SPOSTAMENTO SEZIONI E RIGHE CON DRAG & DROP
+// =========================================================================
+// 🔄 FUNZIONI DI SPOSTAMENTO, RIORDINO E DRAG & DROP
+// =========================================================================
+
+// Spostamento intera categoria Su / Giù
 function moveCategoryOrder(catId, direction) {
     const sCats = window._printStudioState.categories || [];
     const catIdx = sCats.findIndex(c => c.id === catId);
@@ -23194,6 +22944,7 @@ function moveCategoryOrder(catId, direction) {
     renderLivePrintSheet();
 }
 
+// Spostamento singola riga articolo Su / Giù
 function moveItemOrder(catId, itemIdx, direction) {
     const sCats = window._printStudioState.categories || [];
     const cat = sCats.find(c => c.id === catId);
@@ -23210,6 +22961,7 @@ function moveItemOrder(catId, itemIdx, direction) {
     renderLivePrintSheet();
 }
 
+// Rimozione al volo della riga articolo dal foglio
 function removePrintItemRow(catId, itemId) {
     const sCats = window._printStudioState.categories || [];
     const cat = sCats.find(c => c.id === catId);
@@ -23223,6 +22975,7 @@ function removePrintItemRow(catId, itemId) {
     renderLivePrintSheet();
 }
 
+// Aggiunta al volo di una voce libera personalizzabile
 function addCustomItemRowToCategory(catId) {
     const sCats = window._printStudioState.categories || [];
     const cat = sCats.find(c => c.id === catId);
@@ -23248,6 +23001,7 @@ function addCustomItemRowToCategory(catId) {
     renderLivePrintSheet();
 }
 
+// Drag & Drop Nativo per le Righe
 function onPrintItemDragStart(event, catId, itemIdx) {
     event.dataTransfer.setData('text/plain', JSON.stringify({ catId, itemIdx }));
     event.dataTransfer.effectAllowed = 'move';
@@ -23292,7 +23046,7 @@ function onPrintItemDrop(event, targetCatId, targetItemIdx) {
         persistPrintCategories();
         renderLivePrintSheet();
     } catch (err) {
-        console.warn("Errore Drag & Drop:", err);
+        console.warn("Errore Drag & Drop articolo:", err);
     }
 }
 
@@ -23303,7 +23057,10 @@ function onPrintItemDragEnd(event) {
     });
 }
 
-// 6. CONTROLLI DI FORMATO, ORIENTAMENTO E COLONNE
+// =========================================================================
+// 📑 CONTROLLI FORMATO, ORIENTAMENTO, COLONNE & TEMA
+// =========================================================================
+
 function setPrintMode(mode) {
     if (!window._printStudioState) return;
     window._printStudioState.mode = mode;
@@ -23352,6 +23109,7 @@ function onPrintPaperSizeChanged(sizeVal) {
     updateDynamicPrintPageCss();
     renderLivePrintSheet();
 
+    // 🌟 ADATTA SUBITO L'ANTEPRIMA QUANDO SI CAMBIA FORMATO
     setTimeout(autoFitPrintPreviewToScreen, 100);
 }
 
@@ -23367,7 +23125,7 @@ function onPrintOrientationChanged(orientVal) {
         if (btnLandscape) { btnLandscape.style.background = '#f1f5f9'; btnLandscape.style.color = '#475569'; btnLandscape.style.border = '1.5px solid #cbd5e1'; }
     } else {
         if (btnLandscape) { btnLandscape.style.background = 'var(--p)'; btnLandscape.style.color = '#fff'; btnLandscape.style.border = 'none'; }
-        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; }
+        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; btnPortrait.style.border = '1.5px solid #cbd5e1'; }
         if (window._printStudioState.columns === 1) {
             onPrintColumnsChanged(2);
         }
@@ -23376,7 +23134,6 @@ function onPrintOrientationChanged(orientVal) {
     applyPrintPaperClasses();
     updateDynamicPrintPageCss();
     renderLivePrintSheet();
-    setTimeout(autoFitPrintPreviewToScreen, 100);
 }
 
 function onPrintColumnsChanged(colsCount) {
@@ -23446,7 +23203,10 @@ function updateDynamicPrintPageCss() {
     styleTag.innerHTML = pageCss;
 }
 
-// 7. GESTIONE LOGHI E CHECKLIST
+// =========================================================================
+// 📁 GESTIONE LOGHI, CHECKLIST E CATEGORIE
+// =========================================================================
+
 async function handleSalonLogoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -23478,20 +23238,13 @@ function renderPrintItemsChecklist() {
     const container = document.getElementById('ps-items-checklist-container');
     if (!container) return;
 
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) {
-        inventory = allInventory;
-    } else if (window.allInventory && Array.isArray(window.allInventory)) {
-        inventory = window.allInventory;
-    }
-
+    const inventory = window.allInventory || [];
     if (inventory.length === 0) {
         container.innerHTML = `<span style="font-size:11px; color:#888; padding:8px;">Nessun articolo a listino.</span>`;
         return;
     }
 
     container.innerHTML = inventory.map(item => {
-        if (!item) return '';
         const isChecked = window._printStudioState?.selectedItemIds?.has(String(item.id)) ?? true;
         const icon = item.type === 'servizio' ? '✂️' : '📦';
         const priceFmt = parseFloat(item.price || 0).toFixed(2);
@@ -23524,15 +23277,10 @@ function toggleSinglePrintItem(itemId, isChecked) {
 }
 
 function toggleAllPrintItems(selectAll) {
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
-    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
-
+    const inventory = window.allInventory || [];
     if (!window._printStudioState?.selectedItemIds) return;
     if (selectAll) {
-        inventory.forEach(i => {
-            if (i && i.id) window._printStudioState.selectedItemIds.add(String(i.id));
-        });
+        inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
     } else {
         window._printStudioState.selectedItemIds.clear();
     }
@@ -23551,8 +23299,8 @@ function loadPrintCategoriesFromStorage(inventory, currentSalon) {
     }
 
     if (!Array.isArray(loaded) || loaded.length === 0) {
-        const serviceIds = inventory.filter(i => i && i.type === 'servizio').map(i => String(i.id));
-        const productIds = inventory.filter(i => i && i.type === 'prodotto').map(i => String(i.id));
+        const serviceIds = inventory.filter(i => i.type === 'servizio').map(i => String(i.id));
+        const productIds = inventory.filter(i => i.type === 'prodotto').map(i => String(i.id));
 
         loaded = [
             { id: 'cat_servizi_default', name: '✂️ Trattamenti & Servizi', itemIds: serviceIds },
@@ -23646,15 +23394,10 @@ function openCategoryItemsModal(catId) {
     document.getElementById('pci-filter-search').value = '';
 
     const checklistContainer = document.getElementById('pci-items-checklist');
-    
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
-    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
-
+    const inventory = window.allInventory || [];
     const assignedSet = new Set((cat.itemIds || []).map(String));
 
     checklistContainer.innerHTML = inventory.map(item => {
-        if (!item) return '';
         const isAssigned = assignedSet.has(String(item.id));
         const icon = item.type === 'servizio' ? '✂️' : '📦';
         const priceFmt = parseFloat(item.price || 0).toFixed(2);
@@ -23699,7 +23442,10 @@ async function savePrintCategoryItemsAssignment() {
     renderLivePrintSheet();
 }
 
-// 8. RENDERIZZATORE GENERALE DEL FOGLIO
+// =========================================================================
+// 🎨 RENDERIZZATORE GENERALE DEL FOGLIO
+// =========================================================================
+
 function renderLivePrintSheet() {
     const sheet = document.getElementById('print-sheet-canvas');
     if (!sheet || !window._printStudioState) return;
@@ -23727,33 +23473,29 @@ function renderLivePrintSheet() {
     }
 }
 
-// 9. RENDER LISTINO (ROBUSTO CON CONTROLLI ESPLICITI SUGLI ARRAY)
+// =========================================================================
+// 📑 RENDER LISTINO CON DRAG & DROP E MODIFICA RIGHE
+// =========================================================================
+
 function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     applyPrintPaperClasses();
 
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
-    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
-
-    if (Array.isArray(s.customItems)) {
-        inventory = inventory.concat(s.customItems);
-    }
-
+    const inventory = (window.allInventory || []).concat(window._printStudioState.customItems || []);
     const selectedItemIds = s.selectedItemIds || new Set();
     const categories = s.categories || [];
 
     const isCompact = (s.compactness === 'compact');
-    const titleFontSize = `calc(${isCompact ? '12px' : '13.5px'} * var(--ps-scale, 1))`;
-    const priceFontSize = `calc(${isCompact ? '13px' : '14.5px'} * var(--ps-scale, 1))`;
-    const itemGap = `calc(${isCompact ? '4.5px' : '8px'} * var(--ps-scale, 1))`;
-    const catMargin = `calc(${isCompact ? '12px' : '18px'} * var(--ps-scale, 1))`;
+    const titleFontSize = `calc(${isCompact ? '12.5px' : '13.5px'} * var(--ps-scale, 1))`;
+    const priceFontSize = `calc(${isCompact ? '13.5px' : '14.5px'} * var(--ps-scale, 1))`;
+    const itemGap = `calc(${isCompact ? '5.5px' : '9px'} * var(--ps-scale, 1))`;
+    const catMargin = `calc(${isCompact ? '14px' : '22px'} * var(--ps-scale, 1))`;
 
     const printedItemIds = new Set();
     let sectionsHtml = '';
 
     categories.forEach(cat => {
         const catItemIds = (cat.itemIds || []).filter(id => selectedItemIds.has(String(id)));
-        const catItems = catItemIds.map(id => inventory.find(i => i && String(i.id) === String(id))).filter(Boolean);
+        const catItems = catItemIds.map(id => inventory.find(i => String(i.id) === String(id))).filter(Boolean);
 
         if (catItems.length === 0) return;
 
@@ -23761,16 +23503,19 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
 
         sectionsHtml += `
             <div class="ps-category-block" style="margin-bottom: ${catMargin};">
-                <div class="ps-cat-header-block" style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 8px;">
+                
+                <!-- HEADER SEZIONE: TITOLO CON CONTROLLI SPOSTAMENTO SU/GIU (SCOMPAIONO IN STAMPA) -->
+                <div class="ps-cat-header-block" style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span class="ps-cat-inline-actions no-print">
                             <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', -1)" title="Sposta sezione sopra">▲</button>
                             <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', 1)" title="Sposta sezione sotto">▼</button>
                         </span>
-                        <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">${cat.name}</span>
+                        <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">${cat.name}</span>
                     </div>
                 </div>
 
+                <!-- RIGHE ARTICOLI: DRAGGABLE CON CONTROLLI HOVER -->
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${catItems.map((item, itemIdx) => `
                         <div class="ps-item-row" 
@@ -23780,16 +23525,17 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                              ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" 
                              ondragend="onPrintItemDragEnd(event)">
                             
+                            <!-- Controlli inline sullo schermo (Invisibili in Stampa) -->
                             <div class="ps-item-inline-actions no-print">
-                                <span class="ps-drag-handle" title="Trascina">⠿</span>
+                                <span class="ps-drag-handle" title="Trascina riga">⠿</span>
                                 <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, -1)" title="Sposta sopra">▲</button>
                                 <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, 1)" title="Sposta sotto">▼</button>
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('${cat.id}', '${item.id}')" title="Rimuovi">✕</button>
+                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('${cat.id}', '${item.id}')" title="Rimuovi riga">✕</button>
                             </div>
 
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
-                                ${item.model ? `<div class="ps-item-desc" style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); line-height: 1.15;" contenteditable="true">${item.model}</div>` : ''}
+                                ${item.model ? `<div class="ps-item-desc" style="font-size: calc(10.5px * var(--ps-scale, 1)); color: var(--ps-text-sub); line-height: 1.15;" contenteditable="true">${item.model}</div>` : ''}
                             </div>
                             
                             <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 4px; opacity: 0.4;"></div>
@@ -23798,29 +23544,31 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                         </div>
                     `).join('')}
 
+                    <!-- TASTO AGGIUNGI RIGA LIBERA AL VOLO (Invisibile in Stampa) -->
                     <div class="ps-add-custom-row-btn no-print" style="margin-top: 4px;">
                         <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: rgba(255,255,255,0.7); border: 1px dashed var(--ps-accent); color: var(--ps-accent); border-radius: 4px;" onclick="addCustomItemRowToCategory('${cat.id}')">
                             + Aggiungi Voce Libera
                         </button>
                     </div>
                 </div>
+
             </div>
         `;
     });
 
-    // Articoli non categorizzati
-    const unassignedItems = inventory.filter(i => i && selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
+    // Articoli non ancora categorizzati
+    const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
         sectionsHtml += `
             <div class="ps-category-block" style="margin-bottom: ${catMargin};">
-                <div class="ps-cat-header-block" style="border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 8px;">
-                    <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">✨ Altri Trattamenti</span>
+                <div class="ps-cat-header-block" style="border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;">
+                    <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">✨ Altri Trattamenti</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${unassignedItems.map((item, itemIdx) => `
                         <div class="ps-item-row">
                             <div class="ps-item-inline-actions no-print">
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('unassigned', '${item.id}')" title="Rimuovi">✕</button>
+                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('unassigned', '${item.id}')" title="Rimuovi riga">✕</button>
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
@@ -23835,26 +23583,26 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     }
 
     sheet.innerHTML = `
-        <div class="ps-sheet-inner-container" style="display: flex; flex-direction: column; box-sizing: border-box;">
+        <div style="display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;">
             
             <!-- HEADER DEL FOGLIO -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 10px; margin-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
                     ${s.showSalonLogo && s.salonLogoBase64 ? `
-                        <div class="ps-header-logo" style="width: calc(52px * var(--ps-scale, 1)); height: calc(52px * var(--ps-scale, 1)); border-radius: 10px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
+                        <div class="ps-header-logo" style="width: calc(58px * var(--ps-scale, 1)); height: calc(58px * var(--ps-scale, 1)); border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
                             <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
                         </div>
                     ` : ''}
                     <div>
-                        <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: calc(18px * var(--ps-scale, 1)); font-weight: 900; letter-spacing: 0.8px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
-                        <div style="font-size: calc(11px * var(--ps-scale, 1)); color: var(--ps-text-sub); margin-top: 2px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
+                        <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: calc(19px * var(--ps-scale, 1)); font-weight: 900; letter-spacing: 1px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
+                        <div style="font-size: calc(11.5px * var(--ps-scale, 1)); color: var(--ps-text-sub); margin-top: 2px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
                     </div>
                 </div>
 
                 ${s.showBookingQr ? `
-                    <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 8px; border: 1px solid var(--ps-accent-border);">
-                        <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" style="width: calc(40px * var(--ps-scale, 1)); height: calc(40px * var(--ps-scale, 1)); border-radius: 4px; background: white; padding: 2px;">
-                        <div style="font-size: calc(9px * var(--ps-scale, 1)); line-height: 1.2; color: var(--ps-text-sub);">
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 9px; border-radius: 10px; border: 1px solid var(--ps-accent-border);">
+                        <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" style="width: calc(44px * var(--ps-scale, 1)); height: calc(44px * var(--ps-scale, 1)); border-radius: 4px; background: white; padding: 2px;">
+                        <div style="font-size: calc(9.5px * var(--ps-scale, 1)); line-height: 1.2; color: var(--ps-text-sub);">
                             <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
                             Inquadra con il cellulare
                         </div>
@@ -23862,17 +23610,17 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 ` : ''}
             </div>
 
-            <!-- CONTENITORE COLONNE AUTO-BILANCIATE -->
+            <!-- CONTENITORE COLONNE DINAMICHE CON SCALING -->
             <div class="ps-content-columns-wrapper" style="--ps-columns: ${s.columns};">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
-            <!-- FOOTER CON MARGINE NATURALE -->
-            <div class="ps-footer-block" style="margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(9.5px * var(--ps-scale, 1)); color: var(--ps-text-sub);">
+            <!-- FOOTER & CO-BRANDING -->
+            <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub);">
                 <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
                     <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
-                        <img src="./icon-192.png" alt="VaiMUp" style="width: 13px; height: 13px; border-radius: 3px; object-fit: contain;">
+                        <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
                         <span>Powered by <b>VaiMUp Suite</b></span>
                     </div>
                 ` : ''}
@@ -23882,7 +23630,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     `;
 }
 
-// 10. RENDER CARTELLO QR CODE
+// 16. Renderizzatore Cartello QR Code Adattivo
 function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     applyPrintPaperClasses();
 
@@ -24012,19 +23760,19 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">1</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Inquadra QR</b>
-                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
+                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">2</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Scegli Servizio</b>
-                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
+                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">3</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Conferma Live</b>
-                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
+                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
                         </div>
                     </div>
                 </div>
@@ -24051,11 +23799,12 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     `;
 }
 
+// 17. Stampa Diretta del Foglio
 function triggerDirectPrint() {
     window.print();
 }
 
-// 🛡️ REGISTRAZIONE ESPLICITA SU WINDOW
+// 🛡️ REGISTRAZIONE ESPLICITA GLOBALE SU WINDOW
 window.initPrintStudioView = initPrintStudioView;
 window.setPrintMode = setPrintMode;
 window.onPrintPaperSizeChanged = onPrintPaperSizeChanged;
@@ -24079,6 +23828,7 @@ window.savePrintCategoryItemsAssignment = savePrintCategoryItemsAssignment;
 window.renderLivePrintSheet = renderLivePrintSheet;
 window.triggerDirectPrint = triggerDirectPrint;
 
+// Funzioni Drag & Drop e Riordino
 window.moveCategoryOrder = moveCategoryOrder;
 window.moveItemOrder = moveItemOrder;
 window.removePrintItemRow = removePrintItemRow;
@@ -24088,11 +23838,6 @@ window.onPrintItemDragOver = onPrintItemDragOver;
 window.onPrintItemDrop = onPrintItemDrop;
 window.onPrintItemDragEnd = onPrintItemDragEnd;
 
-window.autoFitPrintPreviewToScreen = autoFitPrintPreviewToScreen;
-window.setManualPreviewZoom = setManualPreviewZoom;
-window.saveCurrentPrintPreset = saveCurrentPrintPreset;
-window.loadSelectedPrintPreset = loadSelectedPrintPreset;
-window.deleteSelectedPrintPreset = deleteSelectedPrintPreset;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
