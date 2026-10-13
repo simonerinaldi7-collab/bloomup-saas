@@ -1236,29 +1236,64 @@
     outline: none;
 }
 
-/* Dimensioni Carta Responsive per Anteprima a Schermo */
-.format-a4-portrait { width: 210mm; min-height: 297mm; padding: 14mm; }
-.format-a4-landscape { width: 297mm; min-height: 210mm; padding: 12mm; }
-.format-a5-portrait { width: 148mm; min-height: 210mm; padding: 10mm; }
-.format-a3-portrait { width: 297mm; min-height: 420mm; padding: 18mm; }
+/* ======================================================== */
+/* 📄 DIMENSIONI CARTA DISACCOPPIATE (FORMATO × ORIENTAMENTO)*/
+/* ======================================================== */
 
-/* 🌟 FORMATO MAXI POSTER 50 x 70 cm */
-.format-50x70 { 
-    width: 500mm; 
-    min-height: 700mm; 
-    padding: 30mm; 
+/* A4 (210 x 297 mm) */
+.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 14mm; }
+.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 12mm; }
+
+/* A5 (148 x 210 mm) */
+.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 10mm; }
+.paper-a5.orient-landscape { width: 210mm; min-height: 148mm; padding: 8mm; }
+
+/* A3 (297 x 420 mm) */
+.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 18mm; }
+.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 16mm; }
+
+/* 🖼️ Maxi Poster 50 x 70 cm */
+.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 30mm; }
+.paper-50x70.orient-landscape { width: 700mm; min-height: 500mm; padding: 25mm; }
+
+/* Scalatura Font Proporzionale per Maxi Formato 50x70 */
+.paper-50x70 h1 { font-size: 38px !important; }
+.paper-50x70 .ps-cat-header { font-size: 26px !important; margin-bottom: 18px !important; }
+.paper-50x70 .ps-item-title { font-size: 20px !important; }
+.paper-50x70 .ps-item-desc { font-size: 15px !important; }
+.paper-50x70 .ps-item-price { font-size: 22px !important; }
+.paper-50x70 .ps-header-logo { width: 110px !important; height: 110px !important; }
+.paper-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
+.paper-50x70 .ps-footer-text { font-size: 16px !important; }
+
+/* 🌟 MOTORE DI DIVISIONE IN COLONNE DINAMICHE SALVASPAZIO */
+.ps-content-columns-wrapper {
+    column-count: var(--ps-columns, 2);
+    column-gap: 26px;
+    width: 100%;
 }
 
-/* Scalatura Proporzionale Tipografia per Maxi Formato 50x70 */
-.format-50x70 h1 { font-size: 38px !important; }
-.format-50x70 .ps-cat-header { font-size: 26px !important; margin-bottom: 18px !important; border-bottom-width: 3px !important; }
-.format-50x70 .ps-item-title { font-size: 20px !important; }
-.format-50x70 .ps-item-desc { font-size: 15px !important; }
-.format-50x70 .ps-item-price { font-size: 22px !important; }
-.format-50x70 .ps-header-logo { width: 110px !important; height: 110px !important; }
-.format-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
-.format-50x70 .ps-footer-text { font-size: 16px !important; }
+.ps-category-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    display: inline-block;
+    width: 100%;
+    box-sizing: border-box;
+}
 
+/* Modalità Salvaspazio Compatta */
+.density-compact {
+    --ps-item-gap: 5.5px;
+    --ps-cat-margin: 14px;
+    --ps-font-size-title: 12.5px;
+    --ps-font-size-price: 13.5px;
+}
+.density-normal {
+    --ps-item-gap: 9px;
+    --ps-cat-margin: 22px;
+    --ps-font-size-title: 13.5px;
+    --ps-font-size-price: 14.5px;
+}
 /* Adattamento Anteprima Desktop per non uscire dallo schermo con il 50x70 */
 @media screen and (min-width: 901px) {
     .print-preview-pane {
@@ -2298,16 +2333,49 @@
                 </div>
             </div>
 
-            <!-- 2. FORMATO CARTA (INCLUSI GRANDI FORMATI) -->
+            <!-- 2. FORMATO CARTA (DISACCOPPIATO DALL'ORIENTAMENTO) -->
             <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Stampa</label>
-                <select id="ps-format-select" onchange="onPrintFormatChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
-                    <option value="a4_portrait" selected>A4 Verticale (Standard Listino)</option>
-                    <option value="a4_landscape">A4 Orizzontale (Listino 2-3 Colonne)</option>
-                    <option value="a5_portrait">A5 Verticale (Brochure / Specchiera)</option>
-                    <option value="a3_portrait">A3 Verticale (Tabellone Parete)</option>
-                    <option value="50x70">🖼️ Poster Maxi 50 × 70 cm (Vetrina / Espositore)</option>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Carta</label>
+                <select id="ps-paper-size-select" onchange="onPrintPaperSizeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
+                    <option value="a4" selected>A4 (21 × 29.7 cm - Standard)</option>
+                    <option value="a5">A5 (14.8 × 21 cm - Brochure compatta)</option>
+                    <option value="a3">A3 (29.7 × 42 cm - Tabellone Parete)</option>
+                    <option value="50x70">🖼️ Poster Maxi (50 × 70 cm - Vetrina)</option>
                 </select>
+            </div>
+
+            <!-- 🌟 NUOVO: SELETTORE ORIENTAMENTO (VERTICALE vs ORIZZONTALE) -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Orientamento Pagina</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <button type="button" class="btn" id="btn-orient-portrait" style="padding: 7px; font-size: 11.5px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="onPrintOrientationChanged('portrait')">
+                        📄 Verticale
+                    </button>
+                    <button type="button" class="btn" id="btn-orient-landscape" style="padding: 7px; font-size: 11.5px; font-weight: 700; justify-content: center; background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="onPrintOrientationChanged('landscape')">
+                        📑 Orizzontale
+                    </button>
+                </div>
+            </div>
+
+            <!-- 🌟 NUOVO: SELETTORE NUMERO COLONNE & SALVASPAZIO (Visibile per il Listino) -->
+            <div id="ps-columns-selector-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin: 0; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--p);">Divisione in Colonne</label>
+                    <span id="ps-cols-indicator" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">2 Colonne</span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px;">
+                    <button type="button" class="btn btn-col-opt" id="btn-col-1" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(1)">1 Col</button>
+                    <button type="button" class="btn btn-col-opt" id="btn-col-2" style="padding: 5px; font-size: 11px; font-weight: 800; justify-content: center; background: var(--p); color: white; border: none; border-radius: 6px;" onclick="onPrintColumnsChanged(2)">2 Col</button>
+                    <button type="button" class="btn btn-col-opt" id="btn-col-3" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(3)">3 Col</button>
+                    <button type="button" class="btn btn-col-opt" id="btn-col-4" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(4)">4 Col</button>
+                </div>
+
+                <!-- Spunta Salvaspazio / Adattamento Densità -->
+                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 11.5px; font-weight: 700; text-transform: none; color: #1e1b4b;">
+                    <input type="checkbox" id="ps-toggle-compactness" onchange="onPrintCompactnessChanged(this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                    <span>📐 Modalità Salvaspazio (Massima capienza)</span>
+                </label>
             </div>
 
             <!-- 3. TEMA GRAFICO -->
@@ -22311,20 +22379,116 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
 // 🖨️ VAIMUP PRINT STUDIO: MOTORE COMPLETO LISTINI, CATEGORIE & CARTELLO QR
 // =========================================================================
 
-window._printStudioState = {
-    mode: 'pricelist',            // 'pricelist' | 'qrbooking'
-    format: 'a4_portrait',        // 'a4_portrait' | 'a5_portrait' | 'a4_landscape'
-    theme: 'luxury-gold',         // 'luxury-gold' | 'rose-glamour' | 'barber-vintage' | 'botanical-minimal'
-    showSalonLogo: true,
-    showVaimupLogo: true,
-    showBookingQr: true,
-    salonLogoBase64: null,
-    title: 'LISTINO TRATTAMENTI ESCLUSIVI',
-    subtitle: 'Esperienza di Bellezza & Cura della Persona',
-    footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
-    selectedItemIds: new Set(),
-    categories: []
-};
+// =========================================================================
+// 🖨️ AGGIORNAMENTO STATO & CONTROLLI LAYOUT COLONNE E ORIENTAMENTO
+// =========================================================================
+
+window._printStudioState.paperSize = 'a4';          // 'a4' | 'a5' | 'a3' | '50x70'
+window._printStudioState.orientation = 'portrait';  // 'portrait' | 'landscape'
+window._printStudioState.columns = 2;               // 1 | 2 | 3 | 4
+window._printStudioState.compactness = 'normal';    // 'normal' | 'compact'
+
+// 1. Cambio Formato Carta
+function onPrintPaperSizeChanged(sizeVal) {
+    window._printStudioState.paperSize = sizeVal;
+    
+    // Suggerimento intelligente: su 50x70 o A3 orizzontale imposta almeno 3 colonne
+    if ((sizeVal === '50x70' || sizeVal === 'a3') && window._printStudioState.columns < 3) {
+        onPrintColumnsChanged(3);
+    } else if (sizeVal === 'a5' && window._printStudioState.columns > 2) {
+        onPrintColumnsChanged(1);
+    }
+
+    applyPrintPaperClasses();
+    updateDynamicPrintPageCss();
+    renderLivePrintSheet();
+}
+
+// 2. Cambio Orientamento (Verticale / Orizzontale)
+function onPrintOrientationChanged(orientVal) {
+    window._printStudioState.orientation = orientVal;
+    
+    const btnPortrait = document.getElementById('btn-orient-portrait');
+    const btnLandscape = document.getElementById('btn-orient-landscape');
+
+    if (orientVal === 'portrait') {
+        if (btnPortrait) { btnPortrait.style.background = 'var(--p)'; btnPortrait.style.color = '#fff'; btnPortrait.style.border = 'none'; }
+        if (btnLandscape) { btnLandscape.style.background = '#f1f5f9'; btnLandscape.style.color = '#475569'; btnLandscape.style.border = '1.5px solid #cbd5e1'; }
+    } else {
+        if (btnLandscape) { btnLandscape.style.background = 'var(--p)'; btnLandscape.style.color = '#fff'; btnLandscape.style.border = 'none'; }
+        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; btnPortrait.style.border = '1.5px solid #cbd5e1'; }
+        
+        // Se passa in orizzontale e aveva 1 colonna, suggerisce 2 o 3 colonne per sfruttare la larghezza
+        if (window._printStudioState.columns === 1) {
+            onPrintColumnsChanged(2);
+        }
+    }
+
+    applyPrintPaperClasses();
+    updateDynamicPrintPageCss();
+    renderLivePrintSheet();
+}
+
+// 3. Cambio Numero Colonne (1, 2, 3, 4)
+function onPrintColumnsChanged(colsCount) {
+    window._printStudioState.columns = parseInt(colsCount) || 2;
+
+    document.querySelectorAll('.btn-col-opt').forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = '#1e1b4b';
+        btn.style.border = '1.5px solid #cbd5e1';
+    });
+
+    const activeBtn = document.getElementById(`btn-col-${colsCount}`);
+    if (activeBtn) {
+        activeBtn.style.background = 'var(--p)';
+        activeBtn.style.color = 'white';
+        activeBtn.style.border = 'none';
+    }
+
+    const ind = document.getElementById('ps-cols-indicator');
+    if (ind) ind.innerText = `${colsCount} Colonn${colsCount === 1 ? 'a' : 'e'}`;
+
+    renderLivePrintSheet();
+}
+
+// 4. Modalità Salvaspazio
+function onPrintCompactnessChanged(isCompact) {
+    window._printStudioState.compactness = isCompact ? 'compact' : 'normal';
+    applyPrintPaperClasses();
+    renderLivePrintSheet();
+}
+
+// Applica le classi CSS al foglio
+function applyPrintPaperClasses() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    const s = window._printStudioState;
+    sheet.className = `print-sheet paper-${s.paperSize} orient-${s.orientation} density-${s.compactness} theme-${s.theme}`;
+}
+
+// Aggiorna le regole fisiche @page per il browser
+function updateDynamicPrintPageCss() {
+    const s = window._printStudioState;
+    let sizeStr = '';
+
+    if (s.paperSize === 'a4') sizeStr = `A4 ${s.orientation}`;
+    else if (s.paperSize === 'a5') sizeStr = `A5 ${s.orientation}`;
+    else if (s.paperSize === 'a3') sizeStr = `A3 ${s.orientation}`;
+    else if (s.paperSize === '50x70') sizeStr = (s.orientation === 'portrait') ? '500mm 700mm' : '700mm 500mm';
+
+    const marginStr = (s.paperSize === '50x70') ? '15mm' : ((s.paperSize === 'a5') ? '6mm' : '8mm');
+    const pageCss = `@page { size: ${sizeStr}; margin: ${marginStr}; }`;
+
+    let styleTag = document.getElementById('dynamic-print-page-style');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-print-page-style';
+        document.head.appendChild(styleTag);
+    }
+    styleTag.innerHTML = pageCss;
+}
 
 // 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
 async function initPrintStudioView() {
@@ -22713,90 +22877,174 @@ function renderLivePrintSheet() {
     }
 }
 
-// 9. RENDERIZZATORE CARTELLO QR CODE
+//=========================================================================
+// 📲 RENDERIZZATORE CARTELLO QR CODE (ADATTIVO VERTICALE / ORIZZONTALE)
+// =========================================================================
+
 function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
+    applyPrintPaperClasses();
+
     const showSteps = document.getElementById('ps-qr-show-steps')?.checked ?? true;
     const showPerks = document.getElementById('ps-qr-show-perks')?.checked ?? true;
     const showDirectUrl = document.getElementById('ps-qr-show-direct-url')?.checked ?? true;
+    const isLandscape = (s.orientation === 'landscape');
 
+    // Layout Orizzontale a 2 sezioni (Display da Bancone) vs Layout Verticale (Espositore Parete)
+    if (isLandscape) {
+        sheet.innerHTML = `
+            <div style="display: grid; grid-template-columns: 280px 1fr; gap: 30px; height: 100%; box-sizing: border-box; align-items: center;">
+                
+                <!-- Colonna Sinistra: Logo + QR Code Gigante -->
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 2px solid var(--ps-accent-border); padding-right: 25px;">
+                    ${s.showSalonLogo && s.salonLogoBase64 ? `
+                        <div style="width: 65px; height: 65px; margin-bottom: 12px; border-radius: 14px; overflow: hidden; border: 2px solid var(--ps-accent-border);">
+                            <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
+                        </div>
+                    ` : ''}
+
+                    <div style="background: #ffffff; padding: 14px; border-radius: 20px; border: 3px solid var(--ps-accent); box-shadow: 0 8px 25px rgba(0,0,0,0.15);">
+                        <img src="${qrSrc}" alt="QR Code" style="width: 165px; height: 165px; display: block; border-radius: 6px;">
+                    </div>
+
+                    ${showDirectUrl ? `
+                        <div style="margin-top: 8px; font-family: monospace; font-size: 10px; font-weight: 700; color: var(--ps-text-sub);" contenteditable="true">
+                            🔗 ${bookingUrl}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Colonna Destra: Titoli, Step-by-Step e Vantaggi -->
+                <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+                    <div>
+                        <div style="display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; background: rgba(255,255,255,0.08); border: 1.5px solid var(--ps-accent); color: var(--ps-accent); margin-bottom: 8px;">
+                            ${currentSalon}
+                        </div>
+                        <h1 style="margin: 0 0 6px 0; font-family: var(--ps-font-title); font-size: 22px; font-weight: 900; color: var(--ps-accent); line-height: 1.2;" contenteditable="true">
+                            ${s.title}
+                        </h1>
+                        <p style="margin: 0 0 14px 0; font-size: 12px; color: var(--ps-text-sub);" contenteditable="true">
+                            ${s.subtitle}
+                        </p>
+                    </div>
+
+                    ${showSteps ? `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center; margin-bottom: 12px;">
+                            <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 8px;">
+                                <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px auto;">1</div>
+                                <b style="font-size: 11px; display: block; color: var(--ps-text);" contenteditable="true">Inquadra QR</b>
+                                <small style="font-size: 9.5px; color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
+                            </div>
+                            <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 8px;">
+                                <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px auto;">2</div>
+                                <b style="font-size: 11px; display: block; color: var(--ps-text);" contenteditable="true">Scegli Trattamento</b>
+                                <small style="font-size: 9.5px; color: var(--ps-text-sub); display: block;" contenteditable="true">Servizi e operatore</small>
+                            </div>
+                            <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 8px;">
+                                <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px auto;">3</div>
+                                <b style="font-size: 11px; display: block; color: var(--ps-text);" contenteditable="true">Conferma Live</b>
+                                <small style="font-size: 9.5px; color: var(--ps-text-sub); display: block;" contenteditable="true">Promemoria WhatsApp</small>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${showPerks ? `
+                        <div style="display: flex; gap: 12px; font-size: 10.5px; font-weight: 700; color: var(--ps-accent); margin-bottom: 10px;">
+                            <span>✓ Disponibile h24 7/7</span>
+                            <span>✓ Zero attese</span>
+                            <span>✓ Notifiche WhatsApp</span>
+                        </div>
+                    ` : ''}
+
+                    <div style="border-top: 1px solid var(--ps-accent-border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; color: var(--ps-text-sub);">
+                        <div contenteditable="true">${s.footerNotes}</div>
+                        ${s.showVaimupLogo ? `<div>Powered by <b>VaiMUp Suite</b></div>` : ''}
+                    </div>
+                </div>
+
+            </div>
+        `;
+        return;
+    }
+
+    // Modalità Verticale Standard
     sheet.innerHTML = `
         <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: inherit; box-sizing: border-box; text-align: center;">
-            <div style="margin-bottom: 15px;">
+            <div style="margin-bottom: 12px;">
                 ${s.showSalonLogo && s.salonLogoBase64 ? `
-                    <div style="width: 80px; height: 80px; margin: 0 auto 12px auto; border-radius: 16px; overflow: hidden; border: 2px solid var(--ps-accent-border); box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
+                    <div style="width: 75px; height: 75px; margin: 0 auto 10px auto; border-radius: 16px; overflow: hidden; border: 2px solid var(--ps-accent-border); box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
                         <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
                     </div>
                 ` : `
-                    <div style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(255,255,255,0.08); border: 1.5px solid var(--ps-accent); color: var(--ps-accent); margin-bottom: 10px;">
+                    <div style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; background: rgba(255,255,255,0.08); border: 1.5px solid var(--ps-accent); color: var(--ps-accent); margin-bottom: 8px;">
                         SALONE • ${currentSalon}
                     </div>
                 `}
 
-                <h1 style="margin: 0 0 6px 0; font-family: var(--ps-font-title); font-size: 26px; font-weight: 900; letter-spacing: 0.8px; color: var(--ps-accent); line-height: 1.2;" contenteditable="true">
+                <h1 style="margin: 0 0 6px 0; font-family: var(--ps-font-title); font-size: 24px; font-weight: 900; letter-spacing: 0.8px; color: var(--ps-accent); line-height: 1.2;" contenteditable="true">
                     ${s.title}
                 </h1>
                 
-                <p style="margin: 0 auto; max-width: 85%; font-size: 13.5px; color: var(--ps-text-sub); line-height: 1.45;" contenteditable="true">
+                <p style="margin: 0 auto; max-width: 85%; font-size: 13px; color: var(--ps-text-sub); line-height: 1.45;" contenteditable="true">
                     ${s.subtitle}
                 </p>
             </div>
 
-            <div style="margin: 15px auto; display: flex; flex-direction: column; align-items: center;">
-                <div style="background: #ffffff; padding: 18px; border-radius: 24px; border: 3px solid var(--ps-accent); box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: inline-block;">
-                    <img src="${qrSrc}" alt="QR Code Prenotazione" style="width: 195px; height: 195px; display: block; border-radius: 8px;">
-                    <div style="margin-top: 8px; font-family: var(--ps-font-title); font-size: 11px; font-weight: 900; color: #1e1b4b; letter-spacing: 0.5px;">
+            <div style="margin: 12px auto; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #ffffff; padding: 16px; border-radius: 24px; border: 3px solid var(--ps-accent); box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: inline-block;">
+                    <img src="${qrSrc}" alt="QR Code Prenotazione" style="width: 185px; height: 185px; display: block; border-radius: 8px;">
+                    <div style="margin-top: 6px; font-family: var(--ps-font-title); font-size: 10.5px; font-weight: 900; color: #1e1b4b; letter-spacing: 0.5px;">
                         INQUADRA CON LA FOTOCAMERA
                     </div>
                 </div>
 
                 ${showDirectUrl ? `
-                    <div style="margin-top: 10px; font-family: monospace; font-size: 11px; font-weight: 700; color: var(--ps-text-sub); opacity: 0.85;" contenteditable="true">
+                    <div style="margin-top: 8px; font-family: monospace; font-size: 10.5px; font-weight: 700; color: var(--ps-text-sub);" contenteditable="true">
                         🔗 ${bookingUrl}
                     </div>
                 ` : ''}
             </div>
 
             ${showSteps ? `
-                <div style="margin: 15px 0;">
-                    <div style="font-family: var(--ps-font-title); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ps-accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span>✦ COME FUNZIONA IN 3 SEMPLICI PASSI ✦</span>
+                <div style="margin: 10px 0;">
+                    <div style="font-family: var(--ps-font-title); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ps-accent); margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>✦ COME FUNZIONA IN 3 PASSI ✦</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center;">
-                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
-                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">1</div>
-                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Inquadra il QR</b>
-                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Apri la fotocamera del cellulare e tocca il link.</small>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
+                            <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">1</div>
+                            <b style="font-size: 12px; display: block; color: var(--ps-text); margin-bottom: 2px;" contenteditable="true">Inquadra QR</b>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
                         </div>
 
-                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
-                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">2</div>
-                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Scegli Trattamento</b>
-                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Seleziona i servizi, operatore e orario preferito.</small>
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
+                            <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">2</div>
+                            <b style="font-size: 12px; display: block; color: var(--ps-text); margin-bottom: 2px;" contenteditable="true">Scegli Servizio</b>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
                         </div>
 
-                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 14px; padding: 12px 10px;">
-                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px auto;">3</div>
-                            <b style="font-size: 12.5px; display: block; color: var(--ps-text); margin-bottom: 3px;" contenteditable="true">Conferma Live</b>
-                            <small style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.35; display: block;" contenteditable="true">Ricevi subito promemoria e conferma su WhatsApp.</small>
+                        <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
+                            <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">3</div>
+                            <b style="font-size: 12px; display: block; color: var(--ps-text); margin-bottom: 2px;" contenteditable="true">Conferma Live</b>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
                         </div>
                     </div>
                 </div>
             ` : ''}
 
             ${showPerks ? `
-                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; font-size: 11.5px; font-weight: 700; color: var(--ps-accent);">
-                    <span>✓ Disponibile h24 7 giorni su 7</span>
-                    <span>✓ Zero attese telefoniche</span>
-                    <span>✓ Promemoria automatici</span>
+                <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 8px 0; font-size: 11px; font-weight: 700; color: var(--ps-accent);">
+                    <span>✓ Disponibile h24 7/7</span>
+                    <span>✓ Zero attese</span>
+                    <span>✓ Promemoria WhatsApp</span>
                 </div>
             ` : ''}
 
-            <div style="margin-top: auto; padding-top: 14px; border-top: 1.5px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--ps-text-sub);">
+            <div style="margin-top: auto; padding-top: 12px; border-top: 1.5px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--ps-text-sub);">
                 <div contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
-                    <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; opacity: 0.9;">
-                        <img src="./icon-192.png" alt="VaiMUp" style="width: 15px; height: 15px; border-radius: 3px; object-fit: contain;">
+                    <div style="display: flex; align-items: center; gap: 5px; font-weight: 800; opacity: 0.9;">
+                        <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
                         <span>Powered by <b>VaiMUp Suite</b></span>
                     </div>
                 ` : ''}
@@ -22805,14 +23053,22 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     `;
 }
 
-// 10. RENDERIZZATORE LISTINO STANDARD MULTI-CATEGORIA
+//=========================================================================
+// 📑 RENDERIZZATORE DEL LISTINO CON COLONNE DINAMICHE SALVASPAZIO
+// =========================================================================
+
 function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
+    applyPrintPaperClasses();
+
     const inventory = window.allInventory || [];
     const selectedItemIds = s.selectedItemIds;
     const categories = s.categories || [];
 
-    const isLandscape = s.format === 'a4_landscape';
-    const contentColumnsLayout = isLandscape ? `display: grid; grid-template-columns: 1fr 1fr; gap: 24px;` : ``;
+    const isCompact = (s.compactness === 'compact');
+    const titleFontSize = isCompact ? 'var(--ps-font-size-title, 12.5px)' : 'var(--ps-font-size-title, 13.5px)';
+    const priceFontSize = isCompact ? 'var(--ps-font-size-price, 13.5px)' : 'var(--ps-font-size-price, 14.5px)';
+    const itemGap = isCompact ? 'var(--ps-item-gap, 5.5px)' : 'var(--ps-item-gap, 9px)';
+    const catMargin = isCompact ? 'var(--ps-cat-margin, 14px)' : 'var(--ps-cat-margin, 22px)';
 
     const printedItemIds = new Set();
     let sectionsHtml = '';
@@ -22826,22 +23082,19 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         catItems.forEach(i => printedItemIds.add(String(i.id)));
 
         sectionsHtml += `
-            <div style="margin-bottom: 22px; break-inside: avoid;">
-                <!-- TESTATA SEZIONE: Solo Titolo Categoria (CONTEGGIO VOCI RIMOSSO) -->
-                <div class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: 15px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 4px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="ps-category-block" style="margin-bottom: ${catMargin};">
+                <div class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: 14.5px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
                     <span contenteditable="true">${cat.name}</span>
                 </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 9px;">
+                <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${catItems.map(item => `
-                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 6px;">
                             <div style="flex: 1; min-width: 0;">
-                                <!-- NOME ARTICOLO: DURATA E TAGLIA RIMOSSE -->
-                                <span class="ps-item-title" style="font-weight: 700; font-size: 13.5px; color: var(--ps-text);" contenteditable="true">${item.name}</span>
-                                ${item.model ? `<div class="ps-item-desc" style="font-size: 10.5px; color: var(--ps-text-sub); line-height: 1.2;" contenteditable="true">${item.model}</div>` : ''}
+                                <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
+                                ${item.model ? `<div class="ps-item-desc" style="font-size: 10px; color: var(--ps-text-sub); line-height: 1.15;" contenteditable="true">${item.model}</div>` : ''}
                             </div>
-                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 6px; opacity: 0.4;"></div>
-                            <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: 14.5px; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 4px; opacity: 0.4;"></div>
+                            <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: ${priceFontSize}; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -22849,22 +23102,22 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         `;
     });
 
-    // Eventuali articoli selezionati ma non assegnati a categorie specifiche
+    // Articoli selezionati non ancora inseriti in una categoria
     const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
         sectionsHtml += `
-            <div style="margin-bottom: 22px; break-inside: avoid;">
-                <div class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: 15px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 4px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-                    <span contenteditable="true">✨ Altri Trattamenti & Articoli</span>
+            <div class="ps-category-block" style="margin-bottom: ${catMargin};">
+                <div class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: 14.5px; font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                    <span contenteditable="true">✨ Altri Trattamenti</span>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 9px;">
+                <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${unassignedItems.map(item => `
-                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 6px;">
                             <div style="flex: 1; min-width: 0;">
-                                <span class="ps-item-title" style="font-weight: 700; font-size: 13.5px; color: var(--ps-text);" contenteditable="true">${item.name}</span>
+                                <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
                             </div>
-                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 6px; opacity: 0.4;"></div>
-                            <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: 14.5px; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
+                            <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 4px; opacity: 0.4;"></div>
+                            <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: ${priceFontSize}; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -22873,46 +23126,49 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     }
 
     sheet.innerHTML = `
-        <!-- HEADER DEL FOGLIO -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--ps-accent); padding-bottom: 14px; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 14px;">
-                ${s.showSalonLogo && s.salonLogoBase64 ? `
-                    <div class="ps-header-logo" style="width: 65px; height: 65px; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
-                        <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
+        <div style="display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;">
+            
+            <!-- HEADER DEL FOGLIO -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    ${s.showSalonLogo && s.salonLogoBase64 ? `
+                        <div class="ps-header-logo" style="width: 58px; height: 58px; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
+                            <img src="${s.salonLogoBase64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">
+                        </div>
+                    ` : ''}
+                    <div>
+                        <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: 19px; font-weight: 900; letter-spacing: 1px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
+                        <div style="font-size: 11.5px; color: var(--ps-text-sub); margin-top: 2px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
+                    </div>
+                </div>
+
+                ${s.showBookingQr ? `
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 9px; border-radius: 10px; border: 1px solid var(--ps-accent-border);">
+                        <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" style="width: 44px; height: 44px; border-radius: 4px; background: white; padding: 2px;">
+                        <div style="font-size: 9.5px; line-height: 1.2; color: var(--ps-text-sub);">
+                            <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
+                            Inquadra con il cellulare
+                        </div>
                     </div>
                 ` : ''}
-                <div>
-                    <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: 20px; font-weight: 900; letter-spacing: 1px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
-                    <div style="font-size: 12px; color: var(--ps-text-sub); margin-top: 3px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
-                </div>
             </div>
 
-            ${s.showBookingQr ? `
-                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 6px 10px; border-radius: 10px; border: 1px solid var(--ps-accent-border);">
-                    <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" style="width: 48px; height: 48px; border-radius: 4px; background: white; padding: 2px;">
-                    <div style="font-size: 10px; line-height: 1.2; color: var(--ps-text-sub);">
-                        <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
-                        Inquadra con il cellulare
+            <!-- 🌟 CONTENITORE COLONNE AUTO-BILANCIATE SALVASPAZIO -->
+            <div class="ps-content-columns-wrapper" style="--ps-columns: ${s.columns};">
+                ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
+            </div>
+
+            <!-- FOOTER & CO-BRANDING -->
+            <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--ps-text-sub);">
+                <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
+                ${s.showVaimupLogo ? `
+                    <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
+                        <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
+                        <span>Powered by <b>VaiMUp Suite</b></span>
                     </div>
-                </div>
-            ` : ''}
-        </div>
+                ` : ''}
+            </div>
 
-        <!-- SEZIONI CATEGORIZZATE DINAMICHE -->
-        <div style="${contentColumnsLayout}">
-            ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
-        </div>
-
-        <!-- FOOTER & CO-BRANDING -->
-        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--ps-text-sub);">
-            <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
-            
-            ${s.showVaimupLogo ? `
-                <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
-                    <img src="./icon-192.png" alt="VaiMUp" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
-                    <span>Powered by <b>VaiMUp Suite</b></span>
-                </div>
-            ` : ''}
         </div>
     `;
 }
@@ -22942,6 +23198,12 @@ window.closePrintCategoryItemsModal = closePrintCategoryItemsModal;
 window.savePrintCategoryItemsAssignment = savePrintCategoryItemsAssignment;
 window.renderLivePrintSheet = renderLivePrintSheet;
 window.triggerDirectPrint = triggerDirectPrint;
+// 🛡️ Registrazione delle nuove funzioni su window
+window.onPrintPaperSizeChanged = onPrintPaperSizeChanged;
+window.onPrintOrientationChanged = onPrintOrientationChanged;
+window.onPrintColumnsChanged = onPrintColumnsChanged;
+window.onPrintCompactnessChanged = onPrintCompactnessChanged;
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
