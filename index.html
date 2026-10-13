@@ -1334,26 +1334,44 @@
 }
 
 /* ======================================================== */
-/* 📄 DIMENSIONI CARTA DISACCOPPIATE (FORMATO × ORIENTAMENTO)*/
+/* 📄 DIMENSIONI CARTA CON SUPPORTO ZOOM FIT & 1-PAGE PRINT */
 /* ======================================================== */
 
-/* A4 (210 x 297 mm) */
-.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 14mm; }
-.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 12mm; }
+.print-preview-pane {
+    background: #334155;
+    border-radius: 16px;
+    padding: 20px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    max-height: calc(100vh - 120px);
+}
 
-/* A5 (148 x 210 mm) */
-.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 10mm; }
+/* Wrapper di scala visiva a schermo (permette al 50x70 di stare nello schermo) */
+#print-sheet-scaler-wrapper {
+    transform-origin: top center;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+/* Dimensioni fisiche su schermo */
+.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 10mm; }
+.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 10mm; }
+
+.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 8mm; }
 .paper-a5.orient-landscape { width: 210mm; min-height: 148mm; padding: 8mm; }
 
-/* A3 (297 x 420 mm) */
-.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 18mm; }
-.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 16mm; }
+.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 15mm; }
+.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 15mm; }
 
-/* 🖼️ Maxi Poster 50 x 70 cm */
-.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 30mm; }
+.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 25mm; }
 .paper-50x70.orient-landscape { width: 700mm; min-height: 500mm; padding: 25mm; }
 
-/* Scalatura Font Proporzionale per Maxi Formato 50x70 */
+/* Tipografia Maxi per 50x70 */
 .paper-50x70 h1 { font-size: 38px !important; }
 .paper-50x70 .ps-cat-header { font-size: 26px !important; margin-bottom: 18px !important; }
 .paper-50x70 .ps-item-title { font-size: 20px !important; }
@@ -1363,39 +1381,54 @@
 .paper-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
 .paper-50x70 .ps-footer-text { font-size: 16px !important; }
 
-/* 🌟 MOTORE DI DIVISIONE IN COLONNE DINAMICHE SALVASPAZIO */
-.ps-content-columns-wrapper {
-    column-count: var(--ps-columns, 2);
-    column-gap: 26px;
-    width: 100%;
-}
-
-.ps-category-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    display: inline-block;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Modalità Salvaspazio Compatta */
-.density-compact {
-    --ps-item-gap: 5.5px;
-    --ps-cat-margin: 14px;
-    --ps-font-size-title: 12.5px;
-    --ps-font-size-price: 13.5px;
-}
-.density-normal {
-    --ps-item-gap: 9px;
-    --ps-cat-margin: 22px;
-    --ps-font-size-title: 13.5px;
-    --ps-font-size-price: 14.5px;
-}
-/* Adattamento Anteprima Desktop per non uscire dallo schermo con il 50x70 */
-@media screen and (min-width: 901px) {
-    .print-preview-pane {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
+/* 🖨️ REGOLE RIGIDE @MEDIA PRINT: GARANTISCE 1 PAGINA & ZERO SALTI FOGLIO */
+@media print {
+    html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+    .sidebar, .header, #burger-btn, #sidebar-overlay,
+    .print-controls-pane, .login-screen, .modal,
+    #quick-alarm-screen, #pwa-install-banner, .ps-zoom-toolbar, .no-print {
+        display: none !important;
+    }
+    #app-shell, .main, .content, #v-print, .print-studio-container, .print-preview-pane {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: transparent !important;
+    }
+    #print-sheet-scaler-wrapper {
+        transform: none !important; /* Zero scala in stampa: stampa a grandezza fisica reale */
+        margin: 0 !important;
+        display: block !important;
+    }
+    .print-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 auto !important;
+        padding: 6mm 8mm !important;
+        min-height: 0 !important;     /* 👈 CRUCIALE: Rimosso 297mm forzato che creava la pagina 2 */
+        height: auto !important;
+        page-break-after: auto !important; /* 👈 CRUCIALE: Rimosso always che creava la pagina 2 */
+        break-after: auto !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .ps-category-block {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
     }
 }
 /* 👑 TEMA 1: LUXURY GOLD & NOIR */
@@ -1458,47 +1491,8 @@
     border: 1px solid #cbd5e1 !important;
 }
 
-/* 🖨️ REGOLE RIGIDE @MEDIA PRINT (Zero UI gestionale visibile su carta) */
-@media print {
-    body, html {
-        background: #ffffff !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-    .sidebar, .header, #burger-btn, #sidebar-overlay,
-    .print-controls-pane, .login-screen, .modal,
-    #quick-alarm-screen, #pwa-install-banner, .no-print {
-        display: none !important;
-    }
-    #app-shell, .main, .content, #v-print {
-        display: block !important;
-        position: static !important;
-        width: 100% !important;
-        height: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-    .print-studio-container {
-        display: block !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-    .print-preview-pane {
-        background: transparent !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-    .print-sheet {
-        box-shadow: none !important;
-        margin: 0 !important;
-        page-break-after: always;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-}
+
+
 
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
@@ -2412,6 +2406,36 @@
                 </div>
             </div>
 
+
+            <!-- ========================================== -->
+            <!-- 💾 MODULO SALVATAGGIO CONFIGURAZIONI & BOZZE -->
+            <!-- ========================================== -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Listini & Bozze Salvate</label>
+                    <span id="ps-saved-count-badge" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">0 salvati</span>
+                </div>
+
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <select id="ps-presets-dropdown" style="margin: 0; background: white; font-weight: 600; font-size: 12px; flex: 1;">
+                        <option value="">-- Seleziona un listino salvato --</option>
+                    </select>
+                    <button type="button" class="btn btn-s" style="padding: 6px 10px; font-size: 11px; font-weight: bold; min-height: unset;" onclick="loadSelectedPrintPreset()" title="Carica configurazione">
+                        📂 Carica
+                    </button>
+                    <button type="button" class="btn btn-d" style="padding: 6px 8px; font-size: 10px; min-height: unset;" onclick="deleteSelectedPrintPreset()" title="Elimina configurazione salvata">
+                        ✕
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="ps-preset-name-input" placeholder="Nome listino (es. Listino A4 2026)" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white; flex: 1;">
+                    <button type="button" class="btn btn-p" style="padding: 6px 12px; font-size: 11px; font-weight: bold; min-height: unset; white-space: nowrap;" onclick="saveCurrentPrintPreset()">
+                        💾 Salva Listino
+                    </button>
+                </div>
+            </div>
+
             <!-- TASTO DI STAMPA PRINCIPALE -->
             <button type="button" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-size: 14px; font-weight: 900; justify-content: center; padding: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);" onclick="triggerDirectPrint()">
                 🖨️ Stampa Ora / Salva PDF ➔
@@ -2602,12 +2626,26 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- COLONNA DESTRA: ANTEPRIMA LIVE INTERATTIVA -->
+        <!-- COLONNA DESTRA: ANTEPRIMA LIVE FIT-TO-SCREEN -->
         <!-- ========================================== -->
         <div class="print-preview-pane">
-            <div id="print-sheet-canvas" class="print-sheet format-a4-portrait theme-luxury-gold" contenteditable="false">
-                <!-- Generato in tempo reale da renderLivePrintSheet() -->
+            
+            <!-- BARRA STRUMENTI ZOOM FLUTTUANTE SULLO SCHERMO (Invisibile in stampa) -->
+            <div class="ps-zoom-toolbar no-print" style="position: sticky; top: 0; z-index: 100; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);">
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 12px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Schermo</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(0.5)">50%</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(0.75)">75%</button>
+                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(1.0)">100%</button>
+                <span id="ps-preview-zoom-label" style="font-size: 10.5px; color: #cbd5e1; font-weight: bold; margin-left: 4px;">100%</span>
             </div>
+
+            <!-- WRAPPER DI SCALA (Non deforma la stampa ma fa rientrare il 50x70 a video) -->
+            <div id="print-sheet-scaler-wrapper">
+                <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
+                    <!-- Generato dinamicamente -->
+                </div>
+            </div>
+
         </div>
 
     </div>
@@ -22492,6 +22530,251 @@ function parseAppointmentServiceItem(nameStr, appNotes = '', appPrice = null, in
 }
 
 
+
+// =========================================================================
+// 🔍 MOTORE DI ZOOM ADATTIVO ANTEPRIMA (50x70 VISIBILE AL 100% SENZA SBORDARE)
+// =========================================================================
+
+window._previewScaleFactor = 1.0;
+
+function autoFitPrintPreviewToScreen() {
+    const pane = document.querySelector('.print-preview-pane');
+    const sheet = document.getElementById('print-sheet-canvas');
+    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
+    const label = document.getElementById('ps-preview-zoom-label');
+
+    if (!pane || !sheet || !wrapper) return;
+
+    // Rimuove temporaneamente il transform per calcolare la larghezza reale del foglio in pixel
+    wrapper.style.transform = 'none';
+
+    const paneWidth = pane.clientWidth - 40; // Margine di respiro
+    const sheetWidth = sheet.offsetWidth;
+
+    if (sheetWidth > 0 && paneWidth > 0) {
+        // Se il foglio (es. 50x70) è più largo dello schermo, calcola la scala esatta di riduzione
+        let factor = paneWidth / sheetWidth;
+        if (factor > 1.0) factor = 1.0; // Se è A4/A5 non lo ingigantire oltre il 100%
+        factor = Math.max(factor, 0.25); // Limite minimo
+
+        window._previewScaleFactor = factor;
+        wrapper.style.transform = `scale(${factor})`;
+
+        if (label) label.innerText = `${Math.round(factor * 100)}% (Adattato)`;
+    }
+}
+
+function setManualPreviewZoom(factor) {
+    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
+    const label = document.getElementById('ps-preview-zoom-label');
+    if (!wrapper) return;
+
+    window._previewScaleFactor = factor;
+    wrapper.style.transform = `scale(${factor})`;
+    if (label) label.innerText = `${Math.round(factor * 100)}%`;
+}
+
+// =========================================================================
+// 💾 GESTORE SALVATAGGIO & CARICAMENTO LISTINI / PRESET COMPLETI
+// =========================================================================
+
+async function saveCurrentPrintPreset() {
+    const nameInput = document.getElementById('ps-preset-name-input');
+    const presetName = (nameInput?.value || '').trim();
+
+    if (!presetName) {
+        return alert("Inserisci un nome per il listino prima di salvare (es. Listino Ufficiale A4, Poster Vetrina 50x70).");
+    }
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const s = window._printStudioState;
+
+    // Snapshot completo di tutte le personalizzazioni attive
+    const presetData = {
+        id: 'preset_' + Date.now(),
+        name: presetName,
+        salon_id: currentSalon,
+        saved_at: new Date().toISOString(),
+        config: {
+            mode: s.mode,
+            paperSize: s.paperSize,
+            orientation: s.orientation,
+            columns: s.columns,
+            compactness: s.compactness,
+            fontScale: s.fontScale,
+            theme: s.theme,
+            showSalonLogo: s.showSalonLogo,
+            showVaimupLogo: s.showVaimupLogo,
+            showBookingQr: s.showBookingQr,
+            title: s.title,
+            subtitle: s.subtitle,
+            footerNotes: s.footerNotes,
+            selectedItemIds: Array.from(s.selectedItemIds || []),
+            categories: s.categories || [],
+            customItems: s.customItems || []
+        }
+    };
+
+    let allPresets = loadAllPresetsFromStorage(currentSalon);
+
+    // Se esiste già un preset con lo stesso nome, aggiornalo
+    const existingIdx = allPresets.findIndex(p => p.name.toLowerCase() === presetName.toLowerCase());
+    if (existingIdx >= 0) {
+        if (!confirm(`Esiste già un listino salvato denominato "${presetName}". Vuoi sovrascriverlo con le impostazioni attuali?`)) {
+            return;
+        }
+        allPresets[existingIdx] = presetData;
+    } else {
+        allPresets.unshift(presetData);
+    }
+
+    // Salva localmente e sincronizza sul Cloud Supabase per il salone
+    await persistAllPresets(allPresets, currentSalon);
+
+    renderSavedPresetsDropdown(allPresets, presetData.id);
+    alert(`✅ Listino "${presetName}" salvato con successo! Potrai ricaricarlo in qualsiasi momento.`);
+}
+
+function loadAllPresetsFromStorage(currentSalon) {
+    const raw = (typeof sysSettings !== 'undefined' && sysSettings['print_saved_presets']) || localStorage.getItem(`vaimup_print_presets_${currentSalon}`);
+    if (raw) {
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+    return [];
+}
+
+async function persistAllPresets(presetsArray, currentSalon) {
+    const jsonStr = JSON.stringify(presetsArray);
+    localStorage.setItem(`vaimup_print_presets_${currentSalon}`, jsonStr);
+    if (typeof sysSettings !== 'undefined') sysSettings['print_saved_presets'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'print_saved_presets', value: jsonStr }
+    });
+}
+
+function renderSavedPresetsDropdown(presetsArray, selectedId = '') {
+    const dropdown = document.getElementById('ps-presets-dropdown');
+    const badge = document.getElementById('ps-saved-count-badge');
+    if (!dropdown) return;
+
+    if (badge) badge.innerText = `${presetsArray.length} salvat${presetsArray.length === 1 ? 'o' : 'i'}`;
+
+    if (presetsArray.length === 0) {
+        dropdown.innerHTML = `<option value="">-- Nessun listino salvato --</option>`;
+        return;
+    }
+
+    dropdown.innerHTML = `<option value="">-- Seleziona un listino salvato --</option>` +
+        presetsArray.map(p => {
+            const dateStr = p.saved_at ? new Date(p.saved_at).toLocaleDateString('it-IT') : '';
+            return `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${dateStr})</option>`;
+        }).join('');
+}
+
+function loadSelectedPrintPreset() {
+    const dropdown = document.getElementById('ps-presets-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima un listino dalla tendina.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const allPresets = loadAllPresetsFromStorage(currentSalon);
+    const target = allPresets.find(p => p.id === selectedId);
+
+    if (!target || !target.config) return alert("Impossibile caricare la configurazione selezionata.");
+
+    const c = target.config;
+    const s = window._printStudioState;
+
+    // Ripristina tutte le impostazioni dello stato
+    s.mode = c.mode || 'pricelist';
+    s.paperSize = c.paperSize || 'a4';
+    s.orientation = c.orientation || 'portrait';
+    s.columns = c.columns || 2;
+    s.compactness = c.compactness || 'normal';
+    s.fontScale = c.fontScale || 1.00;
+    s.theme = c.theme || 'luxury-gold';
+    s.showSalonLogo = c.showSalonLogo ?? true;
+    s.showVaimupLogo = c.showVaimupLogo ?? true;
+    s.showBookingQr = c.showBookingQr ?? true;
+    s.title = c.title || s.title;
+    s.subtitle = c.subtitle || s.subtitle;
+    s.footerNotes = c.footerNotes || s.footerNotes;
+    s.selectedItemIds = new Set(c.selectedItemIds || []);
+    s.categories = c.categories || [];
+    s.customItems = c.customItems || [];
+
+    // Aggiorna tutti i controlli a video
+    const modeBtnPrice = document.getElementById('btn-mode-pricelist');
+    const modeBtnQr = document.getElementById('btn-mode-qrbooking');
+    if (s.mode === 'pricelist') {
+        if (modeBtnPrice) { modeBtnPrice.style.background = 'var(--p)'; modeBtnPrice.style.color = '#fff'; }
+        if (modeBtnQr) { modeBtnQr.style.background = '#f1f5f9'; modeBtnQr.style.color = '#475569'; }
+    } else {
+        if (modeBtnQr) { modeBtnQr.style.background = 'var(--p)'; modeBtnQr.style.color = '#fff'; }
+        if (modeBtnPrice) { modeBtnPrice.style.background = '#f1f5f9'; modeBtnPrice.style.color = '#475569'; }
+    }
+
+    if (document.getElementById('ps-paper-size-select')) document.getElementById('ps-paper-size-select').value = s.paperSize;
+    if (document.getElementById('ps-theme-select')) document.getElementById('ps-theme-select').value = s.theme;
+    if (document.getElementById('ps-preset-name-input')) document.getElementById('ps-preset-name-input').value = target.name;
+    if (document.getElementById('ps-toggle-compactness')) document.getElementById('ps-toggle-compactness').checked = (s.compactness === 'compact');
+
+    // Aggiorna orientamento bottoni
+    const btnPortrait = document.getElementById('btn-orient-portrait');
+    const btnLandscape = document.getElementById('btn-orient-landscape');
+    if (s.orientation === 'portrait') {
+        if (btnPortrait) { btnPortrait.style.background = 'var(--p)'; btnPortrait.style.color = '#fff'; }
+        if (btnLandscape) { btnLandscape.style.background = '#f1f5f9'; btnLandscape.style.color = '#475569'; }
+    } else {
+        if (btnLandscape) { btnLandscape.style.background = 'var(--p)'; btnLandscape.style.color = '#fff'; }
+        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; }
+    }
+
+    // Aggiorna font scale slider
+    const slider = document.getElementById('ps-font-scale-slider');
+    const scaleLabel = document.getElementById('ps-font-scale-label');
+    if (slider) slider.value = s.fontScale.toFixed(2);
+    if (scaleLabel) scaleLabel.innerText = `${Math.round(s.fontScale * 100)}%`;
+
+    applyPrintPaperClasses();
+    updateDynamicPrintPageCss();
+    renderPrintCategoriesManager();
+    renderPrintItemsChecklist();
+    renderLivePrintSheet();
+
+    // Ricalcola subito l'adattamento allo schermo
+    setTimeout(autoFitPrintPreviewToScreen, 150);
+
+    alert(`📖 Listino "${target.name}" caricato con successo!`);
+}
+
+async function deleteSelectedPrintPreset() {
+    const dropdown = document.getElementById('ps-presets-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima il listino da eliminare.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    let allPresets = loadAllPresetsFromStorage(currentSalon);
+    const target = allPresets.find(p => p.id === selectedId);
+
+    if (!target) return;
+    if (!confirm(`Sei sicuro di voler eliminare la configurazione salvata "${target.name}"?`)) return;
+
+    allPresets = allPresets.filter(p => p.id !== selectedId);
+    await persistAllPresets(allPresets, currentSalon);
+
+    renderSavedPresetsDropdown(allPresets);
+    if (document.getElementById('ps-preset-name-input')) document.getElementById('ps-preset-name-input').value = '';
+    alert("🗑️ Listino eliminato.");
+}
+
 // =========================================================================
 // 🖨️ VAIMUP PRINT STUDIO: MOTORE COMPLETO INTERATTIVO (DRAG & DROP E FONT ZOOM)
 // =========================================================================
@@ -22601,6 +22884,14 @@ async function initPrintStudioView() {
     renderPrintCategoriesManager();
     renderPrintItemsChecklist();
     renderLivePrintSheet();
+
+// In coda a initPrintStudioView():
+    const savedPresets = loadAllPresetsFromStorage(currentSalon);
+    renderSavedPresetsDropdown(savedPresets);
+
+    // Auto-fit immediato per mostrare tutto il foglio senza scroll
+    setTimeout(autoFitPrintPreviewToScreen, 200);
+
 }
 
 // =========================================================================
@@ -22817,6 +23108,9 @@ function onPrintPaperSizeChanged(sizeVal) {
     applyPrintPaperClasses();
     updateDynamicPrintPageCss();
     renderLivePrintSheet();
+
+    // 🌟 ADATTA SUBITO L'ANTEPRIMA QUANDO SI CAMBIA FORMATO
+    setTimeout(autoFitPrintPreviewToScreen, 100);
 }
 
 function onPrintOrientationChanged(orientVal) {
@@ -23543,6 +23837,12 @@ window.onPrintItemDragStart = onPrintItemDragStart;
 window.onPrintItemDragOver = onPrintItemDragOver;
 window.onPrintItemDrop = onPrintItemDrop;
 window.onPrintItemDragEnd = onPrintItemDragEnd;
+
+window.autoFitPrintPreviewToScreen = autoFitPrintPreviewToScreen;
+window.setManualPreviewZoom = setManualPreviewZoom;
+window.saveCurrentPrintPreset = saveCurrentPrintPreset;
+window.loadSelectedPrintPreset = loadSelectedPrintPreset;
+window.deleteSelectedPrintPreset = deleteSelectedPrintPreset;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
