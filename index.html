@@ -1431,22 +1431,28 @@
 }
 
 
-/* 🖨️ REGOLE RIGIDE @MEDIA PRINT: GARANTISCE 1 PAGINA & ZERO SALTI FOGLIO */
+/* 🖨️ REGOLE RIGIDE @MEDIA PRINT: RESET AUTOMATICO A TUTTA PAGINA (ZERO MINIATURE) */
 @media print {
     html, body {
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
         height: auto !important;
         min-height: 0 !important;
         overflow: visible !important;
     }
+
+    /* Nasconde tutto ciò che non è il foglio */
     .sidebar, .header, #burger-btn, #sidebar-overlay,
-    .print-controls-pane, .login-screen, .modal,
+    .print-controls-pane, #login-screen, .modal,
     #quick-alarm-screen, #pwa-install-banner, .ps-zoom-toolbar, .no-print {
         display: none !important;
     }
-    #app-shell, .main, .content, #v-print, .print-studio-container, .print-preview-pane {
+
+    /* Sblocca i container per occupare tutta la pagina fisica */
+    #app-shell, .main, .content, #v-print, .print-studio-container, 
+    .print-preview-column-wrapper, .print-preview-pane, #ps-preview-scroll-pane {
         display: block !important;
         position: static !important;
         width: 100% !important;
@@ -1456,26 +1462,57 @@
         padding: 0 !important;
         overflow: visible !important;
         background: transparent !important;
-    }
-    #print-sheet-scaler-wrapper {
-        transform: none !important; /* Zero scala in stampa: stampa a grandezza fisica reale */
-        margin: 0 !important;
-        display: block !important;
-    }
-    .print-sheet {
         box-shadow: none !important;
         border: none !important;
-        margin: 0 auto !important;
-        padding: 6mm 8mm !important;
-        min-height: 0 !important;     /* 👈 CRUCIALE: Rimosso 297mm forzato che creava la pagina 2 */
+    }
+
+    /* 🌟 RESET DEL WRAPPER: Elimina la larghezza ridotta dello schermo */
+    #print-sheet-scaler-wrapper {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
         height: auto !important;
-        page-break-after: auto !important; /* 👈 CRUCIALE: Rimosso always che creava la pagina 2 */
+        min-height: 0 !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 🌟 RESET DEL FOGLIO: Si adatta al 100% della pagina A4/A3/A5 reale, senza scala e senza pagina 2 */
+    .print-sheet,
+    #print-sheet-canvas {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        transform: none !important;
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 4mm 6mm !important;
+        page-break-after: auto !important;
         break-after: auto !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
+
+    /* Rimuove min-height forzati dei formati carta durante la stampa */
+    .paper-a4, .paper-a5, .paper-a3, .paper-50x70 {
+        width: 100% !important;
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
+    .ps-sheet-inner-container {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
     .ps-category-block {
         break-inside: avoid !important;
         page-break-inside: avoid !important;
@@ -23831,10 +23868,44 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     `;
 }
 
-// 17. Stampa Diretta del Foglio
+// 🖨️ STAMPA AUTOMATICA: Reset scala prima della stampa e ripristino post-stampa
 function triggerDirectPrint() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
+    const savedFactor = window._previewScaleFactor || 1.0;
+
+    // 1. Resetta temporaneamente il foglio al 100% della carta per la stampante
+    if (sheet) sheet.style.transform = 'none';
+    if (wrapper) {
+        wrapper.style.width = '100%';
+        wrapper.style.height = 'auto';
+    }
+
+    // 2. Apre il dialogo di stampa del browser/PDF
     window.print();
+
+    // 3. Ripristina automaticamente lo zoom per lo schermo
+    setTimeout(() => {
+        applyPreviewZoom(savedFactor);
+    }, 400);
 }
+
+// Supporto automatico anche se l'utente preme Ctrl+P da tastiera
+window.addEventListener('beforeprint', () => {
+    const sheet = document.getElementById('print-sheet-canvas');
+    const wrapper = document.getElementById('print-sheet-scaler-wrapper');
+    if (sheet) sheet.style.transform = 'none';
+    if (wrapper) {
+        wrapper.style.width = '100%';
+        wrapper.style.height = 'auto';
+    }
+});
+
+window.addEventListener('afterprint', () => {
+    applyPreviewZoom(window._previewScaleFactor || 1.0);
+});
+
+window.triggerDirectPrint = triggerDirectPrint;
 
 // 🛡️ REGISTRAZIONE ESPLICITA GLOBALE SU WINDOW
 window.initPrintStudioView = initPrintStudioView;
