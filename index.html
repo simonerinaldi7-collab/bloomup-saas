@@ -22792,13 +22792,13 @@ async function deleteSelectedPrintPreset() {
 // =========================================================================
 
 window._printStudioState = {
-    mode: 'pricelist',            // 'pricelist' | 'qrbooking'
-    paperSize: 'a4',              // 'a4' | 'a5' | 'a3' | '50x70'
-    orientation: 'portrait',      // 'portrait' | 'landscape'
-    columns: 2,                   // 1 | 2 | 3 | 4
-    compactness: 'normal',        // 'normal' | 'compact'
-    fontScale: 1.00,              // 0.60 - 1.40
-    theme: 'luxury-gold',         // 'luxury-gold' | 'rose-glamour' | 'barber-vintage' | 'botanical-minimal'
+    mode: 'pricelist',
+    paperSize: 'a4',
+    orientation: 'portrait',
+    columns: 2,
+    compactness: 'normal',
+    fontScale: 1.00,
+    theme: 'luxury-gold',
     showSalonLogo: true,
     showVaimupLogo: true,
     showBookingQr: true,
@@ -22890,7 +22890,7 @@ async function initPrintStudioView() {
     renderPrintItemsChecklist();
     renderLivePrintSheet();
 
-    // 🌟 Auto-fit calcolato con respiro: mostra subito il foglio senza tagli in alto!
+    // Auto-fit immediato per mostrare tutto il foglio senza scroll
     setTimeout(autoFitPrintPreviewToScreen, 200);
 }
 
@@ -22901,7 +22901,6 @@ function autoFitPrintPreviewToScreen() {
     const pane = document.getElementById('ps-preview-scroll-pane');
     const sheet = document.getElementById('print-sheet-canvas');
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
-    const label = document.getElementById('ps-preview-zoom-label');
 
     if (!pane || !sheet || !wrapper) return;
 
@@ -22936,12 +22935,11 @@ function applyPreviewZoom(factor, textLabel = null) {
     wrapper.style.transformOrigin = 'top center';
     wrapper.style.transform = `scale(${factor})`;
 
-    // Collassa lo spazio vuoto in basso generato dal transform
     const deadHeight = sheet.offsetHeight * (1 - factor);
     wrapper.style.marginBottom = `-${deadHeight}px`;
 
     if (label) label.innerText = textLabel || `${Math.round(factor * 100)}%`;
-    if (pane) pane.scrollTop = 0; // Azzera lo scroll: l'inizio del foglio è visibile al 100%
+    if (pane) pane.scrollTop = 0;
 }
 
 // 3. SALVATAGGIO E CARICAMENTO DEI LISTINI PERSONALIZZATI (PRESETS)
@@ -23071,7 +23069,6 @@ function loadSelectedPrintPreset() {
     s.categories = c.categories || [];
     s.customItems = c.customItems || [];
 
-    // Aggiornamento controlli UI
     setPrintMode(s.mode);
     if (document.getElementById('ps-paper-size-select')) document.getElementById('ps-paper-size-select').value = s.paperSize;
     if (document.getElementById('ps-theme-select')) document.getElementById('ps-theme-select').value = s.theme;
@@ -23316,7 +23313,6 @@ function onPrintPaperSizeChanged(sizeVal) {
     updateDynamicPrintPageCss();
     renderLivePrintSheet();
 
-    // Adatta subito il foglio allo schermo senza tagli
     setTimeout(autoFitPrintPreviewToScreen, 100);
 }
 
@@ -23332,7 +23328,7 @@ function onPrintOrientationChanged(orientVal) {
         if (btnLandscape) { btnLandscape.style.background = '#f1f5f9'; btnLandscape.style.color = '#475569'; btnLandscape.style.border = '1.5px solid #cbd5e1'; }
     } else {
         if (btnLandscape) { btnLandscape.style.background = 'var(--p)'; btnLandscape.style.color = '#fff'; btnLandscape.style.border = 'none'; }
-        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; btnPortrait.style.border = '1.5px solid #cbd5e1'; }
+        if (btnPortrait) { btnPortrait.style.background = '#f1f5f9'; btnPortrait.style.color = '#475569'; }
         if (window._printStudioState.columns === 1) {
             onPrintColumnsChanged(2);
         }
@@ -23905,6 +23901,7 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
         return;
     }
 
+    // Verticale Standard
     sheet.innerHTML = `
         <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: inherit; box-sizing: border-box; text-align: center;">
             <div style="margin-bottom: 12px;">
@@ -23952,19 +23949,19 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">1</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Inquadra QR</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">2</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Scegli Servizio</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">3</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Conferma Live</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
                         </div>
                     </div>
                 </div>
@@ -23995,7 +23992,7 @@ function triggerDirectPrint() {
     window.print();
 }
 
-// 🛡️ REGISTRAZIONE GLOBALE SU WINDOW
+// 🛡️ REGISTRAZIONE ESPLICITA SU WINDOW
 window.initPrintStudioView = initPrintStudioView;
 window.setPrintMode = setPrintMode;
 window.onPrintPaperSizeChanged = onPrintPaperSizeChanged;
