@@ -22788,17 +22788,17 @@ async function deleteSelectedPrintPreset() {
 }
 
 // =========================================================================
-// 🖨️ VAIMUP PRINT STUDIO: MOTORE COMPLETO INTERATTIVO & SALVATAGGIO BOZZE
+// 🖨️ VAIMUP PRINT STUDIO: MOTORE BLINDATO RESILIENTE (ZERO CRASH & PREZZI REALI)
 // =========================================================================
 
 window._printStudioState = {
-    mode: 'pricelist',
-    paperSize: 'a4',
-    orientation: 'portrait',
-    columns: 2,
-    compactness: 'normal',
-    fontScale: 1.00,
-    theme: 'luxury-gold',
+    mode: 'pricelist',            // 'pricelist' | 'qrbooking'
+    paperSize: 'a4',              // 'a4' | 'a5' | 'a3' | '50x70'
+    orientation: 'portrait',      // 'portrait' | 'landscape'
+    columns: 2,                   // 1 | 2 | 3 | 4
+    compactness: 'normal',        // 'normal' | 'compact'
+    fontScale: 1.00,              // 0.60 - 1.40
+    theme: 'luxury-gold',         // 'luxury-gold' | 'rose-glamour' | 'barber-vintage' | 'botanical-minimal'
     showSalonLogo: true,
     showVaimupLogo: true,
     showBookingQr: true,
@@ -22811,94 +22811,133 @@ window._printStudioState = {
     customItems: []
 };
 
-// 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
+// 1. Inizializzazione della vista Stampa
 async function initPrintStudioView() {
-    console.log("🖨️ [PRINT STUDIO] Inizializzazione protetta...");
+    console.log("🖨️ [PRINT STUDIO] Inizializzazione protetta avviata...");
 
-    if (!window._printStudioState || typeof window._printStudioState !== 'object') {
-        window._printStudioState = {
-            mode: 'pricelist', paperSize: 'a4', orientation: 'portrait', columns: 2,
-            compactness: 'normal', fontScale: 1.00, theme: 'luxury-gold', showSalonLogo: true,
-            showVaimupLogo: true, showBookingQr: true, salonLogoBase64: null,
-            title: 'LISTINO TRATTAMENTI ESCLUSIVI', subtitle: 'Esperienza di Bellezza & Cura della Persona',
-            footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
-            selectedItemIds: new Set(), categories: [], customItems: []
-        };
-    }
-    if (!window._printStudioState.selectedItemIds) window._printStudioState.selectedItemIds = new Set();
-    if (!Array.isArray(window._printStudioState.categories)) window._printStudioState.categories = [];
-    if (!Array.isArray(window._printStudioState.customItems)) window._printStudioState.customItems = [];
-    
-    // Recupero logo salone
-    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
-    if (savedLogo) {
-        window._printStudioState.salonLogoBase64 = savedLogo;
-        const previewEl = document.getElementById('ps-salon-logo-preview');
-        if (previewEl) {
-            previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
+    try {
+        if (!window._printStudioState || typeof window._printStudioState !== 'object') {
+            window._printStudioState = {
+                mode: 'pricelist', paperSize: 'a4', orientation: 'portrait', columns: 2,
+                compactness: 'normal', fontScale: 1.00, theme: 'luxury-gold', showSalonLogo: true,
+                showVaimupLogo: true, showBookingQr: true, salonLogoBase64: null,
+                title: 'LISTINO TRATTAMENTI ESCLUSIVI', subtitle: 'Esperienza di Bellezza & Cura della Persona',
+                footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
+                selectedItemIds: new Set(), categories: [], customItems: []
+            };
         }
-    }
+        if (!window._printStudioState.selectedItemIds) window._printStudioState.selectedItemIds = new Set();
+        if (!Array.isArray(window._printStudioState.categories)) window._printStudioState.categories = [];
+        if (!Array.isArray(window._printStudioState.customItems)) window._printStudioState.customItems = [];
 
-    // Risoluzione prezzi reali da price_history
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    let inventory = (window.allInventory && window.allInventory.length > 0) 
-        ? window.allInventory 
-        : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
+        // A. Recupero logo salone
+        const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
+        if (savedLogo) {
+            window._printStudioState.salonLogoBase64 = savedLogo;
+            const previewEl = document.getElementById('ps-salon-logo-preview');
+            if (previewEl) {
+                previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
+            }
+        }
 
-    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-    const nowIso = new Date().toISOString();
+        const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim() : 'SALON_001';
 
-    inventory.forEach(item => {
-        const itemHistory = priceHistory.filter(ph => String(ph.product_id).trim() === String(item.id).trim());
-        let activeRow = itemHistory.find(ph => {
-            const from = ph.date_from || '1900-01-01T00:00:00.000Z';
-            const to = ph.date_to || '9999-12-31T23:59:59.999Z';
-            return nowIso >= from && nowIso <= to;
+        // 🌟 B. RECUPERO INVENTARIO IBRIDO: Controlla sia allInventory che window.allInventory o query DB
+        let inventory = [];
+        if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
+            inventory = allInventory;
+        } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
+            inventory = window.allInventory;
+        } else {
+            inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        }
+
+        // Assicura che inventory sia un array valido
+        if (!Array.isArray(inventory)) inventory = [];
+
+        // 🌟 C. RISOLUZIONE DEI PREZZI DA price_history CON CONTROLLO DI SICUREZZA
+        let priceHistory = [];
+        try {
+            const rawPh = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' });
+            priceHistory = Array.isArray(rawPh) ? rawPh : [];
+        } catch(phErr) {
+            console.warn("Avviso lettura price_history:", phErr);
+            priceHistory = [];
+        }
+
+        const nowIso = new Date().toISOString();
+
+        inventory.forEach(item => {
+            if (!item) return;
+
+            let realPrice = 0;
+            if (priceHistory.length > 0) {
+                const itemHistory = priceHistory.filter(ph => ph && String(ph.product_id).trim() === String(item.id).trim());
+                let activeRow = itemHistory.find(ph => {
+                    const from = ph.date_from || '1900-01-01T00:00:00.000Z';
+                    const to = ph.date_to || '9999-12-31T23:59:59.999Z';
+                    return nowIso >= from && nowIso <= to;
+                });
+
+                if (!activeRow && itemHistory.length > 0) {
+                    itemHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                    activeRow = itemHistory[0];
+                }
+
+                if (activeRow && activeRow.price !== undefined && activeRow.price !== null) {
+                    realPrice = parseFloat(activeRow.price);
+                }
+            }
+
+            // Fallback sul prezzo presente sull'oggetto o a listino
+            if (realPrice === 0 && item.price !== undefined && item.price !== null && !isNaN(parseFloat(item.price))) {
+                realPrice = parseFloat(item.price);
+            }
+
+            item.price = realPrice;
         });
 
-        if (!activeRow && itemHistory.length > 0) {
-            itemHistory.sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-            activeRow = itemHistory[0];
-        }
+        // Sincronizza sia allInventory che window.allInventory
+        if (typeof allInventory !== 'undefined') allInventory = inventory;
+        window.allInventory = inventory;
 
-        if (activeRow && activeRow.price !== undefined && activeRow.price !== null) {
-            item.price = parseFloat(activeRow.price);
-        } else if (item.price === undefined || item.price === null || isNaN(parseFloat(item.price))) {
-            item.price = 0;
-        } else {
-            item.price = parseFloat(item.price);
-        }
-    });
+        // D. Preselezione articoli per la stampa
+        window._printStudioState.selectedItemIds.clear();
+        inventory.forEach(i => {
+            if (i && i.id) window._printStudioState.selectedItemIds.add(String(i.id));
+        });
 
-    window.allInventory = inventory;
+        // E. Caricamento categorie
+        loadPrintCategoriesFromStorage(inventory, currentSalon);
 
-    // Preselezione articoli
-    window._printStudioState.selectedItemIds.clear();
-    inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
+        // F. Caricamento listini salvati
+        const savedPresets = loadAllPresetsFromStorage(currentSalon);
+        renderSavedPresetsDropdown(savedPresets);
 
-    // Caricamento categorie
-    loadPrintCategoriesFromStorage(inventory, currentSalon);
+        // G. Renderizza interfaccia comandi e foglio live
+        applyPrintPaperClasses();
+        updateDynamicPrintPageCss();
+        renderPrintCategoriesManager();
+        renderPrintItemsChecklist();
+        renderLivePrintSheet();
 
-    // Caricamento listini salvati
-    const savedPresets = loadAllPresetsFromStorage(currentSalon);
-    renderSavedPresetsDropdown(savedPresets);
+        // H. Auto-fit adattivo dello schermo
+        setTimeout(autoFitPrintPreviewToScreen, 150);
 
-    // Sincronizzazione controlli UI
-    applyPrintPaperClasses();
-    updateDynamicPrintPageCss();
-    renderPrintCategoriesManager();
-    renderPrintItemsChecklist();
-    renderLivePrintSheet();
+        console.log("✅ [PRINT STUDIO] Inizializzazione completata con successo! Articoli caricati:", inventory.length);
 
-    // Auto-fit immediato per mostrare tutto il foglio senza scroll
-    setTimeout(autoFitPrintPreviewToScreen, 200);
+    } catch (err) {
+        console.error("❌ [PRINT STUDIO CRASH PREVENTED]:", err);
+        // Fallback di emergenza: disegna comunque il foglio con quello che abbiamo
+        renderLivePrintSheet();
+    }
 }
 
-// 2. ZOOM ADATTIVO DELLO SCHERMO (FIT-TO-SCREEN SENZA OVERFLOW NEGATIVO)
+// 2. ZOOM ADATTIVO DELLO SCHERMO
 window._previewScaleFactor = 1.0;
 
 function autoFitPrintPreviewToScreen() {
-    const pane = document.getElementById('ps-preview-scroll-pane');
+    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
     const sheet = document.getElementById('print-sheet-canvas');
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
 
@@ -22927,7 +22966,7 @@ function applyPreviewZoom(factor, textLabel = null) {
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
     const sheet = document.getElementById('print-sheet-canvas');
     const label = document.getElementById('ps-preview-zoom-label');
-    const pane = document.getElementById('ps-preview-scroll-pane');
+    const pane = document.getElementById('ps-preview-scroll-pane') || document.querySelector('.print-preview-pane');
 
     if (!wrapper || !sheet) return;
 
@@ -23439,13 +23478,20 @@ function renderPrintItemsChecklist() {
     const container = document.getElementById('ps-items-checklist-container');
     if (!container) return;
 
-    const inventory = window.allInventory || [];
+    let inventory = [];
+    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) {
+        inventory = allInventory;
+    } else if (window.allInventory && Array.isArray(window.allInventory)) {
+        inventory = window.allInventory;
+    }
+
     if (inventory.length === 0) {
         container.innerHTML = `<span style="font-size:11px; color:#888; padding:8px;">Nessun articolo a listino.</span>`;
         return;
     }
 
     container.innerHTML = inventory.map(item => {
+        if (!item) return '';
         const isChecked = window._printStudioState?.selectedItemIds?.has(String(item.id)) ?? true;
         const icon = item.type === 'servizio' ? '✂️' : '📦';
         const priceFmt = parseFloat(item.price || 0).toFixed(2);
@@ -23478,10 +23524,15 @@ function toggleSinglePrintItem(itemId, isChecked) {
 }
 
 function toggleAllPrintItems(selectAll) {
-    const inventory = window.allInventory || [];
+    let inventory = [];
+    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
+    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
+
     if (!window._printStudioState?.selectedItemIds) return;
     if (selectAll) {
-        inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
+        inventory.forEach(i => {
+            if (i && i.id) window._printStudioState.selectedItemIds.add(String(i.id));
+        });
     } else {
         window._printStudioState.selectedItemIds.clear();
     }
@@ -23500,8 +23551,8 @@ function loadPrintCategoriesFromStorage(inventory, currentSalon) {
     }
 
     if (!Array.isArray(loaded) || loaded.length === 0) {
-        const serviceIds = inventory.filter(i => i.type === 'servizio').map(i => String(i.id));
-        const productIds = inventory.filter(i => i.type === 'prodotto').map(i => String(i.id));
+        const serviceIds = inventory.filter(i => i && i.type === 'servizio').map(i => String(i.id));
+        const productIds = inventory.filter(i => i && i.type === 'prodotto').map(i => String(i.id));
 
         loaded = [
             { id: 'cat_servizi_default', name: '✂️ Trattamenti & Servizi', itemIds: serviceIds },
@@ -23595,10 +23646,15 @@ function openCategoryItemsModal(catId) {
     document.getElementById('pci-filter-search').value = '';
 
     const checklistContainer = document.getElementById('pci-items-checklist');
-    const inventory = window.allInventory || [];
+    
+    let inventory = [];
+    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
+    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
+
     const assignedSet = new Set((cat.itemIds || []).map(String));
 
     checklistContainer.innerHTML = inventory.map(item => {
+        if (!item) return '';
         const isAssigned = assignedSet.has(String(item.id));
         const icon = item.type === 'servizio' ? '✂️' : '📦';
         const priceFmt = parseFloat(item.price || 0).toFixed(2);
@@ -23671,11 +23727,18 @@ function renderLivePrintSheet() {
     }
 }
 
-// 9. RENDER LISTINO (SENZA MIN-HEIGHT 100% E MARGIN-TOP AUTO SUL FOOTER -> 1 PAGINA GARANTITA)
+// 9. RENDER LISTINO (ROBUSTO CON CONTROLLI ESPLICITI SUGLI ARRAY)
 function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     applyPrintPaperClasses();
 
-    const inventory = (window.allInventory || []).concat(window._printStudioState.customItems || []);
+    let inventory = [];
+    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) inventory = allInventory;
+    else if (window.allInventory && Array.isArray(window.allInventory)) inventory = window.allInventory;
+
+    if (Array.isArray(s.customItems)) {
+        inventory = inventory.concat(s.customItems);
+    }
+
     const selectedItemIds = s.selectedItemIds || new Set();
     const categories = s.categories || [];
 
@@ -23690,7 +23753,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
 
     categories.forEach(cat => {
         const catItemIds = (cat.itemIds || []).filter(id => selectedItemIds.has(String(id)));
-        const catItems = catItemIds.map(id => inventory.find(i => String(i.id) === String(id))).filter(Boolean);
+        const catItems = catItemIds.map(id => inventory.find(i => i && String(i.id) === String(id))).filter(Boolean);
 
         if (catItems.length === 0) return;
 
@@ -23746,7 +23809,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     });
 
     // Articoli non categorizzati
-    const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
+    const unassignedItems = inventory.filter(i => i && selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
         sectionsHtml += `
             <div class="ps-category-block" style="margin-bottom: ${catMargin};">
@@ -23804,7 +23867,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
-            <!-- FOOTER CON MARGINE NATURALE (MAI PIÙ PUSH SULLA PAGINA 2) -->
+            <!-- FOOTER CON MARGINE NATURALE -->
             <div class="ps-footer-block" style="margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(9.5px * var(--ps-scale, 1)); color: var(--ps-text-sub);">
                 <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
@@ -23819,7 +23882,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     `;
 }
 
-// 10. RENDER CARTELLO QR CODE ADATTIVO
+// 10. RENDER CARTELLO QR CODE
 function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     applyPrintPaperClasses();
 
@@ -23890,7 +23953,7 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
                         </div>
                     ` : ''}
 
-                    <div style="border-top: 1px solid var(--ps-accent-border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; color: var(--ps-text-sub);">
+                    <div style="border-top: 1px solid var(--ps-accent-border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: calc(9.5px * var(--ps-scale, 1)); color: var(--ps-text-sub);">
                         <div contenteditable="true">${s.footerNotes}</div>
                         ${s.showVaimupLogo ? `<div>Powered by <b>VaiMUp Suite</b></div>` : ''}
                     </div>
