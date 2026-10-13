@@ -2384,273 +2384,219 @@
         </div>
     </section>
 
-    <!-- ======================================================== -->
-<!-- 🖨️ VISTA PRINT STUDIO: STAMPA LISTINI & BARCODE          -->
-<!-- ======================================================== -->
-<section id="v-print" class="view" style="padding: 15px !important; overflow: hidden;">
-    
-    <div class="print-studio-container">
-        
-        <!-- ========================================== -->
-        <!-- COLONNA SINISTRA: PANNELLO DI CONTROLLO    -->
-        <!-- ========================================== -->
-        <div class="print-controls-pane no-print">
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 24px;">🖨️</span>
-                    <div>
-                        <b style="font-size: 15px; color: #1e1b4b;">VaiMUp Print Studio</b>
-                        <small style="display: block; color: #64748b; font-size: 11px;">Listini & Etichette Barcode</small>
-                    </div>
-                </div>
-            </div>
+ <!-- VISTA PRINT STUDIO (ISOLATA, UNICA E COMPLETA) -->
+            <section id="v-print" class="view" style="padding: 15px !important; overflow: hidden;">
+                <div class="print-studio-container">
+                    
+                    <!-- COLONNA SINISTRA: PANNELLO CONTROLLI -->
+                    <div class="print-controls-pane no-print">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 24px;">🖨️</span>
+                                <div>
+                                    <b style="font-size: 15px; color: #1e1b4b;">VaiMUp Print Studio</b>
+                                    <small style="display: block; color: #64748b; font-size: 11px;">Stampa Listini & Cartello QR</small>
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- GESTIONE PRESET E SALVATAGGIO -->
+                        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Listini & Bozze Salvate</label>
+                                <span id="ps-saved-count-badge" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">0 salvati</span>
+                            </div>
+                            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                                <select id="ps-presets-dropdown" style="margin: 0; background: white; font-weight: 600; font-size: 12px; flex: 1;">
+                                    <option value="">-- Seleziona un listino salvato --</option>
+                                </select>
+                                <button type="button" class="btn btn-s" style="padding: 6px 10px; font-size: 11px; font-weight: bold; min-height: unset;" onclick="loadSelectedPrintPreset()" title="Carica configurazione">📂 Carica</button>
+                                <button type="button" class="btn btn-d" style="padding: 6px 8px; font-size: 10px; min-height: unset;" onclick="deleteSelectedPrintPreset()" title="Elimina configurazione salvata">✕</button>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                <input type="text" id="ps-preset-name-input" placeholder="Nome listino (es. Listino A4 2026)" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white; flex: 1;">
+                                <button type="button" class="btn btn-p" style="padding: 6px 12px; font-size: 11px; font-weight: bold; min-height: unset; white-space: nowrap;" onclick="saveCurrentPrintPreset()">💾 Salva Listino</button>
+                            </div>
+                        </div>
 
-            <!-- ========================================== -->
-            <!-- 💾 MODULO SALVATAGGIO CONFIGURAZIONI & BOZZE -->
-            <!-- ========================================== -->
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Listini & Bozze Salvate</label>
-                    <span id="ps-saved-count-badge" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">0 salvati</span>
-                </div>
-
-                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                    <select id="ps-presets-dropdown" style="margin: 0; background: white; font-weight: 600; font-size: 12px; flex: 1;">
-                        <option value="">-- Seleziona un listino salvato --</option>
-                    </select>
-                    <button type="button" class="btn btn-s" style="padding: 6px 10px; font-size: 11px; font-weight: bold; min-height: unset;" onclick="loadSelectedPrintPreset()" title="Carica configurazione">
-                        📂 Carica
-                    </button>
-                    <button type="button" class="btn btn-d" style="padding: 6px 8px; font-size: 10px; min-height: unset;" onclick="deleteSelectedPrintPreset()" title="Elimina configurazione salvata">
-                        ✕
-                    </button>
-                </div>
-
-                <div style="display: flex; gap: 6px;">
-                    <input type="text" id="ps-preset-name-input" placeholder="Nome listino (es. Listino A4 2026)" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white; flex: 1;">
-                    <button type="button" class="btn btn-p" style="padding: 6px 12px; font-size: 11px; font-weight: bold; min-height: unset; white-space: nowrap;" onclick="saveCurrentPrintPreset()">
-                        💾 Salva Listino
-                    </button>
-                </div>
-            </div>
-
-            <!-- TASTO DI STAMPA PRINCIPALE -->
-            <button type="button" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-size: 14px; font-weight: 900; justify-content: center; padding: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);" onclick="triggerDirectPrint()">
-                🖨️ Stampa Ora / Salva PDF ➔
-            </button>
-
-            <!-- 1. MODALITÀ DI STAMPA: LISTINO vs CARTELLO QR BOOKING -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">1. Modalità Documento</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                    <button type="button" class="btn" id="btn-mode-pricelist" style="padding: 8px 4px; font-size: 11px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="setPrintMode('pricelist')">
-                        📑 Listino Prezzi
-                    </button>
-                    <button type="button" class="btn" id="btn-mode-qrbooking" style="padding: 8px 4px; font-size: 11px; font-weight: 800; justify-content: center; background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="setPrintMode('qrbooking')">
-                        📲 Cartello QR Booking
-                    </button>
-                </div>
-            </div>
-
-            <!-- 2. FORMATO CARTA (DISACCOPPIATO DALL'ORIENTAMENTO) -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Carta</label>
-                <select id="ps-paper-size-select" onchange="onPrintPaperSizeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
-                    <option value="a4" selected>A4 (21 × 29.7 cm - Standard)</option>
-                    <option value="a5">A5 (14.8 × 21 cm - Brochure compatta)</option>
-                    <option value="a3">A3 (29.7 × 42 cm - Tabellone Parete)</option>
-                    <option value="50x70">🖼️ Poster Maxi (50 × 70 cm - Vetrina)</option>
-                </select>
-            </div>
-
-            <!-- 🌟 NUOVO: SELETTORE ORIENTAMENTO (VERTICALE vs ORIZZONTALE) -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Orientamento Pagina</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                    <button type="button" class="btn" id="btn-orient-portrait" style="padding: 7px; font-size: 11.5px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="onPrintOrientationChanged('portrait')">
-                        📄 Verticale
-                    </button>
-                    <button type="button" class="btn" id="btn-orient-landscape" style="padding: 7px; font-size: 11.5px; font-weight: 700; justify-content: center; background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="onPrintOrientationChanged('landscape')">
-                        📑 Orizzontale
-                    </button>
-                </div>
-            </div>
-
-            <!-- 🌟 NUOVO: SELETTORE NUMERO COLONNE & SALVASPAZIO (Visibile per il Listino) -->
-            <div id="ps-columns-selector-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label style="margin: 0; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--p);">Divisione in Colonne</label>
-                    <span id="ps-cols-indicator" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">2 Colonne</span>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px;">
-                    <button type="button" class="btn btn-col-opt" id="btn-col-1" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(1)">1 Col</button>
-                    <button type="button" class="btn btn-col-opt" id="btn-col-2" style="padding: 5px; font-size: 11px; font-weight: 800; justify-content: center; background: var(--p); color: white; border: none; border-radius: 6px;" onclick="onPrintColumnsChanged(2)">2 Col</button>
-                    <button type="button" class="btn btn-col-opt" id="btn-col-3" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(3)">3 Col</button>
-                    <button type="button" class="btn btn-col-opt" id="btn-col-4" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(4)">4 Col</button>
-                </div>
-
-                <!-- Spunta Salvaspazio / Adattamento Densità -->
-                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 11.5px; font-weight: 700; text-transform: none; color: #1e1b4b;">
-                    <input type="checkbox" id="ps-toggle-compactness" onchange="onPrintCompactnessChanged(this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
-                    <span>📐 Modalità Salvaspazio (Massima capienza)</span>
-                </label>
-            </div>
-
-            <!-- 3. TEMA GRAFICO -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Tema Grafico d'Autore</label>
-                <select id="ps-theme-select" onchange="onPrintThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
-                    <option value="luxury-gold" selected>👑 Luxury Gold & Noir (Elegante / Salone Top)</option>
-                    <option value="rose-glamour">🌸 Rose Gold & Glamour Chic (Beauty & Spa)</option>
-                    <option value="barber-vintage">💈 Barber Vintage & Executive (Grooming / Retrò)</option>
-                    <option value="botanical-minimal">🌿 Clean Botanical & Minimal (Moderno Pulito)</option>
-                </select>
-            </div>
-
-            <!-- 🌟 SEZIONE CATEGORIE & SEZIONI DINAMICHE DEL LISTINO -->
-            <div id="ps-categories-control-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div>
-                        <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sezioni & Categorie Listino</label>
-                        <small style="color: #64748b; font-size: 10px; display: block;">Organizza i trattamenti per sezioni</small>
-                    </div>
-                    <button type="button" class="btn btn-p" style="padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 6px; min-height: unset;" onclick="promptCreateNewPrintCategory()">
-                        + Nuova Sezione
-                    </button>
-                </div>
-
-                <div id="ps-categories-accordion-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto;">
-                    <!-- Popolato dinamicamente da JS: Categorie con conteggio articoli, tasto assegna e rimuovi -->
-                </div>
-            </div>
-
-            <!-- 4. LOGO & BRANDING SALONE (CON GUIDA FORMATI E QUALITÀ) -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">4. Loghi & Branding</label>
-                
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                    <div id="ps-salon-logo-preview" style="width: 48px; height: 48px; border-radius: 8px; border: 1px dashed #cbd5e1; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                        <span style="font-size: 20px;">🖼️</span>
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <!-- Input con formati file espliciti (SVG vettoriale, PNG trasparente, WebP, JPG) -->
-                        <input type="file" id="ps-logo-file-input" accept="image/svg+xml, image/png, image/webp, image/jpeg" style="display: none;" onchange="handleSalonLogoUpload(event)">
-                        <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: bold; width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px;" onclick="document.getElementById('ps-logo-file-input').click()">
-                            📁 Carica Logo Salone
+                        <!-- TASTO STAMPA ORA -->
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-size: 14px; font-weight: 900; justify-content: center; padding: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);" onclick="triggerDirectPrint()">
+                            🖨️ Stampa Ora / Salva PDF ➔
                         </button>
+
+                        <!-- 1. MODALITÀ DOCUMENTO -->
+                        <div>
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">1. Modalità Documento</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                <button type="button" class="btn" id="btn-mode-pricelist" style="padding: 8px 4px; font-size: 11px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="setPrintMode('pricelist')">📑 Listino Prezzi</button>
+                                <button type="button" class="btn" id="btn-mode-qrbooking" style="padding: 8px 4px; font-size: 11px; font-weight: 800; justify-content: center; background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="setPrintMode('qrbooking')">📲 Cartello QR Booking</button>
+                            </div>
+                        </div>
+
+                        <!-- 2. FORMATO CARTA -->
+                        <div>
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Carta</label>
+                            <select id="ps-paper-size-select" onchange="onPrintPaperSizeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
+                                <option value="a4" selected>A4 (21 × 29.7 cm - Standard)</option>
+                                <option value="a5">A5 (14.8 × 21 cm - Brochure compatta)</option>
+                                <option value="a3">A3 (29.7 × 42 cm - Tabellone Parete)</option>
+                                <option value="50x70">🖼️ Poster Maxi (50 × 70 cm - Vetrina)</option>
+                            </select>
+                        </div>
+
+                        <!-- ORIENTAMENTO PAGINA -->
+                        <div>
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Orientamento Pagina</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                <button type="button" class="btn" id="btn-orient-portrait" style="padding: 7px; font-size: 11.5px; font-weight: 800; justify-content: center; background: var(--p); color: white; border-radius: 8px;" onclick="onPrintOrientationChanged('portrait')">📄 Verticale</button>
+                                <button type="button" class="btn" id="btn-orient-landscape" style="padding: 7px; font-size: 11.5px; font-weight: 700; justify-content: center; background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="onPrintOrientationChanged('landscape')">📑 Orizzontale</button>
+                            </div>
+                        </div>
+
+                        <!-- DIVISIONE IN COLONNE & COMPATTEZZA -->
+                        <div id="ps-columns-selector-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label style="margin: 0; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--p);">Divisione in Colonne</label>
+                                <span id="ps-cols-indicator" style="font-size: 10px; font-weight: bold; background: white; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">2 Colonne</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px;">
+                                <button type="button" class="btn btn-col-opt" id="btn-col-1" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(1)">1 Col</button>
+                                <button type="button" class="btn btn-col-opt" id="btn-col-2" style="padding: 5px; font-size: 11px; font-weight: 800; justify-content: center; background: var(--p); color: white; border: none; border-radius: 6px;" onclick="onPrintColumnsChanged(2)">2 Col</button>
+                                <button type="button" class="btn btn-col-opt" id="btn-col-3" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(3)">3 Col</button>
+                                <button type="button" class="btn btn-col-opt" id="btn-col-4" style="padding: 5px; font-size: 11px; font-weight: bold; justify-content: center; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="onPrintColumnsChanged(4)">4 Col</button>
+                            </div>
+                            <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 11.5px; font-weight: 700; text-transform: none; color: #1e1b4b;">
+                                <input type="checkbox" id="ps-toggle-compactness" onchange="onPrintCompactnessChanged(this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                                <span>📐 Modalità Salvaspazio (Massima capienza)</span>
+                            </label>
+                        </div>
+
+                        <!-- 3. TEMA GRAFICO -->
+                        <div>
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Tema Grafico d'Autore</label>
+                            <select id="ps-theme-select" onchange="onPrintThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
+                                <option value="luxury-gold" selected>👑 Luxury Gold & Noir</option>
+                                <option value="rose-glamour">🌸 Rose Gold & Glamour Chic</option>
+                                <option value="barber-vintage">💈 Barber Vintage & Executive</option>
+                                <option value="botanical-minimal">🌿 Clean Botanical & Minimal</option>
+                            </select>
+                        </div>
+
+                        <!-- CATEGORIE E SEZIONI -->
+                        <div id="ps-categories-control-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sezioni Listino</label>
+                                    <small style="color: #64748b; font-size: 10px; display: block;">Organizza i trattamenti per sezioni</small>
+                                </div>
+                                <button type="button" class="btn btn-p" style="padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 6px; min-height: unset;" onclick="promptCreateNewPrintCategory()">+ Nuova</button>
+                            </div>
+                            <div id="ps-categories-accordion-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;"></div>
+                        </div>
+
+                        <!-- LOGHI E BRANDING -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Loghi & Branding</label>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                <div id="ps-salon-logo-preview" style="width: 48px; height: 48px; border-radius: 8px; border: 1px dashed #cbd5e1; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                    <span style="font-size: 20px;">🖼️</span>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <input type="file" id="ps-logo-file-input" accept="image/svg+xml, image/png, image/webp, image/jpeg" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                                    <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: bold; width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px;" onclick="document.getElementById('ps-logo-file-input').click()">📁 Carica Logo Salone</button>
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11.5px;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-toggle-show-logo" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Mostra Logo del Negozio</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-toggle-show-vaimup" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Co-branding Logo VaiMUp Suite</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-toggle-show-qr" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Includi QR Code Prenotazione</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- SCALA CARATTERE -->
+                        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label style="margin: 0; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--p);">Dimensione Carattere</label>
+                                <span id="ps-font-scale-label" style="font-size: 11px; font-weight: 900; background: white; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1;">100%</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn" style="padding: 4px 8px; font-size: 11.5px; font-weight: 900; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="adjustPrintFontScale(-0.05)">A-</button>
+                                <input type="range" id="ps-font-scale-slider" min="0.60" max="1.40" step="0.05" value="1.00" oninput="onPrintFontScaleChanged(this.value)" style="flex: 1; margin: 0; cursor: pointer; accent-color: var(--p);">
+                                <button type="button" class="btn" style="padding: 4px 8px; font-size: 11.5px; font-weight: 900; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="adjustPrintFontScale(0.05)">A+</button>
+                            </div>
+                        </div>
+
+                        <!-- OPZIONI CARTELLO QR BOOKING -->
+                        <div id="ps-qr-booking-options-box" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
+                            <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Opzioni Cartello QR</label>
+                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-qr-show-steps" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Mostra Guida in 3 Passaggi</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-qr-show-perks" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Mostra Vantaggi (h24, WhatsApp)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                                    <input type="checkbox" id="ps-qr-show-direct-url" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                                    <span>Mostra Link Testuale sotto il QR</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- SELEZIONE ARTICOLI -->
+                        <div style="flex-grow: 1; display: flex; flex-direction: column; min-height: 180px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Articoli Selezionati</label>
+                                <div style="display: flex; gap: 4px;">
+                                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(true)">Tutti</button>
+                                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(false)">Nessuno</button>
+                                </div>
+                            </div>
+                            <input type="text" id="ps-filter-items-input" placeholder="Filtra per nome o tipo..." onkeyup="filterPrintItemsCheckboxes(this.value)" style="margin: 0 0 6px 0; padding: 6px 10px; font-size: 12px; background: white;">
+                            <div id="ps-items-checklist-container" style="flex-grow: 1; max-height: 190px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px;"></div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Box Informativo Risoluzione e Formati -->
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 10.5px; color: #1e40af; line-height: 1.35;">
-                    💡 <b>Qualità Stampa:</b> Formati ammessi: <b>SVG, PNG, WebP</b>.<br>
-                    Per poster <b>50×70 cm</b> si raccomanda il logo in formato vettoriale <b>SVG</b> (nitidezza infinita) oppure PNG trasparente ad alta risoluzione (min. 1500px).
-                </div>
+                    <!-- COLONNA DESTRA: ANTEPRIMA LIVE (UNICA NEL DOM) -->
+                    <div class="print-preview-column-wrapper">
+                        <!-- TOOLBAR ZOOM FISSA -->
+                        <div class="ps-zoom-toolbar no-print" style="flex-shrink: 0; background: #1e293b; padding: 7px 14px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border: 1.5px solid #334155;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 12px; color: #94a3b8; font-weight: bold;">Anteprima Schermo:</span>
+                                <button type="button" class="btn" style="padding: 3px 10px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Intero Foglio</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.35)">35%</button>
+                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.50)">50%</button>
+                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(0.75)">75%</button>
+                                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" onclick="setManualPreviewZoom(1.00)">100%</button>
+                                <span id="ps-preview-zoom-label" style="font-size: 11px; color: #FBBF24; font-weight: 800; margin-left: 6px;">100%</span>
+                            </div>
+                        </div>
 
-                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11.5px;">
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-toggle-show-logo" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Logo del Negozio</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-toggle-show-vaimup" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Co-branding Logo VaiMUp Suite</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-toggle-show-qr" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Includi QR Code Prenotazione Online</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- 🌟 NUOVO: REGOLATORE DIMENSIONE DEL CARATTERE (FONT SIZE ZOOM) -->
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label style="margin: 0; font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--p);">Dimensione Carattere</label>
-                    <span id="ps-font-scale-label" style="font-size: 11px; font-weight: 900; background: white; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1;">100%</span>
-                </div>
-                
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn" style="padding: 4px 8px; font-size: 11.5px; font-weight: 900; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="adjustPrintFontScale(-0.05)" title="Riduci font">A-</button>
-                    <input type="range" id="ps-font-scale-slider" min="0.60" max="1.40" step="0.05" value="1.00" oninput="onPrintFontScaleChanged(this.value)" style="flex: 1; margin: 0; cursor: pointer; accent-color: var(--p);">
-                    <button type="button" class="btn" style="padding: 4px 8px; font-size: 11.5px; font-weight: 900; background: white; border: 1.5px solid #cbd5e1; border-radius: 6px;" onclick="adjustPrintFontScale(0.05)" title="Ingrandisci font">A+</button>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: #64748b; margin-top: 5px;">
-                    <span>Compatto (60%)</span>
-                    <span style="cursor: pointer; text-decoration: underline; font-weight: bold;" onclick="onPrintFontScaleChanged(1.00)">Ripristina 100%</span>
-                    <span>Grande (140%)</span>
-                </div>
-            </div>
-
-<!-- PANNELLO OPZIONI SPECIFICHE PER IL CARTELLO QR CODE (Visibile solo in modalità QR Booking) -->
-            <div id="ps-qr-booking-options-box" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Opzioni Cartello QR</label>
-                
-                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px;">
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-qr-show-steps" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Guida in 3 Passaggi (Come Funziona)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-qr-show-perks" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Vantaggi (h24, WhatsApp, Zero Attese)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ps-qr-show-direct-url" checked onchange="renderLivePrintSheet()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Link Testuale sotto il QR Code</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- 5. SELEZIONE ARTICOLI DA STAMPARE -->
-            <div style="flex-grow: 1; display: flex; flex-direction: column; min-height: 180px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">5. Articoli Selezionati</label>
-                    <div style="display: flex; gap: 4px;">
-                        <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(true)">Tutti</button>
-                        <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="toggleAllPrintItems(false)">Nessuno</button>
+                        <!-- AREA DI SCROLL ANTEPRIMA -->
+                        <div class="print-preview-pane" id="ps-preview-scroll-pane">
+                            <div id="print-sheet-scaler-wrapper">
+                                <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
+                                    <!-- Popolato da renderLivePrintSheet() -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
-
-                <input type="text" id="ps-filter-items-input" placeholder="Filtra per nome o tipo..." onkeyup="filterPrintItemsCheckboxes(this.value)" style="margin: 0 0 6px 0; padding: 6px 10px; font-size: 12px; background: white;">
-
-                <div id="ps-items-checklist-container" style="flex-grow: 1; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
-                    <!-- Popolato dinamicamente da JS -->
-                </div>
-            </div>
-
-        </div>
-
-        <!-- ========================================== -->
-        <!-- COLONNA DESTRA: ANTEPRIMA LIVE FIT-TO-SCREEN -->
-        <!-- ========================================== -->
-        <div class="print-preview-pane">
-            
-            <!-- BARRA STRUMENTI ZOOM FLUTTUANTE SULLO SCHERMO (Invisibile in stampa) -->
-            <div class="ps-zoom-toolbar no-print" style="position: sticky; top: 0; z-index: 100; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);">
-                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: var(--p); color: white; border: none; border-radius: 12px; font-weight: bold;" onclick="autoFitPrintPreviewToScreen()">🔍 Adatta Schermo</button>
-                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(0.5)">50%</button>
-                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(0.75)">75%</button>
-                <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;" onclick="setManualPreviewZoom(1.0)">100%</button>
-                <span id="ps-preview-zoom-label" style="font-size: 10.5px; color: #cbd5e1; font-weight: bold; margin-left: 4px;">100%</span>
-            </div>
-
-            <!-- WRAPPER DI SCALA (Non deforma la stampa ma fa rientrare il 50x70 a video) -->
-            <div id="print-sheet-scaler-wrapper">
-                <div id="print-sheet-canvas" class="print-sheet paper-a4 orient-portrait density-normal theme-luxury-gold" contenteditable="false">
-                    <!-- Generato dinamicamente -->
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
+            </section>
 
 
 
