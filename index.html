@@ -1734,6 +1734,8 @@
     <script src="ai-agent.js"></script>
     <!-- 📊 Generatore Barcode Vettoriale ad Alta Risoluzione per Stampa -->
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<!-- 📄 Libreria Mozilla PDF.js per conversione vettoriale automatica PDF -> Immagine HD -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6C5CE7">
 </head>
@@ -2731,7 +2733,8 @@
                                     <span style="font-size: 20px;">🖼️</span>
                                 </div>
                                 <div style="flex: 1; min-width: 0;">
-                                    <input type="file" id="ps-logo-file-input" accept="image/svg+xml, image/png, image/webp, image/jpeg" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                                    <input type="file" id="ps-logo-file-input" accept="image/svg+xml, image/png, image/webp, image/jpeg, application/pdf, .pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                                    
                                     <button type="button" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: bold; width: 100%; justify-content: center; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 8px;" onclick="document.getElementById('ps-logo-file-input').click()">📁 Carica Logo Salone</button>
                                 </div>
                             </div>
@@ -23450,32 +23453,77 @@ function updateDynamicPrintPageCss() {
 // 📁 GESTIONE LOGHI, CHECKLIST E CATEGORIE
 // =========================================================================
 
+// 🌟 CARICAMENTO LOGO (Supporta PNG, SVG, WebP, JPG e PDF Vettoriali)
 async function handleSalonLogoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const base64 = e.target.result;
-        if (window._printStudioState) window._printStudioState.salonLogoBase64 = base64;
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-        const previewEl = document.getElementById('ps-salon-logo-preview');
-        if (previewEl) {
-            previewEl.innerHTML = `<img src="${base64}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+    try {
+        let base64Result = null;
+
+        if (isPdf) {
+            // Conversione automatica PDF Vettoriale -> Immagine Ultra-HD (4x)
+            if (typeof pdfjsLib === 'undefined') {
+                return alert("Libreria PDF non ancora pronta. Attendi qualche istante e riprova.");
+            }
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+
+            // Scala 4.0 per mantenere la nitidezza chirurgica del vettoriale anche su maxi formati 50x70
+            const viewport = page.getViewport({ scale: 4.0 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            base64Result = canvas.toDataURL('image/png');
+        } else {
+            // Normale caricamento per PNG, SVG, JPG
+            base64Result = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
-        localStorage.setItem('vaimup_salon_logo', base64);
-        if (typeof sysSettings !== 'undefined') sysSettings['salon_logo'] = base64;
-        
+        // Salva nello stato di Stampa
+        if (window._printStudioState) {
+            window._printStudioState.salonLogoBase64 = base64Result;
+        }
+
+        // Aggiorna l'anteprima nella sidebar dei controlli
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${base64Result}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+
+        // Persistenza nel database locale e impostazioni
+        localStorage.setItem('vaimup_salon_logo', base64Result);
+        if (typeof sysSettings !== 'undefined') sysSettings['salon_logo'] = base64Result;
+
         await window.universalQuery({
             action: 'UPSERT_SETTING',
-            data: { key: 'salon_logo', value: base64 }
+            data: { key: 'salon_logo', value: base64Result }
         });
 
+        // Ridisegna il foglio con il nuovo logo caricato dal PDF
         renderLivePrintSheet();
-    };
-    reader.readAsDataURL(file);
+
+    } catch (err) {
+        console.error("Errore conversione logo PDF:", err);
+        alert("Impossibile convertire il logo dal file PDF. Verifica che non sia protetto da password.");
+    }
 }
+
+window.handleSalonLogoUpload = handleSalonLogoUpload;
 
 function renderPrintItemsChecklist() {
     const container = document.getElementById('ps-items-checklist-container');
