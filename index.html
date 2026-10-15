@@ -23947,6 +23947,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     sheet.innerHTML = `
         <div class="ps-sheet-inner-container" style="display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; min-height: 100%; box-sizing: border-box; position: relative;">
             
+            ${getThemeFrameSvgMarkup(s.frameStyle)}
             <!-- HEADER DEL FOGLIO -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; margin-bottom: 6px; flex-shrink: 0; min-height: calc(55px * var(--ps-scale, 1));">
                 <div style="display: flex; align-items: center; gap: 12px;">
