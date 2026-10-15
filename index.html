@@ -1722,18 +1722,24 @@
     }
 }
 
-/* 🌟 CORNICI GRAFICHE VETTORIALI A TEMA (BEAUTY, BARBER, LUXURY, SPORT, RETAIL) */
-.ps-sheet-frame-overlay {
+/* 🌟 FORME GRAFICHE AMBIENTALI PERIMETRALI (BEAUTY, BARBER, LUXURY, SPORT, RETAIL) */
+.ps-sheet-ambient-graphics {
     position: absolute;
-    inset: 4mm;
+    inset: 0;
     pointer-events: none;
-    z-index: 5;
+    z-index: 1; /* 👈 Sta SOTTO al testo e non blocca nessun click */
     overflow: hidden;
 }
-.ps-sheet-frame-overlay svg {
+.ps-sheet-ambient-graphics svg {
     width: 100%;
     height: 100%;
     display: block;
+}
+
+/* 🌟 IL CONTENUTO STA SEMPRE SOPRA ALLE GRAFICHE (ZERO SOVRAPPOSIZIONI O TESTI COPERTI) */
+.ps-sheet-inner-container {
+    position: relative !important;
+    z-index: 2 !important;
 }
 
     </style>
@@ -2726,16 +2732,16 @@
                             </select>
                         </div>
 
-                        <!-- 🌟 SELETTORE CORNICE GRAFICA TEMATICA -->
+<!-- 🌟 SELETTORE FORME GRAFICHE TEMATICHE -->
 <div style="margin-top: 10px;">
-    <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Cornice Artistica Perimetrale</label>
+    <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Decori & Forme Perimetrali</label>
     <select id="ps-frame-style-select" onchange="onPrintFrameStyleChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px;">
-        <option value="none">⚪ Nessuna (Listino Minimale Pulito)</option>
-        <option value="luxury" selected>👑 Luxury Salon (Art Déco Dorato)</option>
-        <option value="beauty">🌸 Beauty & Spa (Botanica & Petali Eleganti)</option>
-        <option value="barber">💈 Barber Vintage (Bordi Retrò & Angoli d'Epoca)</option>
-        <option value="retail">🏷️ Boutique & Retail (Doppio Squadro Sartoriale)</option>
-        <option value="sport">⚡ Sport & Fitness (Geometrie Dinamiche a 45°)</option>
+        <option value="none">⚪ Nessuna (Foglio Pulito Minimale)</option>
+        <option value="luxury" selected>👑 Luxury Salon (Archi & Geometrie Dorate)</option>
+        <option value="beauty">🌸 Beauty & Spa (Foglie Botaniche & Curve Spa)</option>
+        <option value="barber">💈 Barber Shop (Pinstripes & Decori Vintage)</option>
+        <option value="retail">🏷️ Boutique & Retail (Squadro Minimalista Atelier)</option>
+        <option value="sport">⚡ Sport & Fitness (Tagli Dinamici a 45°)</option>
     </select>
 </div>
 
@@ -24166,122 +24172,151 @@ function onPrintFrameStyleChanged(val) {
     renderLivePrintSheet();
 }
 
-// 🎨 GENERATORE VETTORIALE DELLA CORNICE IN BASE AL TEMA
+// 🎨 GENERATORE DI FORME GRAFICHE AMBIENTALI ELEGANTI (ZERO RETTANGOLI GREZZI)
 function getThemeFrameSvgMarkup(style) {
     if (!style || style === 'none') return '';
 
-    // 🌸 1. BEAUTY & SPA (Foglie botaniche e curve organiche negli angoli)
-    if (style === 'beauty') {
-        return `
-            <div class="ps-sheet-frame-overlay">
-                <svg viewBox="0 0 800 1100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="15" y="15" width="770" height="1070" rx="16" fill="none" stroke="var(--ps-accent)" stroke-width="1.2" opacity="0.6"/>
-                    <rect x="22" y="22" width="756" height="1056" rx="12" fill="none" stroke="var(--ps-accent)" stroke-width="0.6" stroke-dasharray="3,3" opacity="0.4"/>
-                    <!-- Angolo Alto SX (Petali) -->
-                    <g transform="translate(18, 18)" stroke="var(--ps-accent)" fill="none" stroke-width="1.2" opacity="0.85">
-                        <path d="M 0,0 Q 25,5 35,35 Q 5,25 0,0 Z" fill="var(--ps-accent)" fill-opacity="0.15"/>
-                        <path d="M 0,0 C 20,2 30,15 45,20 C 15,30 2,20 0,0 Z"/>
-                    </g>
-                    <!-- Angolo Alto DX -->
-                    <g transform="translate(782, 18) scale(-1, 1)" stroke="var(--ps-accent)" fill="none" stroke-width="1.2" opacity="0.85">
-                        <path d="M 0,0 Q 25,5 35,35 Q 5,25 0,0 Z" fill="var(--ps-accent)" fill-opacity="0.15"/>
-                        <path d="M 0,0 C 20,2 30,15 45,20 C 15,30 2,20 0,0 Z"/>
-                    </g>
-                    <!-- Angolo Basso SX -->
-                    <g transform="translate(18, 1082) scale(1, -1)" stroke="var(--ps-accent)" fill="none" stroke-width="1.2" opacity="0.85">
-                        <path d="M 0,0 Q 25,5 35,35 Q 5,25 0,0 Z" fill="var(--ps-accent)" fill-opacity="0.15"/>
-                        <path d="M 0,0 C 20,2 30,15 45,20 C 15,30 2,20 0,0 Z"/>
-                    </g>
-                    <!-- Angolo Basso DX -->
-                    <g transform="translate(782, 1082) scale(-1, -1)" stroke="var(--ps-accent)" fill="none" stroke-width="1.2" opacity="0.85">
-                        <path d="M 0,0 Q 25,5 35,35 Q 5,25 0,0 Z" fill="var(--ps-accent)" fill-opacity="0.15"/>
-                        <path d="M 0,0 C 20,2 30,15 45,20 C 15,30 2,20 0,0 Z"/>
-                    </g>
-                </svg>
-            </div>
-        `;
-    }
-
-    // 💈 2. BARBER VINTAGE (Doppia cornice con angoli a borchie e riccioli d'epoca)
-    if (style === 'barber') {
-        return `
-            <div class="ps-sheet-frame-overlay">
-                <svg viewBox="0 0 800 1100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="14" y="14" width="772" height="1072" fill="none" stroke="var(--ps-accent)" stroke-width="2.5" opacity="0.8"/>
-                    <rect x="20" y="20" width="760" height="1060" fill="none" stroke="var(--ps-accent)" stroke-width="0.8" opacity="0.6"/>
-                    <!-- Borchie e decori angolari -->
-                    <g fill="var(--ps-accent)">
-                        <circle cx="14" cy="14" r="3.5"/><circle cx="786" cy="14" r="3.5"/>
-                        <circle cx="14" cy="1086" r="3.5"/><circle cx="786" cy="1086" r="3.5"/>
-                    </g>
-                    <g stroke="var(--ps-accent)" stroke-width="1.2" fill="none" opacity="0.8">
-                        <path d="M 8,26 L 26,8 M 8,32 L 32,8"/>
-                        <path d="M 792,26 L 774,8 M 792,32 L 768,8"/>
-                        <path d="M 8,1074 L 26,1092 M 8,1068 L 32,1092"/>
-                        <path d="M 792,1074 L 774,1092 M 792,1068 L 768,1092"/>
-                    </g>
-                </svg>
-            </div>
-        `;
-    }
-
-    // 👑 3. LUXURY SALON (Angoli geometrici Art Déco Gatsby)
+    // 👑 1. LUXURY SALON: Raggi concentrici sottili negli angoli opposti, micro-diamanti e texture dorata d'alta moda
     if (style === 'luxury') {
         return `
-            <div class="ps-sheet-frame-overlay">
-                <svg viewBox="0 0 800 1100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="15" y="15" width="770" height="1070" fill="none" stroke="var(--ps-accent)" stroke-width="1" opacity="0.6"/>
-                    <!-- Corner Art Déco a gradini -->
-                    <g stroke="var(--ps-accent)" stroke-width="1.4" fill="none">
-                        <path d="M 15,45 L 45,45 L 45,15"/>
-                        <path d="M 22,52 L 52,52 L 52,22"/>
-                        <path d="M 785,45 L 755,45 L 755,15"/>
-                        <path d="M 778,52 L 748,52 L 748,22"/>
-                        <path d="M 15,1055 L 45,1055 L 45,1085"/>
-                        <path d="M 22,1048 L 52,1048 L 52,1078"/>
-                        <path d="M 785,1055 L 755,1055 L 755,1085"/>
-                        <path d="M 778,1048 L 748,1048 L 748,1078"/>
-                        <!-- Diamantini angolari -->
-                        <polygon points="30,30 35,25 40,30 35,35" fill="var(--ps-accent)"/>
-                        <polygon points="770,30 765,25 760,30 765,35" fill="var(--ps-accent)"/>
-                        <polygon points="30,1070 35,1065 40,1070 35,1075" fill="var(--ps-accent)"/>
-                        <polygon points="770,1070 765,1065 760,1070 765,1075" fill="var(--ps-accent)"/>
+            <div class="ps-sheet-ambient-graphics">
+                <svg viewBox="0 0 800 1120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Angolo Superiore Destro: Archi concentrici stile ventaglio Deco -->
+                    <g stroke="var(--ps-accent)" fill="none" opacity="0.25" stroke-width="1.2">
+                        <circle cx="800" cy="0" r="140" stroke-dasharray="4,4"/>
+                        <circle cx="800" cy="0" r="100"/>
+                        <circle cx="800" cy="0" r="60"/>
+                        <circle cx="800" cy="0" r="25"/>
+                        <line x1="660" y1="0" x2="800" y2="140"/>
+                    </g>
+                    <!-- Angolo Inferiore Sinistro: Archi concentrici gemelli -->
+                    <g stroke="var(--ps-accent)" fill="none" opacity="0.25" stroke-width="1.2">
+                        <circle cx="0" cy="1120" r="140" stroke-dasharray="4,4"/>
+                        <circle cx="0" cy="1120" r="100"/>
+                        <circle cx="0" cy="1120" r="60"/>
+                        <circle cx="0" cy="1120" r="25"/>
+                        <line x1="0" y1="980" x2="140" y2="1120"/>
+                    </g>
+                    <!-- Micro-dettagli geometrici sui bordi laterali (non toccano i testi) -->
+                    <g fill="var(--ps-accent)" opacity="0.4">
+                        <polygon points="12,540 18,546 12,552 6,546"/>
+                        <polygon points="788,540 794,546 788,552 782,546"/>
                     </g>
                 </svg>
             </div>
         `;
     }
 
-    // 🏷️ 4. BOUTIQUE & RETAIL (Squadro contemporaneo pulito a croce sartoriale)
+    // 🌸 2. BEAUTY & SPA: Silhouette botaniche (foglie di Ginkgo e curve d'acqua rilassanti nei margini)
+    if (style === 'beauty') {
+        return `
+            <div class="ps-sheet-ambient-graphics">
+                <svg viewBox="0 0 800 1120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Foglia Botanica Angolo Alto Sinistro -->
+                    <g transform="translate(0, -10)" fill="var(--ps-accent)" fill-opacity="0.08" stroke="var(--ps-accent)" stroke-width="1" stroke-opacity="0.35">
+                        <path d="M 0,0 C 70,10 110,60 130,120 C 80,110 30,80 0,0 Z"/>
+                        <path d="M 0,0 C 40,40 60,90 70,140 C 35,115 10,70 0,0 Z"/>
+                        <path d="M 0,0 C 90,5 140,40 160,80 C 105,75 50,50 0,0 Z"/>
+                        <path d="M 0,0 L 95,90" stroke-dasharray="2,2"/>
+                    </g>
+                    <!-- Foglia Botanica Angolo Basso Destro (riflessa) -->
+                    <g transform="translate(800, 1130) scale(-1, -1)" fill="var(--ps-accent)" fill-opacity="0.08" stroke="var(--ps-accent)" stroke-width="1" stroke-opacity="0.35">
+                        <path d="M 0,0 C 70,10 110,60 130,120 C 80,110 30,80 0,0 Z"/>
+                        <path d="M 0,0 C 40,40 60,90 70,140 C 35,115 10,70 0,0 Z"/>
+                        <path d="M 0,0 C 90,5 140,40 160,80 C 105,75 50,50 0,0 Z"/>
+                        <path d="M 0,0 L 95,90" stroke-dasharray="2,2"/>
+                    </g>
+                    <!-- Onde fluide eteree sul fondo -->
+                    <path d="M 0,1100 Q 200,1085 400,1105 T 800,1095" fill="none" stroke="var(--ps-accent)" stroke-width="0.8" opacity="0.2"/>
+                </svg>
+            </div>
+        `;
+    }
+
+    // 💈 3. BARBER SHOP: Pinstripes diagonali a 45°, angoli a scalpello e fregi sartoriali da vera barberia
+    if (style === 'barber') {
+        return `
+            <div class="ps-sheet-ambient-graphics">
+                <svg viewBox="0 0 800 1120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Angolo Alto Sinistro: Pinstripes sartoriali a 45° -->
+                    <g stroke="var(--ps-accent)" stroke-width="1.2" opacity="0.35">
+                        <line x1="0" y1="20" x2="20" y2="0"/>
+                        <line x1="0" y1="35" x2="35" y2="0"/>
+                        <line x1="0" y1="50" x2="50" y2="0"/>
+                        <line x1="0" y1="65" x2="65" y2="0"/>
+                        <line x1="0" y1="80" x2="80" y2="0" stroke-width="2"/>
+                    </g>
+                    <!-- Angolo Alto Destro: Fregio geometrico vintage -->
+                    <g stroke="var(--ps-accent)" stroke-width="1.2" opacity="0.35" transform="translate(800, 0) scale(-1, 1)">
+                        <line x1="0" y1="20" x2="20" y2="0"/>
+                        <line x1="0" y1="35" x2="35" y2="0"/>
+                        <line x1="0" y1="50" x2="50" y2="0"/>
+                        <line x1="0" y1="65" x2="65" y2="0"/>
+                        <line x1="0" y1="80" x2="80" y2="0" stroke-width="2"/>
+                    </g>
+                    <!-- Angolo Basso Sinistro -->
+                    <g stroke="var(--ps-accent)" stroke-width="1.2" opacity="0.35" transform="translate(0, 1120) scale(1, -1)">
+                        <line x1="0" y1="20" x2="20" y2="0"/>
+                        <line x1="0" y1="35" x2="35" y2="0"/>
+                        <line x1="0" y1="50" x2="50" y2="0"/>
+                        <line x1="0" y1="65" x2="65" y2="0"/>
+                        <line x1="0" y1="80" x2="80" y2="0" stroke-width="2"/>
+                    </g>
+                    <!-- Angolo Basso Destro -->
+                    <g stroke="var(--ps-accent)" stroke-width="1.2" opacity="0.35" transform="translate(800, 1120) scale(-1, -1)">
+                        <line x1="0" y1="20" x2="20" y2="0"/>
+                        <line x1="0" y1="35" x2="35" y2="0"/>
+                        <line x1="0" y1="50" x2="50" y2="0"/>
+                        <line x1="0" y1="65" x2="65" y2="0"/>
+                        <line x1="0" y1="80" x2="80" y2="0" stroke-width="2"/>
+                    </g>
+                </svg>
+            </div>
+        `;
+    }
+
+    // 🏷️ 4. BOUTIQUE & RETAIL: Segni di taglio/registro d'atelier e forme squadrate minimaliste
     if (style === 'retail') {
         return `
-            <div class="ps-sheet-frame-overlay">
-                <svg viewBox="0 0 800 1100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="25" y="25" width="750" height="1050" fill="none" stroke="var(--ps-accent)" stroke-width="0.8" opacity="0.5"/>
-                    <!-- Tagli a croce sartoriale -->
-                    <g stroke="var(--ps-accent)" stroke-width="1.6" opacity="0.8">
-                        <line x1="15" y1="25" x2="45" y2="25"/><line x1="25" y1="15" x2="25" y2="45"/>
-                        <line x1="755" y1="25" x2="785" y2="25"/><line x1="775" y1="15" x2="775" y2="45"/>
-                        <line x1="15" y1="1075" x2="45" y2="1075"/><line x1="25" y1="1055" x2="25" y2="1085"/>
-                        <line x1="755" y1="1075" x2="785" y2="1075"/><line x1="775" y1="1055" x2="775" y2="1085"/>
+            <div class="ps-sheet-ambient-graphics">
+                <svg viewBox="0 0 800 1120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Mirini a croce tipografici nei 4 angoli estremi -->
+                    <g stroke="var(--ps-accent)" stroke-width="1" opacity="0.4">
+                        <path d="M 8,24 L 24,24 L 24,8"/>
+                        <circle cx="24" cy="24" r="3" fill="none"/>
+                        
+                        <path d="M 792,24 L 776,24 L 776,8"/>
+                        <circle cx="776" cy="24" r="3" fill="none"/>
+
+                        <path d="M 8,1096 L 24,1096 L 24,1112"/>
+                        <circle cx="24" cy="1096" r="3" fill="none"/>
+
+                        <path d="M 792,1096 L 776,1096 L 776,1112"/>
+                        <circle cx="776" cy="1096" r="3" fill="none"/>
                     </g>
+                    <!-- Cerchio artistico a filigrana asimmetrico sullo sfondo a destra -->
+                    <circle cx="760" cy="560" r="120" fill="none" stroke="var(--ps-accent)" stroke-width="0.75" stroke-dasharray="3,6" opacity="0.18"/>
                 </svg>
             </div>
         `;
     }
 
-    // ⚡ 5. SPORT & FITNESS (Tagli angolari dinamici ed energici a 45°)
+    // ⚡ 5. SPORT & FITNESS: Tagli dinamici, cunei e linee di velocità nei bordi
     if (style === 'sport') {
         return `
-            <div class="ps-sheet-frame-overlay">
-                <svg viewBox="0 0 800 1100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M 60,14 L 740,14 L 786,60 L 786,1040 L 740,1086 L 60,1086 L 14,1040 L 14,60 Z" fill="none" stroke="var(--ps-accent)" stroke-width="1.8" opacity="0.75"/>
-                    <!-- Bande diagonali di accelerazione -->
-                    <g fill="var(--ps-accent)" opacity="0.85">
-                        <polygon points="18,30 26,22 42,38 34,46"/>
-                        <polygon points="28,20 36,12 52,28 44,36"/>
-                        <polygon points="782,1070 774,1078 758,1062 766,1054"/>
-                        <polygon points="772,1080 764,1088 748,1072 756,1064"/>
+            <div class="ps-sheet-ambient-graphics">
+                <svg viewBox="0 0 800 1120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Tagli diagonali aerodinamici in alto a destra -->
+                    <g fill="var(--ps-accent)" opacity="0.18">
+                        <polygon points="720,0 770,0 800,60 800,10"/>
+                        <polygon points="680,0 710,0 760,100 750,100"/>
+                        <polygon points="650,0 670,0 730,120 720,120"/>
+                    </g>
+                    <!-- Tagli diagonali gemelli in basso a sinistra -->
+                    <g fill="var(--ps-accent)" opacity="0.18" transform="translate(800, 1120) scale(-1, -1)">
+                        <polygon points="720,0 770,0 800,60 800,10"/>
+                        <polygon points="680,0 710,0 760,100 750,100"/>
+                        <polygon points="650,0 670,0 730,120 720,120"/>
                     </g>
                 </svg>
             </div>
@@ -24293,6 +24328,7 @@ function getThemeFrameSvgMarkup(style) {
 
 window.onPrintFrameStyleChanged = onPrintFrameStyleChanged;
 window.getThemeFrameSvgMarkup = getThemeFrameSvgMarkup;
+
 
 // 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
 // 🌟 DRAG & DROP PROTETTO: NON ROMPE MAI LE COLONNE
