@@ -2713,6 +2713,44 @@
                             </select>
                         </div>
 
+
+                        <!-- 🌟 BOX COLORI PERSONALIZZATI (CURSORE SFUMATURE + CODICE HEX) -->
+<div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-top: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">🎨 Colori Personalizzati</label>
+        <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetThemeColorsToDefault()" title="Ripristina i colori del tema">Reset Tema</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- 1. Colore Sfondo Foglio -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #1e1b4b;">Sfondo Foglio</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="color" id="ps-color-picker-bg" value="#ffffff" oninput="onPrintCustomColorChanged('bg', this.value, true)" style="width: 28px; height: 28px; padding: 0; border: none; cursor: pointer; border-radius: 6px; background: transparent;">
+                <input type="text" id="ps-color-hex-bg" value="#FFFFFF" maxlength="7" oninput="onPrintCustomColorChanged('bg', this.value, false)" style="width: 72px; padding: 4px 6px; margin: 0; font-size: 11px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; text-transform: uppercase;">
+            </div>
+        </div>
+
+        <!-- 2. Colore Font / Testo -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #1e1b4b;">Testo / Font</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="color" id="ps-color-picker-text" value="#1e293b" oninput="onPrintCustomColorChanged('text', this.value, true)" style="width: 28px; height: 28px; padding: 0; border: none; cursor: pointer; border-radius: 6px; background: transparent;">
+                <input type="text" id="ps-color-hex-text" value="#1E293B" maxlength="7" oninput="onPrintCustomColorChanged('text', this.value, false)" style="width: 72px; padding: 4px 6px; margin: 0; font-size: 11px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; text-transform: uppercase;">
+            </div>
+        </div>
+
+        <!-- 3. Colore Linee, Bordi & Dettagli (Accento) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #1e1b4b;">Linee, Bordi & Accenti</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="color" id="ps-color-picker-accent" value="#d4af37" oninput="onPrintCustomColorChanged('accent', this.value, true)" style="width: 28px; height: 28px; padding: 0; border: none; cursor: pointer; border-radius: 6px; background: transparent;">
+                <input type="text" id="ps-color-hex-accent" value="#D4AF37" maxlength="7" oninput="onPrintCustomColorChanged('accent', this.value, false)" style="width: 72px; padding: 4px 6px; margin: 0; font-size: 11px; font-family: monospace; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; text-transform: uppercase;">
+            </div>
+        </div>
+    </div>
+</div>
+
                         <!-- CATEGORIE E SEZIONI -->
                         <div id="ps-categories-control-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -23417,6 +23455,7 @@ function onPrintThemeChanged(themeVal) {
     window._printStudioState.theme = themeVal;
     applyPrintPaperClasses();
     renderLivePrintSheet();
+    syncColorPickersWithCurrentTheme();
 }
 
 function applyPrintPaperClasses() {
@@ -23425,6 +23464,7 @@ function applyPrintPaperClasses() {
     const s = window._printStudioState;
     sheet.className = `print-sheet paper-${s.paperSize} orient-${s.orientation} density-${s.compactness} theme-${s.theme}`;
     sheet.style.setProperty('--ps-scale', s.fontScale || 1.00);
+    applyCustomSheetColors();
 }
 
 function updateDynamicPrintPageCss() {
@@ -23762,6 +23802,8 @@ function renderLivePrintSheet() {
     } else {
         renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc);
     }
+applyCustomSheetColors();
+
 }
 
 // =========================================================================
@@ -23972,6 +24014,120 @@ function resetLogoQrPositions() {
     window._printStudioState.qrPos = null;
     renderLivePrintSheet();
 }
+
+
+// 🌟 SINCRONIZZAZIONE COLORI IN TEMPO REALE (Picker Visivo <-> Codice HEX)
+function onPrintCustomColorChanged(type, value, fromPicker = false) {
+    if (!window._printStudioState) window._printStudioState = {};
+
+    let hex = value.trim();
+    if (!hex.startsWith('#') && (hex.length === 6 || hex.length === 3)) {
+        hex = '#' + hex;
+    }
+
+    // Aggiorna l'input gemello (se muovi il cursore aggiorna il testo HEX, e viceversa)
+    if (fromPicker) {
+        const textInput = document.getElementById(`ps-color-hex-${type}`);
+        if (textInput) textInput.value = hex.toUpperCase();
+    } else {
+        const pickerInput = document.getElementById(`ps-color-picker-${type}`);
+        if (pickerInput && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+            pickerInput.value = hex;
+        }
+    }
+
+    // Salva nello stato
+    if (type === 'bg') window._printStudioState.customBg = hex;
+    if (type === 'text') window._printStudioState.customText = hex;
+    if (type === 'accent') window._printStudioState.customAccent = hex;
+
+    // Applica istantaneamente al foglio
+    applyCustomSheetColors();
+}
+
+function applyCustomSheetColors() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet || !window._printStudioState) return;
+
+    const s = window._printStudioState;
+
+    if (s.customBg && /^#[0-9A-Fa-f]{3,6}$/.test(s.customBg)) {
+        sheet.style.setProperty('--ps-bg', s.customBg);
+        sheet.style.background = s.customBg;
+    }
+    if (s.customText && /^#[0-9A-Fa-f]{3,6}$/.test(s.customText)) {
+        sheet.style.setProperty('--ps-text', s.customText);
+        sheet.style.setProperty('--ps-text-sub', s.customText);
+        sheet.style.color = s.customText;
+    }
+    if (s.customAccent && /^#[0-9A-Fa-f]{3,6}$/.test(s.customAccent)) {
+        sheet.style.setProperty('--ps-accent', s.customAccent);
+        sheet.style.setProperty('--ps-accent-border', s.customAccent);
+    }
+}
+
+// Ripristina i colori originali del tema preimpostato selezionato
+function resetThemeColorsToDefault() {
+    if (!window._printStudioState) return;
+    window._printStudioState.customBg = null;
+    window._printStudioState.customText = null;
+    window._printStudioState.customAccent = null;
+
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (sheet) {
+        sheet.style.removeProperty('--ps-bg');
+        sheet.style.removeProperty('--ps-text');
+        sheet.style.removeProperty('--ps-text-sub');
+        sheet.style.removeProperty('--ps-accent');
+        sheet.style.removeProperty('--ps-accent-border');
+        sheet.style.background = '';
+        sheet.style.color = '';
+    }
+
+    applyPrintPaperClasses();
+    syncColorPickersWithCurrentTheme();
+}
+
+// Sincronizza i campi picker con i colori calcolati del tema
+function syncColorPickersWithCurrentTheme() {
+    const sheet = document.getElementById('print-sheet-canvas');
+    if (!sheet) return;
+
+    const style = getComputedStyle(sheet);
+    const bg = style.getPropertyValue('--ps-bg').trim() || '#ffffff';
+    const text = style.getPropertyValue('--ps-text').trim() || '#1e293b';
+    const accent = style.getPropertyValue('--ps-accent').trim() || '#d4af37';
+
+    const rgbToHex = (col) => {
+        if (col.startsWith('#')) return col.toUpperCase();
+        const rgb = col.match(/\d+/g);
+        if (!rgb || rgb.length < 3) return '#FFFFFF';
+        return ('#' + ((1 << 24) + (parseInt(rgb[0]) << 16) + (parseInt(rgb[1]) << 8) + parseInt(rgb[2])).toString(16).slice(1)).toUpperCase();
+    };
+
+    const hexBg = rgbToHex(bg);
+    const hexText = rgbToHex(text);
+    const hexAccent = rgbToHex(accent);
+
+    const pBg = document.getElementById('ps-color-picker-bg');
+    const tBg = document.getElementById('ps-color-hex-bg');
+    if (pBg && /^#[0-9A-F]{6}$/i.test(hexBg)) pBg.value = hexBg;
+    if (tBg) tBg.value = hexBg;
+
+    const pText = document.getElementById('ps-color-picker-text');
+    const tText = document.getElementById('ps-color-hex-text');
+    if (pText && /^#[0-9A-F]{6}$/i.test(hexText)) pText.value = hexText;
+    if (tText) tText.value = hexText;
+
+    const pAcc = document.getElementById('ps-color-picker-accent');
+    const tAcc = document.getElementById('ps-color-hex-accent');
+    if (pAcc && /^#[0-9A-F]{6}$/i.test(hexAccent)) pAcc.value = hexAccent;
+    if (tAcc) tAcc.value = hexAccent;
+}
+
+window.onPrintCustomColorChanged = onPrintCustomColorChanged;
+window.applyCustomSheetColors = applyCustomSheetColors;
+window.resetThemeColorsToDefault = resetThemeColorsToDefault;
 
 // 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
 // 🌟 DRAG & DROP PROTETTO: NON ROMPE MAI LE COLONNE
