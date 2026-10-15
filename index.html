@@ -22920,86 +22920,8 @@ window._printStudioState = {
     footerNotes: 'I prezzi si intendono IVA inclusa. Si riceve su appuntamento.',
     selectedItemIds: new Set(),
     categories: [],
-    customItems: [],
-    window._printStudioState.logoSize = window._printStudioState.logoSize || 65;
-window._printStudioState.qrSize = window._printStudioState.qrSize || 55;
-window._printStudioState.logoPos = window._printStudioState.logoPos || null; // { top: '%', left: '%' }
-window._printStudioState.qrPos = window._printStudioState.qrPos || null;     // { top: '%', left: '%' }
+    customItems: []
 };
-
-
-
-// 🌟 REGOLAZIONE DIMENSIONI
-function onPrintLogoSizeChanged(val) {
-    const size = parseInt(val) || 65;
-    window._printStudioState.logoSize = size;
-    const label = document.getElementById('ps-logo-size-label');
-    if (label) label.innerText = `${size}px`;
-    renderLivePrintSheet();
-}
-
-function onPrintQrSizeChanged(val) {
-    const size = parseInt(val) || 55;
-    window._printStudioState.qrSize = size;
-    const label = document.getElementById('ps-qr-size-label');
-    if (label) label.innerText = `${size}px`;
-    renderLivePrintSheet();
-}
-
-function resetLogoQrPositions() {
-    window._printStudioState.logoPos = null;
-    window._printStudioState.qrPos = null;
-    renderLivePrintSheet();
-}
-
-// 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
-function startDraggingPrintWidget(e, widgetType) {
-    e.preventDefault();
-    const sheet = document.getElementById('print-sheet-canvas');
-    const targetBox = e.currentTarget;
-    if (!sheet || !targetBox) return;
-
-    const scale = window._previewScaleFactor || 1.0;
-    const sheetRect = sheet.getBoundingClientRect();
-    const boxRect = targetBox.getBoundingClientRect();
-
-    const shiftX = (e.clientX - boxRect.left) / scale;
-    const shiftY = (e.clientY - boxRect.top) / scale;
-
-    function onPointerMove(moveEvent) {
-        // Calcola la posizione relativa al foglio scalato
-        let newLeftPx = (moveEvent.clientX - sheetRect.left) / scale - shiftX;
-        let newTopPx = (moveEvent.clientY - sheetRect.top) / scale - shiftY;
-
-        // Converte in percentuale per essere universale su tutti i formati carta e in stampa
-        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 85));
-        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 92));
-
-        targetBox.style.position = 'absolute';
-        targetBox.style.left = `${leftPct.toFixed(2)}%`;
-        targetBox.style.top = `${topPct.toFixed(2)}%`;
-
-        if (widgetType === 'logo') {
-            window._printStudioState.logoPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
-        } else if (widgetType === 'qr') {
-            window._printStudioState.qrPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
-        }
-    }
-
-    function onPointerUp() {
-        document.removeEventListener('pointermove', onPointerMove);
-        document.removeEventListener('pointerup', onPointerUp);
-    }
-
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-}
-
-// Registrazione su window
-window.onPrintLogoSizeChanged = onPrintLogoSizeChanged;
-window.onPrintQrSizeChanged = onPrintQrSizeChanged;
-window.resetLogoQrPositions = resetLogoQrPositions;
-window.startDraggingPrintWidget = startDraggingPrintWidget;
 
 // 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
 async function initPrintStudioView() {
@@ -23314,6 +23236,12 @@ function onPrintPaperSizeChanged(sizeVal) {
     // 🌟 ADATTA SUBITO L'ANTEPRIMA QUANDO SI CAMBIA FORMATO
     setTimeout(autoFitPrintPreviewToScreen, 100);
 }
+
+
+window._printStudioState.logoSize = window._printStudioState.logoSize || 65;
+window._printStudioState.qrSize = window._printStudioState.qrSize || 55;
+window._printStudioState.logoPos = window._printStudioState.logoPos || null; // { top: '%', left: '%' }
+window._printStudioState.qrPos = window._printStudioState.qrPos || null;     // { top: '%', left: '%' }
 
 function onPrintOrientationChanged(orientVal) {
     if (!window._printStudioState) return;
@@ -23856,6 +23784,80 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         </div>
     `;
 }
+
+
+// 🌟 REGOLAZIONE DIMENSIONI
+function onPrintLogoSizeChanged(val) {
+    const size = parseInt(val) || 65;
+    window._printStudioState.logoSize = size;
+    const label = document.getElementById('ps-logo-size-label');
+    if (label) label.innerText = `${size}px`;
+    renderLivePrintSheet();
+}
+
+function onPrintQrSizeChanged(val) {
+    const size = parseInt(val) || 55;
+    window._printStudioState.qrSize = size;
+    const label = document.getElementById('ps-qr-size-label');
+    if (label) label.innerText = `${size}px`;
+    renderLivePrintSheet();
+}
+
+function resetLogoQrPositions() {
+    window._printStudioState.logoPos = null;
+    window._printStudioState.qrPos = null;
+    renderLivePrintSheet();
+}
+
+// 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
+function startDraggingPrintWidget(e, widgetType) {
+    e.preventDefault();
+    const sheet = document.getElementById('print-sheet-canvas');
+    const targetBox = e.currentTarget;
+    if (!sheet || !targetBox) return;
+
+    const scale = window._previewScaleFactor || 1.0;
+    const sheetRect = sheet.getBoundingClientRect();
+    const boxRect = targetBox.getBoundingClientRect();
+
+    const shiftX = (e.clientX - boxRect.left) / scale;
+    const shiftY = (e.clientY - boxRect.top) / scale;
+
+    function onPointerMove(moveEvent) {
+        // Calcola la posizione relativa al foglio scalato
+        let newLeftPx = (moveEvent.clientX - sheetRect.left) / scale - shiftX;
+        let newTopPx = (moveEvent.clientY - sheetRect.top) / scale - shiftY;
+
+        // Converte in percentuale per essere universale su tutti i formati carta e in stampa
+        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 85));
+        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 92));
+
+        targetBox.style.position = 'absolute';
+        targetBox.style.left = `${leftPct.toFixed(2)}%`;
+        targetBox.style.top = `${topPct.toFixed(2)}%`;
+
+        if (widgetType === 'logo') {
+            window._printStudioState.logoPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+        } else if (widgetType === 'qr') {
+            window._printStudioState.qrPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+        }
+    }
+
+    function onPointerUp() {
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+    }
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+}
+
+// Registrazione su window
+window.onPrintLogoSizeChanged = onPrintLogoSizeChanged;
+window.onPrintQrSizeChanged = onPrintQrSizeChanged;
+window.resetLogoQrPositions = resetLogoQrPositions;
+window.startDraggingPrintWidget = startDraggingPrintWidget;
+
 
 // 16. Renderizzatore Cartello QR Code Adattivo
 function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
