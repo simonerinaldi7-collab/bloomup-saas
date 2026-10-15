@@ -23926,9 +23926,9 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
 
             <!-- 🌟 CONTENITORE COLONNE / SEZIONI (TRASCINABILE VERSO IL BASSO PER FAR SPAZIO AL LOGO GRANDE) -->
             <div class="ps-content-columns-wrapper" 
-                 onpointerdown="startDraggingPrintWidget(event, 'content')" 
-                 style="${contentPositionStyle} --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px;" 
-                 title="Puoi trascinare l'intero blocco delle sezioni per abbassarlo o spostarlo dove preferisci">
+     onpointerdown="startDraggingPrintWidget(event, 'content')" 
+     style="position: relative; width: 100%; margin-top: ${s.contentTopOffset || 0}px; flex: 1 1 auto; --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px;" 
+     title="Trascina verso il basso per distanziare le sezioni dal logo">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
@@ -23974,7 +23974,7 @@ function resetLogoQrPositions() {
 }
 
 // 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
-// 🌟 MOTORE DRAG & DROP UNIVERSALE (Logo, QR, Titoli, Linea, Sezioni, Categorie)
+// 🌟 DRAG & DROP PROTETTO: NON ROMPE MAI LE COLONNE
 function startDraggingPrintWidget(e, widgetType) {
     if (e.target.isContentEditable) return;
 
@@ -23987,19 +23987,31 @@ function startDraggingPrintWidget(e, widgetType) {
     const sheetRect = sheet.getBoundingClientRect();
     const boxRect = targetBox.getBoundingClientRect();
 
+    const startClientY = e.clientY;
+    const initialMarginTop = window._printStudioState.contentTopOffset || 0;
+
     const shiftX = (e.clientX - boxRect.left) / scale;
     const shiftY = (e.clientY - boxRect.top) / scale;
 
     function onPointerMove(moveEvent) {
+        // Se si trascina l'intero blocco sezioni, aumentiamo solo il margine superiore (ZERO rottura colonne!)
+        if (widgetType === 'content') {
+            const deltaY = (moveEvent.clientY - startClientY) / scale;
+            const newMargin = Math.max(0, Math.min(initialMarginTop + deltaY, 280)); // Max 280px verso il basso
+            targetBox.style.marginTop = `${newMargin.toFixed(0)}px`;
+            window._printStudioState.contentTopOffset = newMargin;
+            return;
+        }
+
         let newLeftPx = (moveEvent.clientX - sheetRect.left) / scale - shiftX;
         let newTopPx = (moveEvent.clientY - sheetRect.top) / scale - shiftY;
 
-        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 92));
-        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 95));
+        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 88));
+        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 92));
 
         if (!window._printStudioState) window._printStudioState = {};
 
-        // 1. Spostamento orizzontale/verticale della Linea Divisoria
+        // Linea Divisoria: si sposta su e giù
         if (widgetType === 'divider') {
             targetBox.style.position = 'absolute';
             targetBox.style.top = `${topPct.toFixed(2)}%`;
@@ -24007,15 +24019,7 @@ function startDraggingPrintWidget(e, widgetType) {
             targetBox.style.width = 'calc(100% - 8mm)';
             window._printStudioState.dividerPos = { top: `${topPct.toFixed(2)}%` };
         } 
-        // 2. Spostamento dell'intero Blocco Trattamenti/Sezioni (per abbassarlo se il logo è grande)
-        else if (widgetType === 'content') {
-            targetBox.style.position = 'absolute';
-            targetBox.style.top = `${topPct.toFixed(2)}%`;
-            targetBox.style.left = `${leftPct.toFixed(2)}%`;
-            targetBox.style.width = 'calc(100% - 12mm)';
-            window._printStudioState.contentPos = { top: `${topPct.toFixed(2)}%`, left: `${leftPct.toFixed(2)}%` };
-        }
-        // 3. Spostamento millimetrico di una Singola Categoria/Sezione
+        // Singola Categoria: micro-spostamento relativo
         else if (widgetType.startsWith('cat_')) {
             const catId = widgetType.replace('cat_', '');
             targetBox.style.position = 'relative';
@@ -24023,8 +24027,8 @@ function startDraggingPrintWidget(e, widgetType) {
             targetBox.style.left = `${newLeftPx.toFixed(1)}px`;
             if (!window._printStudioState.categoryOffsets) window._printStudioState.categoryOffsets = {};
             window._printStudioState.categoryOffsets[catId] = { top: `${newTopPx.toFixed(1)}px`, left: `${newLeftPx.toFixed(1)}px` };
-        }
-        // 4. Logo, QR, Titoli e Footer
+        } 
+        // Logo, QR, Titoli e Footer
         else {
             targetBox.style.position = 'absolute';
             targetBox.style.left = `${leftPct.toFixed(2)}%`;
@@ -24047,16 +24051,39 @@ function startDraggingPrintWidget(e, widgetType) {
 }
 
 // Reset totale di tutte le posizioni libere
+// 🌟 RIPRISTINO TOTALE ALLA CONFORMAZIONE ORIGINALE DI FABBRICA
 function resetAllDraggablePositions() {
+    if (!window._printStudioState) window._printStudioState = {};
+
+    // 1. Resetta le dimensioni del logo e del QR ai valori ideali originali
+    window._printStudioState.logoSize = 65;
+    window._printStudioState.qrSize = 55;
+
+    // 2. Resetta tutti i posizionamenti e offset manuali
     window._printStudioState.logoPos = null;
     window._printStudioState.qrPos = null;
     window._printStudioState.titlePos = null;
     window._printStudioState.footerPos = null;
     window._printStudioState.dividerPos = null;
-    window._printStudioState.contentPos = null;
+    window._printStudioState.contentTopOffset = 0; // Spazio naturale sotto l'header
     window._printStudioState.categoryOffsets = {};
+
+    // 3. Sincronizza fisicamente gli slider nella barra comandi
+    const logoSlider = document.getElementById('ps-logo-size-slider');
+    const logoLabel = document.getElementById('ps-logo-size-label');
+    if (logoSlider) logoSlider.value = 65;
+    if (logoLabel) logoLabel.innerText = '65px';
+
+    const qrSlider = document.getElementById('ps-qr-size-slider');
+    const qrLabel = document.getElementById('ps-qr-size-label');
+    if (qrSlider) qrSlider.value = 55;
+    if (qrLabel) qrLabel.innerText = '55px';
+
+    // 4. Ridisegna il foglio pulito
     renderLivePrintSheet();
 }
+
+window.resetAllDraggablePositions = resetAllDraggablePositions;
 
 window.startDraggingPrintWidget = startDraggingPrintWidget;
 window.resetAllDraggablePositions = resetAllDraggablePositions;
