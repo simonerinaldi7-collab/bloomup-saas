@@ -1193,6 +1193,82 @@
 /* 🖨️ CONTROLLI HOVER, DRAG & DROP E SCALA FONT NEL FOGLIO  */
 /* ======================================================== */
 
+/* 🌟 LINEA DI SEPARAZIONE AUTONOMA E TRASCINABILE */
+.ps-draggable-divider {
+    height: calc(2px * var(--ps-scale, 1));
+    background: var(--ps-accent);
+    cursor: ns-resize;
+    position: relative;
+    margin: 8px 0 16px 0;
+    transition: box-shadow 0.15s ease;
+    z-index: 52;
+}
+
+@media screen {
+    .ps-draggable-divider:hover {
+        outline: 2px dashed var(--ps-accent, #6C5CE7);
+        box-shadow: 0 0 10px rgba(108, 92, 231, 0.4);
+    }
+    .ps-draggable-divider:hover::after {
+        content: "⠿ Sposta Linea";
+        position: absolute;
+        top: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--ps-accent, #6C5CE7);
+        color: white;
+        font-size: 8.5px;
+        font-weight: 800;
+        padding: 1px 6px;
+        border-radius: 4px;
+        pointer-events: none;
+    }
+}
+
+
+/* 🌟 CATEGORIE E BLOCCO SEZIONI A SPOSTAMENTO MILLIMETRICO */
+.ps-category-block {
+    break-inside: auto;
+    page-break-inside: auto;
+    width: 100%;
+    box-sizing: border-box;
+    display: block;
+    position: relative;
+    transition: box-shadow 0.15s ease;
+}
+
+.ps-cat-drag-handle {
+    cursor: move !important;
+    font-size: 13px;
+    color: var(--ps-accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    user-select: none;
+}
+
+@media screen {
+    .ps-cat-drag-handle:hover {
+        background: rgba(108, 92, 231, 0.12);
+        outline: 1px dashed var(--ps-accent);
+    }
+    .ps-content-columns-wrapper:hover {
+        outline: 1px dashed rgba(108, 92, 231, 0.25);
+        border-radius: 6px;
+    }
+}
+
+@media print {
+    .ps-draggable-divider, .ps-category-block, .ps-content-columns-wrapper {
+        cursor: default !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .ps-cat-drag-handle {
+        display: none !important;
+    }
+}
+
+
 /* 🌟 SEZIONI E CATEGORIE TRASCINABILI */
 .ps-cat-header-block {
     cursor: grab;
@@ -23658,83 +23734,60 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     const itemGap = `calc(${isCompact ? '5.5px' : '9px'} * var(--ps-scale, 1))`;
     const catMargin = `calc(${isCompact ? '14px' : '22px'} * var(--ps-scale, 1))`;
 
-    // Dimensioni e coordinate Drag & Drop
+    // Calcolo posizionamenti assoluti / relativi
     const logoSizePx = s.logoSize || 65;
     const qrSizePx = s.qrSize || 55;
 
-    const logoPositionStyle = s.logoPos 
-        ? `position: absolute; left: ${s.logoPos.left}; top: ${s.logoPos.top}; z-index: 60;` 
-        : `position: relative;`;
+    const logoPositionStyle = s.logoPos ? `position: absolute; left: ${s.logoPos.left}; top: ${s.logoPos.top}; z-index: 60;` : `position: relative;`;
+    const qrPositionStyle = s.qrPos ? `position: absolute; left: ${s.qrPos.left}; top: ${s.qrPos.top}; z-index: 60;` : `position: relative;`;
+    const titlePositionStyle = s.titlePos ? `position: absolute; left: ${s.titlePos.left}; top: ${s.titlePos.top}; z-index: 55;` : `position: relative;`;
+    const dividerPositionStyle = s.dividerPos ? `position: absolute; top: ${s.dividerPos.top}; left: 4mm; width: calc(100% - 8mm);` : `position: relative; width: 100%;`;
+    const contentPositionStyle = s.contentPos ? `position: absolute; top: ${s.contentPos.top}; left: ${s.contentPos.left}; width: calc(100% - 12mm); z-index: 50;` : `position: relative; flex: 1 1 auto; width: 100%;`;
+    const footerPositionStyle = s.footerPos ? `position: absolute; left: ${s.footerPos.left}; top: ${s.footerPos.top}; width: calc(100% - 24mm); z-index: 55; margin-top: 0 !important;` : `margin-top: auto;`;
 
-    const qrPositionStyle = s.qrPos 
-        ? `position: absolute; left: ${s.qrPos.left}; top: ${s.qrPos.top}; z-index: 60;` 
-        : `position: relative;`;
-
-    const titlePositionStyle = s.titlePos 
-        ? `position: absolute; left: ${s.titlePos.left}; top: ${s.titlePos.top}; z-index: 55;` 
-        : `position: relative;`;
-
-    const footerPositionStyle = s.footerPos 
-        ? `position: absolute; left: ${s.footerPos.left}; top: ${s.footerPos.top}; width: calc(100% - 24mm); z-index: 55; margin-top: 0 !important;` 
-        : `margin-top: auto;`;
-
+    const catOffsets = s.categoryOffsets || {};
     const printedItemIds = new Set();
     let sectionsHtml = '';
 
-    // Render Sezioni/Categorie (con Drag & Drop nativo per scambiarle)
     categories.forEach(cat => {
         const catItemIds = (cat.itemIds || []).filter(id => selectedItemIds.has(String(id)));
         const catItems = catItemIds.map(id => inventory.find(i => String(i.id) === String(id))).filter(Boolean);
-
         if (catItems.length === 0) return;
-
         catItems.forEach(i => printedItemIds.add(String(i.id)));
 
+        const thisCatOffset = catOffsets[cat.id];
+        const catCustomStyle = thisCatOffset ? `position: relative; top: ${thisCatOffset.top}; left: ${thisCatOffset.left};` : `position: relative;`;
+
         sectionsHtml += `
-            <div class="ps-category-block" style="margin-bottom: ${catMargin};" ondragover="onCategoryDragOver(event)" ondrop="onCategoryDrop(event, '${cat.id}')">
+            <div class="ps-category-block" style="${catCustomStyle} margin-bottom: ${catMargin};">
                 
-                <!-- HEADER SEZIONE: TRASCINABILE PER SCAMBIARE L'INTERA SEZIONE -->
-                <div class="ps-cat-header-block" 
-                     draggable="true" 
-                     ondragstart="onCategoryDragStart(event, '${cat.id}')" 
-                     ondragend="onCategoryDragEnd(event)"
-                     style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;"
-                     title="Trascina l'intestazione per scambiare di posto questa sezione">
-                    
+                <!-- TESTATA SEZIONE CON MANIGLIA PER SPOSTAMENTO LIBERO IN X E Y -->
+                <div class="ps-cat-header-block" style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
-                        <span class="ps-drag-handle no-print" style="cursor: grab; font-size: 13px; color: var(--ps-accent); padding-right: 4px;" title="Afferra per riordinare la categoria">⠿</span>
+                        <span class="ps-cat-drag-handle no-print" onpointerdown="startDraggingPrintWidget(event, 'cat_${cat.id}')" title="Trascina qui per spostare/abbassare questa sezione">⠿</span>
                         <span class="ps-cat-inline-actions no-print">
-                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', -1)" title="Sposta sezione sopra">▲</button>
-                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', 1)" title="Sposta sezione sotto">▼</button>
+                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', -1)">▲</button>
+                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', 1)">▼</button>
                         </span>
                         <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">${cat.name}</span>
                     </div>
                 </div>
 
-                <!-- RIGHE ARTICOLI: TRASCINABILI INDIVIDUALMENTE -->
+                <!-- RIGHE ARTICOLI -->
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${catItems.map((item, itemIdx) => `
-                        <div class="ps-item-row" 
-                             draggable="true" 
-                             ondragstart="onPrintItemDragStart(event, '${cat.id}', ${itemIdx})" 
-                             ondragover="onPrintItemDragOver(event)" 
-                             ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" 
-                             ondragend="onPrintItemDragEnd(event)">
-                            
+                        <div class="ps-item-row" draggable="true" ondragstart="onPrintItemDragStart(event, '${cat.id}', ${itemIdx})" ondragover="onPrintItemDragOver(event)" ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" ondragend="onPrintItemDragEnd(event)">
                             <div class="ps-item-inline-actions no-print">
                                 <span class="ps-drag-handle" title="Trascina riga">⠿</span>
-                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, -1)" title="Sposta sopra">▲</button>
-                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, 1)" title="Sposta sotto">▼</button>
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('${cat.id}', '${item.id}')" title="Rimuovi riga">✕</button>
+                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, -1)">▲</button>
+                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, 1)">▼</button>
+                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('${cat.id}', '${item.id}')">✕</button>
                             </div>
-
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
                                 ${item.model ? `<div class="ps-item-desc" style="font-size: calc(10.5px * var(--ps-scale, 1)); color: var(--ps-text-sub); line-height: 1.15;" contenteditable="true">${item.model}</div>` : ''}
                             </div>
-                            
                             <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 4px; opacity: 0.4;"></div>
-                            
                             <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: ${priceFontSize}; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
                         </div>
                     `).join('')}
@@ -23745,7 +23798,6 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                         </button>
                     </div>
                 </div>
-
             </div>
         `;
     });
@@ -23762,7 +23814,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                     ${unassignedItems.map(item => `
                         <div class="ps-item-row">
                             <div class="ps-item-inline-actions no-print">
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('unassigned', '${item.id}')" title="Rimuovi riga">✕</button>
+                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('unassigned', '${item.id}')">✕</button>
                             </div>
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
@@ -23781,10 +23833,9 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         <div class="ps-sheet-inner-container" style="display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; min-height: 100%; box-sizing: border-box; position: relative;">
             
             <!-- HEADER DEL FOGLIO -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px; flex-shrink: 0; min-height: calc(65px * var(--ps-scale, 1));">
-                
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; margin-bottom: 6px; flex-shrink: 0; min-height: calc(55px * var(--ps-scale, 1));">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <!-- LOGO SALONE (DRAGGABLE & RESIZABLE) -->
+                    <!-- LOGO SALONE (SPOSTABILE & RIDIMENSIONABILE) -->
                     ${s.showSalonLogo && s.salonLogoBase64 ? `
                         <div class="ps-draggable-box ps-header-logo" 
                              onpointerdown="startDraggingPrintWidget(event, 'logo')" 
@@ -23794,7 +23845,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                         </div>
                     ` : ''}
 
-                    <!-- BLOCCO TITOLO & SOTTOTITOLO (DRAGGABLE & MODIFICABILE) -->
+                    <!-- TITOLO & SOTTOTITOLO (SPOSTABILE & EDITABILE) -->
                     <div class="ps-draggable-title" 
                          onpointerdown="startDraggingPrintWidget(event, 'title')" 
                          style="${titlePositionStyle} padding: 4px 6px; border-radius: 6px;" 
@@ -23804,7 +23855,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                     </div>
                 </div>
 
-                <!-- BOX QR CODE (DRAGGABLE & RESIZABLE) -->
+                <!-- BOX QR CODE (SPOSTABILE & RIDIMENSIONABILE) -->
                 ${s.showBookingQr ? `
                     <div class="ps-draggable-box" 
                          onpointerdown="startDraggingPrintWidget(event, 'qr')" 
@@ -23819,16 +23870,25 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 ` : ''}
             </div>
 
-            <!-- CONTENITORE COLONNE DINAMICHE -->
-            <div class="ps-content-columns-wrapper" style="flex: 1 1 auto; --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px; width: 100%;">
+            <!-- 🌟 LINEA DI SEPARAZIONE TRASCINABILE (PUOI ABBASSARLA O SPOSTARLA DOVE VUOI) -->
+            <div class="ps-draggable-divider" 
+                 onpointerdown="startDraggingPrintWidget(event, 'divider')" 
+                 style="${dividerPositionStyle}" 
+                 title="Trascina questa linea verso l'alto o verso il basso"></div>
+
+            <!-- 🌟 CONTENITORE COLONNE / SEZIONI (TRASCINABILE VERSO IL BASSO PER FAR SPAZIO AL LOGO GRANDE) -->
+            <div class="ps-content-columns-wrapper" 
+                 onpointerdown="startDraggingPrintWidget(event, 'content')" 
+                 style="${contentPositionStyle} --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px;" 
+                 title="Puoi trascinare l'intero blocco delle sezioni per abbassarlo o spostarlo dove preferisci">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
-            <!-- FOOTER & NOTE (DRAGGABLE O ANCORATO IN BASSO) -->
+            <!-- FOOTER -->
             <div class="ps-footer-block ps-draggable-footer" 
                  onpointerdown="startDraggingPrintWidget(event, 'footer')" 
                  style="${footerPositionStyle} padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); flex-shrink: 0;"
-                 title="Trascina per spostare il footer nel foglio">
+                 title="Trascina per spostare il footer">
                 <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
                     <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85; pointer-events: none;">
@@ -23866,9 +23926,8 @@ function resetLogoQrPositions() {
 }
 
 // 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
-// 🌟 MOTORE DI SPOSTAMENTO LIBERO UNIVERSALE (Logo, QR, Titoli, Footer)
+// 🌟 MOTORE DRAG & DROP UNIVERSALE (Logo, QR, Titoli, Linea, Sezioni, Categorie)
 function startDraggingPrintWidget(e, widgetType) {
-    // Se l'utente sta cliccando dentro un testo per scriverci, non avviare il drag
     if (e.target.isContentEditable) return;
 
     e.preventDefault();
@@ -23887,23 +23946,46 @@ function startDraggingPrintWidget(e, widgetType) {
         let newLeftPx = (moveEvent.clientX - sheetRect.left) / scale - shiftX;
         let newTopPx = (moveEvent.clientY - sheetRect.top) / scale - shiftY;
 
-        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 85));
+        let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 92));
         let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 95));
-
-        targetBox.style.position = 'absolute';
-        targetBox.style.left = `${leftPct.toFixed(2)}%`;
-        targetBox.style.top = `${topPct.toFixed(2)}%`;
 
         if (!window._printStudioState) window._printStudioState = {};
 
-        if (widgetType === 'logo') {
-            window._printStudioState.logoPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
-        } else if (widgetType === 'qr') {
-            window._printStudioState.qrPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
-        } else if (widgetType === 'title') {
-            window._printStudioState.titlePos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
-        } else if (widgetType === 'footer') {
-            window._printStudioState.footerPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+        // 1. Spostamento orizzontale/verticale della Linea Divisoria
+        if (widgetType === 'divider') {
+            targetBox.style.position = 'absolute';
+            targetBox.style.top = `${topPct.toFixed(2)}%`;
+            targetBox.style.left = '4mm';
+            targetBox.style.width = 'calc(100% - 8mm)';
+            window._printStudioState.dividerPos = { top: `${topPct.toFixed(2)}%` };
+        } 
+        // 2. Spostamento dell'intero Blocco Trattamenti/Sezioni (per abbassarlo se il logo è grande)
+        else if (widgetType === 'content') {
+            targetBox.style.position = 'absolute';
+            targetBox.style.top = `${topPct.toFixed(2)}%`;
+            targetBox.style.left = `${leftPct.toFixed(2)}%`;
+            targetBox.style.width = 'calc(100% - 12mm)';
+            window._printStudioState.contentPos = { top: `${topPct.toFixed(2)}%`, left: `${leftPct.toFixed(2)}%` };
+        }
+        // 3. Spostamento millimetrico di una Singola Categoria/Sezione
+        else if (widgetType.startsWith('cat_')) {
+            const catId = widgetType.replace('cat_', '');
+            targetBox.style.position = 'relative';
+            targetBox.style.top = `${newTopPx.toFixed(1)}px`;
+            targetBox.style.left = `${newLeftPx.toFixed(1)}px`;
+            if (!window._printStudioState.categoryOffsets) window._printStudioState.categoryOffsets = {};
+            window._printStudioState.categoryOffsets[catId] = { top: `${newTopPx.toFixed(1)}px`, left: `${newLeftPx.toFixed(1)}px` };
+        }
+        // 4. Logo, QR, Titoli e Footer
+        else {
+            targetBox.style.position = 'absolute';
+            targetBox.style.left = `${leftPct.toFixed(2)}%`;
+            targetBox.style.top = `${topPct.toFixed(2)}%`;
+
+            if (widgetType === 'logo') window._printStudioState.logoPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+            if (widgetType === 'qr') window._printStudioState.qrPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+            if (widgetType === 'title') window._printStudioState.titlePos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+            if (widgetType === 'footer') window._printStudioState.footerPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
         }
     }
 
@@ -23915,6 +23997,21 @@ function startDraggingPrintWidget(e, widgetType) {
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
 }
+
+// Reset totale di tutte le posizioni libere
+function resetAllDraggablePositions() {
+    window._printStudioState.logoPos = null;
+    window._printStudioState.qrPos = null;
+    window._printStudioState.titlePos = null;
+    window._printStudioState.footerPos = null;
+    window._printStudioState.dividerPos = null;
+    window._printStudioState.contentPos = null;
+    window._printStudioState.categoryOffsets = {};
+    renderLivePrintSheet();
+}
+
+window.startDraggingPrintWidget = startDraggingPrintWidget;
+window.resetAllDraggablePositions = resetAllDraggablePositions;
 
 // 🌟 DRAG & DROP PER SCAMBIARE E RIORDINARE LE CATEGORIE INTERE
 function onCategoryDragStart(event, catId) {
@@ -24165,6 +24262,11 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
         </div>
     `;
 }
+
+
+window._printStudioState.dividerPos = window._printStudioState.dividerPos || null; // Posizione Y linea
+window._printStudioState.contentPos = window._printStudioState.contentPos || null; // Posizione X, Y intero listino
+window._printStudioState.categoryOffsets = window._printStudioState.categoryOffsets || {}; // Offset X, Y per ogni sezione
 
 // 🖨️ STAMPA AUTOMATICA: Reset scala prima della stampa e ripristino post-stampa
 function triggerDirectPrint() {
