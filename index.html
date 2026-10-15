@@ -1324,14 +1324,16 @@
 }
 
 
-/* 📄 Foglio di Stampa Base (Screen Preview) */
+/* 📄 FOGLIO A TUTTA ALTEZZA (Anche con pochi servizi) */
 .print-sheet {
-    background: #ffffff;
+    background: var(--ps-bg, #ffffff);
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     position: relative;
     box-sizing: border-box;
     transition: all 0.2s ease;
     outline: none;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 /* ======================================================== */
@@ -1375,28 +1377,18 @@
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Dimensioni fisiche su schermo */
-.paper-a4.orient-portrait { width: 210mm; min-height: 297mm; padding: 10mm; }
-.paper-a4.orient-landscape { width: 297mm; min-height: 210mm; padding: 10mm; }
+/* Dimensioni fisiche su schermo con altezza piena bloccata */
+.paper-a4.orient-portrait { width: 210mm; height: 297mm; min-height: 297mm; padding: 12mm 14mm; }
+.paper-a4.orient-landscape { width: 297mm; height: 210mm; min-height: 210mm; padding: 12mm 14mm; }
 
-.paper-a5.orient-portrait { width: 148mm; min-height: 210mm; padding: 8mm; }
-.paper-a5.orient-landscape { width: 210mm; min-height: 148mm; padding: 8mm; }
+.paper-a5.orient-portrait { width: 148mm; height: 210mm; min-height: 210mm; padding: 8mm 10mm; }
+.paper-a5.orient-landscape { width: 210mm; height: 148mm; min-height: 148mm; padding: 8mm 10mm; }
 
-.paper-a3.orient-portrait { width: 297mm; min-height: 420mm; padding: 15mm; }
-.paper-a3.orient-landscape { width: 420mm; min-height: 297mm; padding: 15mm; }
+.paper-a3.orient-portrait { width: 297mm; height: 420mm; min-height: 420mm; padding: 16mm 18mm; }
+.paper-a3.orient-landscape { width: 420mm; height: 297mm; min-height: 297mm; padding: 16mm 18mm; }
 
-.paper-50x70.orient-portrait { width: 500mm; min-height: 700mm; padding: 25mm; }
-.paper-50x70.orient-landscape { width: 700mm; min-height: 500mm; padding: 25mm; }
-
-/* Tipografia Maxi per 50x70 */
-.paper-50x70 h1 { font-size: 38px !important; }
-.paper-50x70 .ps-cat-header { font-size: 26px !important; margin-bottom: 18px !important; }
-.paper-50x70 .ps-item-title { font-size: 20px !important; }
-.paper-50x70 .ps-item-desc { font-size: 15px !important; }
-.paper-50x70 .ps-item-price { font-size: 22px !important; }
-.paper-50x70 .ps-header-logo { width: 110px !important; height: 110px !important; }
-.paper-50x70 .ps-qr-img { width: 85px !important; height: 85px !important; }
-.paper-50x70 .ps-footer-text { font-size: 16px !important; }
+.paper-50x70.orient-portrait { width: 500mm; height: 700mm; min-height: 700mm; padding: 25mm 30mm; }
+.paper-50x70.orient-landscape { width: 700mm; height: 500mm; min-height: 500mm; padding: 25mm 30mm; }
 
 /* 🌟 MOTORE COLONNE DINAMICHE: Attiva la divisione a 1, 2, 3 o 4 colonne */
 .ps-content-columns-wrapper {
@@ -1432,88 +1424,85 @@
 
 
 /* 🖨️ REGOLE RIGIDE @MEDIA PRINT: RESET AUTOMATICO A TUTTA PAGINA (ZERO MINIATURE) */
+/* 🖨️ STAMPA RIGIDA: 1 SOLA PAGINA GARANTITA E FOOTER IN FONDO */
 @media print {
     html, body {
         background: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        overflow: visible !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important; /* 👈 Blocca al 100% la creazione della seconda pagina */
     }
 
-    /* Nasconde tutto ciò che non è il foglio */
     .sidebar, .header, #burger-btn, #sidebar-overlay,
     .print-controls-pane, #login-screen, .modal,
     #quick-alarm-screen, #pwa-install-banner, .ps-zoom-toolbar, .no-print {
         display: none !important;
     }
 
-    /* Sblocca i container per occupare tutta la pagina fisica */
     #app-shell, .main, .content, #v-print, .print-studio-container, 
-    .print-preview-column-wrapper, .print-preview-pane, #ps-preview-scroll-pane {
-        display: block !important;
-        position: static !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* 🌟 RESET DEL WRAPPER: Elimina la larghezza ridotta dello schermo */
+    .print-preview-column-wrapper, .print-preview-pane, #ps-preview-scroll-pane,
     #print-sheet-scaler-wrapper {
         display: block !important;
         position: static !important;
         width: 100% !important;
-        max-width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        transform: none !important;
+        height: 100% !important;
+        max-height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+        overflow: hidden !important;
+        background: transparent !important;
+        border: none !important;
     }
 
-    /* 🌟 RESET DEL FOGLIO: Si adatta al 100% della pagina A4/A3/A5 reale, senza scala e senza pagina 2 */
+    /* Il foglio occupa esattamente il 100% del foglio fisico */
     .print-sheet,
     #print-sheet-canvas {
-        display: block !important;
-        position: static !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        box-sizing: border-box !important;
         width: 100% !important;
-        max-width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        transform: none !important;
-        box-shadow: none !important;
-        border: none !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
         margin: 0 !important;
         padding: 4mm 6mm !important;
-        page-break-after: auto !important;
-        break-after: auto !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+        overflow: hidden !important; /* 👈 Zero sbordi o righe su pagina 2 */
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    /* Rimuove min-height forzati dei formati carta durante la stampa */
     .paper-a4, .paper-a5, .paper-a3, .paper-50x70 {
         width: 100% !important;
-        min-height: 0 !important;
-        height: auto !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
+        padding: 0 !important;
     }
 
     .ps-sheet-inner-container {
-        min-height: 0 !important;
-        height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        box-sizing: border-box !important;
     }
 
-    .ps-category-block {
+    .ps-content-columns-wrapper {
+        flex: 1 1 auto !important;
+    }
+
+    .ps-footer-block {
+        margin-top: auto !important; /* 👈 Spinge il footer all'ultimo millimetro in fondo */
+        flex-shrink: 0 !important;
         break-inside: avoid !important;
         page-break-inside: avoid !important;
     }
@@ -23651,10 +23640,10 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     }
 
     sheet.innerHTML = `
-        <div style="display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;">
+        <div class="ps-sheet-inner-container" style="display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; min-height: 100%; box-sizing: border-box;">
             
-            <!-- HEADER DEL FOGLIO -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px;">
+            <!-- HEADER DEL FOGLIO (IN CIMA) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px; flex-shrink: 0;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     ${s.showSalonLogo && s.salonLogoBase64 ? `
                         <div class="ps-header-logo" style="width: calc(58px * var(--ps-scale, 1)); height: calc(58px * var(--ps-scale, 1)); border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;">
@@ -23668,7 +23657,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 </div>
 
                 ${s.showBookingQr ? `
-                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 9px; border-radius: 10px; border: 1px solid var(--ps-accent-border);">
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 9px; border-radius: 10px; border: 1px solid var(--ps-accent-border); flex-shrink: 0;">
                         <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" style="width: calc(44px * var(--ps-scale, 1)); height: calc(44px * var(--ps-scale, 1)); border-radius: 4px; background: white; padding: 2px;">
                         <div style="font-size: calc(9.5px * var(--ps-scale, 1)); line-height: 1.2; color: var(--ps-text-sub);">
                             <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
@@ -23678,14 +23667,13 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 ` : ''}
             </div>
 
-            <!-- CONTENITORE COLONNE DINAMICHE CON SCALING -->
-            <!-- CONTENITORE COLONNE DINAMICHE CON SCALING -->
-<div class="ps-content-columns-wrapper" style="--ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px; width: 100%;">
+            <!-- CONTENITORE TRATTAMENTI (SI ESPANDE AL CENTRO) -->
+            <div class="ps-content-columns-wrapper" style="flex: 1 1 auto; --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px; width: 100%;">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
-            <!-- FOOTER & CO-BRANDING -->
-            <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub);">
+            <!-- FOOTER SPINTA SEMPRE IN FONDO AL FOGLIO -->
+            <div class="ps-footer-block" style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); flex-shrink: 0;">
                 <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
                     <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
@@ -23874,22 +23862,23 @@ function triggerDirectPrint() {
     const wrapper = document.getElementById('print-sheet-scaler-wrapper');
     const savedFactor = window._previewScaleFactor || 1.0;
 
-    // 1. Resetta temporaneamente il foglio al 100% della carta per la stampante
-    if (sheet) sheet.style.transform = 'none';
+    // Resetta lo zoom a tutta pagina
+    if (sheet) {
+        sheet.style.transform = 'none';
+        sheet.style.height = '100%';
+    }
     if (wrapper) {
         wrapper.style.width = '100%';
-        wrapper.style.height = 'auto';
+        wrapper.style.height = '100%';
     }
 
-    // 2. Apre il dialogo di stampa del browser/PDF
     window.print();
 
-    // 3. Ripristina automaticamente lo zoom per lo schermo
+    // Ripristina l'anteprima a video subito dopo
     setTimeout(() => {
         applyPreviewZoom(savedFactor);
     }, 400);
 }
-
 // Supporto automatico anche se l'utente preme Ctrl+P da tastiera
 window.addEventListener('beforeprint', () => {
     const sheet = document.getElementById('print-sheet-canvas');
