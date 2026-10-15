@@ -1193,6 +1193,43 @@
 /* 🖨️ CONTROLLI HOVER, DRAG & DROP E SCALA FONT NEL FOGLIO  */
 /* ======================================================== */
 
+/* 🌟 SEZIONI E CATEGORIE TRASCINABILI */
+.ps-cat-header-block {
+    cursor: grab;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+.ps-cat-header-block:active {
+    cursor: grabbing;
+}
+.ps-category-block.ps-drag-over {
+    outline: 2px dashed var(--ps-accent, #6C5CE7);
+    background: rgba(108, 92, 231, 0.05);
+    border-radius: 6px;
+}
+.ps-category-block.ps-dragging {
+    opacity: 0.35;
+}
+
+/* 🌟 TITOLO E FOOTER LIBERAMENTE SPOSTABILI */
+.ps-draggable-title, .ps-draggable-footer {
+    cursor: move;
+    transition: box-shadow 0.15s ease;
+}
+@media screen {
+    .ps-draggable-title:hover, .ps-draggable-footer:hover {
+        outline: 1.5px dashed var(--ps-accent, #6C5CE7);
+        border-radius: 6px;
+    }
+}
+@media print {
+    .ps-draggable-title, .ps-draggable-footer, .ps-cat-header-block {
+        cursor: default !important;
+        outline: none !important;
+    }
+}
+
+
 .print-sheet {
     --ps-scale: 1;
     font-size: calc(14px * var(--ps-scale, 1));
@@ -2657,9 +2694,9 @@
         <input type="range" id="ps-qr-size-slider" min="30" max="250" step="5" value="55" oninput="onPrintQrSizeChanged(this.value)" style="margin: 0; width: 100%; cursor: pointer; accent-color: var(--p);">
     </div>
 
-    <!-- Tasto Ripristino Posizioni Iniziali -->
-    <button type="button" class="btn" style="padding: 4px 8px; font-size: 10.5px; background: #f8fafc; border: 1px solid #cbd5e1; color: #475569; justify-content: center; border-radius: 6px; margin-top: 2px;" onclick="resetLogoQrPositions()">
-        ↩ Ripristina Posizioni Predefinite
+    <!-- Tasto Ripristino Universale di Tutte le Posizioni -->
+    <button type="button" class="btn" style="padding: 5px 8px; font-size: 11px; background: #f8fafc; border: 1.5px solid #cbd5e1; color: #475569; justify-content: center; border-radius: 6px; margin-top: 4px; font-weight: bold;" onclick="resetAllDraggablePositions()">
+        ↩ Ripristina Tutte le Posizioni Predefinite
     </button>
 </div>
                             </div>
@@ -23614,14 +23651,14 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
     const selectedItemIds = s.selectedItemIds || new Set();
     const categories = s.categories || [];
 
-    // Densità e scala tipografica
+    // Densità e scala font
     const isCompact = (s.compactness === 'compact');
     const titleFontSize = `calc(${isCompact ? '12.5px' : '13.5px'} * var(--ps-scale, 1))`;
     const priceFontSize = `calc(${isCompact ? '13.5px' : '14.5px'} * var(--ps-scale, 1))`;
     const itemGap = `calc(${isCompact ? '5.5px' : '9px'} * var(--ps-scale, 1))`;
     const catMargin = `calc(${isCompact ? '14px' : '22px'} * var(--ps-scale, 1))`;
 
-    // Dimensioni e coordinate Drag & Drop per Logo e Box QR
+    // Dimensioni e coordinate Drag & Drop
     const logoSizePx = s.logoSize || 65;
     const qrSizePx = s.qrSize || 55;
 
@@ -23633,10 +23670,18 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         ? `position: absolute; left: ${s.qrPos.left}; top: ${s.qrPos.top}; z-index: 60;` 
         : `position: relative;`;
 
+    const titlePositionStyle = s.titlePos 
+        ? `position: absolute; left: ${s.titlePos.left}; top: ${s.titlePos.top}; z-index: 55;` 
+        : `position: relative;`;
+
+    const footerPositionStyle = s.footerPos 
+        ? `position: absolute; left: ${s.footerPos.left}; top: ${s.footerPos.top}; width: calc(100% - 24mm); z-index: 55; margin-top: 0 !important;` 
+        : `margin-top: auto;`;
+
     const printedItemIds = new Set();
     let sectionsHtml = '';
 
-    // Render sezioni e categorie
+    // Render Sezioni/Categorie (con Drag & Drop nativo per scambiarle)
     categories.forEach(cat => {
         const catItemIds = (cat.itemIds || []).filter(id => selectedItemIds.has(String(id)));
         const catItems = catItemIds.map(id => inventory.find(i => String(i.id) === String(id))).filter(Boolean);
@@ -23646,11 +23691,18 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         catItems.forEach(i => printedItemIds.add(String(i.id)));
 
         sectionsHtml += `
-            <div class="ps-category-block" style="margin-bottom: ${catMargin};">
+            <div class="ps-category-block" style="margin-bottom: ${catMargin};" ondragover="onCategoryDragOver(event)" ondrop="onCategoryDrop(event, '${cat.id}')">
                 
-                <!-- HEADER SEZIONE: TITOLO CON CONTROLLI SPOSTAMENTO SU/GIU (SCOMPAIONO IN STAMPA) -->
-                <div class="ps-cat-header-block" style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;">
+                <!-- HEADER SEZIONE: TRASCINABILE PER SCAMBIARE L'INTERA SEZIONE -->
+                <div class="ps-cat-header-block" 
+                     draggable="true" 
+                     ondragstart="onCategoryDragStart(event, '${cat.id}')" 
+                     ondragend="onCategoryDragEnd(event)"
+                     style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;"
+                     title="Trascina l'intestazione per scambiare di posto questa sezione">
+                    
                     <div style="display: flex; align-items: center; gap: 4px;">
+                        <span class="ps-drag-handle no-print" style="cursor: grab; font-size: 13px; color: var(--ps-accent); padding-right: 4px;" title="Afferra per riordinare la categoria">⠿</span>
                         <span class="ps-cat-inline-actions no-print">
                             <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', -1)" title="Sposta sezione sopra">▲</button>
                             <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', 1)" title="Sposta sezione sotto">▼</button>
@@ -23659,7 +23711,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                     </div>
                 </div>
 
-                <!-- RIGHE ARTICOLI: DRAGGABLE CON CONTROLLI HOVER -->
+                <!-- RIGHE ARTICOLI: TRASCINABILI INDIVIDUALMENTE -->
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${catItems.map((item, itemIdx) => `
                         <div class="ps-item-row" 
@@ -23669,7 +23721,6 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                              ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" 
                              ondragend="onPrintItemDragEnd(event)">
                             
-                            <!-- Controlli inline sullo schermo (Invisibili in Stampa) -->
                             <div class="ps-item-inline-actions no-print">
                                 <span class="ps-drag-handle" title="Trascina riga">⠿</span>
                                 <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, -1)" title="Sposta sopra">▲</button>
@@ -23688,7 +23739,6 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                         </div>
                     `).join('')}
 
-                    <!-- TASTO AGGIUNGI RIGA LIBERA AL VOLO (Invisibile in Stampa) -->
                     <div class="ps-add-custom-row-btn no-print" style="margin-top: 4px;">
                         <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: rgba(255,255,255,0.7); border: 1px dashed var(--ps-accent); color: var(--ps-accent); border-radius: 4px;" onclick="addCustomItemRowToCategory('${cat.id}')">
                             + Aggiungi Voce Libera
@@ -23700,7 +23750,7 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         `;
     });
 
-    // Articoli non ancora assegnati a categorie specifiche
+    // Articoli non categorizzati
     const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
         sectionsHtml += `
@@ -23726,36 +23776,40 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         `;
     }
 
-    // Costruzione completa del foglio (con supporto altezza 100%, Drag & Drop posizionale e colonne native)
+    // Costruzione completa del foglio
     sheet.innerHTML = `
         <div class="ps-sheet-inner-container" style="display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; min-height: 100%; box-sizing: border-box; position: relative;">
             
-            <!-- HEADER DEL FOGLIO (IN CIMA) -->
+            <!-- HEADER DEL FOGLIO -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: calc(2px * var(--ps-scale, 1)) solid var(--ps-accent); padding-bottom: 12px; margin-bottom: 16px; flex-shrink: 0; min-height: calc(65px * var(--ps-scale, 1));">
                 
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <!-- LOGO DEL SALONE (TRASCINABILE & RIDIMENSIONABILE) -->
+                    <!-- LOGO SALONE (DRAGGABLE & RESIZABLE) -->
                     ${s.showSalonLogo && s.salonLogoBase64 ? `
                         <div class="ps-draggable-box ps-header-logo" 
                              onpointerdown="startDraggingPrintWidget(event, 'logo')" 
                              style="${logoPositionStyle} width: calc(${logoSizePx}px * var(--ps-scale, 1)); height: calc(${logoSizePx}px * var(--ps-scale, 1)); border-radius: 12px; overflow: hidden; border: 1.5px solid var(--ps-accent-border); flex-shrink: 0;" 
-                             title="Clicca e trascina per spostare il logo nel foglio">
+                             title="Trascina per spostare il logo nel foglio">
                             <img src="${s.salonLogoBase64}" alt="Logo Salone" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events: none;">
                         </div>
                     ` : ''}
 
-                    <div>
+                    <!-- BLOCCO TITOLO & SOTTOTITOLO (DRAGGABLE & MODIFICABILE) -->
+                    <div class="ps-draggable-title" 
+                         onpointerdown="startDraggingPrintWidget(event, 'title')" 
+                         style="${titlePositionStyle} padding: 4px 6px; border-radius: 6px;" 
+                         title="Trascina dal bordo per spostare il titolo nel foglio">
                         <h1 style="margin: 0; font-family: var(--ps-font-title); font-size: calc(19px * var(--ps-scale, 1)); font-weight: 900; letter-spacing: 1px; color: var(--ps-accent);" contenteditable="true">${s.title}</h1>
                         <div style="font-size: calc(11.5px * var(--ps-scale, 1)); color: var(--ps-text-sub); margin-top: 2px;" contenteditable="true">${s.subtitle} • Salone: <b>${currentSalon}</b></div>
                     </div>
                 </div>
 
-                <!-- BOX QR CODE (TRASCINABILE & RIDIMENSIONABILE) -->
+                <!-- BOX QR CODE (DRAGGABLE & RESIZABLE) -->
                 ${s.showBookingQr ? `
                     <div class="ps-draggable-box" 
                          onpointerdown="startDraggingPrintWidget(event, 'qr')" 
                          style="${qrPositionStyle} display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 5px 9px; border-radius: 10px; border: 1px solid var(--ps-accent-border); flex-shrink: 0;" 
-                         title="Clicca e trascina per spostare il QR Code nel foglio">
+                         title="Trascina per spostare il QR Code nel foglio">
                         <img class="ps-qr-img" src="${qrSrc}" alt="QR Booking" draggable="false" style="width: calc(${qrSizePx}px * var(--ps-scale, 1)); height: calc(${qrSizePx}px * var(--ps-scale, 1)); border-radius: 4px; background: white; padding: 2px; pointer-events: none;">
                         <div style="font-size: calc(9.5px * var(--ps-scale, 1)); line-height: 1.2; color: var(--ps-text-sub); pointer-events: none;">
                             <b style="color: var(--ps-accent);">PRENOTA ONLINE</b><br>
@@ -23765,16 +23819,19 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                 ` : ''}
             </div>
 
-            <!-- CONTENITORE COLONNE DINAMICHE (SI ESPANDE AL CENTRO) -->
+            <!-- CONTENITORE COLONNE DINAMICHE -->
             <div class="ps-content-columns-wrapper" style="flex: 1 1 auto; --ps-columns: ${s.columns}; column-count: ${s.columns}; -webkit-column-count: ${s.columns}; column-gap: 26px; width: 100%;">
                 ${sectionsHtml || '<p style="color:var(--ps-text-sub); font-size:12px; text-align:center; padding:30px;">Nessun articolo selezionato per la stampa.</p>'}
             </div>
 
-            <!-- FOOTER SPINTA SEMPRE IN FONDO AL FOGLIO -->
-            <div class="ps-footer-block" style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); flex-shrink: 0;">
+            <!-- FOOTER & NOTE (DRAGGABLE O ANCORATO IN BASSO) -->
+            <div class="ps-footer-block ps-draggable-footer" 
+                 onpointerdown="startDraggingPrintWidget(event, 'footer')" 
+                 style="${footerPositionStyle} padding-top: 14px; border-top: 1px solid var(--ps-accent-border); display: flex; justify-content: space-between; align-items: center; font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); flex-shrink: 0;"
+                 title="Trascina per spostare il footer nel foglio">
                 <div class="ps-footer-text" contenteditable="true">${s.footerNotes}</div>
                 ${s.showVaimupLogo ? `
-                    <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85;">
+                    <div style="display: flex; align-items: center; gap: 5px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.85; pointer-events: none;">
                         <img src="./icon-192.png" alt="VaiMUp" draggable="false" style="width: 14px; height: 14px; border-radius: 3px; object-fit: contain;">
                         <span>Powered by <b>VaiMUp Suite</b></span>
                     </div>
@@ -23784,7 +23841,6 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         </div>
     `;
 }
-
 
 // 🌟 REGOLAZIONE DIMENSIONI
 function onPrintLogoSizeChanged(val) {
@@ -23810,7 +23866,11 @@ function resetLogoQrPositions() {
 }
 
 // 🌟 MOTORE DRAG & DROP LIBERO SUL FOGLIO (CON COMPENSAZIONE DELLO ZOOM)
+// 🌟 MOTORE DI SPOSTAMENTO LIBERO UNIVERSALE (Logo, QR, Titoli, Footer)
 function startDraggingPrintWidget(e, widgetType) {
+    // Se l'utente sta cliccando dentro un testo per scriverci, non avviare il drag
+    if (e.target.isContentEditable) return;
+
     e.preventDefault();
     const sheet = document.getElementById('print-sheet-canvas');
     const targetBox = e.currentTarget;
@@ -23824,22 +23884,26 @@ function startDraggingPrintWidget(e, widgetType) {
     const shiftY = (e.clientY - boxRect.top) / scale;
 
     function onPointerMove(moveEvent) {
-        // Calcola la posizione relativa al foglio scalato
         let newLeftPx = (moveEvent.clientX - sheetRect.left) / scale - shiftX;
         let newTopPx = (moveEvent.clientY - sheetRect.top) / scale - shiftY;
 
-        // Converte in percentuale per essere universale su tutti i formati carta e in stampa
         let leftPct = Math.max(0, Math.min((newLeftPx / sheet.offsetWidth) * 100, 85));
-        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 92));
+        let topPct = Math.max(0, Math.min((newTopPx / sheet.offsetHeight) * 100, 95));
 
         targetBox.style.position = 'absolute';
         targetBox.style.left = `${leftPct.toFixed(2)}%`;
         targetBox.style.top = `${topPct.toFixed(2)}%`;
 
+        if (!window._printStudioState) window._printStudioState = {};
+
         if (widgetType === 'logo') {
             window._printStudioState.logoPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
         } else if (widgetType === 'qr') {
             window._printStudioState.qrPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+        } else if (widgetType === 'title') {
+            window._printStudioState.titlePos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
+        } else if (widgetType === 'footer') {
+            window._printStudioState.footerPos = { left: `${leftPct.toFixed(2)}%`, top: `${topPct.toFixed(2)}%` };
         }
     }
 
@@ -23851,6 +23915,80 @@ function startDraggingPrintWidget(e, widgetType) {
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
 }
+
+// 🌟 DRAG & DROP PER SCAMBIARE E RIORDINARE LE CATEGORIE INTERE
+function onCategoryDragStart(event, catId) {
+    if (event.target.isContentEditable) return;
+    event.dataTransfer.setData('text/plain', JSON.stringify({ type: 'category', catId }));
+    event.dataTransfer.effectAllowed = 'move';
+    const catBlock = event.currentTarget.closest('.ps-category-block');
+    if (catBlock) {
+        setTimeout(() => catBlock.classList.add('ps-dragging'), 0);
+    }
+}
+
+function onCategoryDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const catBlock = event.currentTarget.closest('.ps-category-block');
+    if (catBlock && !catBlock.classList.contains('ps-drag-over')) {
+        document.querySelectorAll('.ps-category-block').forEach(c => c.classList.remove('ps-drag-over'));
+        catBlock.classList.add('ps-drag-over');
+    }
+}
+
+function onCategoryDrop(event, targetCatId) {
+    event.preventDefault();
+    document.querySelectorAll('.ps-category-block').forEach(c => {
+        c.classList.remove('ps-drag-over');
+        c.classList.remove('ps-dragging');
+    });
+
+    try {
+        const raw = event.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.type !== 'category' || !data.catId) return;
+
+        const sCats = window._printStudioState.categories || [];
+        const sourceIdx = sCats.findIndex(c => c.id === data.catId);
+        const targetIdx = sCats.findIndex(c => c.id === targetCatId);
+
+        if (sourceIdx < 0 || targetIdx < 0 || sourceIdx === targetIdx) return;
+
+        const movedCat = sCats.splice(sourceIdx, 1)[0];
+        sCats.splice(targetIdx, 0, movedCat);
+
+        persistPrintCategories();
+        renderPrintCategoriesManager();
+        renderLivePrintSheet();
+    } catch(err) {
+        console.warn("Errore drag & drop categoria:", err);
+    }
+}
+
+function onCategoryDragEnd(event) {
+    document.querySelectorAll('.ps-category-block').forEach(c => {
+        c.classList.remove('ps-drag-over');
+        c.classList.remove('ps-dragging');
+    });
+}
+
+function resetAllDraggablePositions() {
+    window._printStudioState.logoPos = null;
+    window._printStudioState.qrPos = null;
+    window._printStudioState.titlePos = null;
+    window._printStudioState.footerPos = null;
+    renderLivePrintSheet();
+}
+
+// Registrazione su window
+window.startDraggingPrintWidget = startDraggingPrintWidget;
+window.onCategoryDragStart = onCategoryDragStart;
+window.onCategoryDragOver = onCategoryDragOver;
+window.onCategoryDrop = onCategoryDrop;
+window.onCategoryDragEnd = onCategoryDragEnd;
+window.resetAllDraggablePositions = resetAllDraggablePositions;
 
 // Registrazione su window
 window.onPrintLogoSizeChanged = onPrintLogoSizeChanged;
