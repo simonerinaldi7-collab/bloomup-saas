@@ -24509,6 +24509,7 @@ window.startDraggingPrintWidget = startDraggingPrintWidget;
 
 
 // 16. Renderizzatore Cartello QR Code Adattivo
+// 10. RENDER CARTELLO QR CODE CON FORME GRAFICHE A FILO BORDO
 function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     applyPrintPaperClasses();
 
@@ -24517,9 +24518,14 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
     const showDirectUrl = document.getElementById('ps-qr-show-direct-url')?.checked ?? true;
     const isLandscape = (s.orientation === 'landscape');
 
+    // 🌟 1. CASO ORIZZONTALE (LANDSCAPE)
     if (isLandscape) {
         sheet.innerHTML = `
-            <div style="display: grid; grid-template-columns: 280px 1fr; gap: 30px; height: 100%; box-sizing: border-box; align-items: center;">
+            <!-- 🌟 FORME GRAFICHE A FILO BORDO ANCHE SUL QR CODE -->
+            ${getThemeFrameSvgMarkup(s.frameStyle)}
+
+            <!-- CONTENUTO DEL CARTELLO (Z-INDEX 2: STA SEMPRE SOPRA E NON VIENE COPERTO) -->
+            <div style="position: relative; z-index: 2; display: grid; grid-template-columns: 280px 1fr; gap: 30px; height: 100%; box-sizing: border-box; align-items: center;">
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-right: 2px solid var(--ps-accent-border); padding-right: 25px;">
                     ${s.showSalonLogo && s.salonLogoBase64 ? `
                         <div style="width: calc(65px * var(--ps-scale, 1)); height: calc(65px * var(--ps-scale, 1)); margin-bottom: 12px; border-radius: 14px; overflow: hidden; border: 2px solid var(--ps-accent-border);">
@@ -24584,15 +24590,18 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
                         ${s.showVaimupLogo ? `<div>Powered by <b>VaiMUp Suite</b></div>` : ''}
                     </div>
                 </div>
-
             </div>
         `;
         return;
     }
 
-    // Verticale Standard
+    // 🌟 2. CASO VERTICALE (PORTRAIT)
     sheet.innerHTML = `
-        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: inherit; box-sizing: border-box; text-align: center;">
+        <!-- 🌟 FORME GRAFICHE A FILO BORDO ANCHE SUL QR CODE -->
+        ${getThemeFrameSvgMarkup(s.frameStyle)}
+
+        <!-- CONTENUTO DEL CARTELLO (Z-INDEX 2: STA SEMPRE SOPRA E NON VIENE COPERTO) -->
+        <div style="position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: inherit; box-sizing: border-box; text-align: center;">
             <div style="margin-bottom: 12px;">
                 ${s.showSalonLogo && s.salonLogoBase64 ? `
                     <div style="width: calc(75px * var(--ps-scale, 1)); height: calc(75px * var(--ps-scale, 1)); margin: 0 auto 10px auto; border-radius: 16px; overflow: hidden; border: 2px solid var(--ps-accent-border); box-shadow: 0 4px 14px rgba(0,0,0,0.1);">
@@ -24638,19 +24647,19 @@ function renderQrBookingSheet(sheet, s, currentSalon, bookingUrl, qrSrc) {
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">1</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Inquadra QR</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Apri la fotocamera</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">2</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Scegli Servizio</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">Operatore e orario</small>
                         </div>
 
                         <div style="background: var(--ps-card-bg); border: 1.5px solid var(--ps-accent-border); border-radius: 12px; padding: 10px 8px;">
                             <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-bg); font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px auto;">3</div>
                             <b style="font-size: calc(12px * var(--ps-scale, 1)); display: block; color: var(--ps-text);" contenteditable="true">Conferma Live</b>
-                            <small style="font-size: calc(10px * var(--ps-scale, 1)); color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
+                            <small style="font-size: 10px; color: var(--ps-text-sub); display: block;" contenteditable="true">WhatsApp immediato</small>
                         </div>
                     </div>
                 </div>
