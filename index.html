@@ -1311,7 +1311,7 @@
     font-size: calc(14px * var(--ps-scale, 1));
 }
 
-/* Riga Articolo Interattiva sullo Schermo */
+/* 🌟 RIGA ARTICOLO: Direttamente afferrabile con la mano per il Drag & Drop (Zero tastini) */
 .ps-item-row {
     position: relative;
     display: flex;
@@ -1320,8 +1320,12 @@
     gap: 6px;
     padding: 2px 4px;
     border-radius: 6px;
-    transition: background 0.15s ease, outline 0.15s ease;
-    user-select: none;
+    cursor: grab;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.ps-item-row:active {
+    cursor: grabbing;
 }
 
 @media screen {
@@ -1329,14 +1333,14 @@
         background: rgba(108, 92, 231, 0.08);
         outline: 1px dashed var(--ps-accent, #6C5CE7);
     }
-    .ps-item-row:hover .ps-item-inline-actions {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    .ps-cat-header-block:hover .ps-cat-inline-actions {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
+}
+
+.ps-item-row.ps-dragging {
+    opacity: 0.35;
+    background: #e2e8f0;
+}
+.ps-item-row.ps-drag-over {
+    border-top: 2px solid var(--ps-accent, #6C5CE7);
 }
 
 .ps-item-inline-actions, .ps-cat-inline-actions {
@@ -23317,8 +23321,12 @@ function addCustomItemRowToCategory(catId) {
     renderLivePrintSheet();
 }
 
-// Drag & Drop Nativo per le Righe
+// 🌟 DRAG & DROP RIGHE: Trascina la riga, ma se clicchi sul testo per editarlo non trascina
 function onPrintItemDragStart(event, catId, itemIdx) {
+    if (event.target.isContentEditable) {
+        event.preventDefault();
+        return;
+    }
     event.dataTransfer.setData('text/plain', JSON.stringify({ catId, itemIdx }));
     event.dataTransfer.effectAllowed = 'move';
     setTimeout(() => {
@@ -23887,49 +23895,43 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
         const catCustomStyle = thisCatOffset ? `position: relative; top: ${thisCatOffset.top}; left: ${thisCatOffset.left};` : `position: relative;`;
 
         sectionsHtml += `
-            <div class="ps-category-block" style="${catCustomStyle} margin-bottom: ${catMargin};">
+            <div class="ps-category-block" style="${catCustomStyle} margin-bottom: ${catMargin};" ondragover="onCategoryDragOver(event)" ondrop="onCategoryDrop(event, '${cat.id}')">
                 
-                <!-- TESTATA SEZIONE CON MANIGLIA PER SPOSTAMENTO LIBERO IN X E Y -->
-                <div class="ps-cat-header-block" style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <span class="ps-cat-drag-handle no-print" onpointerdown="startDraggingPrintWidget(event, 'cat_${cat.id}')" title="Trascina qui per spostare/abbassare questa sezione">⠿</span>
-                        <span class="ps-cat-inline-actions no-print">
-                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', -1)">▲</button>
-                            <button type="button" class="ps-micro-btn" onclick="moveCategoryOrder('${cat.id}', 1)">▼</button>
-                        </span>
-                        <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">${cat.name}</span>
-                    </div>
+                <!-- HEADER SEZIONE PULITO (SENZA TASTINI INVASIVI) -->
+                <div class="ps-cat-header-block" 
+                     draggable="true" 
+                     ondragstart="onCategoryDragStart(event, '${cat.id}')" 
+                     ondragend="onCategoryDragEnd(event)"
+                     style="display: flex; align-items: center; justify-content: space-between; border-bottom: calc(1.5px * var(--ps-scale, 1)) solid var(--ps-accent-border); padding-bottom: 3px; margin-bottom: 10px;"
+                     title="Trascina l'intestazione per scambiare o spostare questa sezione">
+                    <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">${cat.name}</span>
                 </div>
 
-                <!-- RIGHE ARTICOLI -->
+                <!-- RIGHE ARTICOLI: PULITE AL 100%, ZERO TASTINI, TRASCINABILI COL MOUSE -->
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
                     ${catItems.map((item, itemIdx) => `
-                        <div class="ps-item-row" draggable="true" ondragstart="onPrintItemDragStart(event, '${cat.id}', ${itemIdx})" ondragover="onPrintItemDragOver(event)" ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" ondragend="onPrintItemDragEnd(event)">
-                            <div class="ps-item-inline-actions no-print">
-                                <span class="ps-drag-handle" title="Trascina riga">⠿</span>
-                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, -1)">▲</button>
-                                <button type="button" class="ps-micro-btn" onclick="moveItemOrder('${cat.id}', ${itemIdx}, 1)">▼</button>
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('${cat.id}', '${item.id}')">✕</button>
-                            </div>
+                        <div class="ps-item-row" 
+                             draggable="true" 
+                             ondragstart="onPrintItemDragStart(event, '${cat.id}', ${itemIdx})" 
+                             ondragover="onPrintItemDragOver(event)" 
+                             ondrop="onPrintItemDrop(event, '${cat.id}', ${itemIdx})" 
+                             ondragend="onPrintItemDragEnd(event)"
+                             title="Trascina la riga per spostarla sopra o sotto">
+                            
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
                                 ${item.model ? `<div class="ps-item-desc" style="font-size: calc(10.5px * var(--ps-scale, 1)); color: var(--ps-text-sub); line-height: 1.15;" contenteditable="true">${item.model}</div>` : ''}
                             </div>
+                            
                             <div style="flex: 1; border-bottom: 1px dotted var(--ps-accent-border); margin: 0 4px; opacity: 0.4;"></div>
+                            
                             <span class="ps-item-price" style="font-family: var(--ps-font-title); font-weight: 900; font-size: ${priceFontSize}; color: var(--ps-accent); white-space: nowrap;" contenteditable="true">€ ${parseFloat(item.price || 0).toFixed(2)}</span>
                         </div>
                     `).join('')}
-
-                    <div class="ps-add-custom-row-btn no-print" style="margin-top: 4px;">
-                        <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: rgba(255,255,255,0.7); border: 1px dashed var(--ps-accent); color: var(--ps-accent); border-radius: 4px;" onclick="addCustomItemRowToCategory('${cat.id}')">
-                            + Aggiungi Voce Libera
-                        </button>
-                    </div>
                 </div>
             </div>
         `;
     });
-
     // Articoli non categorizzati
     const unassignedItems = inventory.filter(i => selectedItemIds.has(String(i.id)) && !printedItemIds.has(String(i.id)));
     if (unassignedItems.length > 0) {
@@ -23939,11 +23941,8 @@ function renderStandardPriceListSheet(sheet, s, currentSalon, qrSrc) {
                     <span class="ps-cat-header" style="font-family: var(--ps-font-title); font-size: calc(14.5px * var(--ps-scale, 1)); font-weight: 800; color: var(--ps-accent); text-transform: uppercase; letter-spacing: 1.5px;" contenteditable="true">✨ Altri Trattamenti</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: ${itemGap};">
-                    ${unassignedItems.map(item => `
-                        <div class="ps-item-row">
-                            <div class="ps-item-inline-actions no-print">
-                                <button type="button" class="ps-micro-btn" style="color: #dc2626;" onclick="removePrintItemRow('unassigned', '${item.id}')">✕</button>
-                            </div>
+                    ${unassignedItems.map((item, itemIdx) => `
+                        <div class="ps-item-row" draggable="true" ondragstart="onPrintItemDragStart(event, 'unassigned', ${itemIdx})">
                             <div style="flex: 1; min-width: 0;">
                                 <span class="ps-item-title" style="font-weight: 700; font-size: ${titleFontSize}; color: var(--ps-text);" contenteditable="true">${item.name}</span>
                             </div>
