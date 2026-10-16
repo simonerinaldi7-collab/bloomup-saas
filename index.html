@@ -3631,6 +3631,20 @@
             </label>
         </div>
 
+<!-- ⏱️ PREAVVISO MINIMO PER DISDETTA / MODIFICA ONLINE -->
+<div style="margin-bottom: 14px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 220px;">
+        <b style="font-size: 13px; color: #1e1b4b; display: block;">⏱️ Preavviso Minimo Disdetta / Spostamento</b>
+        <small style="color: #64748b; font-size: 11.5px; display: block; line-height: 1.4;">Tempo minimo di anticipo per consentire ai clienti di modificare o cancellare online senza creare buchi.</small>
+    </div>
+    <select id="set-booking-cancel-hours" style="width: 140px; margin: 0; font-weight: bold; background: white; font-size: 12.5px; border: 1.5px solid var(--p); border-radius: 8px;">
+        <option value="6">6 Ore</option>
+        <option value="12">12 Ore</option>
+        <option value="24" selected>24 Ore (1 giorno)</option>
+        <option value="48">48 Ore (2 giorni)</option>
+    </select>
+</div>
+
         <!-- ⚙️ CARD REGOLE CABINE & CHIUSURE (AUTO-STACK SU MOBILE: ZERO SOVRAPPOSIZIONI!) -->
         <div class="booking-responsive-subcard" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
             <div style="flex: 1; min-width: 0;">
@@ -9912,6 +9926,9 @@ async function loadSettingsFields() {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
 
+const cancelHoursEl = document.getElementById('set-booking-cancel-hours');
+if (cancelHoursEl) cancelHoursEl.value = sysSettings['booking_cancel_lead_hours'] || '24';
+
         // 🌟 AGGIORNAMENTO IMMEDIATO BADGE OFFERTE ALL'APERTURA CONFIGURAZIONE
         if (typeof loadBookingOffersFromStorage === 'function') {
             loadBookingOffersFromStorage();
@@ -12418,6 +12435,7 @@ function closeDuplicateModal() {
                     { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
                     // 🎁 NUOVE CHIAVI SCADENZA PACCHETTI:
                     { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
+                    { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
                     { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
     // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
     { key: 'app_theme', id: 'set-app-theme' },
@@ -20578,31 +20596,173 @@ function loadCustomerUpcomingAppointments(customer) {
     }
 }
 
-// Apre il popup con l'elenco degli appuntamenti già confermati
+// 📅 MODALE "I MIEI APPUNTAMENTI" CON DISDETTA E SPOSTAMENTO PROTETTO
 function openPublicMyAppointmentsModal() {
     const list = document.getElementById('pb-my-apps-list-container');
     const modal = document.getElementById('pb-modal-my-apps');
     if (!list || !modal) return;
 
     const apps = window._pbState.customerUpcomingApps || [];
+    const cancelLeadHours = parseInt(sysSettings['booking_cancel_lead_hours']) || 24;
+    const now = new Date();
 
     if (apps.length === 0) {
         list.innerHTML = `<div style="text-align:center; padding:25px; color:#64748b; font-size:13px;">Non hai ancora appuntamenti futuri in programma.</div>`;
     } else {
-        list.innerHTML = apps.map(a => `
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-left: 5px solid var(--p); border-radius: 12px; padding: 12px 14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                    <b style="font-size:13.5px; color:#1e1b4b;">📅 ${formatDateIt(a.date)} alle ore ${a.time ? a.time.substring(0,5) : '--:--'}</b>
-                    <span style="font-size:10.5px; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:6px;">Confermato ✓</span>
+        list.innerHTML = apps.map(a => {
+            const timeStr = a.time ? a.time.substring(0, 5) : '09:00';
+            const appDateTime = new Date(`${a.date}T${timeStr}:00`);
+            const hoursDiff = (appDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+            const canManageOnline = hoursDiff >= cancelLeadHours;
+
+            return `
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-left: 5px solid var(--p); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <b style="font-size:14px; color:#1e1b4b;">📅 ${formatDateIt(a.date)} alle ore ${timeStr}</b>
+                        <span style="font-size:10.5px; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:6px;">Confermato ✓</span>
+                    </div>
+
+                    <div style="font-size:13px; color:#334155;">Trattamento: <b>${a.service || 'Servizio'}</b></div>
+                    <div style="font-size:11.5px; color:#64748b;">Operatore: <b>${a.assigned_user || 'Admin'}</b> ${a.price ? `• € ${parseFloat(a.price).toFixed(2)}` : ''}</div>
+
+                    <!-- BLOCCO AZIONI O TUTELA SALONE -->
+                    <div style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cbd5e1;">
+                        ${canManageOnline ? `
+                            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                <button type="button" class="btn" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; background: #ffffff; border: 1.5px solid var(--p); color: var(--p); border-radius: 6px;" onclick="startPublicReschedule('${a.id}')">
+                                    ✏️ Sposta Data / Ora
+                                </button>
+                                <button type="button" class="btn btn-d" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px;" onclick="cancelPublicAppointment('${a.id}')">
+                                    ✕ Disdici
+                                </button>
+                            </div>
+                        ` : `
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                                <small style="color: #92400e; font-size: 11px; line-height: 1.3; flex: 1;">
+                                    ⏳ <b>Mancano meno di ${cancelLeadHours}h:</b> per disdire o spostare contatta direttamente il salone.
+                                </small>
+                                <button type="button" class="btn btn-w" style="padding: 4px 10px; font-size: 11px; font-weight: 800; border-radius: 6px;" onclick="contactSalonForLastMinuteCancel('${a.date}', '${timeStr}', '${(a.service || '').replace(/'/g, "\\'")}')">
+                                    💬 WhatsApp
+                                </button>
+                            </div>
+                        `}
+                    </div>
                 </div>
-                <div style="font-size:12.5px; color:#475569;">Trattamento: <b>${a.service || 'Servizio'}</b></div>
-                <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Operatore: <b>${a.assigned_user || 'Admin'}</b> ${a.price ? `• € ${parseFloat(a.price).toFixed(2)}` : ''}</div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     modal.classList.add('active');
 }
+
+window.openPublicMyAppointmentsModal = openPublicMyAppointmentsModal;
+
+
+
+// 🌟 1. CANCELLAZIONE AUTONOMA (Con ripristino automatico pacchetti e postazioni)
+async function cancelPublicAppointment(appId) {
+    const app = (window._pbState.customerUpcomingApps || []).find(a => String(a.id) === String(appId));
+    if (!app) return alert("Appuntamento non trovato.");
+
+    const confirmMsg = `Vuoi davvero annullare l'appuntamento per "${app.service}" del ${formatDateIt(app.date)} alle ore ${app.time?.substring(0,5)}?`;
+    if (!confirm(confirmMsg)) return;
+
+    const salonId = window._pbState.salonId;
+    const supUrl = window.SUPABASE_CONFIG.url;
+    const supKey = window.SUPABASE_CONFIG.key;
+
+    try {
+        // A. Se occupava una postazione/cabina condivisa, liberala
+        if (app.notes && app.notes.includes('[WS:')) {
+            await fetch(`${supUrl}/rest/v1/rpc/release_workstation_booking`, {
+                method: 'POST',
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ p_appointment_id: appId, p_salon_id: salonId })
+            }).catch(() => {});
+        }
+
+        // B. Se era coperto da pacchetto/carnet, ripristina la seduta (+1)
+        const pkgMatch = (app.notes || '').match(/\[PKG:([^:]+):([^\]]+)\]/);
+        if (pkgMatch) {
+            const custPkgId = pkgMatch[1];
+            const serviceId = pkgMatch[2];
+            try {
+                const pkgRows = await fetchPublicTenantTable('customer_packages', `id=eq.${custPkgId}&select=*`);
+                if (pkgRows && pkgRows.length > 0) {
+                    const targetPkg = pkgRows[0];
+                    let sessionsList = Array.isArray(targetPkg.sessions_state) ? targetPkg.sessions_state : JSON.parse(targetPkg.sessions_state || '[]');
+                    const sessionItem = sessionsList.find(s => String(s.service_id).trim() === String(serviceId).trim());
+                    if (sessionItem) {
+                        sessionItem.remaining = Math.min((parseInt(sessionItem.remaining) || 0) + 1, parseInt(sessionItem.total) || 999);
+                        await fetch(`${supUrl}/rest/v1/customer_packages?id=eq.${custPkgId}`, {
+                            method: 'PATCH',
+                            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sessions_state: sessionsList, updated_at: getNowLocal() })
+                        });
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // C. Cancellazione appuntamento dal Cloud Supabase
+        const delRes = await fetch(`${supUrl}/rest/v1/appointments?id=eq.${appId}`, {
+            method: 'DELETE',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey }
+        });
+
+        if (!delRes.ok) throw new Error("Errore durante la cancellazione sul server.");
+
+        // D. Aggiorna lo stato in memoria e ricarica
+        window._pbState.customerUpcomingApps = (window._pbState.customerUpcomingApps || []).filter(a => String(a.id) !== String(appId));
+        window._pbState.allExistingApps = (window._pbState.allExistingApps || []).filter(a => String(a.id) !== String(appId));
+
+        const countBadge = document.getElementById('pb-my-apps-count');
+        if (countBadge) countBadge.innerText = window._pbState.customerUpcomingApps.length;
+
+        alert("✅ Il tuo appuntamento è stato annullato con successo.");
+        openPublicMyAppointmentsModal();
+
+    } catch (err) {
+        console.error("Errore disdetta appuntamento:", err);
+        alert("Impossibile annullare l'appuntamento: " + err.message);
+    }
+}
+
+// 🌟 2. AVVIO RIPROGRAMMAZIONE ("SPOSTA ORARIO")
+function startPublicReschedule(appId) {
+    const app = (window._pbState.customerUpcomingApps || []).find(a => String(a.id) === String(appId));
+    if (!app) return;
+
+    window._pbState.reschedulingAppId = appId; // Memorizza che stiamo modificando questo appuntamento
+
+    // Riconosce i servizi dell'appuntamento esistente
+    const serviceNames = (app.service || '').split(',').map(s => s.trim().toLowerCase());
+    const matchedServices = (window._pbState.allServices || []).filter(s => serviceNames.some(name => (s.name || '').toLowerCase().includes(name) || name.includes((s.name || '').toLowerCase())));
+
+    if (matchedServices.length > 0) {
+        window._pbState.selectedServices = matchedServices;
+    }
+
+    recalculatePublicCartTotals();
+
+    // Chiude il modale e va dritto al calendario
+    closePublicMyAppointmentsModal();
+    goToStep3OperatorAndSlots();
+
+    alert(`🗓️ Seleziona il nuovo giorno e il nuovo orario per spostare l'appuntamento.`);
+}
+
+// 🌟 3. CONTATTO WHATSAPP PER DISDETTE TARDIVE (< 24h)
+function contactSalonForLastMinuteCancel(dateStr, timeStr, serviceName) {
+    const msg = encodeURIComponent(`Ciao, vi contatto in merito al mio appuntamento di ${formatDateIt(dateStr)} alle ore ${timeStr} per "${serviceName}". Avrei bisogno di disdire/spostare.`);
+    window.open(`https://api.whatsapp.com/send/?text=${msg}`, '_blank');
+}
+
+// Registrazione su window
+window.cancelPublicAppointment = cancelPublicAppointment;
+window.startPublicReschedule = startPublicReschedule;
+window.contactSalonForLastMinuteCancel = contactSalonForLastMinuteCancel;
 
 function closePublicMyAppointmentsModal() {
     const modal = document.getElementById('pb-modal-my-apps');
@@ -22160,9 +22320,19 @@ async function executePublicBooking() {
     };
 
     try {
-        // 2. Invio Diretto dell'Appuntamento su Supabase Cloud per salon_id specifico
-        const res = await fetch(`${supUrl}/rest/v1/appointments`, {
-            method: 'POST',
+        const isRescheduling = Boolean(window._pbState.reschedulingAppId);
+        const targetAppId = isRescheduling ? window._pbState.reschedulingAppId : appointmentId;
+
+        appPayload.id = targetAppId;
+
+        // Se stiamo spostando, esegue PATCH sull'appuntamento esistente senza duplicarlo
+        const endpointUrl = isRescheduling 
+            ? `${supUrl}/rest/v1/appointments?id=eq.${targetAppId}`
+            : `${supUrl}/rest/v1/appointments`;
+        const httpMethod = isRescheduling ? 'PATCH' : 'POST';
+
+        const res = await fetch(endpointUrl, {
+            method: httpMethod,
             headers: {
                 'apikey': supKey,
                 'Authorization': 'Bearer ' + supKey,
@@ -22171,6 +22341,14 @@ async function executePublicBooking() {
             },
             body: JSON.stringify(appPayload)
         });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+        }
+
+        // Reset della flag di riprogrammazione
+        window._pbState.reschedulingAppId = null;
 
         if (!res.ok) {
             const errText = await res.text();
