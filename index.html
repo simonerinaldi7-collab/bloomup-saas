@@ -17572,17 +17572,33 @@ async function filterCustomerPackagesTab() {
         const progressPct = item.totalSessionsSum > 0 ? Math.round(((item.totalSessionsSum - item.remainingSessionsSum) / item.totalSessionsSum) * 100) : 0;
         const isExhausted = item.remainingSessionsSum <= 0;
 
-        // 🌟 NUOVO: DATA DI SCADENZA MODIFICABILE DIRETTAMENTE DALLA SCHEDA CLIENTE
+ // 🌟 DATA SCADENZA SCHEDA CLIENTE MODIFICABILE A MANO O DA CALENDARIO (ZERO RELOAD)
 const isExpired = item.cp.expiry_date && item.cp.expiry_date < todayStr;
 const expiryHtml = `
-    <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-        <span style="font-size: 11px; font-weight: 700; color: ${isExpired ? '#dc2626' : '#475569'};">
-            ${isExpired ? '⚠️ Scaduto:' : '📅 Scadenza:'}
-        </span>
-        <input type="date" value="${item.cp.expiry_date || ''}" 
-               onchange="updateCustomerPackageExpiry('${item.cp.id}', this.value)"
-               style="margin: 0; padding: 2px 6px; font-size: 11.5px; font-weight: bold; background: #ffffff; border: 1.5px solid ${isExpired ? '#fca5a5' : '#cbd5e1'}; border-radius: 6px; color: #1e1b4b; width: 125px; cursor: pointer;"
-               title="Clicca per modificare o prorogare la data di scadenza">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; color: ${isExpired ? '#dc2626' : '#475569'};">
+                ${isExpired ? '⚠️ Scaduto:' : '📅 Scadenza:'}
+            </span>
+            <input type="date" value="${item.cp.expiry_date || ''}" 
+                   oninput="handlePackageDateInput(this, '${item.cp.id}')"
+                   onchange="handlePackageDateInput(this, '${item.cp.id}')"
+                   style="margin: 0; padding: 2px 6px; font-size: 11.5px; font-weight: bold; background: #ffffff; border: 1.5px solid ${isExpired ? '#fca5a5' : '#cbd5e1'}; border-radius: 6px; color: #1e1b4b; width: 125px;"
+                   title="Modifica la data di scadenza">
+            <button type="button" class="btn" 
+                    style="padding: 2px 6px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 4px; font-weight: bold; min-height: unset;"
+                    onclick="quickExtendPackageExpiry('${item.cp.id}', '${item.cp.expiry_date || ''}', 3)"
+                    title="Proroga di 3 mesi">
+                +3 Mesi
+            </button>
+        </div>
+
+        <button type="button" class="btn btn-w" 
+                style="padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 6px; min-height: unset;"
+                onclick="sendPackageRenewalWhatsApp('${item.cp.id}')"
+                title="Invia messaggio promemoria su WhatsApp al cliente">
+            💬 WhatsApp
+        </button>
     </div>
 `;
 
@@ -19760,27 +19776,25 @@ async function sendAIQuery() {
 
 let cachedExpiringPackages = [];
 
-// 1. Scansiona i pacchetti e aggiorna il badge in Header e il banner in Dashboard
-// 1. Scansiona i pacchetti e recupera il NOME REALE del cliente
+// 1. SCANSIONE PACCHETTI: In scadenza nei prossimi 30gg OPPURE con meno di 2 sedute residue
 async function checkExpiringCustomerPackages() {
     try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const leadDays = parseInt(sysSettings['package_expiry_days']) || 15;
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
 
-        const maxDate = new Date();
-        maxDate.setDate(maxDate.getDate() + leadDays);
+        // Finestra 30 giorni
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 30);
         const maxDateStr = maxDate.toISOString().split('T')[0];
 
-        const minDate = new Date();
-        minDate.setDate(minDate.getDate() - 30); // Mostra anche scaduti di recente
+        const minDate = new Date(today);
+        minDate.setDate(today.getDate() - 15);
         const minDateStr = minDate.toISOString().split('T')[0];
 
         const allCustPkgs = (localDb && localDb.customer_packages)
             ? await localDb.customer_packages.toArray()
             : [];
         const allPkgConfigs = await window.universalQuery({ action: 'GET_ALL', table: 'packages_config' }) || [];
-        
-        // Recupera TUTTI i clienti locali per un match garantito
         const customers = (localDb && localDb.customers) 
             ? await localDb.customers.toArray() 
             : (allCustomers || []);
@@ -19796,69 +19810,74 @@ async function checkExpiringCustomerPackages() {
             const hasQuota = allocs && Object.keys(allocs).some(k => k.trim().toLowerCase() === currentSalon && parseFloat(allocs[k]) > 0);
 
             if (!isOwner && !hasQuota) continue;
-            if (!cp.expiry_date) continue;
 
-            if (cp.expiry_date >= minDateStr && cp.expiry_date <= maxDateStr) {
-                const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
-                
-                // 🌟 RISOLUZIONE ROBUSTA DEL NOME CLIENTE (Zero "Cliente" generico)
-                const cust = customers.find(c => String(c.id).trim() === String(cp.customer_id).trim());
-                
-                let resolvedName = '';
-                let resolvedPhone = '';
-
-                if (cust) {
-                    const fn = (cust.first_name || '').trim();
-                    const ln = (cust.last_name || '').trim();
-                    resolvedName = `${fn} ${ln}`.trim() || cust.name || cust.customer_name || '';
-                    resolvedPhone = cust.phone || cust.tel || '';
-                }
-
-                if (!resolvedName && cp.customer_name) {
-                    resolvedName = cp.customer_name.trim();
-                }
-
-                if (!resolvedName) {
-                    resolvedName = 'Cliente N.D.';
-                }
-
-                let sessionsList = [];
-                if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
-                else if (typeof cp.sessions_state === 'string') {
-                    try { sessionsList = JSON.parse(cp.sessions_state); } catch (e) { sessionsList = []; }
-                }
-
-                let totalSessions = 0;
-                let remainingSessions = 0;
-                sessionsList.forEach(s => {
-                    totalSessions += (parseInt(s.total) || 0);
-                    remainingSessions += (parseInt(s.remaining) || 0);
-                });
-
-                if (remainingSessions <= 0) continue;
-
-                const isDismissedOnCloud = (cp.alert_dismissed_date === cp.expiry_date) || 
-                                          (allocs && allocs._alert_dismissed === cp.expiry_date);
-
-                cachedExpiringPackages.push({
-                    cpId: cp.id,
-                    customerId: cp.customer_id,
-                    customerName: resolvedName,
-                    customerPhone: resolvedPhone,
-                    packageName: pkgConfig ? pkgConfig.name : 'Pacchetto Trattamenti',
-                    expiryDate: cp.expiry_date,
-                    totalSessions: totalSessions,
-                    remainingSessions: remainingSessions,
-                    isExpiredAlready: cp.expiry_date < todayStr,
-                    isDismissed: Boolean(isDismissedOnCloud)
-                });
+            // Calcolo sedute residue
+            let sessionsList = [];
+            if (Array.isArray(cp.sessions_state)) sessionsList = cp.sessions_state;
+            else if (typeof cp.sessions_state === 'string') {
+                try { sessionsList = JSON.parse(cp.sessions_state); } catch (e) { sessionsList = []; }
             }
+
+            let totalSessions = 0;
+            let remainingSessions = 0;
+            sessionsList.forEach(s => {
+                totalSessions += (parseInt(s.total) || 0);
+                remainingSessions += (parseInt(s.remaining) || 0);
+            });
+
+            // 🌟 CONDIZIONI RICHIESTE:
+            // A. Scade nei prossimi 30 giorni (e ha ancora sedute > 0)
+            const isExpiringSoon = cp.expiry_date && (cp.expiry_date >= minDateStr && cp.expiry_date <= maxDateStr) && remainingSessions > 0;
+            
+            // B. Meno di 2 sedute rimanenti (anche se la scadenza è lontana o assente)
+            const isLowSessions = remainingSessions > 0 && remainingSessions < 2;
+
+            if (!isExpiringSoon && !isLowSessions) continue;
+
+            // Verifica se è già stato gestito/avvisato
+            const isDismissedOnCloud = (cp.alert_dismissed_date === cp.expiry_date) || 
+                                      (allocs && allocs._alert_dismissed === cp.expiry_date);
+
+            // Se è già gestito, non mostrarlo
+            if (isDismissedOnCloud) continue;
+
+            const pkgConfig = allPkgConfigs.find(p => String(p.id).trim() === String(cp.package_id).trim());
+            const cust = customers.find(c => String(c.id).trim() === String(cp.customer_id).trim());
+
+            let resolvedName = '';
+            let resolvedPhone = '';
+
+            if (cust) {
+                const fn = (cust.first_name || '').trim();
+                const ln = (cust.last_name || '').trim();
+                resolvedName = `${fn} ${ln}`.trim() || cust.name || cust.customer_name || '';
+                resolvedPhone = cust.phone || cust.tel || '';
+            }
+            if (!resolvedName && cp.customer_name) resolvedName = cp.customer_name.trim();
+            if (!resolvedName) resolvedName = 'Cliente N.D.';
+
+            cachedExpiringPackages.push({
+                cpId: cp.id,
+                customerId: cp.customer_id,
+                customerName: resolvedName,
+                customerPhone: resolvedPhone,
+                packageName: pkgConfig ? pkgConfig.name : 'Pacchetto Trattamenti',
+                expiryDate: cp.expiry_date || '',
+                totalSessions: totalSessions,
+                remainingSessions: remainingSessions,
+                isExpiringSoon: isExpiringSoon,
+                isLowSessions: isLowSessions,
+                isExpiredAlready: cp.expiry_date && cp.expiry_date < todayStr,
+                isDismissed: false
+            });
         }
 
-        cachedExpiringPackages.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+        cachedExpiringPackages.sort((a, b) => {
+            if (a.remainingSessions !== b.remainingSessions) return a.remainingSessions - b.remainingSessions;
+            return (a.expiryDate || '9999').localeCompare(b.expiryDate || '9999');
+        });
 
-        const activeAlerts = cachedExpiringPackages.filter(p => !p.isDismissed);
-        const count = activeAlerts.length;
+        const count = cachedExpiringPackages.length;
 
         // Badge Header
         const headerBadge = document.getElementById('pkg-expiry-alert');
@@ -19877,7 +19896,7 @@ async function checkExpiringCustomerPackages() {
         const dashText = document.getElementById('dashboard-pkg-expiry-text');
         if (dashBanner && dashText) {
             if (count > 0) {
-                dashText.innerHTML = `Ci sono <b>${count} clienti</b> con sedute residue in scadenza nei prossimi ${leadDays} giorni.`;
+                dashText.innerHTML = `Ci sono <b>${count} pacchetti</b> che richiedono attenzione (in scadenza a 30gg o con meno di 2 sedute).`;
                 dashBanner.style.display = 'flex';
             } else {
                 dashBanner.style.display = 'none';
@@ -19885,27 +19904,26 @@ async function checkExpiringCustomerPackages() {
         }
 
     } catch (err) {
-        console.error("Errore verifica pacchetti in scadenza:", err);
+        console.error("Errore verifica pacchetti:", err);
     }
 }
 
 
-// 🌟 MODIFICA SCADENZA PACCHETTO (SINCRONIZZATA CON CLOUD E INTERFACCIA)
-async function updateCustomerPackageExpiry(custPkgId, newDateVal) {
+// 🌟 SALVATAGGIO SCADENZA PROTETTO (ZERO ALERT BLOCCANTI, ZERO PERDITA DI FOCUS)
+async function updateCustomerPackageExpiry(custPkgId, newDateVal, silent = true) {
     if (!custPkgId) return;
 
-    if (!newDateVal) {
-        if (!confirm("Vuoi rimuovere la data di scadenza da questo pacchetto (renderlo senza scadenza)?")) return;
+    // Se l'utente sta digitando a mano e la data non è ancora completa (es. "202"), non salvare
+    if (newDateVal && newDateVal.length > 0 && newDateVal.length < 10) {
+        return; 
     }
 
     try {
         const targetPkg = await localDb.customer_packages.get(custPkgId);
-        if (!targetPkg) return alert("Pacchetto non trovato.");
+        if (!targetPkg) return;
 
         let allocs = targetPkg.revenue_allocations || {};
         if (typeof allocs === 'string') { try { allocs = JSON.parse(allocs); } catch (e) { allocs = {}; } }
-        
-        // Se la scadenza viene prorogata, sblocca anche l'alert
         delete allocs._alert_dismissed;
 
         const updatePayload = {
@@ -19915,35 +19933,38 @@ async function updateCustomerPackageExpiry(custPkgId, newDateVal) {
             updated_at: getNowLocal()
         };
 
-        // 1. Salva nel database locale IndexedDB
+        // 1. Salva in IndexedDB e invia a Supabase Cloud
         await localDb.customer_packages.update(custPkgId, updatePayload);
-
-        // 2. Sincronizza subito su Supabase Cloud
         if (navigator.onLine && typeof sendToCloudDirectly === 'function') {
-            await sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, custPkgId);
+            sendToCloudDirectly('PATCH', 'customer_packages', updatePayload, custPkgId).catch(() => {});
         }
 
-        // 3. Ricalcola allarmi e aggiorna il badge in alto
+        // 2. Aggiorna in memoria senza distruggere il DOM dell'input attivo
+        if (cachedModalCustPkgs) {
+            const cachedItem = cachedModalCustPkgs.find(p => String(p.id) === String(custPkgId));
+            if (cachedItem) cachedItem.expiry_date = newDateVal || null;
+        }
+
+        // 3. Ricalcola gli alert e badge in alto
         await checkExpiringCustomerPackages();
 
-        // 4. Se la scheda cliente o il modale alert sono aperti, aggiorna la vista
-        if (document.getElementById('mod-cust')?.classList.contains('active')) {
-            const cachedItem = cachedModalCustPkgs?.find(p => String(p.id) === String(custPkgId));
-            if (cachedItem) cachedItem.expiry_date = newDateVal || null;
-            if (typeof filterCustomerPackagesTab === 'function') filterCustomerPackagesTab();
-        }
-
-        if (document.getElementById('mod-package-expiry-alerts')?.classList.contains('active')) {
-            if (typeof renderExpiringPackagesModalList === 'function') renderExpiringPackagesModalList();
-        }
-
-        alert(`✅ Nuova scadenza salvata: ${newDateVal ? formatDateIt(newDateVal) : 'Senza scadenza'}`);
-
     } catch (err) {
-        console.error("Errore aggiornamento scadenza pacchetto:", err);
-        alert("Impossibile aggiornare la scadenza: " + err.message);
+        console.error("Errore salvataggio scadenza pacchetto:", err);
     }
 }
+
+// Gestore digitazione fluida: salva solo quando la data è completa (AAAA-MM-GG) o svuotata
+function handlePackageDateInput(inputEl, custPkgId) {
+    const val = inputEl.value;
+    if (!val || val.length === 10) {
+        updateCustomerPackageExpiry(custPkgId, val, true);
+        inputEl.style.borderColor = '#10b981'; // Feedback visivo verde leggero
+        setTimeout(() => { inputEl.style.borderColor = '#cbd5e1'; }, 1000);
+    }
+}
+
+window.updateCustomerPackageExpiry = updateCustomerPackageExpiry;
+window.handlePackageDateInput = handlePackageDateInput;
 
 // Funzione rapida per prorogare di N mesi
 function quickExtendPackageExpiry(custPkgId, currentDateStr, monthsToAdd) {
@@ -20001,96 +20022,97 @@ function openPackageExpiryModal() {
     document.getElementById('mod-package-expiry-alerts').classList.add('active');
 }
 
+// 🌟 MODALE ALERT: RIMOZIONE IMMEDIATA DI QUELLI GESTITI E MOTIVO BEN VISIBILE
 function renderExpiringPackagesModalList() {
     const container = document.getElementById('pkg-expiry-list-container');
     if (!container) return;
 
     const search = (document.getElementById('filter-pkg-expiry-search')?.value || '').toLowerCase().trim();
-    const statusFilter = document.getElementById('filter-pkg-expiry-status')?.value || 'all';
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const filtered = cachedExpiringPackages.filter(item => {
+    // Mostra solo quelli non gestiti
+    const filtered = (cachedExpiringPackages || []).filter(item => {
+        if (item.isDismissed) return false; // 👈 RIMOZIONE IMMEDIATA
         const matchText = item.customerName.toLowerCase().includes(search) || item.packageName.toLowerCase().includes(search);
-        if (!matchText) return false;
-
-        if (statusFilter === 'with_sessions' && item.remainingSessions <= 0) return false;
-        if (statusFilter === 'exhausted' && item.remainingSessions > 0) return false;
-        if (statusFilter === 'to_handle' && item.isDismissed) return false; // Solo quelli da gestire
-
-        return true;
+        return matchText;
     });
 
     if (filtered.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; color: #64748b; font-size: 13px; padding: 35px 20px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #cbd5e1;">
-                ✨ Nessun pacchetto da gestire per questo filtro.
+            <div style="text-align: center; color: #64748b; font-size: 13.5px; padding: 35px 20px; background: #f8fafc; border-radius: 12px; border: 1.5px dashed #cbd5e1;">
+                ✨ Ottimo! Nessun pacchetto in scadenza o da rinnovare al momento.
             </div>
         `;
         return;
     }
 
     container.innerHTML = filtered.map(item => {
-        const daysDiff = Math.round((new Date(item.expiryDate) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
-        
-        let timeLabel = '';
-        if (daysDiff < 0) {
-            timeLabel = `<span style="color: #dc2626; font-weight: 800;">⚠️ Scaduto da ${Math.abs(daysDiff)} gg</span>`;
-        } else if (daysDiff === 0) {
-            timeLabel = `<span style="color: #ea580c; font-weight: 800;">🚨 Scade OGGI!</span>`;
-        } else {
-            timeLabel = `<span style="color: #4f46e5; font-weight: 700;">📅 Scade tra ${daysDiff} gg</span>`;
+        let badgeMotivo = '';
+        if (item.isLowSessions) {
+            badgeMotivo = `<span style="background: #fef3c7; color: #b45309; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 6px; border: 1px solid #fde68a;">🚨 ULTIMA SEDUTA (${item.remainingSessions}/${item.totalSessions})</span>`;
         }
 
-        const hasPhone = Boolean(item.customerPhone && item.customerPhone.trim().length >= 6);
+        let timeLabel = '';
+        if (item.expiryDate) {
+            const daysDiff = Math.round((new Date(item.expiryDate) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+            if (daysDiff < 0) {
+                timeLabel = `<span style="color: #dc2626; font-weight: 800;">⚠️ Scaduto da ${Math.abs(daysDiff)} gg</span>`;
+            } else if (daysDiff <= 30) {
+                timeLabel = `<span style="color: #4f46e5; font-weight: 700;">📅 Scade tra ${daysDiff} gg</span>`;
+            } else {
+                timeLabel = `<span style="color: #64748b;">📅 Scadenza: ${formatDateIt(item.expiryDate)}</span>`;
+            }
+        } else {
+            timeLabel = `<span style="color: #64748b;">📅 Nessuna scadenza</span>`;
+        }
 
         return `
-            <div style="background: white; border: 1.5px solid ${item.isDismissed ? '#cbd5e1' : (item.remainingSessions > 0 ? '#c4b5fd' : '#e2e8f0')}; opacity: ${item.isDismissed ? '0.65' : '1'}; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div id="pkg-card-${item.cpId}" style="background: white; border: 1.5px solid #c4b5fd; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <div style="flex: 1; min-width: 240px;">
-                    <!-- Nome Cliente Reale -->
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                         <span style="font-size: 14px; font-weight: 800; color: #1e1b4b;">👤 ${item.customerName}</span>
-                        ${item.isDismissed ? '<span style="background: #dcfce7; color: #16a34a; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">Avvisato ✓</span>' : ''}
                         ${item.customerPhone ? `<small style="color: #64748b; font-size: 11px;">(${item.customerPhone})</small>` : ''}
+                        ${badgeMotivo}
                     </div>
                     <div style="font-size: 13px; font-weight: 600; color: #4338ca;">
                         🎁 ${item.packageName}
                     </div>
                     <div style="font-size: 11.5px; margin-top: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <div>${timeLabel}</div>
-                        <div>Sedute: <b style="color: ${item.remainingSessions > 0 ? '#047857' : '#94a3b8'};">${item.remainingSessions} su ${item.totalSessions} residue</b></div>
+                        <div>Sedute: <b style="color: ${item.remainingSessions > 1 ? '#047857' : '#dc2626'};">${item.remainingSessions} su ${item.totalSessions} residue</b></div>
                     </div>
 
-                    <!-- 🌟 MODIFICA SCADENZA RAPIDA DALL'ALERT -->
+                    <!-- MODIFICA SCADENZA DIGITABILE SENZA BLOCCHI -->
                     <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <span style="font-size: 11px; color: #64748b; font-weight: 700;">Modifica Scadenza:</span>
+                        <span style="font-size: 11px; color: #64748b; font-weight: 700;">Scadenza:</span>
                         <input type="date" value="${item.expiryDate}" 
-                               onchange="updateCustomerPackageExpiry('${item.cpId}', this.value)"
-                               style="margin: 0; padding: 2px 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; cursor: pointer; width: 120px;"
-                               title="Cambia la data di scadenza">
+                               oninput="handlePackageDateInput(this, '${item.cpId}')"
+                               onchange="handlePackageDateInput(this, '${item.cpId}')"
+                               style="margin: 0; padding: 3px 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; width: 125px;">
                         <button type="button" class="btn" 
-                                style="padding: 2px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; font-weight: 700; min-height: unset;"
+                                style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; font-weight: 700; min-height: unset;"
                                 onclick="quickExtendPackageExpiry('${item.cpId}', '${item.expiryDate}', 3)"
-                                title="Aggiungi automaticamente 3 mesi alla scadenza attuale">
+                                title="Proroga di 3 mesi">
                             +3 Mesi
                         </button>
                     </div>
                 </div>
 
+                <!-- AZIONI CON RIMOZIONE IMMEDIATA DELLA CARD -->
                 <div style="display: flex; gap: 6px; align-items: center;">
-                    ${hasPhone ? `
-                        <button class="btn btn-w" style="padding: 7px 12px; font-size: 11.5px; font-weight: 700; border-radius: 8px;" onclick="sendPackageRenewalWhatsApp('${item.cpId}')">
-                            💬 WhatsApp
-                        </button>
-                    ` : ''}
-
-                    ${!item.isDismissed ? `
-                        <button class="btn" style="padding: 7px 10px; font-size: 11px; background: #f1f5f9; color: #475569; font-weight: bold; border-radius: 8px;" onclick="dismissPackageExpiryAlert('${item.cpId}', '${item.expiryDate}')" title="Segna come già gestito">
-                            ✓ Fatto
-                        </button>
-                    ` : ''}
-
+                    <button type="button" class="btn btn-w" 
+                            style="padding: 7px 12px; font-size: 11.5px; font-weight: 700; border-radius: 8px;" 
+                            onclick="sendPackageRenewalWhatsApp('${item.cpId}'); document.getElementById('pkg-card-${item.cpId}')?.remove();">
+                        💬 WhatsApp
+                    </button>
+                    <button type="button" class="btn" 
+                            style="padding: 7px 10px; font-size: 11px; background: #f1f5f9; color: #475569; font-weight: bold; border-radius: 8px;" 
+                            onclick="dismissPackageExpiryAlert('${item.cpId}', '${item.expiryDate}'); document.getElementById('pkg-card-${item.cpId}')?.remove();" 
+                            title="Segna come fatto e rimuovi dal modale">
+                        ✓ Fatto
+                    </button>
                     ${item.customerId ? `
-                        <button class="btn" style="padding: 7px 9px; font-size: 11px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;" onclick="closeMod(); editCust('${item.customerId}');" title="Apri scheda cliente">
+                        <button type="button" class="btn" style="padding: 7px 9px; font-size: 11px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;" onclick="closeMod(); editCust('${item.customerId}');" title="Apri scheda cliente">
                             👤
                         </button>
                     ` : ''}
