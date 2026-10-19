@@ -872,120 +872,157 @@
         th { text-align: left; padding: 15px; background: #f8f9fa; border-bottom: 2px solid #eee; font-size: 11px; text-transform: uppercase; color: #777; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; white-space: nowrap; }
 
-       /* ======================================================== */
-/* ⚡ PULSANTI MODERNI CON BORDI & AURA NEON DINAMICA      */
+     /* ======================================================== */
+/* ⚡ BORDO SPEZZATO ANIMATO ROTANTE A NEON (BORDER BEAM)   */
 /* ======================================================== */
+
+/* 1. KEYFRAME ROTAZIONE GPU 360° */
+@keyframes rotateNeonBeam {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* 2. STRUTTURA BASE PULSANTE */
 .btn { 
     position: relative;
-    padding: 12px 20px; 
-    border-radius: 10px; 
-    border: 1.5px solid var(--border); 
+    isolation: isolate; /* Crea lo stacking context locale */
+    padding: 12px 22px; 
+    border-radius: 12px; 
+    border: none !important; 
     cursor: pointer; 
     font-weight: 700; 
     font-size: 13px; 
     display: inline-flex; 
     align-items: center; 
+    justify-content: center;
     gap: 8px; 
     min-height: 44px;
-    background: #ffffff;
-    color: var(--txt);
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, filter 0.2s ease;
-    will-change: transform, box-shadow;
+    background: transparent;
+    color: var(--txt, #1e293b);
     overflow: hidden;
     user-select: none;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+    will-change: transform;
+    text-decoration: none;
+
+    /* Variabili colore di default per tasti secondari/bianchi */
+    --neon-color: #818cf8;
+    --btn-bg: #ffffff;
 }
 
-/* Micro-interazione al passaggio e al click */
+/* Tutti i contenuti interni (testo, icone, emoji) rimangono nitidi sopra al neon */
+.btn > *, .btn span, .btn div {
+    position: relative;
+    z-index: 2;
+}
+
+/* 3. IL BORDO SPEZZATO A NEON CHE RUOTA CONTINUAMENTE */
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 320%;
+    height: 320%;
+    /* Crea segmenti spezzati ad arco con cuore bianco caldo */
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        transparent 0deg,
+        var(--neon-color) 35deg,
+        #ffffff 55deg,
+        var(--neon-color) 70deg,
+        transparent 90deg,
+        transparent 180deg,
+        var(--neon-color) 215deg,
+        #ffffff 235deg,
+        var(--neon-color) 250deg,
+        transparent 270deg
+    );
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation: rotateNeonBeam 3.8s linear infinite;
+    z-index: -2;
+    pointer-events: none;
+    opacity: 0.9;
+    will-change: transform;
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+/* 4. SFONDO INTERNO DEL BOTTONE (LASCIA 2PX DI BORDO VISIBILE PER IL NEON) */
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 1.8px; /* Spessore del bordo neon rotante */
+    border-radius: calc(12px - 1.8px);
+    background: var(--btn-bg);
+    z-index: -1;
+    pointer-events: none;
+    transition: background 0.25s ease, opacity 0.25s ease;
+}
+
+/* Interazioni al passaggio del mouse e al tocco */
 .btn:hover {
     transform: translateY(-2px);
+    filter: drop-shadow(0 0 12px var(--neon-color));
+}
+.btn:hover::before {
+    animation-duration: 2.2s; /* Accelera la rotazione su hover */
+    opacity: 1;
 }
 .btn:active {
     transform: translateY(1px) scale(0.98);
+    filter: drop-shadow(0 0 18px var(--neon-color));
 }
 
-/* 💜 1. NEON VIOLA (Pulsante Primario / Beauty) */
+/* ======================================================== */
+/* 🎨 COLORI NEON SPECIFICI PER OGNI TASTO                 */
+/* ======================================================== */
+
+/* 💜 PRIMARIO BEAUTY (Viola Elettrico) */
 .btn-p { 
-    background: linear-gradient(135deg, #6C5CE7 0%, #5843E0 100%) !important; 
-    color: #ffffff !important; 
-    border: 1.5px solid #a29bfe !important;
-    box-shadow: 0 0 10px rgba(108, 92, 231, 0.3), inset 0 0 8px rgba(255, 255, 255, 0.15);
-}
-.btn-p:hover {
-    border-color: #d1c4e9 !important;
-    box-shadow: 0 0 20px rgba(108, 92, 231, 0.75), 0 0 35px rgba(108, 92, 231, 0.35), inset 0 0 12px rgba(255, 255, 255, 0.3) !important;
-    filter: brightness(1.05);
-}
-.btn-p:active {
-    box-shadow: 0 0 28px rgba(108, 92, 231, 0.95), inset 0 0 14px rgba(255, 255, 255, 0.4) !important;
+    --neon-color: #a78bfa;
+    --btn-bg: linear-gradient(135deg, #5843E0 0%, #4338ca 100%);
+    color: #ffffff !important;
 }
 
-/* 💈 2. NEON AMBRA / ORO (Pulsante Primario nel Tema Barber) */
+/* 💈 PRIMARIO BARBER (Ambra / Oro Fuoco) */
 [data-theme="barber"] .btn-p { 
-    background: linear-gradient(135deg, #D97706 0%, #B45309 100%) !important; 
-    color: #ffffff !important; 
-    border: 1.5px solid #FCD34D !important;
-    box-shadow: 0 0 12px rgba(217, 119, 6, 0.35), inset 0 0 8px rgba(255, 255, 255, 0.2);
-}
-[data-theme="barber"] .btn-p:hover {
-    border-color: #FDE68A !important;
-    box-shadow: 0 0 22px rgba(217, 119, 6, 0.8), 0 0 38px rgba(217, 119, 6, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.35) !important;
-    filter: brightness(1.08);
+    --neon-color: #fbbf24;
+    --btn-bg: linear-gradient(135deg, #b45309 0%, #78350f 100%);
+    color: #ffffff !important;
 }
 
-/* 🟢 3. NEON SMERALDO / MINT (Pulsante Successo / Conferma) */
+/* 🟢 SUCCESSO / CONFERMA / CASSA (Smeraldo / Mint) */
 .btn-s { 
-    background: linear-gradient(135deg, #00B894 0%, #009670 100%) !important; 
-    color: #ffffff !important; 
-    border: 1.5px solid #55efc4 !important;
-    box-shadow: 0 0 10px rgba(0, 184, 148, 0.3), inset 0 0 8px rgba(255, 255, 255, 0.15);
-}
-.btn-s:hover {
-    border-color: #a8ffeb !important;
-    box-shadow: 0 0 20px rgba(0, 184, 148, 0.75), 0 0 35px rgba(0, 184, 148, 0.35), inset 0 0 12px rgba(255, 255, 255, 0.3) !important;
-    filter: brightness(1.06);
-}
-.btn-s:active {
-    box-shadow: 0 0 28px rgba(0, 184, 148, 0.95), inset 0 0 14px rgba(255, 255, 255, 0.4) !important;
+    --neon-color: #34d399;
+    --btn-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: #ffffff !important;
 }
 
-/* 🔴 4. NEON CORALLO / FUOCO (Pulsante Danger / Elimina) */
+/* 🔴 DANGER / STORNO / ELIMINA (Corallo / Fuoco) */
 .btn-d { 
-    background: linear-gradient(135deg, #E17055 0%, #D63031 100%) !important; 
-    color: #ffffff !important; 
-    border: 1.5px solid #fab1a0 !important;
-    box-shadow: 0 0 10px rgba(225, 112, 85, 0.3), inset 0 0 8px rgba(255, 255, 255, 0.15);
-}
-.btn-d:hover {
-    border-color: #ff7675 !important;
-    box-shadow: 0 0 20px rgba(214, 48, 49, 0.75), 0 0 35px rgba(225, 112, 85, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.3) !important;
-    filter: brightness(1.05);
-}
-.btn-d:active {
-    box-shadow: 0 0 28px rgba(214, 48, 49, 0.95), inset 0 0 14px rgba(255, 255, 255, 0.4) !important;
+    --neon-color: #f87171;
+    --btn-bg: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    color: #ffffff !important;
 }
 
-/* 💬 5. NEON CYBER GREEN (Pulsante WhatsApp) */
+/* 💬 WHATSAPP (Cyber Green) */
 .btn-w { 
-    background: linear-gradient(135deg, #25D366 0%, #1EBE5D 100%) !important; 
-    color: #ffffff !important; 
-    border: 1.5px solid #86efac !important;
-    box-shadow: 0 0 10px rgba(37, 211, 102, 0.35), inset 0 0 8px rgba(255, 255, 255, 0.2);
-}
-.btn-w:hover {
-    border-color: #bbf7d0 !important;
-    box-shadow: 0 0 22px rgba(37, 211, 102, 0.8), 0 0 38px rgba(37, 211, 102, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.35) !important;
-    filter: brightness(1.06);
-}
-.btn-w:active {
-    box-shadow: 0 0 30px rgba(37, 211, 102, 0.95), inset 0 0 14px rgba(255, 255, 255, 0.4) !important;
+    --neon-color: #86efac;
+    --btn-bg: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #ffffff !important;
 }
 
-/* 🖨️ In stampa fisica/PDF tutti gli effetti neon e bagliori vengono puliti automaticamente */
+/* 🖨️ In stampa fisica/PDF disattiva animazioni e bordi neon */
 @media print {
-    .btn, .btn-p, .btn-s, .btn-d, .btn-w {
-        box-shadow: none !important;
-        filter: none !important;
+    .btn, .btn::before, .btn::after {
+        animation: none !important;
         transform: none !important;
+        filter: none !important;
+        display: none !important;
     }
 }
         
