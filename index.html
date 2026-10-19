@@ -20100,6 +20100,7 @@ function renderExpiringPackagesModalList() {
     }).join('');
 }
 
+
 async function sendPackageRenewalWhatsApp(custPkgId) {
     const item = cachedExpiringPackages.find(p => p.cpId === custPkgId);
     if (!item) return alert("Dati del pacchetto non trovati.");
