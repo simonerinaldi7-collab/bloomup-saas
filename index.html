@@ -9327,14 +9327,11 @@ async function quickAlarmAction(actionType) {
                         sysSettings[s.key] = s.value;
                     }
                 });
-
-
-// All'interno di refreshAllData():
+// Garantisce che il template di annullamento sia sempre presente in memoria fin dal primo avvio
     if (!sysSettings['template_cancel']) {
         sysSettings['template_cancel'] = localStorage.getItem('vaimup_template_cancel') || 
             "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
     }
-
                 // 🌟 Pre-idrata la memoria offerte e aggiorna il badge
                 if (typeof loadBookingOffersFromStorage === 'function') {
                     loadBookingOffersFromStorage();
@@ -12738,15 +12735,113 @@ function triggerWhatsAppCancellationImmediate(app) {
     if (typeof renderLogs === 'function') renderLogs();
 }
 
-// Alias per compatibilità con eventuali altre chiamate nel codice
-async function sendAppointmentCancellationWhatsApp(app) {
-    triggerWhatsAppCancellationImmediate(app);
+// =========================================================================
+// 💬 INVIO WHATSAPP ANNULLAMENTO (IDENTICO AL REMINDER - ZERO PROMPT)
+// =========================================================================
+function sendAppointmentCancellationWhatsApp(app) {
+    if (!app) return;
+
+    // 1. Risoluzione della lista clienti protetta da scope
+    const customersList = (typeof allCustomers !== 'undefined' && Array.isArray(allCustomers) && allCustomers.length > 0)
+        ? allCustomers
+        : (window.allCustomers || []);
+
+    const aCustNameClean = (app.cust_name || "").trim().toLowerCase();
+    
+    // 2. Ricerca anagrafica identica a sendAndLogGeneric (Reminder)
+    let matchedCust = customersList.find(c => {
+        // Match per ID se presente
+        if (app.cust_id && String(c.id).trim() === String(app.cust_id).trim()) return true;
+        
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+        const reversedName = `${c.last_name || ''} ${c.first_name || ''}`.trim().toLowerCase();
+        const legacyName = (c.name || "").trim().toLowerCase();
+
+        return fullName === aCustNameClean || 
+               reversedName === aCustNameClean || 
+               legacyName === aCustNameClean || 
+               (fullName && aCustNameClean && (fullName.includes(aCustNameClean) || aCustNameClean.includes(fullName)));
+    });
+
+    // 3. Recupero numero: Anagrafica -> Note [ONLINE_BOOKING] -> Cellulare Appuntamento
+    let rawPhone = matchedCust ? (matchedCust.phone || matchedCust.tel) : (app.phone || '');
+    
+    if (!rawPhone && app.notes) {
+        const noteMatch = app.notes.match(/(?:Tel:|Cell:|Phone:)\s*([0-9+ ]{8,20})/i);
+        if (noteMatch && noteMatch[1]) {
+            rawPhone = noteMatch[1].trim();
+        }
+    }
+
+    // Se il cliente non ha proprio un numero di telefono registrato, avvisa come nel reminder
+    if (!rawPhone || rawPhone.trim().length < 6) {
+        return alert(`⚠️ Nessun numero di telefono trovato per "${app.cust_name}" in anagrafica!`);
+    }
+
+    // 4. Risoluzione Nome e Cognome per i placeholder
+    let firstName = matchedCust ? (matchedCust.first_name || '') : '';
+    let lastName = matchedCust ? (matchedCust.last_name || '') : '';
+
+    if (!firstName && app.cust_name) {
+        const parts = app.cust_name.trim().split(' ');
+        firstName = parts[0] || 'Cliente';
+        lastName = parts.slice(1).join(' ') || '';
+    }
+
+    // 5. Template sempre pronto (non serve risalvare la configurazione)
+    const defaultTemplate = "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+    const templateText = (typeof sysSettings !== 'undefined' && sysSettings['template_cancel']) || 
+                         localStorage.getItem('vaimup_template_cancel') || 
+                         defaultTemplate;
+
+    const italianDate = typeof formatDateIt === 'function' ? formatDateIt(app.date) : (app.date || '');
+    const timeFormatted = app.time ? app.time.substring(0, 5) : '';
+
+    // 6. Sostituzione dei tag
+    const rawMessage = templateText
+        .replace(/{{NOME}}/g, firstName || 'Cliente')
+        .replace(/{{COGNOME}}/g, lastName || '')
+        .replace(/{{CLIENTE}}/g, app.cust_name || 'Cliente')
+        .replace(/{{DATA}}/g, italianDate)
+        .replace(/{{ORA}}/g, timeFormatted)
+        .replace(/{{SERVIZIO}}/g, app.service || 'Trattamento');
+
+    const cleanPhone = formatPhoneNumberForWhatsApp(rawPhone);
+    const encodedText = encodeURIComponent(rawMessage);
+    const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
+
+    // 7. 🚀 APERTURA IMMEDIATA: Stesso metodo del reminder, zero blocchi popup
+    if (window.api && typeof window.api.openExternal === 'function') {
+        window.api.openExternal(waUrl);
+    } else {
+        const link = document.createElement('a');
+        link.href = waUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => link.remove(), 100);
+    }
+
+    // 8. Registrazione del log in background (non blocca WhatsApp)
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const logData = {
+        id: crypto.randomUUID(),
+        salon_id: salonId,
+        cust_name: app.cust_name,
+        phone: rawPhone,
+        msg_type: 'WA_CANCEL',
+        appointment_info: `Annullamento: ${app.service || 'Trattamento'} del ${italianDate} @ ${timeFormatted}`,
+        sent_at: getNowLocal(),
+        created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.username : 'Admin'
+    };
+
+    window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData }).catch(() => {});
+    if (typeof allLogs !== 'undefined' && Array.isArray(allLogs)) allLogs.unshift(logData);
+    if (typeof renderLogs === 'function') renderLogs();
 }
 
-// Registrazione esplicita su window
-window.triggerWhatsAppCancellationImmediate = triggerWhatsAppCancellationImmediate;
 window.sendAppointmentCancellationWhatsApp = sendAppointmentCancellationWhatsApp;
-window.openWhatsAppUrlSafely = openWhatsAppUrlSafely;
 
 
 
@@ -12780,8 +12875,7 @@ window.openWhatsAppUrlSafely = openWhatsAppUrlSafely;
                 refreshAllData();
             }
 
-// Nella funzione saveSystemSettings():
-    const cancelMsgEl = document.getElementById('set-msg-cancel');
+const cancelMsgEl = document.getElementById('set-msg-cancel');
     if (cancelMsgEl && cancelMsgEl.value.trim() !== '') {
         localStorage.setItem('vaimup_template_cancel', cancelMsgEl.value.trim());
         sysSettings['template_cancel'] = cancelMsgEl.value.trim();
@@ -17003,7 +17097,7 @@ function stopCameraScanner() {
         };
     }
 
-    // 🌟 ANNULLAMENTO CON INVIO WHATSAPP IMMEDIATO E ANTI-POPUP-BLOCKER
+    // 🌟 ANNULLAMENTO CON INVIO WHATSAPP IMMEDIATO (ZERO ATTESE DI RETE)
     const btnDel = document.getElementById('btn-del-app');
     if (btnDel) {
         btnDel.onclick = async () => {
@@ -17012,19 +17106,18 @@ function stopCameraScanner() {
 
             if (!confirm(`Sei sicuro di voler annullare e cancellare l'appuntamento di "${appToDelete.cust_name}"?`)) return;
 
-            // 1. Chiede se si desidera avvisare il cliente su WhatsApp
+            // 1. Chiede se inviare la notifica
             const sendWa = confirm(`Vuoi inviare subito il messaggio WhatsApp di notifica annullamento a ${appToDelete.cust_name}?`);
 
-            // 🚀 LA SVOLTA ARCHITETTURALE: Lancia WhatsApp IMMEDIATAMENTE sul click dell'utente!
-            // Zero ritardi di rete, zero attese di fetch: il browser NON bloccherà mai la finestra.
+            // 🚀 SE SÌ: apre WhatsApp SUBITO sul click, senza aspettare i tempi del database!
             if (sendWa) {
-                triggerWhatsAppCancellationImmediate(appToDelete);
+                sendAppointmentCancellationWhatsApp(appToDelete);
             }
 
-            // 2. Chiudi subito il modale per un feedback visivo istantaneo
+            // 2. Chiude subito il modale
             closeMod();
 
-            // 3. Esegui in background la liberazione postazioni, ripristino pacchetti e cancellazione DB
+            // 3. Esegue la pulizia nel database in background
             try {
                 await window.universalQuery({
                     action: 'RELEASE_WORKSTATION_BOOKING',
@@ -17033,10 +17126,10 @@ function stopCameraScanner() {
                 await restorePackageSessionIfApplicable(appToDelete);
                 await window.universalQuery({ action: 'DELETE', table: 'appointments', id: appToDelete.id });
             } catch (delErr) {
-                console.error("Errore durante l'eliminazione dell'appuntamento:", delErr);
+                console.error("Errore eliminazione appuntamento:", delErr);
             }
 
-            // 4. Aggiorna lo stato dei dati e la griglia dell'agenda
+            // 4. Aggiorna l'agenda
             await refreshAllData();
             if (typeof renderCalendar === 'function') renderCalendar();
         };
