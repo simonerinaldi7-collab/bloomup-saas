@@ -3577,6 +3577,22 @@
                 <textarea id="set-msg-reminder" rows="3" placeholder="Scrivi il messaggio promemoria..."></textarea>
             </div>
 
+
+<!-- 🚫 TEMPLATE MESSAGGIO ANNULLAMENTO APPUNTAMENTO -->
+<div style="margin: 20px 0 5px 0;">
+    <label>Template Messaggio Annullamento Appuntamento</label>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
+        <span style="font-size:10px; color:#666; align-self:center; font-weight:bold;">Inserisci tag:</span>
+        <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{NOME}}')">{{NOME}}</button>
+        <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{COGNOME}}')">{{COGNOME}}</button>
+        <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{DATA}}')">{{DATA}}</button>
+        <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{ORA}}')">{{ORA}}</button>
+        <button type="button" class="btn" style="padding:4px 10px; font-size:11px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+    </div>
+    <textarea id="set-msg-cancel" rows="3" placeholder="Scrivi il messaggio di disdetta/annullamento..."></textarea>
+</div>
+
+
             <label style="margin-top:20px;">Anticipo Notifica Imminente Operatore (Minuti)</label>
 <input type="number" id="set-imminent-lead" min="1" max="120">
 <small style="color:#666; display:block; margin-top:-12px; margin-bottom:20px;">Tempo in minuti prima dell'inizio dell'appuntamento in cui avvisare l'operatore su tutti i suoi dispositivi.</small>
@@ -9926,6 +9942,10 @@ async function loadSettingsFields() {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
 
+
+const cancelMsgEl = document.getElementById('set-msg-cancel');
+if (cancelMsgEl) cancelMsgEl.value = sysSettings['template_cancel'] || "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+
 const cancelHoursEl = document.getElementById('set-booking-cancel-hours');
 if (cancelHoursEl) cancelHoursEl.value = sysSettings['booking_cancel_lead_hours'] || '24';
 
@@ -12423,7 +12443,82 @@ function closeDuplicateModal() {
     document.getElementById('mod-duplicate-customer').classList.remove('active');
 }
 
+// 🌟 INVIO WHATSAPP ANNULLAMENTO CON CODIFICA EMOJI ANTI-CORRUZIONE PC
+async function sendAppointmentCancellationWhatsApp(app) {
+    if (!app) return;
 
+    const aCustNameClean = (app.cust_name || "").trim().toLowerCase();
+    const matchedCust = (allCustomers || []).find(c => {
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+        return fullName === aCustNameClean || (c.name && c.name.trim().toLowerCase() === aCustNameClean);
+    });
+
+    let targetPhone = matchedCust ? (matchedCust.phone || matchedCust.tel) : (app.phone || '');
+    if (!targetPhone || targetPhone.trim().length < 6) {
+        targetPhone = prompt(`Inserisci il numero di cellulare di "${app.cust_name}" per inviare la notifica di annullamento:`);
+        if (!targetPhone) return;
+    }
+
+    let firstName = matchedCust ? (matchedCust.first_name || '') : '';
+    let lastName = matchedCust ? (matchedCust.last_name || '') : '';
+    if (!firstName && app.cust_name) {
+        const parts = app.cust_name.trim().split(' ');
+        firstName = parts[0] || 'Cliente';
+        lastName = parts.slice(1).join(' ') || '';
+    }
+
+    const template = sysSettings['template_cancel'] || 
+        "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+
+    const formattedDate = typeof formatDateIt === 'function' ? formatDateIt(app.date) : app.date;
+    const formattedTime = app.time ? app.time.substring(0, 5) : '';
+
+    const rawMessage = template
+        .replace(/{{NOME}}/g, firstName || 'Gentile Cliente')
+        .replace(/{{COGNOME}}/g, lastName || '')
+        .replace(/{{CLIENTE}}/g, app.cust_name || 'Cliente')
+        .replace(/{{DATA}}/g, formattedDate)
+        .replace(/{{ORA}}/g, formattedTime)
+        .replace(/{{SERVIZIO}}/g, app.service || 'Trattamento');
+
+    const cleanPhone = formatPhoneNumberForWhatsApp(targetPhone);
+    const encodedText = encodeURIComponent(rawMessage);
+
+    // 🌟 ENDPOINT UFFICIALE: bypassa i redirect e visualizza le faccine perfettamente anche da PC
+    const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
+
+    // Registra nello storico comunicazioni
+    const currentSalon = currentUser ? currentUser.salon_id : 'SALON_001';
+    const logData = {
+        id: crypto.randomUUID(),
+        salon_id: currentSalon,
+        cust_name: app.cust_name,
+        phone: targetPhone,
+        msg_type: 'WA_CANCEL',
+        appointment_info: `Annullamento: ${app.service || 'Trattamento'} del ${formattedDate} @ ${formattedTime}`,
+        sent_at: getNowLocal(),
+        created_by: currentUser ? currentUser.username : 'Admin'
+    };
+
+    await window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData });
+    if (Array.isArray(allLogs)) allLogs.unshift(logData);
+    if (typeof renderLogs === 'function') renderLogs();
+
+    // Apertura finestra WhatsApp
+    if (window.api && typeof window.api.openExternal === 'function') {
+        window.api.openExternal(waUrl);
+    } else {
+        const link = document.createElement('a');
+        link.href = waUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+}
+
+window.sendAppointmentCancellationWhatsApp = sendAppointmentCancellationWhatsApp;
 
             // --- SISTEMA ---
            async function saveSystemSettings() {
@@ -12437,6 +12532,7 @@ function closeDuplicateModal() {
                     { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
                     { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
                     { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
+                    { key: 'template_cancel', id: 'set-msg-cancel' },
     // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
     { key: 'app_theme', id: 'set-app-theme' },
     { key: 'header_style', id: 'set-header-style' }
@@ -16671,19 +16767,36 @@ function stopCameraScanner() {
         };
     }
 
+    // 🌟 ANNULLAMENTO CON PROPOSTA INVIO WHATSAPP AL CLIENTE
     const btnDel = document.getElementById('btn-del-app');
     if (btnDel) {
         btnDel.onclick = async () => {
-            if(!confirm("Eliminare l'appuntamento?")) return;
+            if (!confirm(`Sei sicuro di voler annullare e cancellare l'appuntamento di "${currentViewApp.cust_name}"?`)) return;
+
+            // Conserva i dati dell'appuntamento prima di rimuoverlo dal DB
+            const appToDelete = { ...currentViewApp };
+
+            // 1. Chiede se si desidera avvisare il cliente su WhatsApp
+            const sendWa = confirm(`Vuoi inviare subito il messaggio WhatsApp di notifica annullamento a ${appToDelete.cust_name}?`);
+
+            // 2. Libera postazioni e ripristina pacchetti
             await window.universalQuery({
                 action: 'RELEASE_WORKSTATION_BOOKING',
-                data: { appointmentId: currentViewApp.id }
+                data: { appointmentId: appToDelete.id }
             });
-            await restorePackageSessionIfApplicable(currentViewApp);
-            await window.universalQuery({ action: 'DELETE', table: 'appointments', id: currentViewApp.id });
+            await restorePackageSessionIfApplicable(appToDelete);
+
+            // 3. Cancella l'appuntamento dal database
+            await window.universalQuery({ action: 'DELETE', table: 'appointments', id: appToDelete.id });
+
             closeMod(); 
             await refreshAllData();
-            renderCalendar();
+            if (typeof renderCalendar === 'function') renderCalendar();
+
+            // 4. Se confermato, avvia l'invio WhatsApp
+            if (sendWa) {
+                await sendAppointmentCancellationWhatsApp(appToDelete);
+            }
         };
     }
     
