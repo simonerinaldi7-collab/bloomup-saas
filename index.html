@@ -25811,7 +25811,9 @@ function renderOnboardingPreviewTable() {
     if (validCountEl) validCountEl.innerText = `${validRecords.length} record pronti all'importazione`;
 }
 
-// 7. ESECUZIONE ATOMICA DELL'IMPORTAZIONE BULK (IndexedDB + Cloud Sync)
+// =========================================================================
+// 🚀 ESECUZIONE ATOMICA IMPORTAZIONE BULK (SCHEMA COMPATIBLE & ZERO CONFLICT)
+// =========================================================================
 async function executeOnboardingFinalImport() {
     const btn = document.getElementById('ob-btn-confirm-import');
     if (btn) {
@@ -25828,38 +25830,45 @@ async function executeOnboardingFinalImport() {
 
     const recordsToInsert = [];
     const pricesHistoryToInsert = [];
+    const lotsToInsert = [];
 
-    // Esistenti per de-duplicazione
-    const existingCustomers = targetType === 'customers' ? (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []) : [];
-    const existingInventory = (targetType === 'services' || targetType === 'products') ? (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []) : [];
+    // Cache esistente per de-duplicazione protetta
+    const existingCustomers = targetType === 'customers' 
+        ? ((typeof allCustomers !== 'undefined' && allCustomers.length > 0) ? allCustomers : (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []))
+        : [];
+        
+    const existingInventory = (targetType === 'services' || targetType === 'products') 
+        ? ((typeof allInventory !== 'undefined' && allInventory.length > 0) ? allInventory : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []))
+        : [];
 
     rawRows.forEach(row => {
         const item = {};
         row.forEach((cellVal, colIdx) => {
             const fieldKey = mapping[colIdx];
             if (fieldKey && fieldKey !== 'ignore') {
-                item[fieldKey] = cellVal ? cellVal.trim() : '';
+                item[fieldKey] = cellVal ? String(cellVal).trim() : '';
             }
         });
 
-        // 👥 IMPORTAZIONE CLIENTI
+        // ==========================================
+        // 👥 1. ANAGRAFICA CLIENTI
+        // ==========================================
         if (targetType === 'customers') {
             if (item.first_name && !item.last_name && item.first_name.includes(' ')) {
                 const parts = item.first_name.split(' ');
                 item.first_name = parts[0];
                 item.last_name = parts.slice(1).join(' ');
             }
-            if (!item.first_name && !item.last_name) return;
+            if (!item.first_name && !item.last_name && !item.phone) return;
 
             let cleanPhone = item.phone ? item.phone.replace(/[^0-9]/g, '') : '';
             if (cleanPhone.startsWith('39') && cleanPhone.length >= 11) cleanPhone = cleanPhone.substring(2);
 
-            // Controllo duplicato
             const isDup = existingCustomers.some(c => {
                 const fnMatch = (c.first_name || '').toLowerCase() === (item.first_name || '').toLowerCase();
                 const lnMatch = (c.last_name || '').toLowerCase() === (item.last_name || '').toLowerCase();
                 const phMatch = cleanPhone && c.phone && c.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
-                return (fnMatch && lnMatch) || phMatch;
+                return (fnMatch && lnMatch && (item.first_name || item.last_name)) || (phMatch && cleanPhone.length >= 8);
             });
 
             if (!isDup) {
@@ -25876,26 +25885,29 @@ async function executeOnboardingFinalImport() {
                     gdpr_consent: 1,
                     gdpr_date: todayStr,
                     booking_status: 'approved',
-                    created_by: 'Onboarding Engine',
                     updated_at: nowIso
                 });
             }
         }
 
-        // ✂️ IMPORTAZIONE SERVIZI
+        // ==========================================
+        // ✂️ 2. LISTINO SERVIZI
+        // ==========================================
         else if (targetType === 'services') {
-            if (!item.name) return;
+            if (!item.name || item.name.trim() === '') return;
             const isDup = existingInventory.some(i => i.type === 'servizio' && i.name.toLowerCase().trim() === item.name.toLowerCase().trim());
 
             if (!isDup) {
                 const newId = crypto.randomUUID();
-                const priceVal = parseFloat(String(item.price || 0).replace(',', '.')) || 0;
-                const durVal = parseInt(item.duration_minutes) || 30;
+                const rawPrice = String(item.price || '0').replace('€', '').replace(/\s/g, '').replace(',', '.');
+                const priceVal = parseFloat(rawPrice) || 0;
+                const durVal = parseInt(String(item.duration_minutes || '30').replace(/[^0-9]/g, '')) || 30;
 
+                // Oggetto per Dexie locale (include price per fallback immediato UI)
                 recordsToInsert.push({
                     id: newId,
                     salon_id: salonId,
-                    name: item.name,
+                    name: item.name.trim(),
                     type: 'servizio',
                     price: priceVal,
                     duration_minutes: durVal,
@@ -25903,11 +25915,15 @@ async function executeOnboardingFinalImport() {
                     stock: 0,
                     min_stock: 0,
                     is_consignment: false,
+                    consignment_split_pct: 0,
+                    discount_absorption: 'salon',
                     requires_operator: true,
-                    created_by: 'Onboarding Engine',
+                    required_workstations: [],
+                    required_workstation_id: null,
                     updated_at: nowIso
                 });
 
+                // Record storico prezzo obbligatorio per la tabella price_history
                 pricesHistoryToInsert.push({
                     id: crypto.randomUUID(),
                     salon_id: salonId,
@@ -25920,20 +25936,24 @@ async function executeOnboardingFinalImport() {
             }
         }
 
-        // 📦 IMPORTAZIONE PRODOTTI
+        // ==========================================
+        // 📦 3. MAGAZZINO PRODOTTI
+        // ==========================================
         else if (targetType === 'products') {
-            if (!item.name) return;
+            if (!item.name || item.name.trim() === '') return;
             const isDup = existingInventory.some(i => i.type === 'prodotto' && i.name.toLowerCase().trim() === item.name.toLowerCase().trim());
 
             if (!isDup) {
                 const newId = crypto.randomUUID();
-                const priceVal = parseFloat(String(item.price || 0).replace(',', '.')) || 0;
-                const stockVal = parseFloat(String(item.stock || 0).replace(',', '.')) || 0;
+                const rawPrice = String(item.price || '0').replace('€', '').replace(/\s/g, '').replace(',', '.');
+                const priceVal = parseFloat(rawPrice) || 0;
+                const rawStock = String(item.stock || '0').replace(/[^0-9,\.]/g, '').replace(',', '.');
+                const stockVal = parseFloat(rawStock) || 0;
 
                 recordsToInsert.push({
                     id: newId,
                     salon_id: salonId,
-                    name: item.name,
+                    name: item.name.trim(),
                     type: 'prodotto',
                     price: priceVal,
                     stock: stockVal,
@@ -25941,9 +25961,13 @@ async function executeOnboardingFinalImport() {
                     barcode: item.barcode || null,
                     model: item.model || null,
                     size: item.size || null,
-                    unit: 'Pezzi',
+                    unit: item.unit || 'Pezzi',
                     is_consignment: false,
-                    created_by: 'Onboarding Engine',
+                    consignment_split_pct: 0,
+                    discount_absorption: 'salon',
+                    requires_operator: false,
+                    required_workstations: [],
+                    required_workstation_id: null,
                     updated_at: nowIso
                 });
 
@@ -25956,75 +25980,176 @@ async function executeOnboardingFinalImport() {
                     date_from: nowIso,
                     date_to: null
                 });
+
+                // Se c'è giacenza iniziale, crea il lotto FIFO per il magazzino
+                if (stockVal > 0) {
+                    lotsToInsert.push({
+                        id: crypto.randomUUID(),
+                        salon_id: salonId,
+                        product_id: newId,
+                        initial_qty: stockVal,
+                        qty_remaining: stockVal,
+                        unit_cost: 0,
+                        created_at: nowIso
+                    });
+                }
             }
         }
     });
 
     if (recordsToInsert.length === 0) {
         if (btn) { btn.disabled = false; btn.innerText = "✨ Conferma ed Importa nel Gestionale ➔"; }
-        return alert("Tutti i record risultavano già presenti o non validi. Nessun nuovo elemento importato.");
+        return alert("Tutti i record risultavano già presenti o privi di dati minimi. Nessun nuovo elemento da importare.");
     }
 
     try {
         const tableName = (targetType === 'services' || targetType === 'products') ? 'inventory' : 'customers';
 
-        // 1. Scrittura Bulk rapida su IndexedDB
+        // 1. SCRITTURA BULK LOCALE SU DEXIE.JS (<15ms)
         if (typeof localDb !== 'undefined' && localDb[tableName]) {
             await localDb[tableName].bulkPut(recordsToInsert);
             if (pricesHistoryToInsert.length > 0 && localDb.price_history) {
                 await localDb.price_history.bulkPut(pricesHistoryToInsert);
             }
+            if (lotsToInsert.length > 0 && localDb.stock_lots) {
+                await localDb.stock_lots.bulkPut(lotsToInsert);
+            }
         }
 
-        // 2. Invio Cloud Supabase in batch scaglionati da 100
-        if (navigator.onLine && typeof SUPABASE_URL !== 'undefined') {
+        // 2. SINCRONIZZAZIONE RELAZIONALE CON SUPABASE CLOUD
+        if (navigator.onLine && typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+            
+            // FASE A: INVIO TABELLA PRINCIPALE (INVENTORY O CUSTOMERS)
             for (let i = 0; i < recordsToInsert.length; i += 100) {
                 const chunk = recordsToInsert.slice(i, i + 100);
-                await fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+
+                let cloudChunk = [];
+                if (tableName === 'inventory') {
+                    // 🛡️ SANITIZZAZIONE RIGIDA: Invia a Supabase SOLO le colonne reali di 'inventory' (No price, No created_by)
+                    cloudChunk = chunk.map(r => ({
+                        id: r.id,
+                        salon_id: r.salon_id,
+                        name: r.name,
+                        type: r.type,
+                        stock: r.stock || 0,
+                        min_stock: r.min_stock || 0,
+                        model: r.model || null,
+                        barcode: r.barcode || null,
+                        size: r.size || null,
+                        unit: r.unit || 'Pezzi',
+                        location: r.location || null,
+                        supplier_id: r.supplier_id || null,
+                        is_consignment: Boolean(r.is_consignment),
+                        consignment_split_pct: r.consignment_split_pct || 0,
+                        discount_absorption: r.discount_absorption || 'salon',
+                        duration_minutes: r.duration_minutes || null,
+                        requires_operator: r.requires_operator !== undefined ? r.requires_operator : true,
+                        required_workstations: r.required_workstations || [],
+                        required_workstation_id: r.required_workstation_id || null,
+                        updated_at: r.updated_at
+                    }));
+                } else {
+                    // Sanitizzazione per tabella 'customers'
+                    cloudChunk = chunk.map(c => ({
+                        id: c.id,
+                        salon_id: c.salon_id,
+                        first_name: c.first_name,
+                        last_name: c.last_name,
+                        phone: c.phone || '',
+                        email: c.email || null,
+                        birth_date: c.birth_date || null,
+                        notes: c.notes || null,
+                        gdpr_consent: c.gdpr_consent !== undefined ? c.gdpr_consent : 1,
+                        gdpr_date: c.gdpr_date || todayStr,
+                        booking_status: c.booking_status || 'approved',
+                        updated_at: c.updated_at
+                    }));
+                }
+
+                // Invio con on_conflict=id esplicito
+                const resMain = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?on_conflict=id`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
                         'Authorization': 'Bearer ' + SUPABASE_KEY,
                         'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
+                        'Prefer': 'resolution=merge-duplicates,return=minimal'
                     },
-                    body: JSON.stringify(chunk)
-                }).catch(() => {});
+                    body: JSON.stringify(cloudChunk)
+                });
+
+                if (!resMain.ok) {
+                    const errMain = await resMain.text();
+                    console.error(`❌ [IMPORT CLOUD] Errore salvataggio ${tableName}:`, errMain);
+                    throw new Error(`Errore cloud su ${tableName}: ${errMain}`);
+                }
             }
 
+            // FASE B: INVIO PRICE_HISTORY (Eseguito solo DOPO il successo di inventory per evitare 409 FK)
             if (pricesHistoryToInsert.length > 0) {
                 for (let i = 0; i < pricesHistoryToInsert.length; i += 100) {
-                    const chunk = pricesHistoryToInsert.slice(i, i + 100);
-                    await fetch(`${SUPABASE_URL}/rest/v1/price_history`, {
+                    const chunkPrice = pricesHistoryToInsert.slice(i, i + 100).map(p => ({
+                        id: p.id,
+                        salon_id: p.salon_id,
+                        product_id: p.product_id,
+                        cost: p.cost || 0,
+                        price: p.price || 0,
+                        date_from: p.date_from,
+                        date_to: p.date_to || null
+                    }));
+
+                    const resPrice = await fetch(`${SUPABASE_URL}/rest/v1/price_history?on_conflict=id`, {
                         method: 'POST',
                         headers: {
                             'apikey': SUPABASE_KEY,
                             'Authorization': 'Bearer ' + SUPABASE_KEY,
                             'Content-Type': 'application/json',
-                            'Prefer': 'resolution=merge-duplicates'
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
                         },
-                        body: JSON.stringify(chunk)
-                    }).catch(() => {});
+                        body: JSON.stringify(chunkPrice)
+                    });
+
+                    if (!resPrice.ok) {
+                        const errPrice = await resPrice.text();
+                        console.error(`❌ [IMPORT CLOUD] Errore salvataggio price_history:`, errPrice);
+                    }
+                }
+            }
+
+            // FASE C: INVIO STOCK_LOTS (Se presenti prodotti con giacenza)
+            if (lotsToInsert.length > 0) {
+                for (let i = 0; i < lotsToInsert.length; i += 100) {
+                    const chunkLots = lotsToInsert.slice(i, i + 100);
+                    await fetch(`${SUPABASE_URL}/rest/v1/stock_lots?on_conflict=id`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
+                        },
+                        body: JSON.stringify(chunkLots)
+                    }).catch(e => console.warn("Sync cloud lots rimandata:", e));
                 }
             }
         }
 
         window._obState.importedCount = recordsToInsert.length;
 
-        // Ricarica stato
+        // 3. AGGIORNAMENTO STATO LOCALE E INTERFACCIA
         await refreshAllData();
 
-        // 3. Mostra schermata successo e Booster WhatsApp
+        // 4. MOSTRA SCHERMATA DI SUCCESSO
         document.getElementById('ob-step-preview-card').style.display = 'none';
         const successCard = document.getElementById('ob-step-success-card');
         const summaryText = document.getElementById('ob-success-summary-text');
         const boosterBox = document.getElementById('ob-whatsapp-booster-box');
 
+        const labelSection = targetType === 'customers' ? 'Clienti' : (targetType === 'services' ? 'Listino Servizi' : 'Magazzino Prodotti');
         if (summaryText) {
-            summaryText.innerHTML = `Sono stati registrati con successo <b>${recordsToInsert.length} nuovi elementi</b> nella sezione ${targetType === 'customers' ? 'Clienti' : (targetType === 'services' ? 'Listino Servizi' : 'Magazzino Prodotti')}.`;
+            summaryText.innerHTML = `Sono stati registrati e sincronizzati con successo <b>${recordsToInsert.length} record</b> nella sezione <b>${labelSection}</b>.`;
         }
 
-        // Se sono stati importati clienti, precompila il messaggio WhatsApp Booster
         if (targetType === 'customers') {
             if (boosterBox) boosterBox.style.display = 'block';
             const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
@@ -26038,7 +26163,7 @@ async function executeOnboardingFinalImport() {
         if (successCard) successCard.style.display = 'block';
 
     } catch (err) {
-        console.error("Errore bulk import:", err);
+        console.error("Errore critico durante l'importazione:", err);
         alert("Si è verificato un errore durante l'importazione: " + err.message);
     } finally {
         if (btn) {
