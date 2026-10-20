@@ -2058,8 +2058,10 @@
         <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
         <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
         <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
-        <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
         <a href="#" class="nav-item" id="n-print" onclick="changePageMobileWrapper('print')">🖨️ Stampa & Listini</a>
+        <a href="#" class="nav-item" id="n-onboarding" onclick="changePageMobileWrapper('onboarding')">🚀 Migrazione Dati & Onboarding</a>
+        <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
+        
     </div>
     <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
         <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
@@ -2644,6 +2646,151 @@
             </div>
         </div>
     </section>
+
+
+
+
+<!-- ======================================================== -->
+<!-- 🚀 VISTA FAST-TRACK ONBOARDING & MIGRAZIONE UNIVERSALE   -->
+<!-- ======================================================== -->
+<section id="v-onboarding" class="view">
+    <div style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- TESTATA INFORMATIVA STRATEGICA -->
+        <div class="card" style="border-left: 6px solid #10b981; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #065f46;">🚀 Passa a VaiMUp Senza Pensieri</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #047857; line-height: 1.4;">
+                        Importa clienti e listini da <b>qualsiasi gestionale</b> (Treatwell, Fresha, Uala, Venere, Zucchetti, Excel). Nessun tracciato rigido: l'algoritmo riconosce e ordina i dati automaticamente.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <span style="background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px;">✓ Zero Perdita Dati</span>
+                    <span style="background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px;">✓ Nessuna App da Scaricare per i Clienti</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASSO 1: CARICA O INCOLLA I DATI -->
+        <div class="card" id="ob-step-input-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; color: #1e1b4b; font-weight: 800;">1. Scegli cosa importare e inserisci i dati</h3>
+                    <small style="color: #64748b;">Trascina un file CSV/Excel o fai copia-incolla direttamente dalla tabella del vecchio programma</small>
+                </div>
+                
+                <!-- SELETTORE TARGET DATI -->
+                <select id="ob-target-type" style="width: 220px; margin: 0; background: white; font-weight: bold; border: 1.5px solid var(--p);">
+                    <option value="customers" selected>👥 Anagrafica Clienti</option>
+                    <option value="services">✂️ Listino Servizi & Prezzi</option>
+                    <option value="products">📦 Magazzino Prodotti</option>
+                </select>
+            </div>
+
+            <!-- DRAG & DROP ZONE -->
+            <div id="ob-dropzone" ondragover="handleObDragOver(event)" ondragleave="handleObDragLeave(event)" ondrop="handleObFileDrop(event)" 
+                 style="border: 2px dashed #cbd5e1; border-radius: 14px; padding: 25px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s ease;">
+                <input type="file" id="ob-file-input" accept=".csv, .tsv, .txt, .json" style="display: none;" onchange="handleObFileSelect(event)">
+                <div style="font-size: 32px; margin-bottom: 8px;">📁</div>
+                <b style="font-size: 14px; color: #1e1b4b; display: block; margin-bottom: 4px;">Trascina qui il file esportato oppure clicca per sfogliare</b>
+                <span style="font-size: 12px; color: #64748b;">Supporta file .CSV, .TSV, file di testo o esportazioni tabellari</span>
+            </div>
+
+            <div style="text-align: center; margin: 12px 0; font-size: 12px; font-weight: 800; color: #94a3b8;">— OPPURE COPIA E INCOLLA DIRETTAMENTE —</div>
+
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase;">Incolla qui il testo o le righe copiate dal vecchio gestionale / Excel:</label>
+                <textarea id="ob-raw-paste-input" rows="5" placeholder="Nome	Cognome	Cellulare	Note
+Maria	Rossi	3331234567	Colore biondo caldo
+Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace; font-size: 12.5px; background: white;"></textarea>
+            </div>
+
+            <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-p" style="padding: 12px 24px; font-size: 13.5px; font-weight: 800;" onclick="parseAndAnalyzeOnboardingData()">
+                    Analizza & Riconosci Colonne ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- PASSO 2: ANTEPRIMA & MAPPING INTELLIGENTE DELLE COLONNE -->
+        <div class="card" id="ob-step-preview-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; color: #1e1b4b; font-weight: 800;">2. Verifica Mappatura Colonne & Anteprima</h3>
+                    <small id="ob-preview-stats-label" style="color: #047857; font-weight: bold;">Riconoscimento completato</small>
+                </div>
+                <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: #f1f5f9;" onclick="resetOnboardingWizard()">✕ Ricarica Altro</button>
+            </div>
+
+            <!-- CONTENITORE SELETTORI COLONNE RICONOSCIUTE -->
+            <div id="ob-columns-mapping-container" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+                <!-- Generato da JS: mostra ogni colonna trovata con tendina per confermare il campo di VaiMUp -->
+            </div>
+
+            <!-- TABELLA DI CONVALIDA RAPIDA -->
+            <div style="overflow-x: auto; max-height: 280px; border: 1.5px solid #cbd5e1; border-radius: 10px; margin-bottom: 14px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; background: white;">
+                    <thead id="ob-preview-table-head" style="background: #f1f5f9; position: sticky; top: 0; z-index: 5;"></thead>
+                    <tbody id="ob-preview-table-body"></tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 12px; color: #475569;">
+                    <span id="ob-valid-count" style="font-weight: 800; color: #047857;">0 record pronti</span> | 
+                    <span id="ob-duplicate-info" style="color: #64748b;">De-duplicazione attiva</span>
+                </div>
+                <button type="button" class="btn" id="ob-btn-confirm-import" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: 900; border-radius: 10px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);" onclick="executeOnboardingFinalImport()">
+                    ✨ Conferma ed Importa nel Gestionale ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- PASSO 3: RISULTATO & SWITCH-OVER WHATSAPP ACCELERATOR -->
+        <div class="card" id="ob-step-success-card" style="display: none; border-left: 6px solid #10b981;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="width: 55px; height: 55px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 10px auto;">✓</div>
+                <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: #065f46;">Dati Importati con Successo!</h3>
+                <p id="ob-success-summary-text" style="font-size: 13px; color: #047857; margin: 4px 0 0 0;">Le anagrafiche sono già operative e sincronizzate.</p>
+            </div>
+
+            <!-- BOOSTER WHATSAPP PER I CLIENTI ONLINE -->
+            <div id="ob-whatsapp-booster-box" style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 14px; padding: 18px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                    <span style="font-size: 28px;">📲</span>
+                    <div>
+                        <b style="font-size: 14.5px; color: #581c87; display: block;">Avvisa i tuoi clienti del nuovo sistema di prenotazione autonoma</b>
+                        <small style="color: #6b21a8; font-size: 12px; line-height: 1.4; display: block; margin-top: 2px;">
+                            I tuoi clienti non devono scaricare nulla! Invia un messaggio WhatsApp con il link diretto per farli prenotare subito senza intoppi.
+                        </small>
+                    </div>
+                </div>
+
+                <div style="background: white; border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+                    <label style="margin: 0 0 4px 0; font-size: 10.5px; font-weight: 800; color: #581c87; text-transform: uppercase;">Messaggio Consigliato per i Clienti:</label>
+                    <textarea id="ob-welcome-msg-text" rows="3" style="margin: 0; font-size: 12.5px; background: #fdf4ff; border: 1px solid #f0abfc; color: #4a044e;"></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <button type="button" class="btn btn-w" style="padding: 10px 20px; font-size: 13px; font-weight: 800;" onclick="openMassSwitchOverModal()">
+                        💬 Apri Procedura Invio WhatsApp ai Clienti
+                    </button>
+                    <button type="button" class="btn" style="padding: 10px 16px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1;" onclick="changePage('customers')">
+                        Vai all'Anagrafica Clienti ➔
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: right;">
+                <button type="button" class="btn" style="padding: 8px 16px; font-size: 12px; background: #f1f5f9; color: #475569;" onclick="resetOnboardingWizard()">
+                    Effettua un'altra importazione
+                </button>
+            </div>
+        </div>
+
+    </div>
+</section>
 
  <!-- VISTA PRINT STUDIO (ISOLATA, UNICA E COMPLETA) -->
             <section id="v-print" class="view" style="padding: 15px !important; overflow: hidden;">
@@ -9289,7 +9436,8 @@ function addPackageToCart(name, price, packageId) {
         'v-customers':'Clienti', 'v-services':'Listino servizi', 'v-products':'Magazzino Prodotti',
         'v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni', 'v-users': 'Gestione Utenti',
         'v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff',
-        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti','v-workstations':'Spazi & Postazioni','v-print':'Stampa Listini & Barcode'
+        'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti','v-workstations':'Spazi & Postazioni','v-print':'Stampa Listini & Barcode',
+    'v-onboarding':'Migrazione Dati Rapida & Switch-Over'
     };
     
     document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
@@ -13376,7 +13524,8 @@ window.chooseAppTheme = function(themeName) {
             'print': 'n-print',
             'supplier-payouts': 'n-payouts',
             'schedules': 'n-schedules',
-            'workstations': 'n-workstations'
+            'workstations': 'n-workstations',
+            'onboarding': 'n-onboarding'
         };
 
         const menuId = menuMap[p];
@@ -25191,6 +25340,575 @@ window.onPrintItemDragEnd = onPrintItemDragEnd;
 window.autoFitPrintPreviewToScreen = autoFitPrintPreviewToScreen;
 window.setManualPreviewZoom = setManualPreviewZoom;
 window.applyPreviewZoom = applyPreviewZoom
+
+
+
+// =========================================================================
+// 🚀 VAIMUP FAST-TRACK ONBOARDING & UNIVERSAL DATA INGEST ENGINE
+// =========================================================================
+
+window._obState = {
+    targetType: 'customers', // 'customers' | 'services' | 'products'
+    rawRows: [],
+    detectedHeaders: [],
+    mappedFields: {},
+    parsedRecords: [],
+    importedCount: 0
+};
+
+// 1. DIZIONARI FUZZY MATCHING UNIVERSALI (Mappa qualsiasi gestionale in italiano e inglese)
+const OB_FIELD_DICTIONARIES = {
+    customers: [
+        { key: 'first_name', label: 'Nome', patterns: ['nome', 'first', 'first_name', 'firstname', 'cliente', 'nominativo'] },
+        { key: 'last_name', label: 'Cognome', patterns: ['cognome', 'last', 'last_name', 'lastname', 'famiglia'] },
+        { key: 'phone', label: 'Telefono / Cellulare', patterns: ['tel', 'telefono', 'cell', 'cellulare', 'mobile', 'phone', 'recapito', 'whatsapp'] },
+        { key: 'email', label: 'Email', patterns: ['email', 'e-mail', 'mail'] },
+        { key: 'birth_date', label: 'Data di Nascita', patterns: ['nascita', 'birth', 'compleanno', 'data_nascita', 'nato'] },
+        { key: 'notes', label: 'Note / Preferenze', patterns: ['note', 'notes', 'allergie', 'colore', 'preferenze', 'storico', 'scheda'] }
+    ],
+    services: [
+        { key: 'name', label: 'Nome Servizio / Trattamento', patterns: ['servizio', 'trattamento', 'nome', 'prestazione', 'descrizione', 'service', 'item'] },
+        { key: 'price', label: 'Prezzo Listino (€)', patterns: ['prezzo', 'listino', 'importo', 'lordo', 'price', 'tariffa', 'costo_cliente'] },
+        { key: 'duration_minutes', label: 'Durata (Minuti)', patterns: ['durata', 'minuti', 'tempo', 'duration', 'min', 'lunghezza'] },
+        { key: 'model', label: 'Categoria / Linea', patterns: ['categoria', 'reparto', 'settore', 'linea', 'category', 'gruppo'] }
+    ],
+    products: [
+        { key: 'name', label: 'Nome Prodotto', patterns: ['prodotto', 'articolo', 'nome', 'descrizione', 'product', 'item'] },
+        { key: 'barcode', label: 'Barcode / Codice EAN', patterns: ['barcode', 'ean', 'codice', 'cod', 'sku', 'upc'] },
+        { key: 'price', label: 'Prezzo Vendita (€)', patterns: ['prezzo', 'listino', 'vendita', 'price', 'pv'] },
+        { key: 'stock', label: 'Giacenza Attuale', patterns: ['giacenza', 'stock', 'qta', 'quantita', 'pz', 'pezzi'] },
+        { key: 'model', label: 'Marca / Brand', patterns: ['marca', 'brand', 'produttore', 'linea', 'fornitore'] },
+        { key: 'size', label: 'Taglia / Formato', patterns: ['taglia', 'formato', 'size', 'ml', 'misura'] }
+    ]
+};
+
+// 2. GESTIONE DRAG & DROP E FILE INPUT
+function handleObDragOver(e) {
+    e.preventDefault();
+    const zone = document.getElementById('ob-dropzone');
+    if (zone) {
+        zone.style.borderColor = 'var(--p)';
+        zone.style.background = '#ede9fe';
+    }
+}
+
+function handleObDragLeave(e) {
+    e.preventDefault();
+    const zone = document.getElementById('ob-dropzone');
+    if (zone) {
+        zone.style.borderColor = '#cbd5e1';
+        zone.style.background = '#f8fafc';
+    }
+}
+
+function handleObFileDrop(e) {
+    e.preventDefault();
+    handleObDragLeave(e);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+        readUploadedOnboardingFile(files[0]);
+    }
+}
+
+function handleObFileSelect(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        readUploadedOnboardingFile(files[0]);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dropzone = document.getElementById('ob-dropzone');
+    const fileInput = document.getElementById('ob-file-input');
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click());
+    }
+});
+
+function readUploadedOnboardingFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const content = e.target.result;
+        const pasteBox = document.getElementById('ob-raw-paste-input');
+        if (pasteBox) pasteBox.value = content;
+        parseAndAnalyzeOnboardingData();
+    };
+    reader.readAsText(file);
+}
+
+// 3. PARSER ROBUSTO: RICONOSCIMENTO AUTOMATICO SEPARATORI (; , \t |)
+function parseAndAnalyzeOnboardingData() {
+    const rawText = document.getElementById('ob-raw-paste-input')?.value.trim();
+    const targetType = document.getElementById('ob-target-type')?.value || 'customers';
+    window._obState.targetType = targetType;
+
+    if (!rawText) {
+        return alert("Incolla del testo o trascina un file prima di procedere.");
+    }
+
+    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length < 2) {
+        return alert("I dati inseriti contengono troppe poche righe. È necessaria almeno una riga di intestazione e una di dati.");
+    }
+
+    // Rileva separatore sulla prima riga
+    const firstLine = lines[0];
+    let sep = ',';
+    if (firstLine.includes('\t')) sep = '\t';
+    else if (firstLine.includes(';')) sep = ';';
+    else if (firstLine.includes('|')) sep = '|';
+
+    const parseLine = (line) => {
+        // Regex robusta per gestire campi con virgolette e virgole interne
+        if (sep === '\t' || sep === '|') {
+            return line.split(sep).map(s => s.replace(/^["']|["']$/g, '').trim());
+        }
+        const regex = new RegExp(`(?:^|${sep})(\"(?:[^\"]+|\"\")*\"|[^${sep}]*)`, 'g');
+        const matches = [];
+        let match;
+        while ((match = regex.exec(line))) {
+            let val = match[1];
+            if (val.startsWith(sep)) val = val.substring(1);
+            val = val.replace(/^["']|["']$/g, '').replace(/""/g, '"').trim();
+            matches.push(val);
+        }
+        return matches;
+    };
+
+    const headerTokens = parseLine(lines[0]);
+    window._obState.detectedHeaders = headerTokens;
+    window._obState.rawRows = lines.slice(1).map(parseLine);
+
+    // Esegui Fuzzy Auto-Mapping
+    performFuzzyColumnAutoMapping();
+    renderOnboardingMappingUI();
+    renderOnboardingPreviewTable();
+
+    document.getElementById('ob-step-input-card').style.display = 'none';
+    document.getElementById('ob-step-preview-card').style.display = 'block';
+}
+
+// 4. ALGORITMO DI FUZZY COLUMN MATCHING
+function performFuzzyColumnAutoMapping() {
+    const targetType = window._obState.targetType;
+    const knownFields = OB_FIELD_DICTIONARIES[targetType] || [];
+    const headers = window._obState.detectedHeaders;
+
+    window._obState.mappedFields = {};
+
+    headers.forEach((h, colIndex) => {
+        const cleanHeader = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let bestMatchKey = null;
+
+        for (let field of knownFields) {
+            for (let pat of field.patterns) {
+                if (cleanHeader === pat || cleanHeader.includes(pat) || pat.includes(cleanHeader)) {
+                    bestMatchKey = field.key;
+                    break;
+                }
+            }
+            if (bestMatchKey) break;
+        }
+
+        window._obState.mappedFields[colIndex] = bestMatchKey || 'ignore';
+    });
+}
+
+// 5. INTERFACCIA MAPPING COLONNE
+function renderOnboardingMappingUI() {
+    const container = document.getElementById('ob-columns-mapping-container');
+    if (!container) return;
+
+    const headers = window._obState.detectedHeaders;
+    const targetType = window._obState.targetType;
+    const knownFields = OB_FIELD_DICTIONARIES[targetType] || [];
+
+    container.innerHTML = headers.map((h, colIdx) => {
+        const currentMapping = window._obState.mappedFields[colIdx] || 'ignore';
+
+        const optionsHtml = `<option value="ignore" ${currentMapping === 'ignore' ? 'selected' : ''}>-- Ignora Colonna --</option>` +
+            knownFields.map(f => `<option value="${f.key}" ${currentMapping === f.key ? 'selected' : ''}>Assegna a: ${f.label}</option>`).join('');
+
+        return `
+            <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; flex: 1; min-width: 170px;">
+                <small style="color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 2px;">
+                    Colonna ${colIdx + 1}: <b>${h || 'Senza Nome'}</b>
+                </small>
+                <select onchange="updateObColumnMapping(${colIdx}, this.value)" style="margin: 0; padding: 4px 6px; font-size: 11.5px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%;">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateObColumnMapping(colIdx, fieldKey) {
+    window._obState.mappedFields[colIdx] = fieldKey;
+    renderOnboardingPreviewTable();
+}
+
+// 6. ANTEPRIMA CON TABELLA DI VALIDAZIONE E NORMALIZZAZIONE
+function renderOnboardingPreviewTable() {
+    const thead = document.getElementById('ob-preview-table-head');
+    const tbody = document.getElementById('ob-preview-table-body');
+    const statsLabel = document.getElementById('ob-preview-stats-label');
+    const validCountEl = document.getElementById('ob-valid-count');
+
+    if (!thead || !tbody) return;
+
+    const headers = window._obState.detectedHeaders;
+    const rawRows = window._obState.rawRows;
+    const mapping = window._obState.mappedFields;
+    const targetType = window._obState.targetType;
+
+    // Head
+    thead.innerHTML = `<tr>` + headers.map((h, i) => {
+        const assigned = mapping[i];
+        const isIgnored = assigned === 'ignore';
+        return `
+            <th style="padding: 8px 10px; text-align: left; font-size: 11px; border-bottom: 2px solid #cbd5e1; white-space: nowrap; ${isIgnored ? 'color:#94a3b8; background:#f8fafc;' : 'color:var(--p); background:#ede9fe;'}">
+                ${h}<br><span style="font-size: 9.5px; font-weight: normal;">${isIgnored ? '(Ignorata)' : '➔ ' + assigned}</span>
+            </th>
+        `;
+    }).join('') + `</tr>`;
+
+    // Processa righe
+    let validRecords = [];
+    let rowsHtml = '';
+
+    const previewLimit = Math.min(rawRows.length, 100);
+
+    for (let r = 0; r < previewLimit; r++) {
+        const row = rawRows[r];
+        const record = {};
+        let isValid = true;
+
+        row.forEach((cellVal, colIdx) => {
+            const fieldKey = mapping[colIdx];
+            if (fieldKey && fieldKey !== 'ignore') {
+                record[fieldKey] = cellVal;
+            }
+        });
+
+        // Validazione e pulizia specifica
+        if (targetType === 'customers') {
+            // Se nome e cognome sono nella stessa colonna
+            if (record.first_name && !record.last_name) {
+                const parts = record.first_name.split(' ');
+                record.first_name = parts[0] || '';
+                record.last_name = parts.slice(1).join(' ') || '';
+            }
+            if (record.phone) {
+                record.phone = record.phone.replace(/[^0-9+]/g, '');
+            }
+            if (!record.first_name && !record.last_name && !record.phone) {
+                isValid = false;
+            }
+        } else if (targetType === 'services' || targetType === 'products') {
+            if (!record.name) isValid = false;
+            if (record.price) record.price = parseFloat(String(record.price).replace(',', '.')) || 0;
+        }
+
+        if (isValid) validRecords.push(record);
+
+        rowsHtml += `<tr style="border-bottom: 1px solid #f1f5f9; ${isValid ? '' : 'background:#fee2e2; opacity:0.6;'}">` +
+            row.map((cell, colIdx) => {
+                const isIgnored = mapping[colIdx] === 'ignore';
+                return `<td style="padding: 6px 10px; white-space: nowrap; ${isIgnored ? 'color:#94a3b8;' : 'font-weight:600; color:#1e1b4b;'}">${cell || '-'}</td>`;
+            }).join('') +
+        `</tr>`;
+    }
+
+    tbody.innerHTML = rowsHtml;
+
+    if (statsLabel) statsLabel.innerText = `Rilevate ${rawRows.length} righe nel file`;
+    if (validCountEl) validCountEl.innerText = `${validRecords.length} record pronti all'importazione`;
+}
+
+// 7. ESECUZIONE ATOMICA DELL'IMPORTAZIONE BULK (IndexedDB + Cloud Sync)
+async function executeOnboardingFinalImport() {
+    const btn = document.getElementById('ob-btn-confirm-import');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Importazione e sincronizzazione in corso...";
+    }
+
+    const targetType = window._obState.targetType;
+    const mapping = window._obState.mappedFields;
+    const rawRows = window._obState.rawRows;
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
+
+    const recordsToInsert = [];
+    const pricesHistoryToInsert = [];
+
+    // Esistenti per de-duplicazione
+    const existingCustomers = targetType === 'customers' ? (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []) : [];
+    const existingInventory = (targetType === 'services' || targetType === 'products') ? (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []) : [];
+
+    rawRows.forEach(row => {
+        const item = {};
+        row.forEach((cellVal, colIdx) => {
+            const fieldKey = mapping[colIdx];
+            if (fieldKey && fieldKey !== 'ignore') {
+                item[fieldKey] = cellVal ? cellVal.trim() : '';
+            }
+        });
+
+        // 👥 IMPORTAZIONE CLIENTI
+        if (targetType === 'customers') {
+            if (item.first_name && !item.last_name && item.first_name.includes(' ')) {
+                const parts = item.first_name.split(' ');
+                item.first_name = parts[0];
+                item.last_name = parts.slice(1).join(' ');
+            }
+            if (!item.first_name && !item.last_name) return;
+
+            let cleanPhone = item.phone ? item.phone.replace(/[^0-9]/g, '') : '';
+            if (cleanPhone.startsWith('39') && cleanPhone.length >= 11) cleanPhone = cleanPhone.substring(2);
+
+            // Controllo duplicato
+            const isDup = existingCustomers.some(c => {
+                const fnMatch = (c.first_name || '').toLowerCase() === (item.first_name || '').toLowerCase();
+                const lnMatch = (c.last_name || '').toLowerCase() === (item.last_name || '').toLowerCase();
+                const phMatch = cleanPhone && c.phone && c.phone.replace(/[^0-9]/g, '').includes(cleanPhone);
+                return (fnMatch && lnMatch) || phMatch;
+            });
+
+            if (!isDup) {
+                const newId = crypto.randomUUID();
+                recordsToInsert.push({
+                    id: newId,
+                    salon_id: salonId,
+                    first_name: item.first_name || 'Cliente',
+                    last_name: item.last_name || '',
+                    phone: cleanPhone || (item.phone || ''),
+                    email: item.email || null,
+                    birth_date: item.birth_date ? normalizeDateString(item.birth_date) : null,
+                    notes: item.notes ? `[Importato] ${item.notes}` : 'Importato da precedente gestionale',
+                    gdpr_consent: 1,
+                    gdpr_date: todayStr,
+                    booking_status: 'approved',
+                    created_by: 'Onboarding Engine',
+                    updated_at: nowIso
+                });
+            }
+        }
+
+        // ✂️ IMPORTAZIONE SERVIZI
+        else if (targetType === 'services') {
+            if (!item.name) return;
+            const isDup = existingInventory.some(i => i.type === 'servizio' && i.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+
+            if (!isDup) {
+                const newId = crypto.randomUUID();
+                const priceVal = parseFloat(String(item.price || 0).replace(',', '.')) || 0;
+                const durVal = parseInt(item.duration_minutes) || 30;
+
+                recordsToInsert.push({
+                    id: newId,
+                    salon_id: salonId,
+                    name: item.name,
+                    type: 'servizio',
+                    price: priceVal,
+                    duration_minutes: durVal,
+                    model: item.model || null,
+                    stock: 0,
+                    min_stock: 0,
+                    is_consignment: false,
+                    requires_operator: true,
+                    created_by: 'Onboarding Engine',
+                    updated_at: nowIso
+                });
+
+                pricesHistoryToInsert.push({
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    product_id: newId,
+                    price: priceVal,
+                    cost: 0,
+                    date_from: nowIso,
+                    date_to: null
+                });
+            }
+        }
+
+        // 📦 IMPORTAZIONE PRODOTTI
+        else if (targetType === 'products') {
+            if (!item.name) return;
+            const isDup = existingInventory.some(i => i.type === 'prodotto' && i.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+
+            if (!isDup) {
+                const newId = crypto.randomUUID();
+                const priceVal = parseFloat(String(item.price || 0).replace(',', '.')) || 0;
+                const stockVal = parseFloat(String(item.stock || 0).replace(',', '.')) || 0;
+
+                recordsToInsert.push({
+                    id: newId,
+                    salon_id: salonId,
+                    name: item.name,
+                    type: 'prodotto',
+                    price: priceVal,
+                    stock: stockVal,
+                    min_stock: 1,
+                    barcode: item.barcode || null,
+                    model: item.model || null,
+                    size: item.size || null,
+                    unit: 'Pezzi',
+                    is_consignment: false,
+                    created_by: 'Onboarding Engine',
+                    updated_at: nowIso
+                });
+
+                pricesHistoryToInsert.push({
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    product_id: newId,
+                    price: priceVal,
+                    cost: 0,
+                    date_from: nowIso,
+                    date_to: null
+                });
+            }
+        }
+    });
+
+    if (recordsToInsert.length === 0) {
+        if (btn) { btn.disabled = false; btn.innerText = "✨ Conferma ed Importa nel Gestionale ➔"; }
+        return alert("Tutti i record risultavano già presenti o non validi. Nessun nuovo elemento importato.");
+    }
+
+    try {
+        const tableName = (targetType === 'services' || targetType === 'products') ? 'inventory' : 'customers';
+
+        // 1. Scrittura Bulk rapida su IndexedDB
+        if (typeof localDb !== 'undefined' && localDb[tableName]) {
+            await localDb[tableName].bulkPut(recordsToInsert);
+            if (pricesHistoryToInsert.length > 0 && localDb.price_history) {
+                await localDb.price_history.bulkPut(pricesHistoryToInsert);
+            }
+        }
+
+        // 2. Invio Cloud Supabase in batch scaglionati da 100
+        if (navigator.onLine && typeof SUPABASE_URL !== 'undefined') {
+            for (let i = 0; i < recordsToInsert.length; i += 100) {
+                const chunk = recordsToInsert.slice(i, i + 100);
+                await fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(chunk)
+                }).catch(() => {});
+            }
+
+            if (pricesHistoryToInsert.length > 0) {
+                for (let i = 0; i < pricesHistoryToInsert.length; i += 100) {
+                    const chunk = pricesHistoryToInsert.slice(i, i + 100);
+                    await fetch(`${SUPABASE_URL}/rest/v1/price_history`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify(chunk)
+                    }).catch(() => {});
+                }
+            }
+        }
+
+        window._obState.importedCount = recordsToInsert.length;
+
+        // Ricarica stato
+        await refreshAllData();
+
+        // 3. Mostra schermata successo e Booster WhatsApp
+        document.getElementById('ob-step-preview-card').style.display = 'none';
+        const successCard = document.getElementById('ob-step-success-card');
+        const summaryText = document.getElementById('ob-success-summary-text');
+        const boosterBox = document.getElementById('ob-whatsapp-booster-box');
+
+        if (summaryText) {
+            summaryText.innerHTML = `Sono stati registrati con successo <b>${recordsToInsert.length} nuovi elementi</b> nella sezione ${targetType === 'customers' ? 'Clienti' : (targetType === 'services' ? 'Listino Servizi' : 'Magazzino Prodotti')}.`;
+        }
+
+        // Se sono stati importati clienti, precompila il messaggio WhatsApp Booster
+        if (targetType === 'customers') {
+            if (boosterBox) boosterBox.style.display = 'block';
+            const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+            const defaultMsg = `Ciao! Per offrirti un servizio ancora più comodo e veloce, abbiamo rinnovato la nostra agenda online ✨ Non devi scaricare nessuna app: puoi scegliere operatore, giorno e ora direttamente qui in 10 secondi: ${bookingLink}`;
+            const msgBox = document.getElementById('ob-welcome-msg-text');
+            if (msgBox) msgBox.value = defaultMsg;
+        } else {
+            if (boosterBox) boosterBox.style.display = 'none';
+        }
+
+        if (successCard) successCard.style.display = 'block';
+
+    } catch (err) {
+        console.error("Errore bulk import:", err);
+        alert("Si è verificato un errore durante l'importazione: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "✨ Conferma ed Importa nel Gestionale ➔";
+        }
+    }
+}
+
+function normalizeDateString(raw) {
+    if (!raw) return null;
+    const parts = raw.split(/[\/\-\.]/);
+    if (parts.length === 3) {
+        // Se formato DD/MM/YYYY
+        if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        // Se formato YYYY/MM/DD
+        if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
+    return raw.substring(0, 10);
+}
+
+function resetOnboardingWizard() {
+    document.getElementById('ob-raw-paste-input').value = '';
+    document.getElementById('ob-step-input-card').style.display = 'block';
+    document.getElementById('ob-step-preview-card').style.display = 'none';
+    document.getElementById('ob-step-success-card').style.display = 'none';
+}
+
+// 8. ACCELERATORE SWITCH-OVER WHATSAPP (Apre la lista clienti per inviare l'invito rapido)
+function openMassSwitchOverModal() {
+    const rawMsg = document.getElementById('ob-welcome-msg-text')?.value;
+    if (!rawMsg) return alert("Scrivi un messaggio di benvenuto prima di procedere.");
+
+    // Salva il template nelle impostazioni per riutilizzo
+    if (typeof sysSettings !== 'undefined') {
+        sysSettings['template_migration_welcome'] = rawMsg;
+    }
+
+    // Reindirizza alla pagina clienti aprendo i filtri
+    changePage('customers');
+    alert("💡 I tuoi clienti sono pronti!\n\nClicca sul bottone WhatsApp accanto a ciascun cliente per inviare l'invito con il link alla nuova agenda. Il messaggio è già memorizzato e pronto all'invio!");
+}
+
+// REGISTRAZIONE SU WINDOW
+window.parseAndAnalyzeOnboardingData = parseAndAnalyzeOnboardingData;
+window.handleObDragOver = handleObDragOver;
+window.handleObDragLeave = handleObDragLeave;
+window.handleObFileDrop = handleObFileDrop;
+window.handleObFileSelect = handleObFileSelect;
+window.updateObColumnMapping = updateObColumnMapping;
+window.executeOnboardingFinalImport = executeOnboardingFinalImport;
+window.resetOnboardingWizard = resetOnboardingWizard;
+window.openMassSwitchOverModal = openMassSwitchOverModal;
+
+
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
