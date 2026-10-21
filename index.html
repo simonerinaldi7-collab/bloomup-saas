@@ -3915,6 +3915,48 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
     position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;
 }
 </style>
+
+<!-- ======================================================== -->
+<!-- 🛡️ SEZIONE CONFORMITÀ GDPR & DATA ACT: PORTABILITÀ DATI  -->
+<!-- ======================================================== -->
+<div class="card" style="margin: 25px 0 15px 0; border-left: 6px solid #10b981; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 18px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">🛡️</span>
+                <h3 style="margin: 0; color: #1e1b4b; font-size: 16px; font-weight: 800;">Portabilità Dati & Garanzia Zero Lock-in</h3>
+            </div>
+            <small style="color: #047857; font-weight: bold; display: block; margin-top: 2px;">
+                Conforme al GDPR (Art. 20) e al Regolamento UE Data Act (Zero Vincoli Fornitore)
+            </small>
+            <p style="margin: 6px 0 0 0; font-size: 12.5px; color: #475569; line-height: 1.4;">
+                I tuoi dati appartengono esclusivamente alla tua attività. Puoi scaricare l'intero database in formati aperti (CSV o JSON) in qualsiasi momento con un solo clic.
+            </p>
+        </div>
+        <button type="button" class="btn" style="background: #10b981; color: white; border: none; font-weight: 800; font-size: 12.5px; padding: 10px 18px; border-radius: 8px; box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);" onclick="downloadCompleteSalonJsonBackup()">
+            📦 Scarica Backup Integrale (JSON)
+        </button>
+    </div>
+
+    <!-- GRIGLIA DI DOWNLOAD TABELLARI INDIVIDUALI (CSV) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+        <button type="button" class="btn" style="background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 8px; justify-content: center;" onclick="exportTableToCsv('customers')">
+            👥 Clienti (.CSV)
+        </button>
+        <button type="button" class="btn" style="background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 8px; justify-content: center;" onclick="exportTableToCsv('appointments')">
+            📅 Agenda (.CSV)
+        </button>
+        <button type="button" class="btn" style="background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 8px; justify-content: center;" onclick="exportTableToCsv('sales')">
+            📈 Vendite (.CSV)
+        </button>
+        <button type="button" class="btn" style="background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 8px; justify-content: center;" onclick="exportTableToCsv('services')">
+            ✂️ Listino (.CSV)
+        </button>
+        <button type="button" class="btn" style="background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 8px; justify-content: center;" onclick="exportTableToCsv('products')">
+            📦 Magazzino (.CSV)
+        </button>
+    </div>
+</div>
             <button class="btn btn-p" style="width:100%; justify-content:center; padding: 14px;" onclick="saveSystemSettings()">Salva Configurazione</button>
         </div>
     </section>
@@ -26593,6 +26635,182 @@ window.resetMassBroadcastRunner = resetMassBroadcastRunner;
 window.copyAllBroadcastPhones = copyAllBroadcastPhones;
 window.openSingleCustomerWhatsApp = openSingleCustomerWhatsApp;
 window.openMassSwitchOverModal = openMassSwitchOverModal;
+
+
+// =========================================================================
+// 🛡️ MOTORE DI ESPORTAZIONE & PORTABILITÀ DATI (GDPR & DATA ACT COMPLIANT)
+// =========================================================================
+
+// 1. ESPORTAZIONE SINGOLA TABELLA IN FORMATO APERTO .CSV
+async function exportTableToCsv(type) {
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    let rows = [];
+    let filename = `VaiMUp_${type}_${salonId}_${todayStr}.csv`;
+    let headers = [];
+
+    // Estrazione dati mirata e pulita
+    if (type === 'customers') {
+        const custs = (typeof allCustomers !== 'undefined' && allCustomers.length > 0) ? allCustomers : (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []);
+        headers = ['ID', 'Nome', 'Cognome', 'Cellulare', 'Email', 'Data_Nascita', 'Consenso_GDPR', 'Data_GDPR', 'Stato_Booking', 'Note'];
+        rows = custs.map(c => [
+            c.id || '',
+            c.first_name || '',
+            c.last_name || '',
+            c.phone || '',
+            c.email || '',
+            c.birth_date || '',
+            c.gdpr_consent ? '1' : '0',
+            c.gdpr_date || '',
+            c.booking_status || 'approved',
+            c.notes || ''
+        ]);
+    } 
+    else if (type === 'appointments') {
+        const apps = (typeof allAppointments !== 'undefined' && allAppointments.length > 0) ? allAppointments : (await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || []);
+        headers = ['ID', 'Data', 'Ora_Inizio', 'Ora_Fine', 'Cliente', 'Servizio', 'Prezzo', 'Operatore', 'Note'];
+        rows = apps.map(a => [
+            a.id || '',
+            a.date || '',
+            a.time || '',
+            a.end_time || '',
+            a.cust_name || '',
+            a.service || '',
+            parseFloat(a.price || 0).toFixed(2),
+            a.assigned_user || '',
+            a.notes || ''
+        ]);
+    }
+    else if (type === 'sales') {
+        const report = await window.universalQuery({ action: 'GET_SALES_REPORT' }) || [];
+        headers = ['ID_Vendita', 'Data', 'Ora', 'Articolo_Servizio', 'Cliente', 'Prezzo_Lordo', 'Sconto', 'Totale_Netto', 'Costo_Unitario', 'Margine_Salone', 'Venditore'];
+        rows = report.map(r => [
+            r.sale_id || '',
+            r.date || '',
+            r.time || '',
+            r.item_name || '',
+            r.customer_name || '',
+            parseFloat(r.sold_price || 0).toFixed(2),
+            parseFloat(r.discount || 0).toFixed(2),
+            parseFloat(r.final_price || 0).toFixed(2),
+            parseFloat(r.unit_cost || 0).toFixed(2),
+            parseFloat(r.salon_revenue || 0).toFixed(2),
+            r.seller || ''
+        ]);
+    }
+    else if (type === 'services') {
+        const inv = (typeof allInventory !== 'undefined' && allInventory.length > 0) ? allInventory : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
+        const services = inv.filter(i => i.type === 'servizio');
+        headers = ['ID', 'Nome_Servizio', 'Prezzo_Listino', 'Durata_Minuti', 'Linea_Categoria', 'Conto_Vendita', 'Quota_Fornitore_Pct'];
+        rows = services.map(s => [
+            s.id || '',
+            s.name || '',
+            parseFloat(s.price || 0).toFixed(2),
+            s.duration_minutes || 30,
+            s.model || '',
+            s.is_consignment ? 'SI' : 'NO',
+            s.consignment_split_pct || 0
+        ]);
+    }
+    else if (type === 'products') {
+        const inv = (typeof allInventory !== 'undefined' && allInventory.length > 0) ? allInventory : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
+        const prods = inv.filter(i => i.type === 'prodotto');
+        headers = ['ID', 'Nome_Prodotto', 'Codice_Barre_EAN', 'Giacenza_Attuale', 'Scorta_Minima', 'Prezzo_Vendita', 'Marca_Linea', 'Taglia_Formato', 'Unita_Misura'];
+        rows = prods.map(p => [
+            p.id || '',
+            p.name || '',
+            p.barcode || '',
+            p.stock || 0,
+            p.min_stock || 0,
+            parseFloat(p.price || 0).toFixed(2),
+            p.model || '',
+            p.size || '',
+            p.unit || 'Pezzi'
+        ]);
+    }
+
+    if (rows.length === 0) {
+        return alert(`Nessun dato trovato da esportare per ${type}.`);
+    }
+
+    // Costruzione stringa CSV compatibile con Excel (BOM UTF-8 e punto e virgola)
+    const escapeCsv = (val) => {
+        let str = String(val === null || val === undefined ? '' : val).replace(/"/g, '""');
+        return `"${str}"`;
+    };
+
+    let csvContent = '\uFEFF'; // BOM per Excel
+    csvContent += headers.map(escapeCsv).join(';') + '\r\n';
+
+    rows.forEach(r => {
+        csvContent += r.map(escapeCsv).join(';') + '\r\n';
+    });
+
+    // Download file Blob nel browser
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.setAttribute('download', filename);
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+
+    setTimeout(() => {
+        downloadLink.remove();
+        URL.revokeObjectURL(url);
+    }, 200);
+}
+
+// 2. BACKUP INTEGRALE SALONE (JSON STRUTTURATO - ZERO LOCK-IN)
+async function downloadCompleteSalonJsonBackup() {
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    try {
+        const backupPackage = {
+            export_version: 'VaiMUp_DataAct_v1',
+            compliance: 'GDPR Art. 20 - EU Data Act 2023/2854',
+            salon_id: salonId,
+            exported_at: new Date().toISOString(),
+            data: {
+                customers: (typeof allCustomers !== 'undefined' && allCustomers.length > 0) ? allCustomers : (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []),
+                inventory: (typeof allInventory !== 'undefined' && allInventory.length > 0) ? allInventory : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []),
+                appointments: (typeof allAppointments !== 'undefined' && allAppointments.length > 0) ? allAppointments : (await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || []),
+                sales: await window.universalQuery({ action: 'GET_ALL', table: 'sales' }) || [],
+                sale_items: await window.universalQuery({ action: 'GET_ALL', table: 'sale_items' }) || [],
+                expenses: await window.universalQuery({ action: 'GET_ALL', table: 'expenses' }) || [],
+                suppliers: await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [],
+                settings: (typeof sysSettings !== 'undefined') ? sysSettings : {}
+            }
+        };
+
+        const jsonStr = JSON.stringify(backupPackage, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.setAttribute('download', `Backup_Integrale_Salone_${salonId}_${todayStr}.json`);
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+
+        setTimeout(() => {
+            downloadLink.remove();
+            URL.revokeObjectURL(url);
+        }, 200);
+
+        alert(`✅ Backup completo generato con successo!\n\nIl file contiene l'intero archivio del salone in formato aperto standard, conforme a tutte le normative europee.`);
+
+    } catch (err) {
+        console.error("Errore generazione backup:", err);
+        alert("Si è verificato un errore durante la generazione del backup: " + err.message);
+    }
+}
+
+// Registrazione esplicita globale su window
+window.exportTableToCsv = exportTableToCsv;
+window.downloadCompleteSalonJsonBackup = downloadCompleteSalonJsonBackup;
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
