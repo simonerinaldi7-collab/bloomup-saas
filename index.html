@@ -3850,6 +3850,22 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </div>
             </div>
         </div>
+        <!-- 📢 CARD LANCIO & DIFFUSIONE MASSIVA WHATSAPP (SOTTO IL QR CODE) -->
+        <div style="margin-top: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 20px;">📢</span>
+                    <b style="font-size: 13.5px; color: #581c87;">Diffusione Massiva WhatsApp ai Clienti</b>
+                    <span id="cfg-mass-cust-count-badge" style="font-size: 10.5px; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 6px;">0 pronti</span>
+                </div>
+                <small style="color: #6b21a8; font-size: 11.5px; display: block; line-height: 1.4; margin-top: 3px;">
+                    Invia l'invito al self-booking con link diretto personalizzato a tutta la tua anagrafica clienti senza doverli selezionare uno per uno.
+                </small>
+            </div>
+            <button type="button" class="btn btn-w" style="padding: 10px 18px; font-size: 12.5px; font-weight: 800; border-radius: 8px; white-space: nowrap;" onclick="openMassWhatsappBroadcastModal('all')">
+                💬 Avvia Invio Massivo ➔
+            </button>
+        </div>
 
     </div>
 </div>
@@ -9706,6 +9722,7 @@ function renderCust() {
             quickActionBtn = `<button class="btn" style="padding:4px 8px; background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; font-size:11px;" onclick="toggleBlockCustomerBooking('${c.id}', 'blocked')" title="Blocca prenotazioni online per questo cliente">🚫</button>`;
         }
 
+        // All'interno di renderCust(), dentro il return del map:
         return `
             <tr style="${status === 'pending' ? 'background: #fffbeb;' : ''}">
                 <td><b>${c.first_name || ''} ${c.last_name || ''}</b>${sharedBadge}</td>
@@ -9715,6 +9732,12 @@ function renderCust() {
                 <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
                 <td style="text-align:right">
                     <div style="display: inline-flex; gap: 5px; align-items: center;">
+                        <!-- 💬 TASTO WHATSAPP INDIVIDUALE: Apre WhatsApp con messaggio invito self-booking -->
+                        ${c.phone ? `
+                            <button type="button" class="btn btn-w" style="padding:4px 8px; font-size:12px; min-height:unset;" onclick="openSingleCustomerWhatsApp('${c.id}')" title="Invia invito prenotazione WhatsApp a questo cliente">
+                                💬
+                            </button>
+                        ` : ''}
                         ${quickActionBtn}
                         <button class="btn btn-s" style="padding:4px 10px;" onclick="editCust('${c.id}')">Edit</button> 
                         <button class="btn btn-d" style="padding:4px 10px;" onclick="delItem('customers', '${c.id}')">✕</button>
@@ -26219,7 +26242,240 @@ window.resetOnboardingWizard = resetOnboardingWizard;
 window.openMassSwitchOverModal = openMassSwitchOverModal;
 
 
+// =========================================================================
+// 📢 MOTORE INVIO MASSIVO WHATSAPP & CONTATTO INDIVIDUALE CLIENTE
+// =========================================================================
 
+window._massBroadcastState = {
+    targetList: [],
+    currentIndex: 0,
+    sentCount: 0,
+    skippedCount: 0
+};
+
+// 1. APERTURA MODALE INVIO MASSIVO (Chiamato da Configurazione o da Onboarding)
+function openMassWhatsappBroadcastModal(filterType = 'all') {
+    const modal = document.getElementById('mod-mass-whatsapp-broadcast');
+    const select = document.getElementById('mass-target-filter-select');
+    const templateBox = document.getElementById('mass-broadcast-msg-template');
+
+    if (!modal) return;
+
+    if (select) select.value = filterType;
+
+    // Recupero salonId e Link
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+
+    // Template pre-compilato di altissima conversione
+    const defaultMsg = `Ciao {{NOME}}! Da oggi puoi prenotare in autonomia tutti i tuoi appuntamenti da noi quando vuoi ✨ Non serve scaricare nessuna app: scegli trattamenti, orari e operatore direttamente da qui in 10 secondi: {{LINK}}`;
+    
+    if (templateBox && (!templateBox.value || templateBox.value.trim() === '')) {
+        templateBox.value = (typeof sysSettings !== 'undefined' && sysSettings['template_migration_welcome']) || defaultMsg;
+    }
+
+    refreshMassBroadcastTargetList();
+    modal.classList.add('active');
+}
+
+function closeMassWhatsappBroadcastModal() {
+    const modal = document.getElementById('mod-mass-whatsapp-broadcast');
+    if (modal) modal.classList.remove('active');
+}
+
+// 2. FILTRO DELLA PLATEA DESTINATARI
+function refreshMassBroadcastTargetList() {
+    const filter = document.getElementById('mass-target-filter-select')?.value || 'all';
+    const badge = document.getElementById('mass-target-count-badge');
+    const cfgBadge = document.getElementById('cfg-mass-cust-count-badge');
+
+    const customers = (typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) ? allCustomers : (window.allCustomers || []);
+
+    let filtered = customers.filter(c => {
+        const p = String(c.phone || '').replace(/\D/g, '');
+        return p.length >= 8; // Ha un numero valido
+    });
+
+    if (filter === 'recent_imported') {
+        filtered = filtered.filter(c => c.notes && c.notes.includes('[Importato]'));
+    } else if (filter === 'never_booked_online') {
+        // Esclude chi ha già appuntamenti con tag [ONLINE_BOOKING]
+        const onlineApps = (allAppointments || []).filter(a => a.notes && a.notes.includes('[ONLINE_BOOKING]'));
+        const onlineNames = new Set(onlineApps.map(a => (a.cust_name || '').toLowerCase().trim()));
+        filtered = filtered.filter(c => {
+            const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().trim();
+            return !onlineNames.has(fullName);
+        });
+    }
+
+    window._massBroadcastState.targetList = filtered;
+    window._massBroadcastState.currentIndex = 0;
+    window._massBroadcastState.sentCount = 0;
+    window._massBroadcastState.skippedCount = 0;
+
+    if (badge) badge.innerText = `${filtered.length} con cellulare`;
+    if (cfgBadge) cfgBadge.innerText = `${filtered.length} con cellulare`;
+
+    updateMassRunnerDisplay();
+}
+
+// 3. AGGIORNAMENTO VISIVO DEL RUNNER
+function updateMassRunnerDisplay() {
+    const s = window._massBroadcastState;
+    const total = s.targetList.length;
+    const curIdx = s.currentIndex;
+
+    const progressLabel = document.getElementById('mass-runner-progress-label');
+    const progressBar = document.getElementById('mass-runner-progress-bar');
+    const progressPct = document.getElementById('mass-runner-percentage');
+    const curName = document.getElementById('mass-cur-cust-name');
+    const curPhone = document.getElementById('mass-cur-cust-phone');
+    const curPill = document.getElementById('mass-cur-index-pill');
+    const sendBtn = document.getElementById('btn-mass-send-next');
+
+    if (total === 0) {
+        if (progressLabel) progressLabel.innerText = "Nessun destinatario trovato";
+        if (curName) curName.innerText = "Nessun cliente";
+        if (curPhone) curPhone.innerText = "-";
+        if (sendBtn) sendBtn.disabled = true;
+        return;
+    }
+
+    if (curIdx >= total) {
+        // Completato
+        if (progressLabel) progressLabel.innerText = `🎉 Campagna completata! Inviati: ${s.sentCount}, Saltati: ${s.skippedCount}`;
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressPct) progressPct.innerText = '100%';
+        if (curName) curName.innerText = "Tutti i clienti sono stati processati!";
+        if (curPhone) curPhone.innerText = "";
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerText = "✓ Tutti i messaggi inviati!";
+        }
+        return;
+    }
+
+    const currentCust = s.targetList[curIdx];
+    const pct = Math.round((curIdx / total) * 100);
+
+    if (progressLabel) progressLabel.innerText = `In lavorazione: ${curIdx + 1} di ${total}`;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (progressPct) progressPct.innerText = `${pct}%`;
+
+    const fullName = `${currentCust.first_name || ''} ${currentCust.last_name || ''}`.trim() || 'Cliente';
+    if (curName) curName.innerText = fullName;
+    if (curPhone) curPhone.innerText = `📱 ${currentCust.phone}`;
+    if (curPill) curPill.innerText = `# ${curIdx + 1} di ${total}`;
+
+    if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = `💬 Invia a <b>${currentCust.first_name || 'Cliente'}</b> & Successivo ➔`;
+    }
+}
+
+// 4. AVANZAMENTO RUNNER (INVIA O SALTA)
+async function advanceMassBroadcastNext(sendCurrent = true) {
+    const s = window._massBroadcastState;
+    if (s.currentIndex >= s.targetList.length) return;
+
+    const currentCust = s.targetList[s.currentIndex];
+
+    if (sendCurrent && currentCust) {
+        const template = document.getElementById('mass-broadcast-msg-template')?.value || '';
+        const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+        const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+        const firstName = currentCust.first_name || 'Cliente';
+
+        const rawMsg = template
+            .replace(/{{NOME}}/g, firstName)
+            .replace(/{{LINK}}/g, bookingLink)
+            .replace(/{{SALONE}}/g, salonId);
+
+        const cleanPhone = formatPhoneNumberForWhatsApp(currentCust.phone);
+        const encodedText = encodeURIComponent(rawMsg);
+        const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodedText}`;
+
+        // 🚀 APERTURA IMMEDIATA DELLA CHAT
+        openWhatsAppUrlSafely(waUrl);
+
+        // Registra log comunicazioni in background
+        const logData = {
+            id: crypto.randomUUID(),
+            salon_id: salonId,
+            cust_name: `${currentCust.first_name || ''} ${currentCust.last_name || ''}`.trim(),
+            phone: currentCust.phone,
+            msg_type: 'WA_BOOKING_INVITE',
+            appointment_info: `Invito Self-Booking inviato via Campagna Massiva`,
+            sent_at: getNowLocal(),
+            created_by: currentUser ? currentUser.username : 'Admin'
+        };
+        window.universalQuery({ action: 'INSERT', table: 'message_logs', data: logData }).catch(() => {});
+
+        s.sentCount++;
+    } else {
+        s.skippedCount++;
+    }
+
+    s.currentIndex++;
+    updateMassRunnerDisplay();
+}
+
+function resetMassBroadcastRunner() {
+    window._massBroadcastState.currentIndex = 0;
+    window._massBroadcastState.sentCount = 0;
+    window._massBroadcastState.skippedCount = 0;
+    updateMassRunnerDisplay();
+}
+
+// 5. COPIA TUTTI I NUMERI IN BLOCCO PER BROADCAST ESTERNO
+function copyAllBroadcastPhones() {
+    const list = window._massBroadcastState.targetList || [];
+    if (list.length === 0) return alert("Nessun numero da copiare.");
+
+    const phones = list.map(c => formatPhoneNumberForWhatsApp(c.phone)).filter(Boolean);
+    const joined = phones.join(', ');
+
+    navigator.clipboard.writeText(joined).then(() => {
+        alert(`✅ Copiati negli appunti ${phones.length} numeri di cellulare per le tue Liste Broadcast!`);
+    });
+}
+
+// 6. INVIO SINGOLO DA ANAGRAFICA CLIENTI (Cliccando il tasto 💬 in tabella)
+function openSingleCustomerWhatsApp(customerId) {
+    const customers = (typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) ? allCustomers : (window.allCustomers || []);
+    const cust = customers.find(c => String(c.id) === String(customerId));
+    if (!cust) return alert("Cliente non trovato.");
+
+    if (!cust.phone || cust.phone.replace(/\D/g, '').length < 8) {
+        return alert(`⚠️ Nessun numero di cellulare registrato per ${cust.first_name || ''} ${cust.last_name || ''}.`);
+    }
+
+    const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+    const firstName = cust.first_name || 'Gentile Cliente';
+
+    const defaultMsg = `Ciao ${firstName}! Da oggi puoi prenotare in autonomia tutti i tuoi appuntamenti da noi quando vuoi ✨ Non serve scaricare nessuna app: scegli trattamenti, orari e operatore direttamente da qui: ${bookingLink}`;
+
+    const cleanPhone = formatPhoneNumberForWhatsApp(cust.phone);
+    const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodeURIComponent(defaultMsg)}`;
+
+    openWhatsAppUrlSafely(waUrl);
+}
+
+// Re-indirizzamento del tasto di Onboarding
+function openMassSwitchOverModal() {
+    openMassWhatsappBroadcastModal('recent_imported');
+}
+
+// Registrazione esplicita globale su window
+window.openMassWhatsappBroadcastModal = openMassWhatsappBroadcastModal;
+window.closeMassWhatsappBroadcastModal = closeMassWhatsappBroadcastModal;
+window.refreshMassBroadcastTargetList = refreshMassBroadcastTargetList;
+window.advanceMassBroadcastNext = advanceMassBroadcastNext;
+window.resetMassBroadcastRunner = resetMassBroadcastRunner;
+window.copyAllBroadcastPhones = copyAllBroadcastPhones;
+window.openSingleCustomerWhatsApp = openSingleCustomerWhatsApp;
+window.openMassSwitchOverModal = openMassSwitchOverModal;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
@@ -26827,5 +27083,105 @@ window.openMassSwitchOverModal = openMassSwitchOverModal;
     </div>
 </div>
 
+
+
+<!-- ======================================================== -->
+<!-- 📢 MODALE CENTRO INVIO MASSIVO WHATSAPP (PILOTA AUTOMATICO) -->
+<!-- ======================================================== -->
+<div id="mod-mass-whatsapp-broadcast" class="modal" style="z-index: 99999;" onclick="if(event.target===this) closeMassWhatsappBroadcastModal()">
+    <div class="modal-box" style="width: 620px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; padding: 22px;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">📢</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Lancio Massivo Inviti WhatsApp</h3>
+                    <small style="color: #64748b;">Notifica i tuoi clienti del nuovo sistema di prenotazione online</small>
+                </div>
+            </div>
+            <button type="button" onclick="closeMassWhatsappBroadcastModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            
+            <!-- SELETTORE PLATEA DESTINATARI -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Destinatari Campagna</label>
+                    <span id="mass-target-count-badge" style="font-size: 11px; font-weight: 800; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 6px;">0 selezionati</span>
+                </div>
+                <select id="mass-target-filter-select" onchange="refreshMassBroadcastTargetList()" style="margin: 0; background: white; font-weight: bold; font-size: 13px;">
+                    <option value="all" selected>Tutti i clienti con numero di cellulare valido</option>
+                    <option value="recent_imported">Solo i clienti importati dall'ultimo file</option>
+                    <option value="never_booked_online">Solo i clienti che non hanno ancora prenotato online</option>
+                </select>
+            </div>
+
+            <!-- ANTEPRIMA MESSAGGIO CON PLACEHOLDER -->
+            <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Messaggio Personalizzato (con Link Diretto)</label>
+                    <small style="color: #64748b; font-size: 11px;">Tag supportati: <code>{{NOME}}</code>, <code>{{LINK}}</code></small>
+                </div>
+                <textarea id="mass-broadcast-msg-template" rows="4" style="margin: 0; font-size: 12.5px; background: #faf5ff; border: 1.5px solid #d8b4fe; color: #4a044e; line-height: 1.45;"></textarea>
+            </div>
+
+            <!-- RUNNER: PILOTA AUTOMATICO DI INVIO -->
+            <div id="mass-runner-panel" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 16px; margin-bottom: 12px;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 800; color: #1e1b4b;" id="mass-runner-progress-label">Pronto all'invio</span>
+                    <span id="mass-runner-percentage" style="font-size: 13px; font-weight: 900; color: var(--p);">0%</span>
+                </div>
+
+                <!-- Barra di Progresso -->
+                <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 14px;">
+                    <div id="mass-runner-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(135deg, #10b981 0%, #059669 100%); transition: width 0.25s ease;"></div>
+                </div>
+
+                <!-- Card Cliente Corrente -->
+                <div id="mass-current-customer-card" style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <small style="font-size: 10.5px; color: #64748b; text-transform: uppercase; font-weight: 700; display: block;">Prossimo Destinatario:</small>
+                        <b style="font-size: 15px; color: #1e1b4b;" id="mass-cur-cust-name">-</b>
+                        <div style="font-size: 12px; color: #475569;" id="mass-cur-cust-phone">-</div>
+                    </div>
+                    <span style="font-size: 11px; background: #ede9fe; color: #6d28d9; padding: 4px 8px; border-radius: 6px; font-weight: 800;" id="mass-cur-index-pill"># 1</span>
+                </div>
+
+                <!-- Tasti di Controllo Runner -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" id="btn-mass-send-next" class="btn btn-w" style="flex: 2; padding: 12px 16px; font-size: 13.5px; font-weight: 900; justify-content: center;" onclick="advanceMassBroadcastNext(true)">
+                        💬 Invia a Questo Cliente & Successivo ➔
+                    </button>
+                    <button type="button" class="btn" style="flex: 1; padding: 12px 14px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; justify-content: center;" onclick="advanceMassBroadcastNext(false)">
+                        Salta ⏩
+                    </button>
+                    <button type="button" class="btn btn-d" style="padding: 12px 14px; font-size: 12px;" onclick="resetMassBroadcastRunner()">
+                        Stop / Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- OPZIONE BROADCAST / COPIA NUMERI IN BLOCCO -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: white; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px;">
+                <div style="font-size: 11.5px; color: #64748b;">
+                    Preferisci usare le <b>Liste Broadcast</b> di WhatsApp Business?
+                </div>
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 11px; background: #f8fafc; border: 1.5px solid #cbd5e1; font-weight: bold;" onclick="copyAllBroadcastPhones()">
+                    📋 Copia Tutti i Numeri
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); text-align: right; flex-shrink: 0;">
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 18px;" onclick="closeMassWhatsappBroadcastModal()">Chiudi</button>
+        </div>
+
+    </div>
+</div>
     </body>
     </html>
