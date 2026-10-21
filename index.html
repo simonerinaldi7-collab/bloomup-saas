@@ -9728,12 +9728,13 @@ async function renderPackages() {
 
 function renderCust() { 
     const f = document.getElementById('src-c').value.toLowerCase(); 
+    const bookingActive = isOnlineBookingActive(); // 👈 VERIFICA STATO BOOKING ONLINE
 
     document.querySelector('#v-customers thead tr').innerHTML = `
         <th>Nome e Cognome</th><th>Tel / Email</th><th>Stato Booking</th><th>Compleanno</th><th>Note / Allerte</th><th style="text-align:right">Azioni</th>
     `;
 
-    // Ordiniamo mettendo in cima i clienti 'pending' (In attesa di approvazione) così il titolare li vede subito!
+    // Ordina mettendo in cima i clienti in attesa di approvazione
     const sortedCustomers = [...allCustomers].filter(c => {
         const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase();
         const phone = (c.phone || '').toLowerCase();
@@ -9765,7 +9766,6 @@ function renderCust() {
             quickActionBtn = `<button class="btn" style="padding:4px 8px; background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; font-size:11px;" onclick="toggleBlockCustomerBooking('${c.id}', 'blocked')" title="Blocca prenotazioni online per questo cliente">🚫</button>`;
         }
 
-        // All'interno di renderCust(), dentro il return del map:
         return `
             <tr style="${status === 'pending' ? 'background: #fffbeb;' : ''}">
                 <td><b>${c.first_name || ''} ${c.last_name || ''}</b>${sharedBadge}</td>
@@ -9775,8 +9775,8 @@ function renderCust() {
                 <td><span style="color:var(--d); font-size:12px;">${c.notes || '-'}</span></td>
                 <td style="text-align:right">
                     <div style="display: inline-flex; gap: 5px; align-items: center;">
-                        <!-- 💬 TASTO WHATSAPP INDIVIDUALE: Apre WhatsApp con messaggio invito self-booking -->
-                        ${c.phone ? `
+                        <!-- 💬 TASTO WHATSAPP: VISIBILE SOLO SE IL BOOKING ONLINE È ATTIVO! -->
+                        ${(bookingActive && c.phone) ? `
                             <button type="button" class="btn btn-w" style="padding:4px 8px; font-size:12px; min-height:unset;" onclick="openSingleCustomerWhatsApp('${c.id}')" title="Invia invito prenotazione WhatsApp a questo cliente">
                                 💬
                             </button>
@@ -23129,13 +23129,15 @@ function saveAppointmentToWhatsAppReminder() {
     window.open(`https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${msg}`, '_blank');
 }
 
+//=========================================================================
+// 🌐 CONTROLLO STATO PRENOTAZIONE AUTONOMA ONLINE
 // =========================================================================
-// 🌐 GESTORE ROBUSTO BOOKING ONLINE, WIZARD DURATE & QR CODE
-// =========================================================================
-
 function isOnlineBookingActive() {
-    return sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true';
+    if (typeof sysSettings === 'undefined' || !sysSettings) return false;
+    const val = sysSettings['online_booking_enabled'];
+    return val === '1' || val === 1 || val === 'true' || val === true;
 }
+window.isOnlineBookingActive = isOnlineBookingActive;
 
 // 1. Intercettazione Spunta in Configurazione
 async function onToggleOnlineBooking(isChecked) {
@@ -23146,6 +23148,8 @@ async function onToggleOnlineBooking(isChecked) {
         if (activePane) activePane.style.display = 'none';
         await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '0' } });
         sysSettings['online_booking_enabled'] = '0';
+        // 🔄 Aggiorna la vista clienti se aperta (nasconde i pulsanti 💬)
+        if (typeof renderCust === 'function') renderCust();
         return;
     }
 
@@ -23163,8 +23167,11 @@ async function onToggleOnlineBooking(isChecked) {
         return;
     }
 
-    // Se tutti i servizi hanno la durata, attiva e genera il QR
+    // Al termine dell'attivazione confermata:
     await activateOnlineBookingConfirmed();
+    
+    // 🔄 Aggiorna la vista clienti se aperta (mostra i pulsanti 💬)
+    if (typeof renderCust === 'function') renderCust();
 }
 
 // 2. Apertura del Wizard
@@ -26332,14 +26339,26 @@ async function executeOnboardingFinalImport() {
         }
 
         // Se sono stati importati clienti, attiva il booster WhatsApp
-        if (targetType === 'customers' && boosterBox) {
-            boosterBox.style.display = 'block';
-            const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
-            const defaultMsg = `Ciao! Per offrirti un servizio ancora più comodo e veloce, abbiamo rinnovato la nostra agenda online ✨ Non devi scaricare nessuna app: puoi scegliere operatore, giorno e ora direttamente qui in 10 secondi: ${bookingLink}`;
-            const msgBox = document.getElementById('ob-welcome-msg-text');
-            if (msgBox) msgBox.value = defaultMsg;
-        } else if (boosterBox) {
-            boosterBox.style.display = 'none';
+        // In executeOnboardingFinalImport(), verso la fine:
+        
+        const bookingActive = isOnlineBookingActive(); // 👈 VERIFICA ATTIVAZIONE
+
+        if (targetType === 'customers') {
+            if (boosterBox) {
+                if (bookingActive) {
+                    // Booking attivo: mostra il booster di invio massivo
+                    boosterBox.style.display = 'block';
+                    const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
+                    const defaultMsg = `Ciao! Per offrirti un servizio ancora più comodo e veloce, abbiamo rinnovato la nostra agenda online ✨ Non devi scaricare nessuna app: puoi scegliere operatore, giorno e ora direttamente qui in 10 secondi: ${bookingLink}`;
+                    const msgBox = document.getElementById('ob-welcome-msg-text');
+                    if (msgBox) msgBox.value = defaultMsg;
+                } else {
+                    // Booking non attivo: nasconde il box di invio WhatsApp
+                    boosterBox.style.display = 'none';
+                }
+            }
+        } else {
+            if (boosterBox) boosterBox.style.display = 'none';
         }
 
         if (successCard) successCard.style.display = 'block';
@@ -26413,20 +26432,23 @@ window._massBroadcastState = {
 };
 
 // 1. APERTURA MODALE INVIO MASSIVO (Chiamato da Configurazione o da Onboarding)
+// 1. Apertura Modale Massivo protetta
 function openMassWhatsappBroadcastModal(filterType = 'all') {
+    // 🛑 BLOCCO DI SICUREZZA: SE IL BOOKING ONLINE NON È ATTIVO, FERMA L'INVIO
+    if (!isOnlineBookingActive()) {
+        return alert("⚠️ La Prenotazione Autonoma Online non è attiva.\n\nPer inviare i messaggi di invito ai clienti, abilita prima la spunta 'Prenotazione Autonoma Online' nella sezione Configurazione ⚙️.");
+    }
+
     const modal = document.getElementById('mod-mass-whatsapp-broadcast');
     const select = document.getElementById('mass-target-filter-select');
     const templateBox = document.getElementById('mass-broadcast-msg-template');
 
     if (!modal) return;
-
     if (select) select.value = filterType;
 
-    // Recupero salonId e Link
     const salonId = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
     const bookingLink = `${window.location.origin}/?book=${encodeURIComponent(salonId)}`;
 
-    // Template pre-compilato di altissima conversione
     const defaultMsg = `Ciao {{NOME}}! Da oggi puoi prenotare in autonomia tutti i tuoi appuntamenti da noi quando vuoi ✨ Non serve scaricare nessuna app: scegli trattamenti, orari e operatore direttamente da qui in 10 secondi: {{LINK}}`;
     
     if (templateBox && (!templateBox.value || templateBox.value.trim() === '')) {
@@ -26600,7 +26622,13 @@ function copyAllBroadcastPhones() {
 }
 
 // 6. INVIO SINGOLO DA ANAGRAFICA CLIENTI (Cliccando il tasto 💬 in tabella)
+// 2. Invio Singolo protetto
 function openSingleCustomerWhatsApp(customerId) {
+    // 🛑 BLOCCO DI SICUREZZA
+    if (!isOnlineBookingActive()) {
+        return alert("⚠️ La Prenotazione Autonoma Online non è attiva.\n\nAbilitala in Configurazione ⚙️ prima di inviare l'invito a questo cliente.");
+    }
+
     const customers = (typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) ? allCustomers : (window.allCustomers || []);
     const cust = customers.find(c => String(c.id) === String(customerId));
     if (!cust) return alert("Cliente non trovato.");
