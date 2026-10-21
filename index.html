@@ -3698,6 +3698,7 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-booking" onclick="switchSettingsTab('booking')">🌐 Booking Online</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-packages" onclick="switchSettingsTab('packages')">🎁 Pacchetti</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-staff" onclick="switchSettingsTab('staff')">⏰ Notifiche Staff</button>
+                
             </div>
 
             <!-- ========================================== -->
@@ -3855,6 +3856,55 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                             </div>
                         </div>
                     </div>
+                    <!-- 🌟 SEZIONE MESSAGGIO MASSIVO BROADCAST (VISIBILE SOLO SE BOOKING È ATTIVO) -->
+        <div style="margin-top: 16px; padding-top: 14px; border-top: 1.5px dashed #cbd5e1;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <b style="font-size: 13px; color: #1e1b4b; display: block;">📢 Lancio & Invio Massivo WhatsApp ai Clienti</b>
+                    <small style="color: #64748b; font-size: 11px;">Invia con 1 clic il link di prenotazione online a tutti i clienti in rubrica.</small>
+                </div>
+                <span id="broadcast-recipients-badge" style="font-size: 10.5px; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 3px 8px; border-radius: 20px; border: 1px solid #c4b5fd;">
+                    0 destinatari con cellulare
+                </span>
+            </div>
+
+            <!-- Filtro Target e Template Rapidi -->
+            <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800; text-transform: uppercase;">Destinatari</label>
+                        <select id="broadcast-filter-target" onchange="loadBroadcastRecipientsCount()" style="margin: 0; background: #f8fafc; font-weight: bold; font-size: 11.5px;">
+                            <option value="all" selected>👥 Tutti i Clienti Registrati</option>
+                            <option value="active">✨ Solo Clienti Attivi (ultimi 60 gg)</option>
+                            <option value="sleeping">💤 Solo Clienti Dormienti (> 60 gg)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 10px; font-weight: 800; text-transform: uppercase;">Messaggi Rapidi</label>
+                        <div style="display: flex; gap: 4px;">
+                            <button type="button" class="btn" style="padding: 4px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; flex: 1; justify-content: center; min-height: unset;" onclick="loadBroadcastPreset('booking')">🚀 Nuovo Booking</button>
+                            <button type="button" class="btn" style="padding: 4px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; flex: 1; justify-content: center; min-height: unset;" onclick="loadBroadcastPreset('promo')">🔥 Promo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tag Fermaposto -->
+                <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
+                    <span style="font-size: 9.5px; color: #64748b; align-self: center; font-weight: bold;">Tag:</span>
+                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 4px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-broadcast', '{{NOME}}')">{{NOME}}</button>
+                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 4px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-broadcast', '{{SALONE}}')">{{SALONE}}</button>
+                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 4px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-broadcast', '{{LINK_BOOKING}}')">{{LINK_BOOKING}}</button>
+                </div>
+
+                <textarea id="set-msg-broadcast" rows="3" style="margin: 0; background: #f8fafc; font-size: 12px;" placeholder="Scrivi qui il messaggio broadcast per lanciare il booking online..."></textarea>
+            </div>
+
+            <!-- Pulsante Invio -->
+            <button type="button" id="btn-send-broadcast" class="btn btn-w" style="width: 100%; padding: 12px; justify-content: center; font-size: 13px; font-weight: 800; border-radius: 10px;" onclick="sendMassBroadcastWhatsApp()">
+                💬 Invia Broadcast WhatsApp ai Clienti ➔
+            </button>
+        </div>
+
                 </div>
             </div>
 
@@ -10134,6 +10184,10 @@ if (cancelHoursEl) cancelHoursEl.value = sysSettings['booking_cancel_lead_hours'
         if (isBookingOn) {
             updateBookingQrAndUrl(currentUser ? currentUser.salon_id : 'SALON_001');
         }
+
+        if (isBookingOn && typeof loadBroadcastRecipientsCount === 'function') {
+    loadBroadcastRecipientsCount();
+}
 
         // Impostazioni Scadenza Pacchetti
         const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
@@ -23204,7 +23258,9 @@ async function activateOnlineBookingConfirmed() {
     const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
     await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'online_booking_enabled', value: '1' } });
     sysSettings['online_booking_enabled'] = '1';
-
+if (typeof loadBroadcastRecipientsCount === 'function') {
+    loadBroadcastRecipientsCount();
+}
     updateBookingQrAndUrl(salonId);
 }
 
