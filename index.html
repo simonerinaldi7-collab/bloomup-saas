@@ -20,37 +20,45 @@
 
 
 
-/* 🌟 TAB NAVIGATION PER LA CONFIGURAZIONE SETTORIALIZZATA */
+/* ======================================================== */
+/* ⚙️ CONFIGURAZIONE SETTORIALIZZATA MOBILE-FIRST          */
+/* ======================================================== */
 .settings-tabs-bar {
     display: flex;
     gap: 8px;
     border-bottom: 2px solid #e2e8f0;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    scrollbar-width: none; /* Firefox */
+}
+.settings-tabs-bar::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 .settings-tab-btn {
-    background: transparent !important;
-    border: none !important;
-    border-bottom: 3px solid transparent !important;
-    border-radius: 0 !important;
-    color: #64748b !important;
-    font-size: 13px !important;
+    background: #f1f5f9 !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 20px !important;
+    color: #475569 !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
-    padding: 8px 14px !important;
+    padding: 7px 14px !important;
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.2s ease;
     min-height: unset !important;
+    flex-shrink: 0;
 }
 .settings-tab-btn:hover {
     color: var(--p) !important;
-    background: #f8fafc !important;
+    border-color: var(--p) !important;
 }
 .settings-tab-btn.active-tab {
-    color: var(--p) !important;
-    border-bottom-color: var(--p) !important;
-    background: transparent !important;
+    background: var(--p) !important;
+    border-color: var(--p) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.25);
 }
 .settings-section-card {
     display: none;
@@ -58,6 +66,12 @@
 }
 .settings-section-card.active-section {
     display: block !important;
+}
+@media screen and (max-width: 600px) {
+    .settings-main-card {
+        padding: 14px 10px !important;
+        border-radius: 14px !important;
+    }
 }
 /* ======================================================== */
 /* 📱 HEADER GESTIONALE ADATTIVO ANTI-SOVRAPPOSIZIONE       */
@@ -3683,62 +3697,72 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
 </div>
 
 
-    <section id="v-settings" class="view">
-        <div class="card" style="max-width: 800px; margin: 0 auto; padding: 25px;">
+    <section id="v-settings" class="view" style="padding: 15px !important;">
+        <div class="card settings-main-card" style="max-width: 820px; margin: 0 auto; padding: 22px; border-radius: 20px;">
             
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color: var(--p); font-size: 18px; font-weight: 800;">⚙️ Configurazione Gestionale</h3>
-                <button class="btn btn-p" style="padding: 8px 20px; min-height: unset;" onclick="saveSystemSettings()">Salva Modifiche ✓</button>
+            <!-- HEADER CONFIGURAZIONE CON TASTO SALVA RAPIDO -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 24px;">⚙️</span>
+                    <div>
+                        <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Configurazione Gestionale</h3>
+                        <small style="color: #64748b; font-size: 11px;">Personalizza tema, automazioni WhatsApp e booking</small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-p" style="padding: 9px 20px; font-size: 12.5px; font-weight: 800; border-radius: 10px;" onclick="saveSystemSettings()">
+                    Salva Modifiche ✓
+                </button>
             </div>
 
-            <!-- BARRA DELLE SCHEDE SETTORIALIZZATE -->
+            <!-- BARRA DELLE SCHEDE SETTORIALIZZATE (SCORRIMENTO TOUCH FLUIDO) -->
             <div class="settings-tabs-bar">
-                <button type="button" class="btn settings-tab-btn active-tab" id="set-tab-btn-appearance" onclick="switchSettingsTab('appearance')">🎨 Aspetto & Tema</button>
-                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-messages" onclick="switchSettingsTab('messages')">💬 Messaggi WhatsApp</button>
-                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-booking" onclick="switchSettingsTab('booking')">🌐 Booking Online</button>
+                <button type="button" class="btn settings-tab-btn active-tab" id="set-tab-btn-appearance" onclick="switchSettingsTab('appearance')">🎨 Aspetto</button>
+                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-messages" onclick="switchSettingsTab('messages')">💬 WhatsApp</button>
+                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-booking" onclick="switchSettingsTab('booking')">🌐 Booking & Broadcast</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-packages" onclick="switchSettingsTab('packages')">🎁 Pacchetti</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-staff" onclick="switchSettingsTab('staff')">⏰ Notifiche Staff</button>
-                
+                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-data-export" onclick="switchSettingsTab('data-export')">🛡️ Portabilità Dati</button>
             </div>
 
             <!-- ========================================== -->
             <!-- 🎨 SETTORE 1: ASPETTO & TEMA               -->
             <!-- ========================================== -->
             <div id="set-sec-appearance" class="settings-section-card active-section">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1e1b4b;">Stile Grafico & Brand</h4>
-                <p style="color: #64748b; font-size: 12px; margin: 0 0 16px 0;">Scegli la tonalità dell'interfaccia e l'orientamento di settore del gestionale.</p>
-
-                <!-- Tonalità Header -->
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
-                    <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Tonalità Barra Superiore (Header)</label>
+                <div style="margin-bottom: 14px;">
+                    <h4 style="margin: 0 0 2px 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Tonalità Barra Superiore (Header)</h4>
+                    <small style="color: #64748b; font-size: 11.5px;">Scegli se mantenere la barra superiore scura, chiara o automatica dal tema.</small>
+                    
                     <input type="hidden" id="set-header-style" value="auto">
-                    <div style="display: flex; gap: 8px; margin-top: 8px;">
-                        <button type="button" class="btn" id="btn-hdr-auto" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('auto')">🔄 Auto da Tema</button>
-                        <button type="button" class="btn" id="btn-hdr-dark" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #0f172a; color: #f8fafc; border: 1.5px solid #334155; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('dark')">🌑 Barra Scura</button>
-                        <button type="button" class="btn" id="btn-hdr-light" style="padding: 6px 12px; font-size: 11px; min-height: unset; background: #ffffff; color: #1e1b4b; border: 1.5px solid #cbd5e1; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('light')">⚪ Barra Chiara</button>
+                    <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn" id="btn-hdr-auto" style="padding: 7px 14px; font-size: 11.5px; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('auto')">🔄 Auto da Tema</button>
+                        <button type="button" class="btn" id="btn-hdr-dark" style="padding: 7px 14px; font-size: 11.5px; background: #0f172a; color: #f8fafc; border: 1.5px solid #334155; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('dark')">🌑 Barra Scura</button>
+                        <button type="button" class="btn" id="btn-hdr-light" style="padding: 7px 14px; font-size: 11.5px; background: #ffffff; color: #1e1b4b; border: 1.5px solid #cbd5e1; font-weight: bold; border-radius: 8px;" onclick="window.setHeaderStyle('light')">⚪ Barra Chiara</button>
                     </div>
                 </div>
 
-                <!-- Selettore Tema Beauty vs Barber -->
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Tema del Settore</label>
-                <input type="hidden" id="set-app-theme" value="beauty">
-                <div class="theme-selector-grid">
-                    <div class="theme-card active-theme" id="theme-card-beauty" onclick="chooseAppTheme('beauty')">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 20px;">🌸</span>
-                            <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #6C5CE7; border: 2px solid white; box-shadow: 0 0 0 1px #6C5CE7;"></span>
+                <div style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed #cbd5e1;">
+                    <h4 style="margin: 0 0 2px 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Tema Grafico del Settore</h4>
+                    <small style="color: #64748b; font-size: 11.5px;">Adatta i colori primari del gestionale all'identità della tua attività.</small>
+                    
+                    <input type="hidden" id="set-app-theme" value="beauty">
+                    <div class="theme-selector-grid" style="margin-top: 10px;">
+                        <div class="theme-card active-theme" id="theme-card-beauty" onclick="chooseAppTheme('beauty')">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 22px;">🌸</span>
+                                <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #6C5CE7; border: 2px solid white; box-shadow: 0 0 0 1px #6C5CE7;"></span>
+                            </div>
+                            <b style="font-size: 13.5px; color: #1e1b4b;">Beauty & Glamour</b>
+                            <small style="font-size: 11px; color: #64748b; line-height: 1.35;">Sfumature viola e lavanda. Ideale per saloni donna, hair spa, estetica e nails.</small>
                         </div>
-                        <b style="font-size: 13px; color: #1e1b4b;">Beauty & Glamour</b>
-                        <small style="font-size: 11px; color: #64748b; line-height: 1.3;">Sfumature viola e lavanda. Ideale per saloni donna, hair spa, estetica e nails.</small>
-                    </div>
 
-                    <div class="theme-card" id="theme-card-barber" onclick="chooseAppTheme('barber')">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 20px;">💈</span>
-                            <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #D97706; border: 2px solid white; box-shadow: 0 0 0 1px #0f172a;"></span>
+                        <div class="theme-card" id="theme-card-barber" onclick="chooseAppTheme('barber')">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 22px;">💈</span>
+                                <span class="theme-dot" style="width: 14px; height: 14px; border-radius: 50%; background: #D97706; border: 2px solid white; box-shadow: 0 0 0 1px #0f172a;"></span>
+                            </div>
+                            <b style="font-size: 13.5px; color: #1e1b4b;">Barber & Executive</b>
+                            <small style="font-size: 11px; color: #64748b; line-height: 1.35;">Nero antracite e ottone dorato. Ideale per barber shop, grooming e studi tattoo.</small>
                         </div>
-                        <b style="font-size: 13px; color: #1e1b4b;">Barber & Executive</b>
-                        <small style="font-size: 11px; color: #64748b; line-height: 1.3;">Nero antracite e ottone dorato. Ideale per barber shop, grooming e studi tattoo.</small>
                     </div>
                 </div>
             </div>
@@ -3747,61 +3771,65 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
             <!-- 💬 SETTORE 2: TEMPLATE WHATSAPP            -->
             <!-- ========================================== -->
             <div id="set-sec-messages" class="settings-section-card">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1e1b4b;">Comunicazioni WhatsApp ai Clienti</h4>
-                <p style="color: #64748b; font-size: 12px; margin: 0 0 16px 0;">Personalizza i testi inviati in automatico. Clicca sui tag per inserirli nel testo.</p>
-
-                <!-- Conferma Appuntamento -->
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">1. Messaggio Conferma Prenotazione</label>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{NOME}}')">{{NOME}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
-                    </div>
-                    <textarea id="set-msg-confirm" rows="3" style="margin: 0; background: white;" placeholder="Scrivi il messaggio di conferma..."></textarea>
+                <div style="margin-bottom: 14px;">
+                    <h4 style="margin: 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Template Notifiche WhatsApp</h4>
+                    <small style="color: #64748b; font-size: 11.5px;">Tocca i pulsanti dei tag per inserirli nel testo dove preferisci.</small>
                 </div>
 
-                <!-- Promemoria / Reminder -->
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Messaggio Promemoria (Reminder)</label>
+                <!-- 1. Conferma -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;">
+                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">1. Conferma Prenotazione</label>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{NOME}}')">{{NOME}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{DATA}}')">{{DATA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{ORA}}')">{{ORA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-confirm', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                    </div>
+                    <textarea id="set-msg-confirm" rows="3" style="margin: 0; background: white; font-size: 13px;" placeholder="Scrivi il messaggio di conferma..."></textarea>
+                </div>
+
+                <!-- 2. Promemoria -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                        <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Promemoria (Reminder)</label>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 11px; color: #64748b;">Anticipo:</span>
-                            <input type="number" id="set-rem-hours" style="width: 65px; margin: 0; padding: 4px; font-size: 11.5px; text-align: center; font-weight: bold; background: white;">
+                            <span style="font-size: 11px; color: #64748b; font-weight: bold;">Anticipo:</span>
+                            <input type="number" id="set-rem-hours" style="width: 65px; margin: 0; padding: 4px; font-size: 12px; text-align: center; font-weight: bold; background: white; border: 1.5px solid var(--p); border-radius: 6px;">
                             <span style="font-size: 11px; color: #64748b;">ore</span>
                         </div>
                     </div>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{NOME}}')">{{NOME}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{DATA}}')">{{DATA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{ORA}}')">{{ORA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{NOME}}')">{{NOME}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{DATA}}')">{{DATA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{ORA}}')">{{ORA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-reminder', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
                     </div>
-                    <textarea id="set-msg-reminder" rows="3" style="margin: 0; background: white;" placeholder="Scrivi il messaggio promemoria..."></textarea>
+                    <textarea id="set-msg-reminder" rows="3" style="margin: 0; background: white; font-size: 13px;" placeholder="Scrivi il messaggio promemoria..."></textarea>
                 </div>
 
-                <!-- Annullamento / Disdetta -->
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
-                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Messaggio Notifica Annullamento</label>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 6px;">
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{NOME}}')">{{NOME}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{DATA}}')">{{DATA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{ORA}}')">{{ORA}}</button>
-                        <button type="button" class="btn" style="padding:3px 8px; font-size:10.5px; background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; border-radius:6px; min-height:unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
+                <!-- 3. Annullamento -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px;">
+                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Notifica Annullamento / Disdetta</label>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{NOME}}')">{{NOME}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{DATA}}')">{{DATA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{ORA}}')">{{ORA}}</button>
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-cancel', '{{SERVIZIO}}')">{{SERVIZIO}}</button>
                     </div>
-                    <textarea id="set-msg-cancel" rows="3" style="margin: 0; background: white;" placeholder="Scrivi il messaggio di disdetta/annullamento..."></textarea>
+                    <textarea id="set-msg-cancel" rows="3" style="margin: 0; background: white; font-size: 13px;" placeholder="Scrivi il messaggio di disdetta/annullamento..."></textarea>
                 </div>
             </div>
 
             <!-- ========================================== -->
-            <!-- 🌐 SETTORE 3: BOOKING ONLINE & POLICY      -->
+            <!-- 🌐 SETTORE 3: BOOKING ONLINE & BROADCAST   -->
             <!-- ========================================== -->
             <div id="set-sec-booking" class="settings-section-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                
+                <!-- Toggle Principale Attivazione -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
                     <div>
-                        <h4 style="margin: 0 0 2px 0; font-size: 14px; color: var(--p);">🌐 Portale Prenotazione Online Clienti</h4>
-                        <small style="color: #64748b; font-size: 11.5px;">Consenti ai tuoi clienti di prenotare in autonomia tramite smartphone.</small>
+                        <h4 style="margin: 0 0 2px 0; font-size: 14px; color: var(--p); font-weight: 800;">🌐 Prenotazione Autonoma Online Clienti</h4>
+                        <small style="color: #64748b; font-size: 11.5px; line-height: 1.4; display: block;">Permetti ai tuoi clienti di prenotare gli orari liberi da smartphone tramite link o QR Code.</small>
                     </div>
                     <label style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0; cursor: pointer; flex-shrink: 0;">
                         <input type="checkbox" id="set-online-booking-toggle" onchange="onToggleOnlineBooking(this.checked)" style="opacity: 0; width: 0; height: 0;">
@@ -3809,14 +3837,24 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                     </label>
                 </div>
 
-                <div id="online-booking-active-pane" style="display: none; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px;">
-                    <!-- Policy Disdetta -->
-                    <div style="margin-bottom: 12px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 220px;">
+                <!-- PANNELLO ATTIVO (VISIBILE SOLO SE IL BOOKING È ACCESO) -->
+                <div id="online-booking-active-pane" style="display: none; display: flex; flex-direction: column; gap: 12px;">
+                    
+                    <!-- Approvazione Profilo GDPR -->
+                    <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;">
+                        <input type="checkbox" id="set-booking-approval" checked style="width: 18px; height: 18px; accent-color: var(--p); margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer;">
+                        <label for="set-booking-approval" style="margin: 0; font-size: 12px; font-weight: 700; color: #1e1b4b; text-transform: none; line-height: 1.4; cursor: pointer;">
+                            🛡️ Richiedi approvazione profilo prima di consentire la prima prenotazione (Tier Privacy)
+                        </label>
+                    </div>
+
+                    <!-- Preavviso Minimo Disdetta -->
+                    <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
                             <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⏱️ Preavviso Minimo Disdetta / Spostamento</b>
-                            <small style="color: #64748b; font-size: 11px;">Meno di queste ore disattiva la disdetta autonoma e richiede contatto diretto.</small>
+                            <small style="color: #64748b; font-size: 11px;">Meno di queste ore disattiva la cancellazione online per non creare buchi.</small>
                         </div>
-                        <select id="set-booking-cancel-hours" style="width: 130px; margin: 0; font-weight: bold; background: white; font-size: 12px;">
+                        <select id="set-booking-cancel-hours" style="width: 130px; margin: 0; font-weight: bold; background: white; font-size: 12px; border: 1.5px solid var(--p); border-radius: 8px;">
                             <option value="6">6 Ore</option>
                             <option value="12">12 Ore</option>
                             <option value="24" selected>24 Ore (1 gg)</option>
@@ -3824,39 +3862,49 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                         </select>
                     </div>
 
-                    <!-- Tasto Regole Cabine -->
-                    <div class="booking-responsive-subcard" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
-                        <div style="flex: 1;">
-                            <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⚙️ Orari Servizi Autonomi & Chiusure</b>
-                            <small style="color: #64748b; font-size: 11px;">Fasce orarie e giorni di chiusura del portale online.</small>
-                        </div>
-                        <button type="button" class="btn btn-p booking-subcard-btn" style="padding: 8px 12px; font-size: 11.5px; min-height: unset;" onclick="openBookingAdvancedConfigModal()">Configura Orari ➔</button>
+                    <!-- Bottoni di Configurazione Avanzata & Offerte -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button type="button" class="btn" style="padding: 10px 12px; font-size: 12px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; justify-content: center;" onclick="openBookingAdvancedConfigModal()">
+                            ⚙️ Regole Cabine & Chiusure
+                        </button>
+                        <button type="button" class="btn" style="padding: 10px 12px; font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #0f172a; border: none; border-radius: 10px; justify-content: center;" onclick="openBookingOffersModal()">
+                            🔥 Vetrina Offerte Speciali
+                        </button>
                     </div>
 
-                    <!-- Tasto Vetrina Offerte -->
-                    <div class="booking-responsive-subcard" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; gap: 12px;">
-                        <div style="flex: 1;">
-                            <b style="font-size: 12.5px; color: #1e1b4b;">🔥 Offerte & Promozioni in Vetrina</b>
-                            <small style="color: #64748b; font-size: 11px; display: block;">Mostra prezzi scontati con badge accattivanti nel booking.</small>
-                        </div>
-                        <button type="button" class="btn booking-subcard-btn" style="padding: 8px 12px; font-size: 11.5px; background: #d97706; color: white; border: none; min-height: unset;" onclick="openBookingOffersModal()">Gestisci Offerte ➔</button>
-                    </div>
-
-                    <!-- Link e QR Code -->
-                    <div class="booking-qr-responsive-card" style="background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center;">
-                        <div style="width: 85px; height: 85px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                    <!-- Condivisione Link & QR Code -->
+                    <div class="booking-qr-responsive-card" style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; display: flex; gap: 14px; align-items: center;">
+                        <div style="width: 90px; height: 90px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin: 0 auto;">
                             <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
                         </div>
-                        <div style="flex: 1; min-width: 0;">
-                            <small style="font-size: 11px; font-weight: bold; color: #1e1b4b; display: block; margin-bottom: 4px;">Link Diretto per i Clienti:</small>
-                            <input type="text" id="booking-portal-url" readonly style="margin: 0 0 6px 0; padding: 6px 8px; font-size: 11.5px; background: #f1f5f9; width: 100%;" onclick="this.select()">
+                        <div style="flex: 1; min-width: 0; width: 100%;">
+                            <b style="font-size: 12px; color: #1e1b4b; display: block; margin-bottom: 4px;">Link Diretto del tuo Salone:</b>
+                            <input type="text" id="booking-portal-url" readonly style="margin: 0 0 6px 0; padding: 7px 10px; font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569; width: 100%; box-sizing: border-box;" onclick="this.select()">
                             <div style="display: flex; gap: 6px;">
-                                <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 6px; font-size: 11px; min-height: unset;" onclick="copyBookingLink()">📋 Copia</button>
-                                <button type="button" class="btn btn-w" style="flex: 1; justify-content: center; padding: 6px; font-size: 11px; min-height: unset;" onclick="shareBookingWhatsApp()">💬 WhatsApp</button>
+                                <button type="button" class="btn btn-p" style="flex: 1; justify-content: center; padding: 7px; font-size: 11.5px;" onclick="copyBookingLink()">📋 Copia</button>
+                                <button type="button" class="btn btn-w" style="flex: 1; justify-content: center; padding: 7px; font-size: 11.5px;" onclick="shareBookingWhatsApp()">💬 WhatsApp</button>
                             </div>
                         </div>
                     </div>
-                    
+
+                    <!-- 📢 CARD DIFFUSIONE & INVIO MASSIVO WHATSAPP -->
+                    <div style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 220px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                                <span style="font-size: 20px;">📢</span>
+                                <b style="font-size: 13.5px; color: #581c87;">Diffusione Massiva WhatsApp ai Clienti</b>
+                                <span id="cfg-mass-cust-count-badge" style="font-size: 10px; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 6px;">0 con cellulare</span>
+                            </div>
+                            <small style="color: #6b21a8; font-size: 11.5px; display: block; line-height: 1.4;">
+                                Invia l'invito al self-booking con link personalizzato a tutti i tuoi clienti senza doverli contattare uno ad uno.
+                            </small>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn btn-w" style="padding: 9px 16px; font-size: 12px; font-weight: 800; border-radius: 8px;" onclick="openMassWhatsappBroadcastModal('all')">
+                                💬 Avvia Invio Massivo ➔
+                            </button>
+                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -3865,26 +3913,28 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
             <!-- 🎁 SETTORE 4: GESTIONE PACCHETTI           -->
             <!-- ========================================== -->
             <div id="set-sec-packages" class="settings-section-card">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1e1b4b;">Notifiche e Rinnovi Pacchetti / Carnet</h4>
-                <p style="color: #64748b; font-size: 12px; margin: 0 0 16px 0;">Regola il preavviso con cui il gestionale evidenzia i pacchetti vicini alla scadenza.</p>
+                <div style="margin-bottom: 14px;">
+                    <h4 style="margin: 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Notifiche e Rinnovi Pacchetti / Carnet</h4>
+                    <small style="color: #64748b; font-size: 11.5px;">Regola il preavviso con cui evidenziare i pacchetti in scadenza o a esaurimento.</small>
+                </div>
 
                 <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                         <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Preavviso Alert Scadenza</label>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="number" id="set-pkg-expiry-days" min="1" max="90" style="width: 65px; margin: 0; padding: 4px; font-size: 11.5px; text-align: center; font-weight: bold; background: white;">
-                            <span style="font-size: 11px; color: #64748b;">giorni prima</span>
+                            <input type="number" id="set-pkg-expiry-days" min="1" max="90" style="width: 65px; margin: 0; padding: 4px; font-size: 12px; text-align: center; font-weight: bold; background: white; border: 1.5px solid var(--p); border-radius: 6px;">
+                            <span style="font-size: 11.5px; color: #64748b;">giorni prima</span>
                         </div>
                     </div>
 
                     <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Template Invito al Rinnovo WhatsApp</label>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;">
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{NOME}}')">{{NOME}}</button>
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{PACCHETTO}}')">{{PACCHETTO}}</button>
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{DATA_SCADENZA}}')">{{DATA_SCADENZA}}</button>
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; min-height: unset;" onclick="insertPlaceholderAtCursor('set-msg-pkg-expiry', '{{SEDUTE_RESIDUE}}')">{{SEDUTE_RESIDUE}}</button>
                     </div>
-                    <textarea id="set-msg-pkg-expiry" rows="3" style="margin: 0; background: white;" placeholder="Scrivi il messaggio di invito al rinnovo pacchetto..."></textarea>
+                    <textarea id="set-msg-pkg-expiry" rows="3" style="margin: 0; background: white; font-size: 13px;" placeholder="Scrivi il messaggio di invito al rinnovo pacchetto..."></textarea>
                 </div>
             </div>
 
@@ -3892,24 +3942,59 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
             <!-- ⏰ SETTORE 5: NOTIFICHE STAFF              -->
             <!-- ========================================== -->
             <div id="set-sec-staff" class="settings-section-card">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1e1b4b;">Allarmi e Notifiche Operatori</h4>
-                <p style="color: #64748b; font-size: 12px; margin: 0 0 16px 0;">Imposta l'anticipo con cui l'operatore riceve l'allerta prima dell'arrivo del cliente.</p>
+                <div style="margin-bottom: 14px;">
+                    <h4 style="margin: 0; font-size: 14px; color: #1e1b4b; font-weight: 800;">Allarmi e Notifiche Operatori</h4>
+                    <small style="color: #64748b; font-size: 11.5px;">Imposta l'anticipo con cui l'operatore riceve l'allerta prima dell'arrivo del cliente.</small>
+                </div>
 
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                    <div>
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
                         <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⏰ Anticipo Notifica Imminente Operatore</b>
-                        <small style="color: #64748b; font-size: 11px;">Avvisa lo staff sul dispositivo prima dell'inizio del trattamento.</small>
+                        <small style="color: #64748b; font-size: 11px;">Avvisa lo staff sui dispositivi del salone prima dell'inizio del servizio.</small>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <input type="number" id="set-imminent-lead" min="1" max="120" style="width: 75px; margin: 0; padding: 6px; font-size: 12px; text-align: center; font-weight: bold; background: white; border: 1.5px solid var(--p); border-radius: 8px;">
+                        <input type="number" id="set-imminent-lead" min="1" max="120" style="width: 70px; margin: 0; padding: 6px; font-size: 13px; text-align: center; font-weight: bold; background: white; border: 1.5px solid var(--p); border-radius: 8px;">
                         <span style="font-size: 11.5px; font-weight: bold; color: #475569;">minuti</span>
                     </div>
                 </div>
             </div>
 
-            <!-- BOTTONE SALVATAGGIO IN BASSO -->
-            <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--border); text-align: right;">
-                <button class="btn btn-p" style="padding: 12px 28px; font-size: 13.5px; font-weight: 800;" onclick="saveSystemSettings()">Salva Configurazione ✓</button>
+            <!-- ========================================== -->
+            <!-- 🛡️ SETTORE 6: PORTABILITÀ DATI & BACKUP    -->
+            <!-- ========================================== -->
+            <div id="set-sec-data-export" class="settings-section-card">
+                <div style="border-left: 6px solid #10b981; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 14px; padding: 16px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 20px;">🛡️</span>
+                                <b style="font-size: 14px; color: #065f46;">Garanzia Zero Lock-in (GDPR Art. 20 & EU Data Act)</b>
+                            </div>
+                            <small style="color: #047857; font-size: 11.5px; display: block; margin-top: 2px;">
+                                I dati sono tuoi al 100%. Puoi scaricare l'intero archivio o singole tabelle in formato aperto con un click.
+                            </small>
+                        </div>
+                        <button type="button" class="btn" style="background: #10b981; color: white; border: none; font-weight: 800; font-size: 12px; padding: 9px 16px; border-radius: 8px;" onclick="downloadCompleteSalonJsonBackup()">
+                            📦 Scarica Backup Totale (JSON)
+                        </button>
+                    </div>
+                </div>
+
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; display: block;">Download Tabelle Singole (.CSV Aperto)</label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                    <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('customers')">👥 Clienti (.CSV)</button>
+                    <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('appointments')">📅 Agenda (.CSV)</button>
+                    <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('sales')">📈 Vendite (.CSV)</button>
+                    <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('services')">✂️ Listino (.CSV)</button>
+                    <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('products')">📦 Magazzino (.CSV)</button>
+                </div>
+            </div>
+
+            <!-- TASTO SALVATAGGIO IN BASSO (SEMPRE A PORTATA DI DITO) -->
+            <div style="margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); text-align: right;">
+                <button type="button" class="btn btn-p" style="padding: 12px 28px; font-size: 13.5px; font-weight: 800;" onclick="saveSystemSettings()">
+                    Salva Configurazione ✓
+                </button>
             </div>
 
         </div>
@@ -10102,72 +10187,83 @@ async function renderCustomerPackagesInModal(customerId) {
 
 
 
+// 🌟 CARICAMENTO E PRE-POPOLAMENTO COMPLETO CAMPI CONFIGURAZIONE
 async function loadSettingsFields() {
     try {
         console.log("⚙️ Caricamento impostazioni in corso...");
         
-        // 1. Proviamo a leggerle dalla tabella settings di Dexie / memoria
         const settingsTable = await window.universalQuery({ action: 'GET_ALL', table: 'settings' }) || [];
-        
-        // Mappiamo i valori trovati nell'oggetto globale sysSettings
         settingsTable.forEach(s => {
             if (s && s.key) sysSettings[s.key] = s.value;
         });
 
+        // Template cancellazione sempre pronto
+        if (!sysSettings['template_cancel']) {
+            sysSettings['template_cancel'] = localStorage.getItem('vaimup_template_cancel') || 
+                "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+        }
+        const cancelMsgEl = document.getElementById('set-msg-cancel');
+        if (cancelMsgEl) cancelMsgEl.value = sysSettings['template_cancel'];
 
-const cancelMsgEl = document.getElementById('set-msg-cancel');
-if (cancelMsgEl) cancelMsgEl.value = sysSettings['template_cancel'] || "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+        // Ore anticipo disdetta booking
+        const cancelHoursEl = document.getElementById('set-booking-cancel-hours');
+        if (cancelHoursEl) cancelHoursEl.value = sysSettings['booking_cancel_lead_hours'] || '24';
 
-const cancelHoursEl = document.getElementById('set-booking-cancel-hours');
-if (cancelHoursEl) cancelHoursEl.value = sysSettings['booking_cancel_lead_hours'] || '24';
-
-        // 🌟 AGGIORNAMENTO IMMEDIATO BADGE OFFERTE ALL'APERTURA CONFIGURAZIONE
+        // Pre-idrata offerte e aggiorna contatore broadcast
         if (typeof loadBookingOffersFromStorage === 'function') {
             loadBookingOffersFromStorage();
         }
+        if (typeof refreshMassBroadcastTargetList === 'function') {
+            refreshMassBroadcastTargetList();
+        }
 
         // Stato toggle Booking Online
-        const isBookingOn = (sysSettings['online_booking_enabled'] === '1' || sysSettings['online_booking_enabled'] === 'true');
+        const isBookingOn = isOnlineBookingActive();
         const toggleBooking = document.getElementById('set-online-booking-toggle');
         const paneBooking = document.getElementById('online-booking-active-pane');
 
         if (toggleBooking) toggleBooking.checked = isBookingOn;
-        if (paneBooking) paneBooking.style.display = isBookingOn ? 'block' : 'none';
+        if (paneBooking) paneBooking.style.display = isBookingOn ? 'flex' : 'none';
 
         if (isBookingOn) {
             updateBookingQrAndUrl(currentUser ? currentUser.salon_id : 'SALON_001');
         }
 
-        // Impostazioni Scadenza Pacchetti
+        // Approvazione profilo GDPR prima della prima prenotazione
+        const approvalCb = document.getElementById('set-booking-approval');
+        if (approvalCb) approvalCb.checked = (sysSettings['booking_require_approval'] !== '0');
+
+        // Impostazioni Pacchetti
         const pkgExpiryDaysEl = document.getElementById('set-pkg-expiry-days');
         const pkgExpiryMsgEl = document.getElementById('set-msg-pkg-expiry');
-
         if (pkgExpiryDaysEl) pkgExpiryDaysEl.value = sysSettings['package_expiry_days'] || '15';
         if (pkgExpiryMsgEl) pkgExpiryMsgEl.value = sysSettings['template_package_expiry'] || 
             "Ciao {{NOME}}! Ti ricordiamo che il tuo pacchetto '{{PACCHETTO}}' è in scadenza il {{DATA_SCADENZA}} (hai ancora {{SEDUTE_RESIDUE}} sedute da usufruire). Ti aspettiamo in negozio per prenotare o per rinnovare il carnet con le nostre promozioni! ✨";
 
-        // Popolamento campi promemoria e notifiche
+        // Template Messaggi WhatsApp standard
         const remHoursEl = document.getElementById('set-rem-hours');
         const confirmMsgEl = document.getElementById('set-msg-confirm');
         const reminderMsgEl = document.getElementById('set-msg-reminder');
         const imminentLeadEl = document.getElementById('set-imminent-lead');
-
-        const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
-        window.applyAppTheme(currentTheme);
-
-        const currentHdrStyle = sysSettings['header_style'] || localStorage.getItem('VaiMUp_header_style') || 'auto';
-        window.setHeaderStyle(currentHdrStyle, false);
 
         if (remHoursEl) remHoursEl.value = sysSettings['reminder_hours'] || '48';
         if (confirmMsgEl) confirmMsgEl.value = sysSettings['template_confirm'] || '';
         if (reminderMsgEl) reminderMsgEl.value = sysSettings['template_reminder'] || '';
         if (imminentLeadEl) imminentLeadEl.value = sysSettings['imminent_lead_minutes'] || '15';
 
-        console.log("✅ Impostazioni caricate correttamente nella UI.");
+        // Temi grafici
+        const currentTheme = sysSettings['app_theme'] || localStorage.getItem('VaiMUp_app_theme') || 'beauty';
+        window.applyAppTheme(currentTheme);
+
+        const currentHdrStyle = sysSettings['header_style'] || localStorage.getItem('VaiMUp_header_style') || 'auto';
+        window.setHeaderStyle(currentHdrStyle, false);
+
+        console.log("✅ Configurazione riorganizzata e popolata con successo.");
     } catch (err) {
         console.error("Errore durante il caricamento dei campi di configurazione:", err);
     }
 }
+window.loadSettingsFields = loadSettingsFields;
 
 // Funzione blindata per aprire/chiudere la barra dei filtri in agenda
 function toggleCalendarToolbar() {
@@ -12865,62 +12961,79 @@ window.sendAppointmentCancellationWhatsApp = sendAppointmentCancellationWhatsApp
 
 
 
-            // --- SISTEMA ---
-           async function saveSystemSettings() {
-                const fields = [
-                    { key: 'reminder_hours', id: 'set-rem-hours' },
-                    { key: 'template_confirm', id: 'set-msg-confirm' },
-                    { key: 'template_reminder', id: 'set-msg-reminder' },
-                    { key: 'duplicate_check_days', id: 'set-duplicate-days' },
-                    { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
-                    // 🎁 NUOVE CHIAVI SCADENZA PACCHETTI:
-                    { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
-                    { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
-                    { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
-                    { key: 'template_cancel', id: 'set-msg-cancel' },
-    // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
-    { key: 'app_theme', id: 'set-app-theme' },
-    { key: 'header_style', id: 'set-header-style' }
-                ];
-                
-                for (let f of fields) {
-                    const el = document.getElementById(f.id);
-                    if (el) {
-                        await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: f.key, value: el.value } });
-                        // Aggiorniamo anche lo stato in memoria all'istante
-                        sysSettings[f.key] = el.value;
-                    }
-                }
-                alert("Configurazione salvata con successo."); 
-                refreshAllData();
-            }
+         // =========================================================================
+// --- SISTEMA: CONFIGURAZIONE, TEMPLATE & RUBRICA NATIVA SMARTPHONE ---
+// =========================================================================
 
-const cancelMsgEl = document.getElementById('set-msg-cancel');
+async function saveSystemSettings() {
+    const fields = [
+        { key: 'reminder_hours', id: 'set-rem-hours' },
+        { key: 'template_confirm', id: 'set-msg-confirm' },
+        { key: 'template_reminder', id: 'set-msg-reminder' },
+        { key: 'duplicate_check_days', id: 'set-duplicate-days' }, // 👈 IL TUO CONTROLLO DUPLICATI ORIGINALE PRESERVATO
+        { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
+        // 🎁 CHIAVI SCADENZA PACCHETTI:
+        { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
+        { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
+        { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
+        { key: 'template_cancel', id: 'set-msg-cancel' },
+        // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
+        { key: 'app_theme', id: 'set-app-theme' },
+        { key: 'header_style', id: 'set-header-style' }
+    ];
+    
+    for (let f of fields) {
+        const el = document.getElementById(f.id);
+        if (el) {
+            await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: f.key, value: el.value } });
+            // Aggiorna lo stato in memoria all'istante
+            sysSettings[f.key] = el.value;
+        }
+    }
+
+    // Salvataggio checkbox approvazione booking online (se presente a video)
+    const approvalCb = document.getElementById('set-booking-approval');
+    if (approvalCb) {
+        const approvalVal = approvalCb.checked ? '1' : '0';
+        await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'booking_require_approval', value: approvalVal } });
+        sysSettings['booking_require_approval'] = approvalVal;
+    }
+
+    // Persistenza di sicurezza in localStorage del template di cancellazione
+    const cancelMsgEl = document.getElementById('set-msg-cancel');
     if (cancelMsgEl && cancelMsgEl.value.trim() !== '') {
         localStorage.setItem('vaimup_template_cancel', cancelMsgEl.value.trim());
         sysSettings['template_cancel'] = cancelMsgEl.value.trim();
     }
 
-// 1. All'apertura del modale cliente, verifichiamo se il browser supporta la rubrica nativa
-    const originalOpenMod = window.openMod;
-    // Intercettiamo l'apertura del modale cliente per mostrare/nascondere il tasto rubrica
-    window.openMod = async function(t, targetDate = null, targetTime = null, targetEnd = null) {
-        if (typeof originalOpenMod === 'function') {
-            await originalOpenMod(t, targetDate, targetTime, targetEnd);
-        }
-        
-        if (t === 'cust') {
-            const pickerWrapper = document.getElementById('contact-picker-wrapper');
-            if (pickerWrapper) {
-                // Controlla se la Contact Picker API è supportata dal browser (es. Chrome Android)
-                if ('contacts' in navigator && 'Navigator' in window) {
-                    pickerWrapper.style.display = 'block';
-                } else {
-                    pickerWrapper.style.display = 'none';
-                }
+    alert("✅ Configurazione salvata con successo!"); 
+    refreshAllData();
+}
+window.saveSystemSettings = saveSystemSettings;
+
+
+// =========================================================================
+// 📱 1. VERIFICA SUPPORTO RUBRICA NATIVA SMARTPHONE (CONTACT PICKER API)
+// =========================================================================
+const originalOpenMod = window.openMod;
+// Intercetta l'apertura del modale cliente per mostrare/nascondere il tasto rubrica
+window.openMod = async function(t, targetDate = null, targetTime = null, targetEnd = null) {
+    if (typeof originalOpenMod === 'function') {
+        await originalOpenMod(t, targetDate, targetTime, targetEnd);
+    }
+    
+    if (t === 'cust') {
+        const pickerWrapper = document.getElementById('contact-picker-wrapper');
+        if (pickerWrapper) {
+            // Controlla se la Contact Picker API è supportata dal browser dello smartphone (es. Chrome su Android)
+            if ('contacts' in navigator && ('ContactsManager' in window || 'Navigator' in window)) {
+                pickerWrapper.style.display = 'block';
+            } else {
+                pickerWrapper.style.display = 'none';
             }
         }
-    };
+    }
+};
 
     // 2. Funzione che apre la rubrica nativa del telefono e importa i dati
     async function importPhoneContact() {
@@ -26795,20 +26908,21 @@ window.downloadCompleteSalonJsonBackup = downloadCompleteSalonJsonBackup;
 
 
 
+// =========================================================================
 // 🌟 GESTIONE SCHEDE SETTORIALIZZATE IN CONFIGURAZIONE
+// =========================================================================
 function switchSettingsTab(tabName) {
-    // 1. Rimuove lo stato attivo da tutti i pulsanti e contenuti
+    // 1. Rimuove lo stato attivo da tutti i pulsanti e sezioni
     document.querySelectorAll('.settings-tab-btn').forEach(btn => btn.classList.remove('active-tab'));
     document.querySelectorAll('.settings-section-card').forEach(sec => sec.classList.remove('active-section'));
 
-    // 2. Attiva il pulsante cliccato e la relativa sezione
+    // 2. Attiva il pulsante cliccato e la sezione corrispondente
     const activeBtn = document.getElementById(`set-tab-btn-${tabName}`);
     const activeSec = document.getElementById(`set-sec-${tabName}`);
 
     if (activeBtn) activeBtn.classList.add('active-tab');
     if (activeSec) activeSec.classList.add('active-section');
 }
-
 window.switchSettingsTab = switchSettingsTab;
 
     document.addEventListener('DOMContentLoaded', () => {
