@@ -43,6 +43,8 @@
         flex: 1;
         min-height: 440px;
     }
+
+    
 }
 
 /* 📱 COMPORTAMENTO SU SMARTPHONE (<= 960px): Anteprima e Tasti Condividi SUBITO in Cima! */
@@ -85,6 +87,35 @@
     #social-render-canvas {
         max-height: 40vh !important;
     }
+
+    /* ======================================================== */
+/* 📱 GESTI TOUCH INSTAGRAM-LIKE: TRASCINA & RIDIMENSIONA   */
+/* ======================================================== */
+#social-render-canvas {
+    touch-action: none !important; /* Blocca lo scroll del browser durante il drag/pinch */
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: grab;
+    transform-origin: center center;
+}
+#social-render-canvas:active {
+    cursor: grabbing;
+}
+
+/* Barra comandi rapida per l'elemento selezionato (Mobile & PC) */
+#ss-quick-transform-bar {
+    background: #1e293b;
+    border: 1.5px solid #334155;
+    border-radius: 12px;
+    padding: 8px 12px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    animation: fadeInScale 0.2s ease-out;
+}
 
     /* Previene lo zoom fastidioso di iOS quando si tocca un input */
     .social-controls-pane input,
@@ -3949,6 +3980,30 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </div>
             </div>
 
+
+<!-- TOOLBAR TRASFORMAZIONE ELEMENTO SELEZIONATO (STILE INSTAGRAM) -->
+            <div id="ss-quick-transform-bar">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 13px;" id="ss-active-elem-icon">✏️</span>
+                    <b style="font-size: 11.5px; color: #f8fafc;" id="ss-active-elem-name">Elemento</b>
+                    <span id="ss-active-elem-scale-badge" style="font-size: 10px; font-weight: 800; background: rgba(255,255,255,0.1); color: #FBBF24; padding: 2px 6px; border-radius: 4px;">100%</span>
+                </div>
+
+                <!-- Controlli Dimensione & Allineamento -->
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 12px; font-weight: 900; background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; min-height: unset;" onclick="stepScaleActiveElement(-0.1)" title="Riduci dimensione">A-</button>
+                    <input type="range" id="ss-active-elem-slider" min="0.4" max="2.5" step="0.05" value="1.0" oninput="onSliderScaleActiveElement(this.value)" style="width: 80px; margin: 0; cursor: pointer; accent-color: var(--p);">
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 12px; font-weight: 900; background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; min-height: unset;" onclick="stepScaleActiveElement(0.1)" title="Aumenta dimensione">A+</button>
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; font-weight: bold; background: var(--p); color: white; border: none; border-radius: 6px; min-height: unset;" onclick="centerActiveElementHorizontally()" title="Centra orizzontalmente">↺ Centra</button>
+                    <button type="button" class="btn" style="padding: 3px 6px; font-size: 11px; background: transparent; color: #94a3b8; border: none; min-height: unset;" onclick="deselectActiveElement()">✕</button>
+                </div>
+            </div>
+
+            <!-- VIEWPORT DEL CANVAS CON CORNICE AD ALTA RISOLUZIONE -->
+            <div class="social-preview-viewport">
+                <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
+            </div>
+
             <!-- VIEWPORT DEL CANVAS CON CORNICE AD ALTA RISOLUZIONE -->
             <div class="social-preview-viewport">
                 <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
@@ -3983,6 +4038,10 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                     </div>
                 </div>
             </div>
+
+            <button type="button" class="btn" style="width: 100%; margin-top: 6px; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
+    ↩ Ripristina Posizioni Predefinite
+</button>
 
             <!-- 1. TEMPLATE GRAFICO -->
             <div>
@@ -27357,148 +27416,261 @@ window.switchSettingsTab = switchSettingsTab;
 
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (CANVAS 2D ULTRA-HD)
+// 📱 MOTORE TOUCH INSTAGRAM: DRAG, PINCH-TO-ZOOM E RIDIMENSIONAMENTO
 // =========================================================================
 
-window._socialStudioState = {
-    template: 'custom',      // 'custom' | 'lastminute' | 'promo' | 'pricelist' | 'quote'
-    format: 'story',          // 'story' (9:16) | 'portrait' (4:5) | 'square' (1:1)
-    theme: 'luxury-gold',
-    badgeText: 'SPECIALE',
-    title: 'Esperienza di Bellezza Esclusiva',
-    subtitle: 'Prenditi cura di te con i nostri trattamenti personalizzati.',
-    highlightText: 'A partire da € 25.00',
-    uploadedBgImg: null,
-    showLogo: true,
-    showBookingBadge: true,
-    showQr: true,
-    selectedPresetId: 'current',
-    salonLogoImg: null
-};
+// Struttura dati posizioni e scale di ogni elemento sulla Story
+function getDefaultSocialElements(W, H, isStory) {
+    return {
+        logo: { id: 'logo', name: 'Logo', icon: '🖼️', x: W / 2, y: isStory ? 230 : 160, scale: 1.0, w: 150, h: 150 },
+        badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 410 : 270, scale: 1.0, w: 260, h: 50 },
+        title: { id: 'title', name: 'Titolo', icon: '✨', x: W / 2, y: isStory ? 580 : 420, scale: 1.0, w: 850, h: 160 },
+        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 800 : 590, scale: 1.0, w: 820, h: 100 },
+        highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1040 : 780, scale: 1.0, w: 520, h: 80 },
+        menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 920 : 680, scale: 1.0, w: 860, h: 360 },
+        sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 240 : 170), scale: 1.0, w: 480, h: 70 }
+    };
+}
 
+window._socialElements = null;
+window._activeSocialElemId = null;
 
+// Rilevamento gesti touch
+let isTouchDragging = false;
+let touchDragStartX = 0;
+let touchDragStartY = 0;
+let initialElemX = 0;
+let initialElemY = 0;
+let initialPinchDistance = 0;
+let initialPinchScale = 1.0;
 
-function populatePrintStudioPresetsInSocialStudio(currentSalon) {
-    const select = document.getElementById('ss-preset-source-select');
-    if (!select) return;
+function ensureSocialElementsInitialized(W, H, isStory) {
+    if (!window._socialElements) {
+        window._socialElements = getDefaultSocialElements(W, H, isStory);
+    }
+}
 
-    let allPresets = [];
-    if (typeof loadAllPresetsFromStorage === 'function') {
-        allPresets = loadAllPresetsFromStorage(currentSalon);
+// 🌟 AGGANCIO ASCOLTATORI TOUCH & POINTER SU CANVAS
+function attachCanvasTouchGestures() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas || canvas._touchAttached) return;
+    canvas._touchAttached = true;
+
+    // Converte coordinate client dello schermo in coordinate 1080p del Canvas
+    function getCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
     }
 
-    let html = `<option value="current">Menu Attuale dal Listino</option>`;
-    allPresets.forEach(p => {
-        html += `<option value="${p.id}">📑 ${p.name}</option>`;
+    // Identifica quale elemento è stato toccato (Hit Testing)
+    function hitTestElement(clickX, clickY) {
+        const elems = window._socialElements;
+        if (!elems) return null;
+
+        // Ordine di priorità dal basso verso l'alto
+        const keys = ['sticker', 'highlight', 'menu', 'subtitle', 'title', 'badge', 'logo'];
+        for (let key of keys) {
+            const el = elems[key];
+            if (!el) continue;
+
+            const halfW = (el.w * el.scale) / 2 + 30; // Margine di tolleranza touch per il dito
+            const halfH = (el.h * el.scale) / 2 + 30;
+
+            if (clickX >= el.x - halfW && clickX <= el.x + halfW &&
+                clickY >= el.y - halfH && clickY <= el.y + halfH) {
+                return el.id;
+            }
+        }
+        return null;
+    }
+
+    // --- 1. TOUCH START (1 DITO PER DRAG, 2 DITA PER PINCH) ---
+    canvas.addEventListener('touchstart', (e) => {
+        const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+
+        if (e.touches.length === 1) {
+            const hitId = hitTestElement(coords.x, coords.y);
+            if (hitId) {
+                e.preventDefault();
+                setActiveSocialElement(hitId);
+                isTouchDragging = true;
+                touchDragStartX = coords.x;
+                touchDragStartY = coords.y;
+                const el = window._socialElements[hitId];
+                initialElemX = el.x;
+                initialElemY = el.y;
+            } else {
+                deselectActiveElement();
+            }
+        } else if (e.touches.length === 2 && window._activeSocialElemId) {
+            // Avvio pinch-to-zoom a 2 dita
+            e.preventDefault();
+            isTouchDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialPinchScale = window._socialElements[window._activeSocialElemId].scale || 1.0;
+        }
+    }, { passive: false });
+
+    // --- 2. TOUCH MOVE (SPOSTAMENTO O SCALA) ---
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isTouchDragging && window._activeSocialElemId) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+            const dx = coords.x - touchDragStartX;
+            const dy = coords.y - touchDragStartY;
+
+            const el = window._socialElements[window._activeSocialElemId];
+            el.x = Math.max(80, Math.min(canvas.width - 80, initialElemX + dx));
+            el.y = Math.max(60, Math.min(canvas.height - 60, initialElemY + dy));
+
+            renderSocialCanvas();
+        } else if (e.touches.length === 2 && window._activeSocialElemId && initialPinchDistance > 0) {
+            e.preventDefault();
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const factor = currentDist / initialPinchDistance;
+
+            const el = window._socialElements[window._activeSocialElemId];
+            el.scale = Math.min(Math.max(initialPinchScale * factor, 0.4), 2.5);
+
+            updateTransformBarValues();
+            renderSocialCanvas();
+        }
+    }, { passive: false });
+
+    // --- 3. TOUCH END ---
+    canvas.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+            isTouchDragging = false;
+            initialPinchDistance = 0;
+        }
     });
 
-    select.innerHTML = html;
-}
+    // Supporto anche con Mouse per chi usa il PC
+    let isMouseDown = false;
+    canvas.addEventListener('mousedown', (e) => {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const hitId = hitTestElement(coords.x, coords.y);
+        if (hitId) {
+            setActiveSocialElement(hitId);
+            isMouseDown = true;
+            touchDragStartX = coords.x;
+            touchDragStartY = coords.y;
+            const el = window._socialElements[hitId];
+            initialElemX = el.x;
+            initialElemY = el.y;
+        } else {
+            deselectActiveElement();
+        }
+    });
 
-// 2. GESTIONE CAMBIO FORMATO (9:16, 4:5, 1:1)
-function setSocialFormat(fmt) {
-    window._socialStudioState.format = fmt;
-
-    document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
-    const btnMap = { story: 'btn-format-story', portrait: 'btn-format-portrait', square: 'btn-format-square' };
-    const activeBtn = document.getElementById(btnMap[fmt]);
-    if (activeBtn) activeBtn.classList.add('active-pill');
-
-    const canvas = document.getElementById('social-render-canvas');
-    const label = document.getElementById('ss-format-label');
-
-    if (fmt === 'story') {
-        canvas.width = 1080;
-        canvas.height = 1920;
-        if (label) label.innerText = '1080 × 1920 (Story 9:16)';
-    } else if (fmt === 'portrait') {
-        canvas.width = 1080;
-        canvas.height = 1350;
-        if (label) label.innerText = '1080 × 1350 (Post 4:5)';
-    } else if (fmt === 'square') {
-        canvas.width = 1080;
-        canvas.height = 1080;
-        if (label) label.innerText = '1080 × 1080 (Square 1:1)';
-    }
-
-    renderSocialCanvas();
-}
-
-// 3. CAMBIO TEMPLATE E PRE-POPOLAMENTO INTELLIGENTE
-function onSocialTemplateChanged(tpl) {
-    window._socialStudioState.template = tpl;
-    const s = window._socialStudioState;
-
-    const sourceBox = document.getElementById('ss-pricelist-source-box');
-    const badgeInput = document.getElementById('ss-input-badge');
-    const titleInput = document.getElementById('ss-input-title');
-    const subInput = document.getElementById('ss-input-subtitle');
-    const highInput = document.getElementById('ss-input-highlight');
-
-    if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
-
-    // Pre-popolamento dinamico in base all'obiettivo marketing
-    if (tpl === 'lastminute') {
-        badgeInput.value = '⚡ LAST-MINUTE OGGI';
-        titleInput.value = 'Si è liberato un posto!';
-        subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
-        highInput.value = '🕒 OGGI • ORE 16:30';
-    } else if (tpl === 'promo') {
-        badgeInput.value = '🔥 OFFERTA SPECIALE';
-        titleInput.value = 'Trattamento Glow Viso & Ciglia';
-        subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
-        highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
-    } else if (tpl === 'pricelist') {
-        badgeInput.value = 'MENU ESCLUSIVO';
-        titleInput.value = 'I Nostri Trattamenti di Punta';
-        subInput.value = 'Qualità senza compromessi, prodotti biologici certificati e consulenza personalizzata.';
-        highInput.value = 'Consulta il menu e prenota in 10 secondi';
-    } else if (tpl === 'quote') {
-        badgeInput.value = 'PAROLA DI CLIENTE';
-        titleInput.value = '«Il miglior salone in assoluto!»';
-        subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
-        highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
-    } else {
-        badgeInput.value = 'SPECIALE';
-        titleInput.value = 'Esperienza di Bellezza Esclusiva';
-        subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
-        highInput.value = 'A partire da € 25.00';
-    }
-
-    updateCaptionPreview();
-    renderSocialCanvas();
-}
-
-
-
-function handleSocialBgUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            window._socialStudioState.uploadedBgImg = img;
-            const clearBtn = document.getElementById('btn-clear-social-bg');
-            if (clearBtn) clearBtn.style.display = 'inline-flex';
+    window.addEventListener('mousemove', (e) => {
+        if (isMouseDown && window._activeSocialElemId) {
+            const coords = getCanvasCoords(e.clientX, e.clientY);
+            const dx = coords.x - touchDragStartX;
+            const dy = coords.y - touchDragStartY;
+            const el = window._socialElements[window._activeSocialElemId];
+            el.x = Math.max(80, Math.min(canvas.width - 80, initialElemX + dx));
+            el.y = Math.max(60, Math.min(canvas.height - 60, initialElemY + dy));
             renderSocialCanvas();
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+        }
+    });
+
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    // Rotella del mouse per ingrandire/ridurre su PC
+    canvas.addEventListener('wheel', (e) => {
+        if (window._activeSocialElemId) {
+            e.preventDefault();
+            const el = window._socialElements[window._activeSocialElemId];
+            const delta = e.deltaY < 0 ? 0.05 : -0.05;
+            el.scale = Math.min(Math.max(el.scale + delta, 0.4), 2.5);
+            updateTransformBarValues();
+            renderSocialCanvas();
+        }
+    }, { passive: false });
 }
 
-function clearSocialBgPhoto() {
-    window._socialStudioState.uploadedBgImg = null;
-    const input = document.getElementById('ss-bg-file-input');
-    if (input) input.value = '';
-    const clearBtn = document.getElementById('btn-clear-social-bg');
-    if (clearBtn) clearBtn.style.display = 'none';
+// 🌟 GESTIONE ELEMENTO ATTIVO E BARRA CONTROLLI RAPIDI
+function setActiveSocialElement(elemId) {
+    window._activeSocialElemId = elemId;
+    const bar = document.getElementById('ss-quick-transform-bar');
+    const el = window._socialElements[elemId];
+    if (!el || !bar) return;
+
+    bar.style.display = 'flex';
+    document.getElementById('ss-active-elem-icon').innerText = el.icon;
+    document.getElementById('ss-active-elem-name').innerText = el.name;
+    updateTransformBarValues();
     renderSocialCanvas();
 }
 
-// 4. MOTORE DI RENDERING CANVAS 2D AD ALTA RISOLUZIONE
+function updateTransformBarValues() {
+    if (!window._activeSocialElemId) return;
+    const el = window._socialElements[window._activeSocialElemId];
+    if (!el) return;
+
+    const slider = document.getElementById('ss-active-elem-slider');
+    const badge = document.getElementById('ss-active-elem-scale-badge');
+    if (slider) slider.value = el.scale.toFixed(2);
+    if (badge) badge.innerText = `${Math.round(el.scale * 100)}%`;
+}
+
+function stepScaleActiveElement(step) {
+    if (!window._activeSocialElemId) return;
+    const el = window._socialElements[window._activeSocialElemId];
+    if (!el) return;
+    el.scale = Math.min(Math.max(el.scale + step, 0.4), 2.5);
+    updateTransformBarValues();
+    renderSocialCanvas();
+}
+
+function onSliderScaleActiveElement(val) {
+    if (!window._activeSocialElemId) return;
+    const el = window._socialElements[window._activeSocialElemId];
+    if (!el) return;
+    el.scale = parseFloat(val) || 1.0;
+    updateTransformBarValues();
+    renderSocialCanvas();
+}
+
+function centerActiveElementHorizontally() {
+    if (!window._activeSocialElemId) return;
+    const canvas = document.getElementById('social-render-canvas');
+    const el = window._socialElements[window._activeSocialElemId];
+    if (el && canvas) {
+        el.x = canvas.width / 2;
+        renderSocialCanvas();
+    }
+}
+
+function deselectActiveElement() {
+    window._activeSocialElemId = null;
+    const bar = document.getElementById('ss-quick-transform-bar');
+    if (bar) bar.style.display = 'none';
+    renderSocialCanvas();
+}
+
+function resetSocialElementsPositions() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+    const isStory = (window._socialStudioState.format === 'story');
+    window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, isStory);
+    deselectActiveElement();
+    renderSocialCanvas();
+}
+
+// =========================================================================
+// 🎨 MOTORE DI RENDERING CANVAS 2D ADATTATO AGLI ELEMENTI MOBILI
+// =========================================================================
 function renderSocialCanvas() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -27509,22 +27681,26 @@ function renderSocialCanvas() {
     const H = canvas.height;
     const isStory = (s.format === 'story');
 
-    // Leggi i valori attuali dai campi
+    ensureSocialElementsInitialized(W, H, isStory);
+    attachCanvasTouchGestures();
+
+    const elems = window._socialElements;
+
+    // Sincronizza testi
     s.badgeText = document.getElementById('ss-input-badge')?.value.trim() || '';
     s.title = document.getElementById('ss-input-title')?.value.trim() || '';
     s.subtitle = document.getElementById('ss-input-subtitle')?.value.trim() || '';
     s.highlightText = document.getElementById('ss-input-highlight')?.value.trim() || '';
     s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
     s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
-    s.showQr = document.getElementById('ss-toggle-qr')?.checked ?? true;
 
     const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
         ? (currentUser.salon_id || 'SALON_001') 
         : 'SALON_001';
 
-    // PALETTE COLORI IN BASE AL TEMA
+    // Colori tema
     let bgColors = ['#11141a', '#080a0e'];
-    let accentColor = '#D4AF37'; // Luxury Gold
+    let accentColor = '#D4AF37';
     let textMain = '#ffffff';
     let textSub = '#cbd5e1';
 
@@ -27544,35 +27720,27 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // ==========================================
-    // A. SFONDO: FOTO O GRADIENTE DI LUSSO
-    // ==========================================
+    // 1. SFONDO (FOTO O GRADIENTE)
     if (s.uploadedBgImg) {
-        // Disegna immagine scalata 'cover'
         const img = s.uploadedBgImg;
-        const hRatio = W / img.width;
-        const vRatio = H / img.height;
-        const ratio = Math.max(hRatio, vRatio);
-        const centerShiftX = (W - img.width * ratio) / 2;
-        const centerShiftY = (H - img.height * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.width, img.height, centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+        const ratio = Math.max(W / img.width, H / img.height);
+        const shiftX = (W - img.width * ratio) / 2;
+        const shiftY = (H - img.height * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
 
-        // Overlay cinematografico scuro per garantire leggibilità 100%
         const darkGrad = ctx.createLinearGradient(0, 0, 0, H);
-        darkGrad.addColorStop(0, 'rgba(10, 12, 18, 0.75)');
-        darkGrad.addColorStop(0.5, 'rgba(10, 12, 18, 0.65)');
-        darkGrad.addColorStop(1, 'rgba(10, 12, 18, 0.92)');
+        darkGrad.addColorStop(0, 'rgba(10, 12, 18, 0.72)');
+        darkGrad.addColorStop(0.5, 'rgba(10, 12, 18, 0.60)');
+        darkGrad.addColorStop(1, 'rgba(10, 12, 18, 0.90)');
         ctx.fillStyle = darkGrad;
         ctx.fillRect(0, 0, W, H);
     } else {
-        // Gradiente radiale di lusso
         const radGrad = ctx.createRadialGradient(W / 2, H * 0.35, 100, W / 2, H / 2, W * 0.85);
         radGrad.addColorStop(0, bgColors[0]);
         radGrad.addColorStop(1, bgColors[1]);
         ctx.fillStyle = radGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // Bagliore d'atmosfera con il colore accento
         ctx.save();
         ctx.fillStyle = accentColor;
         ctx.globalAlpha = 0.12;
@@ -27582,615 +27750,253 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // ==========================================
-    // B. CORNICI DECORATIVE PERIMETRALI (300 DPI)
-    // ==========================================
+    // 2. CORNICI PERIMETRALI
     ctx.save();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2.5;
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = 0.35;
     const margin = isStory ? 60 : 45;
     ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
-
-    // Angoli a L dorati
-    const cornerSize = 40;
-    ctx.lineWidth = 4;
-    ctx.globalAlpha = 0.85;
-
-    // Top-Left
-    ctx.beginPath(); ctx.moveTo(margin, margin + cornerSize); ctx.lineTo(margin, margin); ctx.lineTo(margin + cornerSize, margin); ctx.stroke();
-    // Top-Right
-    ctx.beginPath(); ctx.moveTo(W - margin - cornerSize, margin); ctx.lineTo(W - margin, margin); ctx.lineTo(W - margin, margin + cornerSize); ctx.stroke();
-    // Bottom-Left
-    ctx.beginPath(); ctx.moveTo(margin, H - margin - cornerSize); ctx.lineTo(margin, H - margin); ctx.lineTo(margin + cornerSize, H - margin); ctx.stroke();
-    // Bottom-Right
-    ctx.beginPath(); ctx.moveTo(W - margin - cornerSize, H - margin); ctx.lineTo(W - margin, H - margin); ctx.lineTo(W - margin, H - margin - cornerSize); ctx.stroke();
     ctx.restore();
 
-    let cursorY = isStory ? 200 : 130;
+    // 3. LOGO (SPOSABILE & RIDIMENSIONABILE)
+    if (s.showLogo) {
+        const el = elems.logo;
+        const baseSize = isStory ? 150 : 120;
+        const actualSize = baseSize * el.scale;
+        el.w = actualSize;
+        el.h = actualSize;
 
-    // ==========================================
-    // C. INTESTAZIONE: LOGO SALONE O BRANDING
-    // ==========================================
-    if (s.showLogo && s.salonLogoImg) {
-        const logoSize = isStory ? 150 : 120;
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(W / 2, cursorY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = accentColor;
-        ctx.stroke();
-        ctx.clip();
-        ctx.drawImage(s.salonLogoImg, (W / 2) - (logoSize / 2), cursorY, logoSize, logoSize);
-        ctx.restore();
-        cursorY += logoSize + 40;
-    } else {
-        // Scritta Salone
-        ctx.fillStyle = accentColor;
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.letterSpacing = '3px';
-        ctx.fillText(currentSalon.toUpperCase(), W / 2, cursorY);
-        cursorY += 50;
+        if (s.salonLogoImg) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(el.x, el.y, (actualSize / 2) + 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = accentColor;
+            ctx.stroke();
+            ctx.clip();
+            ctx.drawImage(s.salonLogoImg, el.x - (actualSize / 2), el.y - (actualSize / 2), actualSize, actualSize);
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.fillStyle = accentColor;
+            ctx.font = `bold ${Math.round(28 * el.scale)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(currentSalon.toUpperCase(), el.x, el.y);
+            ctx.restore();
+        }
     }
 
-    // ==========================================
-    // D. BADGE IN ALTO (TAG)
-    // ==========================================
+    // 4. BADGE IN ALTO (SPOSTABILE & RIDIMENSIONABILE)
     if (s.badgeText) {
+        const el = elems.badge;
         ctx.save();
-        ctx.font = '900 24px sans-serif';
-        const badgeW = ctx.measureText(s.badgeText).width + 44;
-        const badgeH = 46;
-        const badgeX = (W / 2) - (badgeW / 2);
+        ctx.font = `900 ${Math.round(24 * el.scale)}px sans-serif`;
+        const badgeW = (ctx.measureText(s.badgeText).width + 44) * el.scale;
+        const badgeH = 46 * el.scale;
+        el.w = badgeW;
+        el.h = badgeH;
 
-        // Pillola
         ctx.fillStyle = accentColor;
-        drawRoundedRect(ctx, badgeX, cursorY, badgeW, badgeH, 23);
+        drawRoundedRect(ctx, el.x - (badgeW / 2), el.y - (badgeH / 2), badgeW, badgeH, 23 * el.scale);
         ctx.fill();
 
         ctx.fillStyle = '#0f172a';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(s.badgeText, W / 2, cursorY + (badgeH / 2));
+        ctx.fillText(s.badgeText, el.x, el.y);
         ctx.restore();
-
-        cursorY += badgeH + (isStory ? 55 : 35);
     }
 
-    // ==========================================
-    // E. TITOLO PRINCIPALE (HEADLINE CON WRAPPING)
-    // ==========================================
-    ctx.save();
-    ctx.fillStyle = textMain;
-    ctx.textAlign = 'center';
-    ctx.font = isStory ? '900 68px serif' : '900 58px serif';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 15;
-    cursorY = wrapCanvasText(ctx, s.title, W / 2, cursorY, W - (margin * 3), isStory ? 82 : 70);
-    ctx.restore();
+    // 5. TITOLO (SPOSTABILE & RIDIMENSIONABILE)
+    if (s.title) {
+        const el = elems.title;
+        ctx.save();
+        ctx.fillStyle = textMain;
+        ctx.textAlign = 'center';
+        const fontSize = Math.round((isStory ? 66 : 56) * el.scale);
+        ctx.font = `900 ${fontSize}px serif`;
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 15;
+        const maxTextW = (W - (margin * 3)) * el.scale;
+        const lineHeight = Math.round(fontSize * 1.25);
+        el.w = maxTextW;
+        el.h = wrapCanvasText(ctx, s.title, el.x, el.y - (lineHeight / 2), maxTextW, lineHeight);
+        ctx.restore();
+    }
 
-    cursorY += (isStory ? 35 : 25);
-
-    // ==========================================
-    // F. CORPO SPECIALE: TEMPLATE LISTINO PREZZI
-    // ==========================================
+    // 6. LISTINO PREZZI O SOTTOTITOLO
     if (s.template === 'pricelist') {
-        cursorY = drawPriceListMenuOnCanvas(ctx, s, W, cursorY, accentColor, textMain, textSub);
+        const el = elems.menu;
+        drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain);
     } else {
-        // Sottotitolo Standard
         if (s.subtitle) {
+            const el = elems.subtitle;
             ctx.save();
             ctx.fillStyle = textSub;
             ctx.textAlign = 'center';
-            ctx.font = '500 32px sans-serif';
-            cursorY = wrapCanvasText(ctx, s.subtitle, W / 2, cursorY, W - (margin * 3.5), 44);
+            const subFont = Math.round(32 * el.scale);
+            ctx.font = `500 ${subFont}px sans-serif`;
+            const maxSubW = (W - (margin * 3.5)) * el.scale;
+            el.w = maxSubW;
+            el.h = wrapCanvasText(ctx, s.subtitle, el.x, el.y - (subFont / 2), maxSubW, Math.round(subFont * 1.35));
             ctx.restore();
-            cursorY += (isStory ? 50 : 35);
         }
 
-        // Box in Evidenza (Prezzo o Orario Last-Minute)
         if (s.highlightText) {
+            const el = elems.highlight;
             ctx.save();
-            ctx.font = '900 38px sans-serif';
-            const boxW = Math.min(ctx.measureText(s.highlightText).width + 60, W - (margin * 2.5));
-            const boxH = 75;
-            const boxX = (W / 2) - (boxW / 2);
+            const highFont = Math.round(38 * el.scale);
+            ctx.font = `900 ${highFont}px sans-serif`;
+            const boxW = (ctx.measureText(s.highlightText).width + 60) * el.scale;
+            const boxH = 75 * el.scale;
+            el.w = boxW;
+            el.h = boxH;
 
             ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
             ctx.strokeStyle = accentColor;
             ctx.lineWidth = 2.5;
-            drawRoundedRect(ctx, boxX, cursorY, boxW, boxH, 18);
+            drawRoundedRect(ctx, el.x - (boxW / 2), el.y - (boxH / 2), boxW, boxH, 18 * el.scale);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = accentColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(s.highlightText, W / 2, cursorY + (boxH / 2));
+            ctx.fillText(s.highlightText, el.x, el.y);
             ctx.restore();
-
-            cursorY += boxH + 60;
         }
     }
 
-    // ==========================================
-    // G. FOOTER: STICKER PRENOTA ONLINE & LINK
-    // ==========================================
-    const footerY = H - (isStory ? 240 : 170);
-
+    // 7. STICKER MOCKUP PRENOTA ONLINE
     if (s.showBookingBadge) {
+        const el = elems.sticker;
         ctx.save();
-        // Disegna Mockup Sticker Instagram
-        const stickerW = 480;
-        const stickerH = 68;
-        const stickerX = (W / 2) - (stickerW / 2);
+        const stW = 480 * el.scale;
+        const stH = 68 * el.scale;
+        el.w = stW;
+        el.h = stH;
 
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 20;
-        drawRoundedRect(ctx, stickerX, footerY, stickerW, stickerH, 34);
+        drawRoundedRect(ctx, el.x - (stW / 2), el.y - (stH / 2), stW, stH, 34 * el.scale);
         ctx.fill();
 
         ctx.fillStyle = '#0f172a';
-        ctx.font = '900 24px sans-serif';
+        ctx.font = `900 ${Math.round(24 * el.scale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🔗 PRENOTA IN UN ATTIMO ONLINE', W / 2, footerY + (stickerH / 2));
+        ctx.fillText('🔗 PRENOTA IN UN ATTIMO ONLINE', el.x, el.y);
         ctx.restore();
     }
 
-    // Link testuale in basso
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    ctx.save();
-    ctx.fillStyle = textSub;
-    ctx.font = 'bold 22px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(bookingUrl.replace(/^https?:\/\//, ''), W / 2, H - (isStory ? 100 : 70));
-    ctx.restore();
+    // 🌟 BORDO DI SELEZIONE STILE INSTAGRAM (SULL'ELEMENTO TOCCATO)
+    if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
+        const active = elems[window._activeSocialElemId];
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8'; // Celeste neon stile Instagram Stories
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 8]);
+        const pad = 16;
+        const selW = (active.w || 200) + pad * 2;
+        const selH = (active.h || 60) + pad * 2;
+        drawRoundedRect(ctx, active.x - (selW / 2), active.y - (selH / 2), selW, selH, 12);
+        ctx.stroke();
 
-    updateCaptionPreview();
+        // 4 pallini di ancoraggio negli angoli
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        const corners = [
+            { x: active.x - (selW / 2), y: active.y - (selH / 2) },
+            { x: active.x + (selW / 2), y: active.y - (selH / 2) },
+            { x: active.x - (selW / 2), y: active.y + (selH / 2) },
+            { x: active.x + (selW / 2), y: active.y + (selH / 2) }
+        ];
+        corners.forEach(c => {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
 }
 
-// =========================================================================
-// 📱 RISOLUZIONE DEI VERI TRATTAMENTI DEL SALONE NEL SOCIAL STUDIO
-// =========================================================================
-
-// 1. INIZIALIZZAZIONE PROTETTA CON RISOLUZIONE PREZZI REALI
-async function initSocialStudioView() {
-    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore con catalogo reale salone...");
-
-    const s = window._socialStudioState;
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
-        : 'salon_001';
-
-    // 🌟 RISOLUZIONE SICURA DI allInventory (Scope Lexical + Window Fallback)
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
-        inventory = allInventory;
-    } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
-        inventory = window.allInventory;
-    } else {
-        inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-    }
-
-    // Sincronizza su entrambi i livelli
-    window.allInventory = inventory;
-    if (typeof allInventory !== 'undefined') allInventory = inventory;
-
-    // 🌟 RISOLUZIONE DETERMINISTICA DEI PREZZI VIGENTI OGGI DA price_history
-    await resolveRealPricesForSocialInventory(inventory);
-
-    // Carica il logo salone salvato
-    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
-    if (savedLogo) {
-        const img = new Image();
-        img.onload = () => {
-            s.salonLogoImg = img;
-            renderSocialCanvas();
-        };
-        img.src = savedLogo;
-    }
-
-    // Popola la tendina con i listini salvati dal Print Studio
-    populatePrintStudioPresetsInSocialStudio(currentSalon);
-
-    // Popola la checklist con i trattamenti reali
-    renderSocialPricelistItemCheckboxes();
-
-    updateCaptionPreview();
-    renderSocialCanvas();
-}
-window.initSocialStudioView = initSocialStudioView;
-
-// 2. RISOLUTORE PREZZI ATTIVI DA STORICO
-async function resolveRealPricesForSocialInventory(inventory) {
-    if (!Array.isArray(inventory) || inventory.length === 0) return;
-
-    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    inventory.forEach(item => {
-        let resolvedPrice = null;
-        const pIdStr = String(item.id).trim();
-
-        const itemHistory = priceHistory.filter(ph => String(ph.product_id).trim() === pIdStr);
-        if (itemHistory.length > 0) {
-            const activeRow = itemHistory.find(ph => {
-                const fromStr = (ph.date_from || '1900-01-01').substring(0, 10);
-                const toStr = ph.date_to ? ph.date_to.substring(0, 10) : '9999-12-31';
-                return todayStr >= fromStr && todayStr <= toStr;
-            });
-            if (activeRow && activeRow.price !== undefined && activeRow.price !== null && parseFloat(activeRow.price) > 0) {
-                resolvedPrice = parseFloat(activeRow.price);
-            } else {
-                const sortedHistory = [...itemHistory].sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                const latestValid = sortedHistory.find(ph => ph.price !== undefined && ph.price !== null && parseFloat(ph.price) > 0);
-                if (latestValid) resolvedPrice = parseFloat(latestValid.price);
-            }
-        }
-
-        if (resolvedPrice === null || isNaN(resolvedPrice) || resolvedPrice <= 0) {
-            const basePrice = parseFloat(item.price);
-            if (!isNaN(basePrice) && basePrice > 0) resolvedPrice = basePrice;
-            else {
-                const listingP = parseFloat(item.listing_price);
-                resolvedPrice = (!isNaN(listingP) && listingP > 0) ? listingP : 0.00;
-            }
-        }
-
-        item.price = resolvedPrice;
-    });
-}
-
-// 3. POPOLAMENTO DELLA CHECKLIST DEI TUOI VERI TRATTAMENTI
-function renderSocialPricelistItemCheckboxes() {
-    const container = document.getElementById('ss-pricelist-items-picker');
-    if (!container) return;
-
-    const s = window._socialStudioState;
-    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
-        : 'salon_001';
-
-    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
-    let services = inventory.filter(i => i.type === 'servizio');
-
-    // Se l'utente ha scelto un preset dal Print Studio, carica gli elementi di quel preset
-    if (s.selectedPresetId && s.selectedPresetId !== 'current') {
-        let allPresets = [];
-        if (typeof loadAllPresetsFromStorage === 'function') allPresets = loadAllPresetsFromStorage(currentSalon);
-        const preset = allPresets.find(p => String(p.id) === String(s.selectedPresetId));
-        
-        if (preset && preset.config) {
-            const cfg = preset.config;
-            const fullPool = [...inventory, ...(cfg.customItems || [])];
-            let presetItemIds = [];
-
-            if (Array.isArray(cfg.categories)) {
-                cfg.categories.forEach(c => {
-                    if (Array.isArray(c.itemIds)) presetItemIds.push(...c.itemIds);
-                });
-            }
-            if (presetItemIds.length === 0 && Array.isArray(cfg.selectedItemIds)) {
-                presetItemIds = cfg.selectedItemIds;
-            }
-
-            if (presetItemIds.length > 0) {
-                const presetIdSet = new Set(presetItemIds.map(String));
-                services = fullPool.filter(x => presetIdSet.has(String(x.id)));
-            }
-        }
-    }
-
-    if (services.length === 0) {
-        container.innerHTML = `<span style="font-size:11px; color:#888; padding:6px;">Nessun servizio registrato nel listino.</span>`;
-        return;
-    }
-
-    // Seleziona i primi 4 di default se non è stata fatta una selezione manuale
-    if (s.customCheckedServiceIds.size === 0) {
-        services.slice(0, 4).forEach(srv => s.customCheckedServiceIds.add(String(srv.id)));
-    }
-
-    container.innerHTML = services.map(srv => {
-        const isChecked = s.customCheckedServiceIds.has(String(srv.id));
-        const priceFmt = parseFloat(srv.price || 0).toFixed(2);
-        const cleanTitle = typeof cleanItemNameForPrint === 'function' ? cleanItemNameForPrint(srv.name) : srv.name;
-
-        return `
-            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; padding: 4px 6px; border-radius: 6px; background: ${isChecked ? '#f5f3ff' : 'transparent'}; cursor: pointer; margin: 0;">
-                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                    <input type="checkbox" value="${srv.id}" ${isChecked ? 'checked' : ''} onchange="toggleSocialPricelistItem('${srv.id}', this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
-                    <span style="font-weight: 600; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cleanTitle}</span>
-                </div>
-                <b style="font-size: 11px; color: var(--p); margin-left: 6px;">€ ${priceFmt}</b>
-            </label>
-        `;
-    }).join('');
-}
-window.renderSocialPricelistItemCheckboxes = renderSocialPricelistItemCheckboxes;
-
-function toggleSocialPricelistItem(serviceId, isChecked) {
-    const s = window._socialStudioState;
-    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
-
-    if (isChecked) {
-        s.customCheckedServiceIds.add(String(serviceId));
-    } else {
-        s.customCheckedServiceIds.delete(String(serviceId));
-    }
-
-    renderSocialCanvas();
-}
-window.toggleSocialPricelistItem = toggleSocialPricelistItem;
-
-function onSocialPresetSourceChanged(val) {
-    window._socialStudioState.selectedPresetId = val;
-    window._socialStudioState.customCheckedServiceIds = new Set(); // Reset selezione per ricaricare la lista
-    renderSocialPricelistItemCheckboxes();
-    renderSocialCanvas();
-}
-window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
-
-function onSocialTemplateChanged(tpl) {
-    window._socialStudioState.template = tpl;
-    const s = window._socialStudioState;
-
-    const sourceBox = document.getElementById('ss-pricelist-source-box');
-    const badgeInput = document.getElementById('ss-input-badge');
-    const titleInput = document.getElementById('ss-input-title');
-    const subInput = document.getElementById('ss-input-subtitle');
-    const highInput = document.getElementById('ss-input-highlight');
-
-    if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
-
-    if (tpl === 'lastminute') {
-        badgeInput.value = '⚡ LAST-MINUTE OGGI';
-        titleInput.value = 'Si è liberato un posto!';
-        subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
-        highInput.value = '🕒 OGGI • ORE 16:30';
-    } else if (tpl === 'promo') {
-        badgeInput.value = '🔥 OFFERTA SPECIALE';
-        titleInput.value = 'Trattamento Glow Viso & Ciglia';
-        subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
-        highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
-    } else if (tpl === 'pricelist') {
-        badgeInput.value = 'MENU TRATTAMENTI';
-        titleInput.value = 'I Nostri Servizi Esclusivi';
-        subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
-        highInput.value = 'Scegli il tuo trattamento e prenota online';
-        renderSocialPricelistItemCheckboxes();
-    } else if (tpl === 'quote') {
-        badgeInput.value = 'PAROLA DI CLIENTE';
-        titleInput.value = '«Il miglior salone in assoluto!»';
-        subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
-        highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
-    } else {
-        badgeInput.value = 'SPECIALE';
-        titleInput.value = 'Esperienza di Bellezza Esclusiva';
-        subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
-        highInput.value = 'A partire da € 25.00';
-    }
-
-    updateCaptionPreview();
-    renderSocialCanvas();
-}
-window.onSocialTemplateChanged = onSocialTemplateChanged;
-
-// 4. DISEGNO SUL CANVAS: SOLO I TRATTAMENTI VERI DEL SALONE (ZERO FINTI)
-function drawPriceListMenuOnCanvas(ctx, s, W, startY, accentColor, textMain, textSub) {
-    let curY = startY + 15;
+// Disegna il menu listino centrato sulla posizione dell'elemento
+function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
     const isStory = (s.format === 'story');
-    const maxItems = isStory ? 5 : 4; // Massimo 5 trattamenti per preservare eleganza e leggibilità
-
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
-        inventory = allInventory;
-    } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
-        inventory = window.allInventory;
-    }
-
+    const maxItems = isStory ? 5 : 4;
+    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
     let itemsToDraw = [];
 
-    // Se l'utente ha spuntato servizi specifici nella checklist, usa quelli
     if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
         const fullPool = [...inventory, ...(window._printStudioState?.customItems || [])];
         for (let sId of s.customCheckedServiceIds) {
             const found = fullPool.find(x => String(x.id).trim() === String(sId).trim());
-            if (found) {
-                itemsToDraw.push({
-                    name: found.name,
-                    price: parseFloat(found.price || 0)
-                });
-            }
+            if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
         }
     }
 
-    // Se non c'è una selezione specifica, prendi i primi servizi del listino reale
     if (itemsToDraw.length === 0) {
-        const realServices = inventory.filter(i => i.type === 'servizio');
-        itemsToDraw = realServices.slice(0, maxItems).map(srv => ({
+        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, maxItems).map(srv => ({
             name: srv.name,
             price: parseFloat(srv.price || 0)
         }));
     }
 
-    // 🛑 SE IL SALONE NON HA ANCORA SERVIZI A LISTINO, MOSTRA UN AVVISO PULITO
-    if (itemsToDraw.length === 0) {
-        ctx.save();
-        ctx.fillStyle = textSub;
-        ctx.font = '500 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Nessun servizio registrato nel listino.', W / 2, curY + 60);
-        ctx.font = '400 22px sans-serif';
-        ctx.fillText('Inserisci i tuoi trattamenti in Listino Servizi.', W / 2, curY + 110);
-        ctx.restore();
-        return curY + 160;
-    }
+    if (itemsToDraw.length === 0) return;
 
-    // Limita al massimo consentito per formato
     const displayList = itemsToDraw.slice(0, maxItems);
-    const menuW = W - 240;
-    const menuX = 120;
-    const lineHeight = isStory ? 75 : 62;
+    const menuW = (W - 240) * el.scale;
+    const menuX = el.x - (menuW / 2);
+    const lineHeight = Math.round((isStory ? 75 : 62) * el.scale);
+    let curY = el.y - ((displayList.length * lineHeight) / 2);
+
+    el.w = menuW;
+    el.h = displayList.length * lineHeight;
 
     displayList.forEach(item => {
         const cleanName = typeof cleanItemNameForPrint === 'function' ? cleanItemNameForPrint(item.name) : item.name;
         const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
 
         ctx.save();
-        ctx.font = isStory ? 'bold 32px sans-serif' : 'bold 28px sans-serif';
+        ctx.font = `bold ${Math.round(30 * el.scale)}px sans-serif`;
         ctx.fillStyle = textMain;
         ctx.textAlign = 'left';
         ctx.fillText(cleanName, menuX, curY);
 
         ctx.fillStyle = accentColor;
         ctx.textAlign = 'right';
-        ctx.font = isStory ? '900 34px serif' : '900 30px serif';
+        ctx.font = `900 ${Math.round(32 * el.scale)}px serif`;
         ctx.fillText(priceStr, menuX + menuW, curY);
 
-        // Linea puntata leader di lusso
         const nameW = ctx.measureText(cleanName).width;
         const priceW = ctx.measureText(priceStr).width;
         ctx.strokeStyle = 'rgba(255,255,255,0.22)';
         ctx.setLineDash([4, 6]);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * el.scale;
         ctx.beginPath();
-        ctx.moveTo(menuX + nameW + 20, curY - 8);
-        ctx.lineTo(menuX + menuW - priceW - 20, curY - 8);
+        ctx.moveTo(menuX + nameW + 16, curY - 8);
+        ctx.lineTo(menuX + menuW - priceW - 16, curY - 8);
         ctx.stroke();
         ctx.restore();
 
         curY += lineHeight;
     });
-
-    return curY + 20;
 }
 
-// 6. FUNZIONE CONDIVISIONE ISTANTANEA (WEB SHARE API NATURALE)
-async function shareSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
-
-    try {
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                title: `Novità ${currentSalon}`,
-                text: caption,
-                files: [file]
-            });
-            console.log("✅ Condivisione nativa completata!");
-        } else {
-            // Fallback per browser PC non abilitati a condividere file
-            downloadSocialGraphic();
-            copySocialCaption();
-            alert("📥 Immagine scaricata!\n\n📋 Il testo con il link della prenotazione è stato copiato negli appunti: incollalo nella tua storia o post di Instagram!");
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error("Errore condivisione:", err);
-            downloadSocialGraphic();
-        }
-    }
-}
-
-function downloadSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const link = document.createElement('a');
-    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-}
-
-function generateSocialCaptionText(salonId, link) {
-    const s = window._socialStudioState;
-    return `✨ ${s.title}\n${s.subtitle}\n\n👉 ${s.highlightText}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${salonId.replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
-}
-
-function updateCaptionPreview() {
-    const previewEl = document.getElementById('ss-caption-preview');
-    if (!previewEl) return;
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
-}
-
-function copySocialCaption() {
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
-
-    navigator.clipboard.writeText(caption).then(() => {
-        alert("✅ Didascalia e link copiati negli appunti!\nPuoi incollarla direttamente su Instagram, Facebook o WhatsApp.");
-    });
-}
-
-// 7. HELPER CANVAS UTILS
-function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' ');
-    let line = '';
-    let curY = y;
-
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-            ctx.fillText(line.trim(), x, curY);
-            line = words[n] + ' ';
-            curY += lineHeight;
-        } else {
-            line = testLine;
-        }
-    }
-    ctx.fillText(line.trim(), x, curY);
-    return curY + lineHeight;
-}
-
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-}
-
-// REGISTRAZIONE GLOBALE SU WINDOW
-window.initSocialStudioView = initSocialStudioView;
-window.setSocialFormat = setSocialFormat;
-window.onSocialTemplateChanged = onSocialTemplateChanged;
-window.onSocialThemeChanged = onSocialThemeChanged;
-window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
-window.handleSocialBgUpload = handleSocialBgUpload;
-window.clearSocialBgPhoto = clearSocialBgPhoto;
-window.renderSocialCanvas = renderSocialCanvas;
-window.shareSocialGraphic = shareSocialGraphic;
-window.downloadSocialGraphic = downloadSocialGraphic;
-window.copySocialCaption = copySocialCaption;
+// Registrazione globale delle funzioni di trasformazione
+window.setActiveSocialElement = setActiveSocialElement;
+window.stepScaleActiveElement = stepScaleActiveElement;
+window.onSliderScaleActiveElement = onSliderScaleActiveElement;
+window.centerActiveElementHorizontally = centerActiveElementHorizontally;
+window.deselectActiveElement = deselectActiveElement;
+window.resetSocialElementsPositions = resetSocialElementsPositions;
 
 
 
