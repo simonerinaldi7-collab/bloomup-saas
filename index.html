@@ -14804,7 +14804,13 @@ function renderWorkstationFilterPills() {
 
 // 5. Router di Renderizzazione (Giorno o Settimana) con Aggancio Swipe
 async function renderWorkstationsView() {
-    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const list = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    
+    // 🌟 ORDINAMENTO NATURALE IMMEDIATO: 1, 2, 3 ... 10 (Zero disordine)
+    cachedAccessibleWorkstations = list.sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '', 'it', { numeric: true, sensitivity: 'base' })
+    );
+
     renderWorkstationFilterPills();
 
     if (workstationViewMode === 'day') {
@@ -15260,7 +15266,8 @@ async function populateWorkstationDropdownInAppointmentModal(selectedWsId = '') 
     const select = document.getElementById('f-a-workstation');
     if (!select) return;
 
-    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const list = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    cachedAccessibleWorkstations = list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it', { numeric: true, sensitivity: 'base' }));
 
     let html = `<option value="">-- Nessuna postazione (Lavoro libero / Postazione personale) --</option>`;
     cachedAccessibleWorkstations.forEach(ws => {
@@ -15415,7 +15422,9 @@ async function deleteWorkstationConfig(id) {
 
 // 1. Apertura Modale Prenotazione Postazione (Carica dati reali se in modifica)
 async function openWorkstationBookingDirectModal(wsId = null, dateStr = null, timeStr = null, bookingId = null) {
-    cachedAccessibleWorkstations = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    const list = await window.universalQuery({ action: 'GET_ALL', table: 'shared_workstations' }) || [];
+    cachedAccessibleWorkstations = list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it', { numeric: true, sensitivity: 'base' }));
+
     const select = document.getElementById('f-wb-station-select');
     if (!select) return;
 
