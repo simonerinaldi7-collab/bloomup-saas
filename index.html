@@ -19,24 +19,82 @@
 }
 
 /* ======================================================== */
-/* 📱 VAIMUP SOCIAL CONTENT STUDIO: STILI E PREVIEW CANVAS  */
+/* 📱 VAIMUP SOCIAL STUDIO: LAYOUT RESPONSIVE MOBILE-FIRST   */
 /* ======================================================== */
-.social-studio-container {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 20px;
-    height: calc(100vh - 120px);
-    overflow: hidden;
-}
 
-@media screen and (max-width: 960px) {
+/* 💻 COMPORTAMENTO SU PC / DESKTOP (> 960px): 2 Colonne affiancate */
+@media screen and (min-width: 961px) {
     .social-studio-container {
-        grid-template-columns: 1fr;
-        height: auto;
-        overflow: visible;
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 20px;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+    }
+    .social-controls-pane {
+        overflow-y: auto;
+        height: 100%;
+    }
+    .social-preview-column {
+        height: 100%;
+        overflow: hidden;
+    }
+    .social-preview-viewport {
+        flex: 1;
+        min-height: 440px;
     }
 }
 
+/* 📱 COMPORTAMENTO SU SMARTPHONE (<= 960px): Anteprima e Tasti Condividi SUBITO in Cima! */
+@media screen and (max-width: 960px) {
+    .social-studio-container {
+        display: flex !important;
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: unset !important;
+        gap: 14px !important;
+        padding-bottom: 40px !important;
+        overflow: visible !important;
+    }
+    
+    /* 🌟 L'anteprima e la condivisione salgono per prime sullo schermo del telefono! */
+    .social-preview-column {
+        order: 1 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    /* I controlli di testo ed editing si posizionano sotto l'anteprima */
+    .social-controls-pane {
+        order: 2 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        max-height: none !important;
+        padding: 14px 12px !important;
+        border-radius: 14px !important;
+    }
+
+    .social-preview-viewport {
+        padding: 10px !important;
+        min-height: unset !important;
+        max-height: 44vh !important; /* Non mangia lo schermo verticale dello smartphone */
+    }
+
+    #social-render-canvas {
+        max-height: 40vh !important;
+    }
+
+    /* Previene lo zoom fastidioso di iOS quando si tocca un input */
+    .social-controls-pane input,
+    .social-controls-pane select,
+    .social-controls-pane textarea {
+        font-size: 15px !important;
+    }
+}
+
+/* Regole Comuni Base */
 .social-controls-pane {
     background: #ffffff;
     border: 1.5px solid #cbd5e1;
@@ -45,46 +103,43 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    overflow-y: auto;
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    box-sizing: border-box;
 }
 
 .social-preview-column {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
     position: relative;
     gap: 10px;
+    box-sizing: border-box;
 }
 
 .social-preview-viewport {
     background: #0f172a;
     border-radius: 16px;
-    padding: 20px;
+    padding: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1;
-    min-height: 420px;
-    overflow: auto;
+    overflow: hidden;
     position: relative;
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
 }
 
-/* Canvas con cornice smartphone mock-up */
 #social-render-canvas {
-    max-height: 540px;
+    max-height: 520px;
     max-width: 100%;
     width: auto;
     height: auto;
-    border-radius: 16px;
-    box-shadow: 0 20px 45px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
+    object-fit: contain;
+    border-radius: 14px;
+    box-shadow: 0 14px 35px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.1);
     transition: transform 0.2s ease;
 }
 
 .social-pill-btn {
-    padding: 6px 12px !important;
+    padding: 6px 10px !important;
     font-size: 11.5px !important;
     font-weight: 700 !important;
     border-radius: 8px !important;
@@ -93,6 +148,8 @@
     color: #475569 !important;
     min-height: unset !important;
     cursor: pointer;
+    flex: 1;
+    text-align: center;
 }
 .social-pill-btn.active-pill {
     background: var(--p) !important;
@@ -3858,30 +3915,79 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
 
 
 <!-- ======================================================== -->
-<!-- 📱 VISTA SOCIAL CONTENT STUDIO (STORIES, REELS & POST)   -->
+<!-- 📱 VISTA SOCIAL CONTENT STUDIO (OTTIMIZZATA SMARTPHONE)  -->
 <!-- ======================================================== -->
-<section id="v-social" class="view" style="padding: 15px !important; overflow: hidden;">
+<section id="v-social" class="view" style="padding: 10px !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch;">
     <div class="social-studio-container">
         
         <!-- ========================================== -->
-        <!-- PANNELLO SINISTRO: CONTROLLI & CONTENUTI   -->
+        <!-- ANTEPRIMA & CONDIVISIONE (IN CIMA SU MOBILE) -->
+        <!-- ========================================== -->
+        <div class="social-preview-column">
+            
+            <!-- TOOLBAR CONDIVISIONE & FORMATI -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
+                
+                <!-- Riga 1: Formati Social a portata di dito -->
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                    <span style="font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">Formato:</span>
+                    <div style="display: flex; gap: 4px; flex: 1;">
+                        <button type="button" class="btn social-pill-btn active-pill" id="btn-format-story" onclick="setSocialFormat('story')">Story 9:16</button>
+                        <button type="button" class="btn social-pill-btn" id="btn-format-portrait" onclick="setSocialFormat('portrait')">Post 4:5</button>
+                        <button type="button" class="btn social-pill-btn" id="btn-format-square" onclick="setSocialFormat('square')">Post 1:1</button>
+                    </div>
+                </div>
+
+                <!-- Riga 2: Pulsanti Principali di Pubblicazione -->
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-w" style="flex: 2; padding: 11px 12px; font-size: 13px; font-weight: 900; justify-content: center; border-radius: 10px; box-shadow: 0 3px 10px rgba(37, 211, 102, 0.35);" onclick="shareSocialGraphic()">
+                        📲 Condividi su Instagram / WA ➔
+                    </button>
+                    <button type="button" class="btn" style="flex: 1; padding: 11px 10px; font-size: 12px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; justify-content: center;" onclick="downloadSocialGraphic()" title="Scarica l'immagine in galleria">
+                        💾 Salva PNG
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEWPORT DEL CANVAS CON CORNICE AD ALTA RISOLUZIONE -->
+            <div class="social-preview-viewport">
+                <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
+            </div>
+
+            <!-- DIDASCALIA SOCIAL PRONTA DA COPIARE -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                    <small style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Didascalia con link del tuo salone:</small>
+                    <div id="ss-caption-preview" style="font-size: 11.5px; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic;">
+                        Caricamento...
+                    </div>
+                </div>
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold; border-radius: 8px; flex-shrink: 0;" onclick="copySocialCaption()">
+                    📋 Copia
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PANNELLO CONTROLLI & PERSONALIZZAZIONE    -->
         <!-- ========================================== -->
         <div class="social-controls-pane">
             
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 24px;">📱</span>
+                    <span style="font-size: 20px;">🎨</span>
                     <div>
-                        <b style="font-size: 15px; color: #1e1b4b;">Social Content Studio</b>
-                        <small style="display: block; color: #64748b; font-size: 11px;">Crea Stories e Post da pubblicare in 3 secondi</small>
+                        <b style="font-size: 14px; color: #1e1b4b;">Personalizza Grafica</b>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Modifica testi, colori e foto di sfondo</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 1. TIPO DI CONTENUTO / TEMPLATE -->
+            <!-- 1. TEMPLATE GRAFICO -->
             <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">1. Modello di Grafica</label>
-                <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px; border: 1.5px solid var(--p);">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico</label>
+                <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
                     <option value="custom" selected>🎨 Post / Story Libera Personalizzata</option>
                     <option value="lastminute">⚡ Posto Libero Last-Minute (Buchi Agenda)</option>
                     <option value="promo">🔥 Offerta Flash & Promozione</option>
@@ -3890,28 +3996,18 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </select>
             </div>
 
-            <!-- SELETTORE LISTINO DA PRINT STUDIO (Visibile solo se template è pricelist) -->
+            <!-- SELETTORE LISTINO DA PRINT STUDIO -->
             <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Seleziona Listino dal Print Studio:</label>
-                <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600;">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Listino del Print Studio:</label>
+                <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 4px 0; background: white; font-size: 12px; font-weight: 600;">
                     <option value="current">Listino Attuale in Memoria</option>
                 </select>
-                <small style="color: #7c3aed; font-size: 10.5px; display: block;">Mostra i trattamenti con prezzi formattati e allineati in stile menu luxury.</small>
+                <small style="color: #7c3aed; font-size: 10.5px; display: block;">Mostra i trattamenti con puntini di separazione e prezzi allineati.</small>
             </div>
 
-            <!-- 2. FORMATO SOCIAL -->
+            <!-- 2. STILE E TEMA COLORI -->
             <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Social</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-                    <button type="button" class="btn social-pill-btn active-pill" id="btn-format-story" onclick="setSocialFormat('story')">Story 9:16</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-format-portrait" onclick="setSocialFormat('portrait')">Post 4:5</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-format-square" onclick="setSocialFormat('square')">Post 1:1</button>
-                </div>
-            </div>
-
-            <!-- 3. TEMA GRAFICO & COLORI -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Stile Visivo & Palette</label>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Stile Visivo & Palette</label>
                 <select id="ss-theme-select" onchange="onSocialThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12px;">
                     <option value="luxury-gold" selected>👑 Luxury Gold & Obsidian</option>
                     <option value="rose-glamour">🌸 Rose Gold & Glamour</option>
@@ -3921,101 +4017,55 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </select>
             </div>
 
-            <!-- 4. CAMPI TESTO EDITABILI -->
+            <!-- 3. TESTI PERSONALIZZATI -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Testi & Contenuti</label>
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Testi sulla Grafica</label>
                 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Badge in Alto (Tag)</small>
-                    <input type="text" id="ss-input-badge" value="SPECIALE" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white; font-weight: bold;">
+                    <input type="text" id="ss-input-badge" value="SPECIALE" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white; font-weight: bold;">
                 </div>
 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Titolo Principale (Headline)</small>
-                    <input type="text" id="ss-input-title" value="Esperienza di Bellezza Esclusiva" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 13px; background: white; font-weight: bold;">
+                    <input type="text" id="ss-input-title" value="Esperienza di Bellezza Esclusiva" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 13px; background: white; font-weight: bold;">
                 </div>
 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Sottotitolo / Dettagli</small>
-                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white;">Prenditi cura di te con i nostri trattamenti personalizzati.</textarea>
+                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white;">Prenditi cura di te con i nostri trattamenti personalizzati.</textarea>
                 </div>
 
-                <div id="ss-highlight-box" style="margin-bottom: 6px;">
+                <div id="ss-highlight-box" style="margin-bottom: 2px;">
                     <small style="font-size: 10px; font-weight: 700; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
-                    <input type="text" id="ss-input-highlight" value="A partire da € 25.00" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12.5px; background: white; font-weight: 900; color: #047857;">
+                    <input type="text" id="ss-input-highlight" value="A partire da € 25.00" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12.5px; background: white; font-weight: 900; color: #047857;">
                 </div>
             </div>
 
-            <!-- 5. IMMAGINI & LOGHI -->
+            <!-- 4. FOTO & OPZIONI BRAND -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Loghi</label>
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Brand</label>
                 
                 <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
-                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                    <button type="button" class="btn" style="flex: 1; padding: 6px 10px; font-size: 11px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold;" onclick="document.getElementById('ss-bg-file-input').click()">
-                        📷 Carica Tua Foto
+                <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                    <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
+                        📷 Scegli o Scatta Foto
                     </button>
-                    <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 6px 10px; font-size: 11px;" onclick="clearSocialBgPhoto()">
+                    <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
                         ✕ Rimuovi
                     </button>
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px;">
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Includi Logo del Negozio</span>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Mostra Logo del Negozio</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Sticker Mockup "Prenota Online"</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-qr" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
-                        <span>Includi QR Code Angolare</span>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Sticker Link "Prenota Online"</span>
                     </label>
                 </div>
-            </div>
-
-        </div>
-
-        <!-- ========================================== -->
-        <!-- PANNELLO DESTRO: ANTEPRIMA & CONDIVISIONE  -->
-        <!-- ========================================== -->
-        <div class="social-preview-column">
-            
-            <!-- TOOLBAR DI CONDIVISIONE RAPIDA -->
-            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Anteprima Live HD:</span>
-                    <span id="ss-format-label" style="font-size: 11px; font-weight: 900; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 6px;">1080 × 1920 (Story)</span>
-                </div>
-
-                <div style="display: flex; gap: 6px;">
-                    <button type="button" class="btn btn-w" style="padding: 8px 14px; font-size: 12px; font-weight: 800; border-radius: 8px;" onclick="shareSocialGraphic()">
-                        📲 Condividi (Instagram / WA)
-                    </button>
-                    <button type="button" class="btn" style="padding: 8px 14px; font-size: 12px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="downloadSocialGraphic()">
-                        💾 Scarica PNG
-                    </button>
-                </div>
-            </div>
-
-            <!-- VIEWPORT DEL CANVAS CON OMBRA SMARTPHONE -->
-            <div class="social-preview-viewport">
-                <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
-            </div>
-
-            <!-- DIDASCALIA SOCIAL PRONTA DA COPIARE -->
-            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                <div style="flex: 1; min-width: 0;">
-                    <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 2px;">Didascalia pronta per il post o storia (con link):</small>
-                    <div id="ss-caption-preview" style="font-size: 12px; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic;">
-                        Caricamento...
-                    </div>
-                </div>
-                <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold; border-radius: 8px; flex-shrink: 0;" onclick="copySocialCaption()">
-                    📋 Copia Testo
-                </button>
             </div>
 
         </div>
