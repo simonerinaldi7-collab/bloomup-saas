@@ -18,7 +18,87 @@
     contain: content;
 }
 
+/* ======================================================== */
+/* 📱 VAIMUP SOCIAL CONTENT STUDIO: STILI E PREVIEW CANVAS  */
+/* ======================================================== */
+.social-studio-container {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+}
 
+@media screen and (max-width: 960px) {
+    .social-studio-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+    }
+}
+
+.social-controls-pane {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.social-preview-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+    gap: 10px;
+}
+
+.social-preview-viewport {
+    background: #0f172a;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 420px;
+    overflow: auto;
+    position: relative;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+}
+
+/* Canvas con cornice smartphone mock-up */
+#social-render-canvas {
+    max-height: 540px;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 16px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
+    transition: transform 0.2s ease;
+}
+
+.social-pill-btn {
+    padding: 6px 12px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    min-height: unset !important;
+    cursor: pointer;
+}
+.social-pill-btn.active-pill {
+    background: var(--p) !important;
+    color: #ffffff !important;
+    border-color: var(--p) !important;
+}
 
 /* ======================================================== */
 /* ⚙️ CONFIGURAZIONE: TABS RESPONSIVE & SWITCH IOS ULTRA-CHIARO */
@@ -2192,6 +2272,7 @@
         <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
         <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
         <a href="#" class="nav-item" id="n-print" onclick="changePageMobileWrapper('print')">🖨️ Stampa & Listini</a>
+        <a href="#" class="nav-item" id="n-social" onclick="changePageMobileWrapper('social')">📱 Social Studio & Stories</a>
         <a href="#" class="nav-item" id="n-onboarding" onclick="changePageMobileWrapper('onboarding')">🚀 Migrazione Dati & Onboarding</a>
         <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
         
@@ -3772,6 +3853,175 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
         <button class="btn btn-p" style="margin: 0; padding: 0 16px; justify-content: center;" onclick="sendAIDrawerQuery()">➔</button>
     </div>
 </div>
+
+
+
+
+<!-- ======================================================== -->
+<!-- 📱 VISTA SOCIAL CONTENT STUDIO (STORIES, REELS & POST)   -->
+<!-- ======================================================== -->
+<section id="v-social" class="view" style="padding: 15px !important; overflow: hidden;">
+    <div class="social-studio-container">
+        
+        <!-- ========================================== -->
+        <!-- PANNELLO SINISTRO: CONTROLLI & CONTENUTI   -->
+        <!-- ========================================== -->
+        <div class="social-controls-pane">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 24px;">📱</span>
+                    <div>
+                        <b style="font-size: 15px; color: #1e1b4b;">Social Content Studio</b>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Crea Stories e Post da pubblicare in 3 secondi</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. TIPO DI CONTENUTO / TEMPLATE -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">1. Modello di Grafica</label>
+                <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12.5px; border: 1.5px solid var(--p);">
+                    <option value="custom" selected>🎨 Post / Story Libera Personalizzata</option>
+                    <option value="lastminute">⚡ Posto Libero Last-Minute (Buchi Agenda)</option>
+                    <option value="promo">🔥 Offerta Flash & Promozione</option>
+                    <option value="pricelist">📑 Menu Listino (dal Print Studio)</option>
+                    <option value="quote">💬 Frase del Giorno & Recensione</option>
+                </select>
+            </div>
+
+            <!-- SELETTORE LISTINO DA PRINT STUDIO (Visibile solo se template è pricelist) -->
+            <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Seleziona Listino dal Print Studio:</label>
+                <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600;">
+                    <option value="current">Listino Attuale in Memoria</option>
+                </select>
+                <small style="color: #7c3aed; font-size: 10.5px; display: block;">Mostra i trattamenti con prezzi formattati e allineati in stile menu luxury.</small>
+            </div>
+
+            <!-- 2. FORMATO SOCIAL -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">2. Formato Social</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+                    <button type="button" class="btn social-pill-btn active-pill" id="btn-format-story" onclick="setSocialFormat('story')">Story 9:16</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-format-portrait" onclick="setSocialFormat('portrait')">Post 4:5</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-format-square" onclick="setSocialFormat('square')">Post 1:1</button>
+                </div>
+            </div>
+
+            <!-- 3. TEMA GRAFICO & COLORI -->
+            <div>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">3. Stile Visivo & Palette</label>
+                <select id="ss-theme-select" onchange="onSocialThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12px;">
+                    <option value="luxury-gold" selected>👑 Luxury Gold & Obsidian</option>
+                    <option value="rose-glamour">🌸 Rose Gold & Glamour</option>
+                    <option value="barber-vintage">💈 Barber Vintage & Cuoio</option>
+                    <option value="botanical-minimal">🌿 Botanical Green & Minimal</option>
+                    <option value="neon-violet">⚡ Electric Violet & Cyber</option>
+                </select>
+            </div>
+
+            <!-- 4. CAMPI TESTO EDITABILI -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Testi & Contenuti</label>
+                
+                <div style="margin-bottom: 8px;">
+                    <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Badge in Alto (Tag)</small>
+                    <input type="text" id="ss-input-badge" value="SPECIALE" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white; font-weight: bold;">
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                    <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Titolo Principale (Headline)</small>
+                    <input type="text" id="ss-input-title" value="Esperienza di Bellezza Esclusiva" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 13px; background: white; font-weight: bold;">
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                    <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Sottotitolo / Dettagli</small>
+                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12px; background: white;">Prenditi cura di te con i nostri trattamenti personalizzati.</textarea>
+                </div>
+
+                <div id="ss-highlight-box" style="margin-bottom: 6px;">
+                    <small style="font-size: 10px; font-weight: 700; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
+                    <input type="text" id="ss-input-highlight" value="A partire da € 25.00" oninput="renderSocialCanvas()" style="margin: 0; padding: 6px 8px; font-size: 12.5px; background: white; font-weight: 900; color: #047857;">
+                </div>
+            </div>
+
+            <!-- 5. IMMAGINI & LOGHI -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Loghi</label>
+                
+                <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <button type="button" class="btn" style="flex: 1; padding: 6px 10px; font-size: 11px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold;" onclick="document.getElementById('ss-bg-file-input').click()">
+                        📷 Carica Tua Foto
+                    </button>
+                    <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 6px 10px; font-size: 11px;" onclick="clearSocialBgPhoto()">
+                        ✕ Rimuovi
+                    </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px;">
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Includi Logo del Negozio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Sticker Mockup "Prenota Online"</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-qr" checked onchange="renderSocialCanvas()" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0;">
+                        <span>Includi QR Code Angolare</span>
+                    </label>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PANNELLO DESTRO: ANTEPRIMA & CONDIVISIONE  -->
+        <!-- ========================================== -->
+        <div class="social-preview-column">
+            
+            <!-- TOOLBAR DI CONDIVISIONE RAPIDA -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Anteprima Live HD:</span>
+                    <span id="ss-format-label" style="font-size: 11px; font-weight: 900; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 6px;">1080 × 1920 (Story)</span>
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-w" style="padding: 8px 14px; font-size: 12px; font-weight: 800; border-radius: 8px;" onclick="shareSocialGraphic()">
+                        📲 Condividi (Instagram / WA)
+                    </button>
+                    <button type="button" class="btn" style="padding: 8px 14px; font-size: 12px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="downloadSocialGraphic()">
+                        💾 Scarica PNG
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEWPORT DEL CANVAS CON OMBRA SMARTPHONE -->
+            <div class="social-preview-viewport">
+                <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
+            </div>
+
+            <!-- DIDASCALIA SOCIAL PRONTA DA COPIARE -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <div style="flex: 1; min-width: 0;">
+                    <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 2px;">Didascalia pronta per il post o storia (con link):</small>
+                    <div id="ss-caption-preview" style="font-size: 12px; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic;">
+                        Caricamento...
+                    </div>
+                </div>
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold; border-radius: 8px; flex-shrink: 0;" onclick="copySocialCaption()">
+                    📋 Copia Testo
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+</section>
 
 
     <section id="v-settings" class="view" style="padding: 15px !important;">
@@ -9620,7 +9870,8 @@ function addPackageToCart(name, price, packageId) {
         'v-sales-report':'Report Vendite', 'v-logs':'Comunicazioni', 'v-users': 'Gestione Utenti',
         'v-settings':'Configurazione', 'v-schedules':'Gestione orari e turni staff',
         'v-suppliers':'Fornitori', 'v-supplier-payouts':'Liquidazione fornitori in conto vendita', 'v-packages':'Gestione Pacchetti','v-workstations':'Spazi & Postazioni','v-print':'Stampa Listini & Barcode',
-    'v-onboarding':'Migrazione Dati Rapida & Switch-Over'
+    'v-onboarding':'Migrazione Dati Rapida & Switch-Over',
+    'v-social':'Social Content Studio & Stories'
     };
     
     document.getElementById('page-title').innerText = t[active] || 'VaiMUp';
@@ -9675,6 +9926,11 @@ if (active === 'v-workstations') {
     if (active === 'v-print' && typeof initPrintStudioView === 'function') {
         initPrintStudioView();
     }
+
+
+    if (active === 'v-social' && typeof initSocialStudioView === 'function') {
+    initSocialStudioView();
+}
     if(active === 'v-sales-report') renderSalesReport();
     if(active === 'v-sales') renderSalesList();
     if(active === 'v-supplier-payouts') renderSupplierPayouts();
@@ -13992,7 +14248,8 @@ window.chooseAppTheme = function(themeName) {
             'supplier-payouts': 'n-payouts',
             'schedules': 'n-schedules',
             'workstations': 'n-workstations',
-            'onboarding': 'n-onboarding'
+            'onboarding': 'n-onboarding',
+            'social': 'n-social'
         };
 
         const menuId = menuMap[p];
@@ -27040,6 +27297,629 @@ function switchSettingsTab(tabName) {
     if (activeSec) activeSec.classList.add('active-section');
 }
 window.switchSettingsTab = switchSettingsTab;
+
+
+// =========================================================================
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (CANVAS 2D ULTRA-HD)
+// =========================================================================
+
+window._socialStudioState = {
+    template: 'custom',      // 'custom' | 'lastminute' | 'promo' | 'pricelist' | 'quote'
+    format: 'story',          // 'story' (9:16) | 'portrait' (4:5) | 'square' (1:1)
+    theme: 'luxury-gold',
+    badgeText: 'SPECIALE',
+    title: 'Esperienza di Bellezza Esclusiva',
+    subtitle: 'Prenditi cura di te con i nostri trattamenti personalizzati.',
+    highlightText: 'A partire da € 25.00',
+    uploadedBgImg: null,
+    showLogo: true,
+    showBookingBadge: true,
+    showQr: true,
+    selectedPresetId: 'current',
+    salonLogoImg: null
+};
+
+// 1. INIZIALIZZAZIONE DELLA VISTA SOCIAL STUDIO
+async function initSocialStudioView() {
+    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore grafico...");
+
+    const s = window._socialStudioState;
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    // Carica il logo salvato
+    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
+    if (savedLogo) {
+        const img = new Image();
+        img.onload = () => {
+            s.salonLogoImg = img;
+            renderSocialCanvas();
+        };
+        img.src = savedLogo;
+    }
+
+    // Popola i listini salvati dal Print Studio
+    populatePrintStudioPresetsInSocialStudio(currentSalon);
+
+    // Sincronizza i testi e disegna il primo frame
+    updateCaptionPreview();
+    renderSocialCanvas();
+}
+
+function populatePrintStudioPresetsInSocialStudio(currentSalon) {
+    const select = document.getElementById('ss-preset-source-select');
+    if (!select) return;
+
+    let allPresets = [];
+    if (typeof loadAllPresetsFromStorage === 'function') {
+        allPresets = loadAllPresetsFromStorage(currentSalon);
+    }
+
+    let html = `<option value="current">Menu Attuale dal Listino</option>`;
+    allPresets.forEach(p => {
+        html += `<option value="${p.id}">📑 ${p.name}</option>`;
+    });
+
+    select.innerHTML = html;
+}
+
+// 2. GESTIONE CAMBIO FORMATO (9:16, 4:5, 1:1)
+function setSocialFormat(fmt) {
+    window._socialStudioState.format = fmt;
+
+    document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
+    const btnMap = { story: 'btn-format-story', portrait: 'btn-format-portrait', square: 'btn-format-square' };
+    const activeBtn = document.getElementById(btnMap[fmt]);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+
+    const canvas = document.getElementById('social-render-canvas');
+    const label = document.getElementById('ss-format-label');
+
+    if (fmt === 'story') {
+        canvas.width = 1080;
+        canvas.height = 1920;
+        if (label) label.innerText = '1080 × 1920 (Story 9:16)';
+    } else if (fmt === 'portrait') {
+        canvas.width = 1080;
+        canvas.height = 1350;
+        if (label) label.innerText = '1080 × 1350 (Post 4:5)';
+    } else if (fmt === 'square') {
+        canvas.width = 1080;
+        canvas.height = 1080;
+        if (label) label.innerText = '1080 × 1080 (Square 1:1)';
+    }
+
+    renderSocialCanvas();
+}
+
+// 3. CAMBIO TEMPLATE E PRE-POPOLAMENTO INTELLIGENTE
+function onSocialTemplateChanged(tpl) {
+    window._socialStudioState.template = tpl;
+    const s = window._socialStudioState;
+
+    const sourceBox = document.getElementById('ss-pricelist-source-box');
+    const badgeInput = document.getElementById('ss-input-badge');
+    const titleInput = document.getElementById('ss-input-title');
+    const subInput = document.getElementById('ss-input-subtitle');
+    const highInput = document.getElementById('ss-input-highlight');
+
+    if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
+
+    // Pre-popolamento dinamico in base all'obiettivo marketing
+    if (tpl === 'lastminute') {
+        badgeInput.value = '⚡ LAST-MINUTE OGGI';
+        titleInput.value = 'Si è liberato un posto!';
+        subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
+        highInput.value = '🕒 OGGI • ORE 16:30';
+    } else if (tpl === 'promo') {
+        badgeInput.value = '🔥 OFFERTA SPECIALE';
+        titleInput.value = 'Trattamento Glow Viso & Ciglia';
+        subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
+        highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
+    } else if (tpl === 'pricelist') {
+        badgeInput.value = 'MENU ESCLUSIVO';
+        titleInput.value = 'I Nostri Trattamenti di Punta';
+        subInput.value = 'Qualità senza compromessi, prodotti biologici certificati e consulenza personalizzata.';
+        highInput.value = 'Consulta il menu e prenota in 10 secondi';
+    } else if (tpl === 'quote') {
+        badgeInput.value = 'PAROLA DI CLIENTE';
+        titleInput.value = '«Il miglior salone in assoluto!»';
+        subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
+        highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
+    } else {
+        badgeInput.value = 'SPECIALE';
+        titleInput.value = 'Esperienza di Bellezza Esclusiva';
+        subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
+        highInput.value = 'A partire da € 25.00';
+    }
+
+    updateCaptionPreview();
+    renderSocialCanvas();
+}
+
+function onSocialThemeChanged(thm) {
+    window._socialStudioState.theme = thm;
+    renderSocialCanvas();
+}
+
+function onSocialPresetSourceChanged(val) {
+    window._socialStudioState.selectedPresetId = val;
+    renderSocialCanvas();
+}
+
+function handleSocialBgUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            window._socialStudioState.uploadedBgImg = img;
+            const clearBtn = document.getElementById('btn-clear-social-bg');
+            if (clearBtn) clearBtn.style.display = 'inline-flex';
+            renderSocialCanvas();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearSocialBgPhoto() {
+    window._socialStudioState.uploadedBgImg = null;
+    const input = document.getElementById('ss-bg-file-input');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderSocialCanvas();
+}
+
+// 4. MOTORE DI RENDERING CANVAS 2D AD ALTA RISOLUZIONE
+function renderSocialCanvas() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const s = window._socialStudioState;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const isStory = (s.format === 'story');
+
+    // Leggi i valori attuali dai campi
+    s.badgeText = document.getElementById('ss-input-badge')?.value.trim() || '';
+    s.title = document.getElementById('ss-input-title')?.value.trim() || '';
+    s.subtitle = document.getElementById('ss-input-subtitle')?.value.trim() || '';
+    s.highlightText = document.getElementById('ss-input-highlight')?.value.trim() || '';
+    s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
+    s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
+    s.showQr = document.getElementById('ss-toggle-qr')?.checked ?? true;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? (currentUser.salon_id || 'SALON_001') 
+        : 'SALON_001';
+
+    // PALETTE COLORI IN BASE AL TEMA
+    let bgColors = ['#11141a', '#080a0e'];
+    let accentColor = '#D4AF37'; // Luxury Gold
+    let textMain = '#ffffff';
+    let textSub = '#cbd5e1';
+
+    if (s.theme === 'rose-glamour') {
+        bgColors = ['#2e1c24', '#170b11'];
+        accentColor = '#e8c4ca';
+    } else if (s.theme === 'barber-vintage') {
+        bgColors = ['#1c1917', '#0c0a09'];
+        accentColor = '#d97706';
+    } else if (s.theme === 'botanical-minimal') {
+        bgColors = ['#062c21', '#021510'];
+        accentColor = '#34d399';
+    } else if (s.theme === 'neon-violet') {
+        bgColors = ['#1e1035', '#0c0517'];
+        accentColor = '#818cf8';
+    }
+
+    ctx.clearRect(0, 0, W, H);
+
+    // ==========================================
+    // A. SFONDO: FOTO O GRADIENTE DI LUSSO
+    // ==========================================
+    if (s.uploadedBgImg) {
+        // Disegna immagine scalata 'cover'
+        const img = s.uploadedBgImg;
+        const hRatio = W / img.width;
+        const vRatio = H / img.height;
+        const ratio = Math.max(hRatio, vRatio);
+        const centerShiftX = (W - img.width * ratio) / 2;
+        const centerShiftY = (H - img.height * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+
+        // Overlay cinematografico scuro per garantire leggibilità 100%
+        const darkGrad = ctx.createLinearGradient(0, 0, 0, H);
+        darkGrad.addColorStop(0, 'rgba(10, 12, 18, 0.75)');
+        darkGrad.addColorStop(0.5, 'rgba(10, 12, 18, 0.65)');
+        darkGrad.addColorStop(1, 'rgba(10, 12, 18, 0.92)');
+        ctx.fillStyle = darkGrad;
+        ctx.fillRect(0, 0, W, H);
+    } else {
+        // Gradiente radiale di lusso
+        const radGrad = ctx.createRadialGradient(W / 2, H * 0.35, 100, W / 2, H / 2, W * 0.85);
+        radGrad.addColorStop(0, bgColors[0]);
+        radGrad.addColorStop(1, bgColors[1]);
+        ctx.fillStyle = radGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Bagliore d'atmosfera con il colore accento
+        ctx.save();
+        ctx.fillStyle = accentColor;
+        ctx.globalAlpha = 0.12;
+        ctx.beginPath();
+        ctx.arc(W / 2, H * 0.4, W * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // ==========================================
+    // B. CORNICI DECORATIVE PERIMETRALI (300 DPI)
+    // ==========================================
+    ctx.save();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.4;
+    const margin = isStory ? 60 : 45;
+    ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
+
+    // Angoli a L dorati
+    const cornerSize = 40;
+    ctx.lineWidth = 4;
+    ctx.globalAlpha = 0.85;
+
+    // Top-Left
+    ctx.beginPath(); ctx.moveTo(margin, margin + cornerSize); ctx.lineTo(margin, margin); ctx.lineTo(margin + cornerSize, margin); ctx.stroke();
+    // Top-Right
+    ctx.beginPath(); ctx.moveTo(W - margin - cornerSize, margin); ctx.lineTo(W - margin, margin); ctx.lineTo(W - margin, margin + cornerSize); ctx.stroke();
+    // Bottom-Left
+    ctx.beginPath(); ctx.moveTo(margin, H - margin - cornerSize); ctx.lineTo(margin, H - margin); ctx.lineTo(margin + cornerSize, H - margin); ctx.stroke();
+    // Bottom-Right
+    ctx.beginPath(); ctx.moveTo(W - margin - cornerSize, H - margin); ctx.lineTo(W - margin, H - margin); ctx.lineTo(W - margin, H - margin - cornerSize); ctx.stroke();
+    ctx.restore();
+
+    let cursorY = isStory ? 200 : 130;
+
+    // ==========================================
+    // C. INTESTAZIONE: LOGO SALONE O BRANDING
+    // ==========================================
+    if (s.showLogo && s.salonLogoImg) {
+        const logoSize = isStory ? 150 : 120;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(W / 2, cursorY + (logoSize / 2), (logoSize / 2) + 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = accentColor;
+        ctx.stroke();
+        ctx.clip();
+        ctx.drawImage(s.salonLogoImg, (W / 2) - (logoSize / 2), cursorY, logoSize, logoSize);
+        ctx.restore();
+        cursorY += logoSize + 40;
+    } else {
+        // Scritta Salone
+        ctx.fillStyle = accentColor;
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.letterSpacing = '3px';
+        ctx.fillText(currentSalon.toUpperCase(), W / 2, cursorY);
+        cursorY += 50;
+    }
+
+    // ==========================================
+    // D. BADGE IN ALTO (TAG)
+    // ==========================================
+    if (s.badgeText) {
+        ctx.save();
+        ctx.font = '900 24px sans-serif';
+        const badgeW = ctx.measureText(s.badgeText).width + 44;
+        const badgeH = 46;
+        const badgeX = (W / 2) - (badgeW / 2);
+
+        // Pillola
+        ctx.fillStyle = accentColor;
+        drawRoundedRect(ctx, badgeX, cursorY, badgeW, badgeH, 23);
+        ctx.fill();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(s.badgeText, W / 2, cursorY + (badgeH / 2));
+        ctx.restore();
+
+        cursorY += badgeH + (isStory ? 55 : 35);
+    }
+
+    // ==========================================
+    // E. TITOLO PRINCIPALE (HEADLINE CON WRAPPING)
+    // ==========================================
+    ctx.save();
+    ctx.fillStyle = textMain;
+    ctx.textAlign = 'center';
+    ctx.font = isStory ? '900 68px serif' : '900 58px serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 15;
+    cursorY = wrapCanvasText(ctx, s.title, W / 2, cursorY, W - (margin * 3), isStory ? 82 : 70);
+    ctx.restore();
+
+    cursorY += (isStory ? 35 : 25);
+
+    // ==========================================
+    // F. CORPO SPECIALE: TEMPLATE LISTINO PREZZI
+    // ==========================================
+    if (s.template === 'pricelist') {
+        cursorY = drawPriceListMenuOnCanvas(ctx, s, W, cursorY, accentColor, textMain, textSub);
+    } else {
+        // Sottotitolo Standard
+        if (s.subtitle) {
+            ctx.save();
+            ctx.fillStyle = textSub;
+            ctx.textAlign = 'center';
+            ctx.font = '500 32px sans-serif';
+            cursorY = wrapCanvasText(ctx, s.subtitle, W / 2, cursorY, W - (margin * 3.5), 44);
+            ctx.restore();
+            cursorY += (isStory ? 50 : 35);
+        }
+
+        // Box in Evidenza (Prezzo o Orario Last-Minute)
+        if (s.highlightText) {
+            ctx.save();
+            ctx.font = '900 38px sans-serif';
+            const boxW = Math.min(ctx.measureText(s.highlightText).width + 60, W - (margin * 2.5));
+            const boxH = 75;
+            const boxX = (W / 2) - (boxW / 2);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2.5;
+            drawRoundedRect(ctx, boxX, cursorY, boxW, boxH, 18);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = accentColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(s.highlightText, W / 2, cursorY + (boxH / 2));
+            ctx.restore();
+
+            cursorY += boxH + 60;
+        }
+    }
+
+    // ==========================================
+    // G. FOOTER: STICKER PRENOTA ONLINE & LINK
+    // ==========================================
+    const footerY = H - (isStory ? 240 : 170);
+
+    if (s.showBookingBadge) {
+        ctx.save();
+        // Disegna Mockup Sticker Instagram
+        const stickerW = 480;
+        const stickerH = 68;
+        const stickerX = (W / 2) - (stickerW / 2);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 20;
+        drawRoundedRect(ctx, stickerX, footerY, stickerW, stickerH, 34);
+        ctx.fill();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🔗 PRENOTA IN UN ATTIMO ONLINE', W / 2, footerY + (stickerH / 2));
+        ctx.restore();
+    }
+
+    // Link testuale in basso
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    ctx.save();
+    ctx.fillStyle = textSub;
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(bookingUrl.replace(/^https?:\/\//, ''), W / 2, H - (isStory ? 100 : 70));
+    ctx.restore();
+
+    updateCaptionPreview();
+}
+
+// 5. DISEGNA LISTINO PREZZI CON ALLINEAMENTO SUL CANVAS
+function drawPriceListMenuOnCanvas(ctx, s, W, startY, accentColor, textMain, textSub) {
+    let curY = startY + 15;
+    const inventory = window.allInventory || [];
+    let itemsToDraw = [];
+
+    // Preleva 4 trattamenti di punta
+    if (s.selectedPresetId === 'current' || !s.selectedPresetId) {
+        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, 4);
+    } else {
+        const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+        let allPresets = [];
+        if (typeof loadAllPresetsFromStorage === 'function') allPresets = loadAllPresetsFromStorage(currentSalon);
+        const preset = allPresets.find(p => p.id === s.selectedPresetId);
+        if (preset && preset.config && preset.config.selectedItemIds) {
+            const idSet = new Set(preset.config.selectedItemIds.map(String));
+            itemsToDraw = inventory.filter(i => idSet.has(String(i.id))).slice(0, 4);
+        } else {
+            itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, 4);
+        }
+    }
+
+    if (itemsToDraw.length === 0) {
+        itemsToDraw = [
+            { name: 'Taglio & Piega Glamour', price: 42.00 },
+            { name: 'Balayage & Tonalizzante', price: 85.00 },
+            { name: 'Trattamento Ricostruzione Cheratina', price: 35.00 },
+            { name: 'Colore Luxury Gloss', price: 48.00 }
+        ];
+    }
+
+    const menuW = W - 260;
+    const menuX = 130;
+
+    itemsToDraw.forEach(item => {
+        const cleanName = typeof cleanItemNameForPrint === 'function' ? cleanItemNameForPrint(item.name) : item.name;
+        const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
+
+        ctx.save();
+        ctx.font = 'bold 30px sans-serif';
+        ctx.fillStyle = textMain;
+        ctx.textAlign = 'left';
+        ctx.fillText(cleanName, menuX, curY);
+
+        ctx.fillStyle = accentColor;
+        ctx.textAlign = 'right';
+        ctx.font = '900 32px serif';
+        ctx.fillText(priceStr, menuX + menuW, curY);
+
+        // Linea puntata leader
+        const nameW = ctx.measureText(cleanName).width;
+        const priceW = ctx.measureText(priceStr).width;
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(menuX + nameW + 20, curY - 8);
+        ctx.lineTo(menuX + menuW - priceW - 20, curY - 8);
+        ctx.stroke();
+        ctx.restore();
+
+        curY += 60;
+    });
+
+    return curY + 20;
+}
+
+// 6. FUNZIONE CONDIVISIONE ISTANTANEA (WEB SHARE API NATURALE)
+async function shareSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+
+    try {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: `Novità ${currentSalon}`,
+                text: caption,
+                files: [file]
+            });
+            console.log("✅ Condivisione nativa completata!");
+        } else {
+            // Fallback per browser PC non abilitati a condividere file
+            downloadSocialGraphic();
+            copySocialCaption();
+            alert("📥 Immagine scaricata!\n\n📋 Il testo con il link della prenotazione è stato copiato negli appunti: incollalo nella tua storia o post di Instagram!");
+        }
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error("Errore condivisione:", err);
+            downloadSocialGraphic();
+        }
+    }
+}
+
+function downloadSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const link = document.createElement('a');
+    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+function generateSocialCaptionText(salonId, link) {
+    const s = window._socialStudioState;
+    return `✨ ${s.title}\n${s.subtitle}\n\n👉 ${s.highlightText}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${salonId.replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
+}
+
+function updateCaptionPreview() {
+    const previewEl = document.getElementById('ss-caption-preview');
+    if (!previewEl) return;
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
+}
+
+function copySocialCaption() {
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+
+    navigator.clipboard.writeText(caption).then(() => {
+        alert("✅ Didascalia e link copiati negli appunti!\nPuoi incollarla direttamente su Instagram, Facebook o WhatsApp.");
+    });
+}
+
+// 7. HELPER CANVAS UTILS
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let curY = y;
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line.trim(), x, curY);
+            line = words[n] + ' ';
+            curY += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    ctx.fillText(line.trim(), x, curY);
+    return curY + lineHeight;
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+// REGISTRAZIONE GLOBALE SU WINDOW
+window.initSocialStudioView = initSocialStudioView;
+window.setSocialFormat = setSocialFormat;
+window.onSocialTemplateChanged = onSocialTemplateChanged;
+window.onSocialThemeChanged = onSocialThemeChanged;
+window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
+window.handleSocialBgUpload = handleSocialBgUpload;
+window.clearSocialBgPhoto = clearSocialBgPhoto;
+window.renderSocialCanvas = renderSocialCanvas;
+window.shareSocialGraphic = shareSocialGraphic;
+window.downloadSocialGraphic = downloadSocialGraphic;
+window.copySocialCaption = copySocialCaption;
+
+
+
+
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
