@@ -19,44 +19,114 @@
 }
 
 /* ======================================================== */
-/* 📱 VAIMUP SOCIAL STUDIO: LAYOUT RESPONSIVE MOBILE-FIRST   */
+/* 📱 VAIMUP SOCIAL STUDIO: LAYOUT DESKTOP & MOBILE-FIRST   */
 /* ======================================================== */
 
-/* 💻 COMPORTAMENTO SU PC / DESKTOP (> 960px): 2 Colonne affiancate */
+/* 💻 COMPORTAMENTO SU PC / DESKTOP (> 960px): 2 Colonne con Scroll Indipendente */
 @media screen and (min-width: 961px) {
-    .social-studio-container {
-        display: grid;
-        grid-template-columns: 360px 1fr;
-        gap: 20px;
-        height: calc(100vh - 120px);
-        overflow: hidden;
-    }
-    .social-controls-pane {
-        overflow-y: auto;
-        height: 100%;
-    }
-   
-    .social-preview-viewport {
-        flex: 1;
-        min-height: 440px;
+    #v-social {
+        padding: 12px 20px !important;
+        overflow: hidden !important; /* Blocca il doppio scroll esterno della pagina */
+        height: calc(100vh - 65px) !important;
+        box-sizing: border-box !important;
     }
 
-    
+    .social-studio-container {
+        display: grid !important;
+        grid-template-columns: 420px 1fr !important; /* Controlli a sinistra (420px), Anteprima a destra (1fr) */
+        gap: 20px !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Colonna 1 (Sinistra): Pannello controlli ed editing sempre scrollabile */
+    .social-controls-pane {
+        grid-column: 1 !important;
+        order: 1 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 20px !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Colonna 2 (Destra): Colonna Anteprima, Canvas e Didascalia sempre scrollabile */
+    .social-preview-column {
+        grid-column: 2 !important;
+        order: 2 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding-right: 6px !important;
+        box-sizing: border-box !important;
+    }
+
+    .social-preview-viewport {
+        flex: 1 0 auto !important;
+        min-height: 520px !important;
+        max-height: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 24px !important;
+    }
+
+    #social-render-canvas {
+        max-height: 56vh !important;
+        max-width: 100% !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+    }
+
+    /* Scrollbar personalizzate morbide e discrete per desktop */
+    .social-controls-pane::-webkit-scrollbar,
+    .social-preview-column::-webkit-scrollbar {
+        width: 7px;
+    }
+    .social-controls-pane::-webkit-scrollbar-track,
+    .social-preview-column::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 8px;
+    }
+    .social-controls-pane::-webkit-scrollbar-thumb,
+    .social-preview-column::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 8px;
+    }
+    .social-controls-pane::-webkit-scrollbar-thumb:hover,
+    .social-preview-column::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
 }
 
-/* 📱 COMPORTAMENTO SU SMARTPHONE (<= 960px): Anteprima e Tasti Condividi SUBITO in Cima! */
+/* 📱 COMPORTAMENTO SU SMARTPHONE (<= 960px): Anteprima e Condividi subito in cima */
 @media screen and (max-width: 960px) {
+    #v-social {
+        padding: 10px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        height: 100% !important;
+    }
+
     .social-studio-container {
         display: flex !important;
         flex-direction: column !important;
         height: auto !important;
         min-height: unset !important;
         gap: 14px !important;
-        padding-bottom: 40px !important;
+        padding-bottom: 50px !important;
         overflow: visible !important;
     }
     
-    /* 🌟 L'anteprima e la condivisione salgono per prime sullo schermo del telefono! */
     .social-preview-column {
         order: 1 !important;
         width: 100% !important;
@@ -64,7 +134,6 @@
         overflow: visible !important;
     }
     
-    /* I controlli di testo ed editing si posizionano sotto l'anteprima */
     .social-controls-pane {
         order: 2 !important;
         width: 100% !important;
@@ -78,43 +147,13 @@
     .social-preview-viewport {
         padding: 10px !important;
         min-height: unset !important;
-        max-height: 44vh !important; /* Non mangia lo schermo verticale dello smartphone */
+        max-height: 44vh !important;
     }
 
     #social-render-canvas {
         max-height: 40vh !important;
     }
 
-    /* ======================================================== */
-/* 📱 GESTI TOUCH INSTAGRAM-LIKE: TRASCINA & RIDIMENSIONA   */
-/* ======================================================== */
-#social-render-canvas {
-    touch-action: none !important; /* Blocca lo scroll del browser durante il drag/pinch */
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    cursor: grab;
-    transform-origin: center center;
-}
-#social-render-canvas:active {
-    cursor: grabbing;
-}
-
-/* Barra comandi rapida per l'elemento selezionato (Mobile & PC) */
-#ss-quick-transform-bar {
-    background: #1e293b;
-    border: 1.5px solid #334155;
-    border-radius: 12px;
-    padding: 8px 12px;
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    animation: fadeInScale 0.2s ease-out;
-}
-
-    /* Previene lo zoom fastidioso di iOS quando si tocca un input */
     .social-controls-pane input,
     .social-controls-pane select,
     .social-controls-pane textarea {
@@ -156,14 +195,31 @@
 }
 
 #social-render-canvas {
-    max-height: 520px;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
+    touch-action: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: grab;
+    transform-origin: center center;
     border-radius: 14px;
     box-shadow: 0 14px 35px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.1);
-    transition: transform 0.2s ease;
+}
+
+#social-render-canvas:active {
+    cursor: grabbing;
+}
+
+#ss-quick-transform-bar {
+    background: #1e293b;
+    border: 1.5px solid #334155;
+    border-radius: 12px;
+    padding: 8px 12px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    animation: fadeInScale 0.2s ease-out;
 }
 
 .social-pill-btn {
@@ -183,7 +239,7 @@
     background: var(--p) !important;
     color: #ffffff !important;
     border-color: var(--p) !important;
-}
+} 
 
 /* ======================================================== */
 /* ⚙️ CONFIGURAZIONE: TABS RESPONSIVE & SWITCH IOS ULTRA-CHIARO */
@@ -27896,6 +27952,7 @@ function attachCanvasTouchGestures() {
         return null;
     }
 
+    // Touch Smartphone
     canvas.addEventListener('touchstart', (e) => {
         const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
 
@@ -27985,7 +28042,24 @@ function attachCanvasTouchGestures() {
         }
     });
 
-    window.addEventListener('mouseup', () => { isMouseDown = false; });
+    window.addEventListener('mouseup', () => { 
+        isMouseDown = false; 
+    });
+
+    // 🌟 SBLOCCO ROTELLA DEL MOUSE SU PC:
+    // Lo scorrimento verticale naturale NON viene mai intercettato, permettendo alla pagina
+    // e alla colonna destra di scorrere liberamente.
+    // Solo se l'utente preme contemporaneamente Ctrl (o Cmd su Mac) la rotella scala l'elemento selezionato.
+    canvas.addEventListener('wheel', (e) => {
+        if (window._activeSocialElemId && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const el = window._socialElements[window._activeSocialElemId];
+            const delta = e.deltaY < 0 ? 0.05 : -0.05;
+            el.scale = Math.min(Math.max(el.scale + delta, 0.4), 2.5);
+            updateTransformBarValues();
+            renderSocialCanvas();
+        }
+    }, { passive: false });
 }
 
 // -------------------------------------------------------------------------
