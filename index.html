@@ -4262,6 +4262,39 @@
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
                 <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Contrasto</label>
                 
+<!-- GESTIONE & OTTIMIZZAZIONE LOGO SALONE -->
+                <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
+                        <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
+                            📁 Carica / Cambia Logo
+                        </button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Forma Visualizzazione</label>
+                            <select id="ss-logo-shape-select" onchange="onSocialLogoShapeChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                                <option value="natural" selected>✨ Trasparente (Originale)</option>
+                                <option value="circle">⚪ Cerchio Protettivo</option>
+                                <option value="card">🏷️ Scheda Morbida</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
+                            <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                                <option value="none" selected>Originale (Colori reali)</option>
+                                <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
+                                <option value="gold">👑 Oro Luxury</option>
+                                <option value="dark">🌑 Nero Profondo</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+
+
                 <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
                 <div style="display: flex; gap: 6px; margin-bottom: 10px;">
                     <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
@@ -25089,74 +25122,325 @@ function updateDynamicPrintPageCss() {
 // 📁 GESTIONE LOGHI, CHECKLIST E CATEGORIE
 // =========================================================================
 
-// 🌟 CARICAMENTO LOGO (Supporta PNG, SVG, WebP, JPG e PDF Vettoriali)
+// =========================================================================
+// 🌟 PIPELINE LOGO HD: AUTO-TRIM TRASPARENZE, PDF 4K & SCALING VETTORIALE
+// =========================================================================
+
+// 1. CARICAMENTO MULTI-FORMATO AD ALTISSIMA DEFINIZIONE
 async function handleSalonLogoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
 
     try {
-        let base64Result = null;
+        let processedDataUrl = null;
 
         if (isPdf) {
-            // Conversione automatica PDF Vettoriale -> Immagine Ultra-HD (4x)
+            // Conversione PDF Vettoriale in Ultra-HD 4K (scala 4x per dettagli chirurgici)
             if (typeof pdfjsLib === 'undefined') {
-                return alert("Libreria PDF non ancora pronta. Attendi qualche istante e riprova.");
+                return alert("Libreria PDF in caricamento. Riprova tra un istante.");
             }
-
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const page = await pdf.getPage(1);
 
-            // Scala 4.0 per mantenere la nitidezza chirurgica del vettoriale anche su maxi formati 50x70
             const viewport = page.getViewport({ scale: 4.0 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-            base64Result = canvas.toDataURL('image/png');
+            // Rimuove automaticamente eventuali ampi bordi bianchi o vuoti
+            processedDataUrl = trimTransparentCanvasBorders(canvas);
+
+        } else if (isSvg) {
+            // Per gli SVG leggiamo il sorgente e lo convertiamo in un canvas HD 1600px
+            const svgText = await file.text();
+            processedDataUrl = await rasterizeSvgToHdDataUrl(svgText);
+
         } else {
-            // Normale caricamento per PNG, SVG, JPG
-            base64Result = await new Promise((resolve, reject) => {
+            // Per PNG, WebP o JPG: lettura, rimozione margini vuoti e conservazione massima nitidezza
+            const base64Raw = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
+
+            processedDataUrl = await autoTrimAndOptimizeRasterLogo(base64Raw);
         }
 
-        // Salva nello stato di Stampa
+        // Salvataggio nello stato globale di Print Studio e Social Studio
         if (window._printStudioState) {
-            window._printStudioState.salonLogoBase64 = base64Result;
+            window._printStudioState.salonLogoBase64 = processedDataUrl;
         }
 
-        // Aggiorna l'anteprima nella sidebar dei controlli
+        if (window._socialStudioState) {
+            const img = new Image();
+            img.onload = () => {
+                window._socialStudioState.salonLogoImg = img;
+                if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+            };
+            img.src = processedDataUrl;
+        }
+
+        // Aggiorna l'anteprima nel Print Studio se presente
         const previewEl = document.getElementById('ps-salon-logo-preview');
         if (previewEl) {
-            previewEl.innerHTML = `<img src="${base64Result}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+            previewEl.innerHTML = `<img src="${processedDataUrl}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
         }
 
-        // Persistenza nel database locale e impostazioni
-        localStorage.setItem('vaimup_salon_logo', base64Result);
-        if (typeof sysSettings !== 'undefined') sysSettings['salon_logo'] = base64Result;
+        // Persistenza locale e su Cloud Supabase per tutti i dispositivi
+        localStorage.setItem('vaimup_salon_logo', processedDataUrl);
+        if (typeof sysSettings !== 'undefined') sysSettings['salon_logo'] = processedDataUrl;
 
         await window.universalQuery({
             action: 'UPSERT_SETTING',
-            data: { key: 'salon_logo', value: base64Result }
+            data: { key: 'salon_logo', value: processedDataUrl }
         });
 
-        // Ridisegna il foglio con il nuovo logo caricato dal PDF
-        renderLivePrintSheet();
+        if (typeof renderLivePrintSheet === 'function') renderLivePrintSheet();
+        if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+
+        alert("✅ Logo caricato e ottimizzato in Ultra-HD con rimozione automatica dei margini!");
 
     } catch (err) {
-        console.error("Errore conversione logo PDF:", err);
-        alert("Impossibile convertire il logo dal file PDF. Verifica che non sia protetto da password.");
+        console.error("Errore elaborazione logo HD:", err);
+        alert("Impossibile elaborare il logo. Verifica il file caricato.");
     }
+}
+window.handleSalonLogoUpload = handleSalonLogoUpload;
+
+// 2. RIMOZIONE AUTOMATICA DEI MARGINI TRASPARENTI VUOTI (AUTOTRIM)
+function trimTransparentCanvasBorders(canvas) {
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    let foundPixel = false;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const alphaIndex = (y * width + x) * 4 + 3;
+            const alpha = data[alphaIndex];
+
+            // Considera pixel non trasparente (soglia minima alpha > 15)
+            if (alpha > 15) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+                foundPixel = true;
+            }
+        }
+    }
+
+    if (!foundPixel) return canvas.toDataURL('image/png');
+
+    // Aggiunge 12px di respiro attorno al perimetro
+    const pad = 12;
+    minX = Math.max(0, minX - pad);
+    minY = Math.max(0, minY - pad);
+    maxX = Math.min(width - 1, maxX + pad);
+    maxY = Math.min(height - 1, maxY + pad);
+
+    const trimmedWidth = maxX - minX + 1;
+    const trimmedHeight = maxY - minY + 1;
+
+    const trimmedCanvas = document.createElement('canvas');
+    trimmedCanvas.width = trimmedWidth;
+    trimmedCanvas.height = trimmedHeight;
+    const trimmedCtx = trimmedCanvas.getContext('2d');
+    trimmedCtx.imageSmoothingEnabled = true;
+    trimmedCtx.imageSmoothingQuality = 'high';
+
+    trimmedCtx.drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+    return trimmedCanvas.toDataURL('image/png');
+}
+
+// 3. RASTERIZZATORE SVG AD ALTA DEFINIZIONE (1600px)
+function rasterizeSvgToHdDataUrl(svgString) {
+    return new Promise((resolve) => {
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+
+        img.onload = () => {
+            const maxDim = 1600;
+            const aspect = (img.width || 1) / (img.height || 1);
+            let targetW = maxDim;
+            let targetH = maxDim;
+
+            if (aspect > 1) {
+                targetH = Math.round(maxDim / aspect);
+            } else {
+                targetW = Math.round(maxDim * aspect);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            URL.revokeObjectURL(url);
+            resolve(trimTransparentCanvasBorders(canvas));
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve(null);
+        };
+
+        img.src = url;
+    });
+}
+
+// 4. OTTIMIZZAZIONE IMMAGINE RASTER (PNG/JPG)
+function autoTrimAndOptimizeRasterLogo(base64Url) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.drawImage(img, 0, 0);
+            resolve(trimTransparentCanvasBorders(canvas));
+        };
+        img.onerror = () => resolve(base64Url);
+        img.src = base64Url;
+    });
+}
+
+// 5. GESTORI DI FORMA E FILTRO COLORE DEL LOGO
+function onSocialLogoShapeChanged(val) {
+    if (!window._socialStudioState) window._socialStudioState = {};
+    window._socialStudioState.logoShape = val; // 'natural' | 'circle' | 'card'
+    if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+}
+window.onSocialLogoShapeChanged = onSocialLogoShapeChanged;
+
+function onSocialLogoFilterChanged(val) {
+    if (!window._socialStudioState) window._socialStudioState = {};
+    window._socialStudioState.logoFilter = val; // 'none' | 'white' | 'gold' | 'dark'
+    if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+}
+window.onSocialLogoFilterChanged = onSocialLogoFilterChanged;
+
+// 6. DISEGNO CHIRURGICO DEL LOGO SUL CANVAS SENZA DEFORMAZIONI
+function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
+    const baseSize = (s.format === 'story') ? 160 : 130;
+    const actualBoxSize = baseSize * (el.scale || 1.0);
+    const shape = s.logoShape || 'natural';
+    const filter = s.logoFilter || 'none';
+
+    if (!s.salonLogoImg) {
+        // Fallback testuale se non è stato caricato un file logo
+        ctx.save();
+        ctx.fillStyle = el.color || accentColor;
+        ctx.font = `bold ${Math.round(28 * (el.scale || 1.0))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(currentSalon.toUpperCase(), el.x, el.y);
+        ctx.restore();
+        el.w = actualBoxSize;
+        el.h = 40;
+        return;
+    }
+
+    const img = s.salonLogoImg;
+    const natW = img.naturalWidth || img.width || 100;
+    const natH = img.naturalHeight || img.height || 100;
+    const aspect = natW / natH;
+
+    // Calcolo dimensioni con mantenimento assoluto delle proporzioni (contain)
+    let drawW = actualBoxSize;
+    let drawH = actualBoxSize;
+
+    if (aspect > 1) {
+        drawH = actualBoxSize / aspect;
+    } else {
+        drawW = actualBoxSize * aspect;
+    }
+
+    el.w = drawW;
+    el.h = drawH;
+
+    ctx.save();
+    // 🌟 Attivazione dell'interpolazione bi-cubica ad altissima definizione
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const drawX = el.x - (drawW / 2);
+    const drawY = el.y - (drawH / 2);
+
+    // Gestione dello Sfondo (se l'utente vuole il cerchio o la scheda protettiva)
+    if (shape === 'circle') {
+        const radius = (Math.max(drawW, drawH) / 2) + 16;
+        ctx.beginPath();
+        ctx.arc(el.x, el.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = el.color || accentColor;
+        ctx.stroke();
+    } else if (shape === 'card') {
+        const padW = 20;
+        const padH = 12;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 18;
+        drawRoundedRect(ctx, drawX - padW, drawY - padH, drawW + (padW * 2), drawH + (padH * 2), 12);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = el.color || accentColor;
+        ctx.stroke();
+    }
+
+    // Applicazione del Filtro Tinta (Bianco Titanio puro, Oro o Nero)
+    if (filter === 'none') {
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    } else {
+        // Creazione di un canvas in-memory per ricolorare la silhouette del logo
+        const tintCanvas = document.createElement('canvas');
+        tintCanvas.width = drawW;
+        tintCanvas.height = drawH;
+        const tintCtx = tintCanvas.getContext('2d');
+        tintCtx.imageSmoothingEnabled = true;
+        tintCtx.imageSmoothingQuality = 'high';
+
+        // Disegna l'immagine base
+        tintCtx.drawImage(img, 0, 0, drawW, drawH);
+
+        // Applica il colore uniforme sopra i pixel non trasparenti
+        tintCtx.globalCompositeOperation = 'source-in';
+        if (filter === 'white') tintCtx.fillStyle = '#ffffff';
+        else if (filter === 'gold') tintCtx.fillStyle = accentColor;
+        else if (filter === 'dark') tintCtx.fillStyle = '#0f172a';
+        tintCtx.fillRect(0, 0, drawW, drawH);
+
+        ctx.drawImage(tintCanvas, drawX, drawY);
+    }
+
+    ctx.restore();
 }
 
 window.handleSalonLogoUpload = handleSalonLogoUpload;
@@ -28469,33 +28753,10 @@ function renderSocialCanvas() {
     ctx.restore();
 
     // LOGO
+    // C. LOGO SALONE (HD, ASPECT-RATIO PERFETTO & FILTRO TINTA)
     if (s.showLogo) {
         const el = elems.logo;
-        const baseSize = isStory ? 150 : 120;
-        const actualSize = baseSize * (el.scale || 1.0);
-        el.w = actualSize;
-        el.h = actualSize;
-
-        if (s.salonLogoImg) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(el.x, el.y, (actualSize / 2) + 6, 0, Math.PI * 2);
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = el.color || accentColor;
-            ctx.stroke();
-            ctx.clip();
-            ctx.drawImage(s.salonLogoImg, el.x - (actualSize / 2), el.y - (actualSize / 2), actualSize, actualSize);
-            ctx.restore();
-        } else {
-            ctx.save();
-            ctx.fillStyle = el.color || accentColor;
-            ctx.font = `bold ${Math.round(28 * (el.scale || 1.0))}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.fillText(currentSalon.toUpperCase(), el.x, el.y);
-            ctx.restore();
-        }
+        drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
     // BADGE
