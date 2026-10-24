@@ -2961,7 +2961,7 @@
                 <div>
                     <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #065f46;">🚀 Passa a VaiMUp Senza Pensieri</h2>
                     <p style="margin: 4px 0 0 0; font-size: 13px; color: #047857; line-height: 1.4;">
-                        Importa clienti e listini da <b>qualsiasi gestionale</b> (Treatwell, Fresha, Uala, Venere, Zucchetti, Excel). Nessun tracciato rigido: l'algoritmo riconosce e ordina i dati automaticamente.
+                        Importa clienti, agenda e listini da <b>qualsiasi gestionale</b> (Treatwell, Fresha, Uala, Venere, Zucchetti, Excel). Nessun tracciato rigido: l'algoritmo riconosce e ordina i dati automaticamente.
                     </p>
                 </div>
                 <div style="display: flex; gap: 6px; flex-wrap: wrap;">
@@ -2971,12 +2971,12 @@
             </div>
         </div>
 
-        <!-- PASSO 1: CARICA O INCOLLA I DATI -->
+        <!-- PASSO 1: CARICA O INCOLLA I DATI CON PRESET 1-CLICK -->
         <div class="card" id="ob-step-input-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                 <div>
-                    <h3 style="margin: 0; font-size: 16px; color: #1e1b4b; font-weight: 800;">1. Scegli cosa importare e inserisci i dati</h3>
-                    <small style="color: #64748b;">Trascina un file CSV/Excel o fai copia-incolla direttamente dalla tabella del vecchio programma</small>
+                    <h3 style="margin: 0; font-size: 16px; color: #1e1b4b; font-weight: 800;">1. Scegli cosa importare e il vecchio gestionale</h3>
+                    <small style="color: #64748b;">Trascina un file CSV/Excel o fai copia-incolla direttamente dalla tabella</small>
                 </div>
                 
                 <select id="ob-target-type" style="width: 250px; margin: 0; background: white; font-weight: bold; border: 1.5px solid var(--p);">
@@ -2986,6 +2986,25 @@
                     <option value="services">✂️ Listino Servizi & Prezzi</option>
                     <option value="products">📦 Magazzino Prodotti</option>
                 </select>
+            </div>
+
+            <!-- PRESET RAPIDI PIATTAFORME DI PARTENZA -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px;">
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569;">Da quale software stai migrando?</label>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="applyOnboardingPreset('treatwell')">
+                        🟠 Treatwell / Uala
+                    </button>
+                    <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="applyOnboardingPreset('fresha')">
+                        🟢 Fresha
+                    </button>
+                    <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="applyOnboardingPreset('excel')">
+                        📊 Excel / Google Sheets
+                    </button>
+                    <button type="button" class="btn" style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px;" onclick="applyOnboardingPreset('venere')">
+                        💼 Venere / Zucchetti / Altro
+                    </button>
+                </div>
             </div>
 
             <!-- DRAG & DROP ZONE -->
@@ -3001,9 +3020,7 @@
 
             <div>
                 <label style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase;">Incolla qui il testo o le righe copiate dal vecchio gestionale / Excel:</label>
-                <textarea id="ob-raw-paste-input" rows="5" placeholder="Nome	Cognome	Cellulare	Note
-Maria	Rossi	3331234567	Colore biondo caldo
-Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace; font-size: 12.5px; background: white;"></textarea>
+                <textarea id="ob-raw-paste-input" rows="5" placeholder="Nome	Cognome	Cellulare	Note&#10;Maria	Rossi	3331234567	Colore biondo caldo&#10;Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace; font-size: 12.5px; background: white;"></textarea>
             </div>
 
             <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
@@ -3023,12 +3040,8 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; background: #f1f5f9;" onclick="resetOnboardingWizard()">✕ Ricarica Altro</button>
             </div>
 
-            <!-- CONTENITORE SELETTORI COLONNE RICONOSCIUTE -->
-            <div id="ob-columns-mapping-container" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
-                <!-- Generato da JS: mostra ogni colonna trovata con tendina per confermare il campo di VaiMUp -->
-            </div>
+            <div id="ob-columns-mapping-container" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 10px;"></div>
 
-            <!-- TABELLA DI CONVALIDA RAPIDA -->
             <div style="overflow-x: auto; max-height: 280px; border: 1.5px solid #cbd5e1; border-radius: 10px; margin-bottom: 14px;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px; background: white;">
                     <thead id="ob-preview-table-head" style="background: #f1f5f9; position: sticky; top: 0; z-index: 5;"></thead>
@@ -3047,7 +3060,7 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
             </div>
         </div>
 
-        <!-- PASSO 3: RISULTATO & SWITCH-OVER WHATSAPP ACCELERATOR -->
+        <!-- PASSO 3: RISULTATO & SWITCH-OVER ACCELERATOR -->
         <div class="card" id="ob-step-success-card" style="display: none; border-left: 6px solid #10b981;">
             <div style="text-align: center; margin-bottom: 20px;">
                 <div style="width: 55px; height: 55px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 10px auto;">✓</div>
@@ -3055,14 +3068,14 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 <p id="ob-success-summary-text" style="font-size: 13px; color: #047857; margin: 4px 0 0 0;">Le anagrafiche sono già operative e sincronizzate.</p>
             </div>
 
-            <!-- BOOSTER WHATSAPP PER I CLIENTI ONLINE -->
+            <!-- BOOSTER WHATSAPP & SOCIAL PER I CLIENTI ONLINE -->
             <div id="ob-whatsapp-booster-box" style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 14px; padding: 18px; margin-bottom: 15px;">
                 <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
                     <span style="font-size: 28px;">📲</span>
                     <div>
                         <b style="font-size: 14.5px; color: #581c87; display: block;">Avvisa i tuoi clienti del nuovo sistema di prenotazione autonoma</b>
                         <small style="color: #6b21a8; font-size: 12px; line-height: 1.4; display: block; margin-top: 2px;">
-                            I tuoi clienti non devono scaricare nulla! Invia un messaggio WhatsApp con il link diretto per farli prenotare subito senza intoppi.
+                            I tuoi clienti non devono scaricare nulla! Puoi lanciare la Storia Instagram di annuncio o inviare un messaggio WhatsApp con il link diretto.
                         </small>
                     </div>
                 </div>
@@ -3073,11 +3086,14 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <button type="button" class="btn btn-w" style="padding: 10px 20px; font-size: 13px; font-weight: 800;" onclick="openMassSwitchOverModal()">
-                        💬 Apri Procedura Invio WhatsApp ai Clienti
+                    <button type="button" class="btn btn-p" style="padding: 10px 18px; font-size: 12.5px; font-weight: 800;" onclick="openSocialLaunchStoryFromOnboarding()">
+                        🎨 Crea Story Instagram "Senza App" nel Social Studio ➔
                     </button>
-                    <button type="button" class="btn" style="padding: 10px 16px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1;" onclick="changePage('customers')">
-                        Vai all'Anagrafica Clienti ➔
+                    <button type="button" class="btn btn-w" style="padding: 10px 18px; font-size: 12.5px; font-weight: 800;" onclick="openMassSwitchOverModal()">
+                        💬 Apri Invio WhatsApp ai Clienti
+                    </button>
+                    <button type="button" class="btn" style="padding: 10px 14px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1;" onclick="changePage('customers')">
+                        Anagrafica Clienti ➔
                     </button>
                 </div>
             </div>
@@ -3956,14 +3972,17 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
             <!-- TOOLBAR CONDIVISIONE & FORMATI -->
             <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
                 
-                <!-- Riga 1: Formati Social a portata di dito -->
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                    <span style="font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">Formato:</span>
-                    <div style="display: flex; gap: 4px; flex: 1;">
+                <!-- Riga 1: Formati Social & Toggle Safe Zone -->
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 4px; flex: 1; min-width: 220px;">
                         <button type="button" class="btn social-pill-btn active-pill" id="btn-format-story" onclick="setSocialFormat('story')">Story 9:16</button>
                         <button type="button" class="btn social-pill-btn" id="btn-format-portrait" onclick="setSocialFormat('portrait')">Post 4:5</button>
                         <button type="button" class="btn social-pill-btn" id="btn-format-square" onclick="setSocialFormat('square')">Post 1:1</button>
                     </div>
+
+                    <button type="button" id="btn-toggle-safezone-btn" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #475569;" onclick="toggleSocialSafeZone()" title="Mostra guide Safe-Zone di Instagram per non coprire i testi">
+                        🛡️ Safe Zone IG
+                    </button>
                 </div>
 
                 <!-- Riga 2: Pulsanti Principali di Pubblicazione -->
@@ -3977,8 +3996,7 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </div>
             </div>
 
-
-<!-- TOOLBAR TRASFORMAZIONE ELEMENTO SELEZIONATO (STILE INSTAGRAM) -->
+            <!-- TOOLBAR TRASFORMAZIONE ELEMENTO SELEZIONATO (STILE INSTAGRAM) -->
             <div id="ss-quick-transform-bar">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 13px;" id="ss-active-elem-icon">✏️</span>
@@ -3996,12 +4014,7 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </div>
             </div>
 
-            <!-- VIEWPORT DEL CANVAS CON CORNICE AD ALTA RISOLUZIONE -->
-            <div class="social-preview-viewport">
-                <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
-            </div>
-
-            <!-- VIEWPORT DEL CANVAS CON CORNICE AD ALTA RISOLUZIONE -->
+            <!-- UNICO VIEWPORT DEL CANVAS (NESSUNA DUPLICAZIONE) -->
             <div class="social-preview-viewport">
                 <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
             </div>
@@ -4031,24 +4044,26 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                     <span style="font-size: 20px;">🎨</span>
                     <div>
                         <b style="font-size: 14px; color: #1e1b4b;">Personalizza Grafica</b>
-                        <small style="display: block; color: #64748b; font-size: 11px;">Modifica testi, colori e foto di sfondo</small>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Tocca gli elementi sul canvas per spostarli o ridimensionarli</small>
                     </div>
                 </div>
             </div>
 
-            <button type="button" class="btn" style="width: 100%; margin-top: 6px; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
-    ↩ Ripristina Posizioni Predefinite
-</button>
+            <button type="button" class="btn" style="width: 100%; margin-top: 4px; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
+                ↩ Ripristina Posizioni Predefinite Elementi
+            </button>
 
-            <!-- 1. TEMPLATE GRAFICO -->
+            <!-- 1. TEMPLATE GRAFICO AD ALTA CONVERSIONE -->
             <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico</label>
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico Strategico</label>
                 <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
-                    <option value="custom" selected>🎨 Post / Story Libera Personalizzata</option>
+                    <option value="launch_no_app" selected>🚀 Annuncio: Prenota Online Senza App!</option>
                     <option value="lastminute">⚡ Posto Libero Last-Minute (Buchi Agenda)</option>
                     <option value="promo">🔥 Offerta Flash & Promozione</option>
-                    <option value="pricelist">📑 Menu Listino (dal Print Studio)</option>
-                    <option value="quote">💬 Frase del Giorno & Recensione</option>
+                    <option value="pricelist">📑 Menu Listino (dal Print Studio & Catalogo)</option>
+                    <option value="transformation">✨ Prima & Dopo / Trasformazione Look</option>
+                    <option value="quote">💬 Recensione 5 Stelle & Cliente</option>
+                    <option value="custom">🎨 Grafica Libera Personalizzata</option>
                 </select>
             </div>
 
@@ -4060,10 +4075,9 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </select>
                 <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali dei tuoi trattamenti mostrare nella grafica (consigliati 3-5):</small>
 
-                <!-- CHECKLIST DINAMICA DEI TUOI VERI TRATTAMENTI -->
                 <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
                     <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;">
-                        <!-- Popolato dinamicamente con i tuoi veri servizi -->
+                        <!-- Popolato dinamicamente da JS -->
                     </div>
                 </div>
             </div>
@@ -4080,43 +4094,52 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                 </select>
             </div>
 
-            <!-- 3. TESTI PERSONALIZZATI -->
+            <!-- 3. TESTI SULLA GRAFICA -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;">
                 <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Testi sulla Grafica</label>
                 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Badge in Alto (Tag)</small>
-                    <input type="text" id="ss-input-badge" value="SPECIALE" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white; font-weight: bold;">
+                    <input type="text" id="ss-input-badge" value="NOVITÀ SMART" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white; font-weight: bold;">
                 </div>
 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Titolo Principale (Headline)</small>
-                    <input type="text" id="ss-input-title" value="Esperienza di Bellezza Esclusiva" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 13px; background: white; font-weight: bold;">
+                    <input type="text" id="ss-input-title" value="Prenota in 5 secondi senza scaricare nessuna app!" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 13px; background: white; font-weight: bold;">
                 </div>
 
                 <div style="margin-bottom: 8px;">
                     <small style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Sottotitolo / Dettagli</small>
-                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white;">Prenditi cura di te con i nostri trattamenti personalizzati.</textarea>
+                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12px; background: white;">Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.</textarea>
                 </div>
 
                 <div id="ss-highlight-box" style="margin-bottom: 2px;">
-                    <small style="font-size: 10px; font-weight: 700; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
-                    <input type="text" id="ss-input-highlight" value="A partire da € 25.00" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12.5px; background: white; font-weight: 900; color: #047857;">
+                    <small style="font-size: 10px; font-weight: 700; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo, Orario o Vantaggio)</small>
+                    <input type="text" id="ss-input-highlight" value="Zero App da Scaricare • 24/7" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 8px; font-size: 12.5px; background: white; font-weight: 900; color: #047857;">
                 </div>
             </div>
 
-            <!-- 4. FOTO & OPZIONI BRAND -->
+            <!-- 4. FOTO, OVERLAY & ELEMENTI VISIVI -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Brand</label>
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Contrasto</label>
                 
                 <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
                 <div style="display: flex; gap: 6px; margin-bottom: 10px;">
                     <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
-                        📷 Scegli o Scatta Foto
+                        📷 Scegli o Scatta Foto Lavoro
                     </button>
                     <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
                         ✕ Rimuovi
                     </button>
+                </div>
+
+                <!-- Slider Contrasto / Oscuramento Sfondo -->
+                <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo Foto:</span>
+                        <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">65%</span>
+                    </div>
+                    <input type="range" id="ss-bg-overlay-slider" min="0.15" max="0.95" step="0.05" value="0.65" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
@@ -4126,7 +4149,11 @@ Luca	Bianchi	3409876543	Taglio sfumato" style="margin: 0; font-family: monospace
                     </label>
                     <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
                         <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Sticker Link "Prenota Online"</span>
+                        <span>Sticker Link "Prenota Online Senza App"</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Includi QR Code Scansionabile sulla Grafica</span>
                     </label>
                 </div>
             </div>
@@ -26532,6 +26559,12 @@ async function executeOnboardingFinalImport() {
             }
         }
 
+
+
+
+
+
+
         // ----------------------------------------------------
         // 2. AGENDA & APPUNTAMENTI (FUTURI O STORICO)
         // ----------------------------------------------------
@@ -26927,17 +26960,6 @@ async function executeOnboardingFinalImport() {
     }
 }
 
-function normalizeDateString(raw) {
-    if (!raw) return null;
-    const parts = raw.split(/[\/\-\.]/);
-    if (parts.length === 3) {
-        // Se formato DD/MM/YYYY
-        if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        // Se formato YYYY/MM/DD
-        if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-    }
-    return raw.substring(0, 10);
-}
 
 function resetOnboardingWizard() {
     document.getElementById('ob-raw-paste-input').value = '';
@@ -27413,42 +27435,127 @@ window.switchSettingsTab = switchSettingsTab;
 
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COMPLETO: TOUCH, GESTI, LISTINO REALE)
+// 🚀 MOTORE FAST-TRACK ONBOARDING & NORMALIZZAZIONE DATI UNIVERSALE
+// =========================================================================
+
+function normalizeDateString(raw) {
+    if (!raw) return null;
+    const str = String(raw).trim();
+    if (!str) return null;
+    
+    // Formato ISO YYYY-MM-DD standard
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+    
+    // Mappatura mesi in italiano per esportazioni discorsive
+    const itMonths = {
+        'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
+        'lug': '07', 'ago': '08', 'set': '09', 'ott': '10', 'nov': '11', 'dic': '12',
+        'gennaio': '01', 'febbraio': '02', 'marzo': '03', 'aprile': '04', 'maggio': '05', 'giugno': '06',
+        'luglio': '07', 'agosto': '08', 'settembre': '09', 'ottobre': '10', 'novembre': '11', 'dicembre': '12'
+    };
+    
+    const parts = str.split(/[\/\-\.\s]+/);
+    if (parts.length >= 3) {
+        let d = parts[0], m = parts[1], y = parts[2];
+        
+        const mLower = m.toLowerCase();
+        if (itMonths[mLower]) m = itMonths[mLower];
+        
+        // Risoluzione anni a 2 cifre (es. '26' -> '2026')
+        if (y.length === 2) y = '20' + y;
+        if (d.length === 4) {
+            return `${d}-${m.padStart(2, '0')}-${y.padStart(2, '0')}`;
+        }
+        if (y.length === 4) {
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+    }
+    return str.substring(0, 10);
+}
+window.normalizeDateString = normalizeDateString;
+
+function applyOnboardingPreset(platform) {
+    const targetTypeSelect = document.getElementById('ob-target-type');
+    const pasteBox = document.getElementById('ob-raw-paste-input');
+    
+    if (platform === 'treatwell') {
+        if (targetTypeSelect) targetTypeSelect.value = 'customers';
+        if (pasteBox && !pasteBox.value) {
+            pasteBox.placeholder = "Esportazione Treatwell / Uala:\nNome	Cognome	Cellulare	Email	Note\nAlessia	Verdi	3381122334	alessia@email.it	Piega + Maschera";
+        }
+        alert("🟠 Preset Treatwell / Uala attivato! Trascina il file esportato o incolla le righe.");
+    } else if (platform === 'fresha') {
+        if (targetTypeSelect) targetTypeSelect.value = 'customers';
+        if (pasteBox && !pasteBox.value) {
+            pasteBox.placeholder = "Esportazione Fresha:\nFirst name,Last name,Mobile number,Email,Notes\nGiulia,Ferrari,3479988776,giulia@email.it,Colore biondo freddo";
+        }
+        alert("🟢 Preset Fresha attivato! Incolla o trascina il file CSV.");
+    } else if (platform === 'excel') {
+        if (pasteBox && !pasteBox.value) {
+            pasteBox.placeholder = "Copia semplicemente le celle dal tuo foglio Excel o Google Sheets (Ctrl+C) e incollale qui sotto (Ctrl+V).";
+        }
+        alert("📊 Preset Excel attivato! Incolla direttamente le celle copiate.");
+    } else {
+        if (pasteBox && !pasteBox.value) {
+            pasteBox.placeholder = "Incolla l'esportazione tabellare o CSV del tuo software:";
+        }
+        alert("💼 Preset Gestionale Tradizionale attivato.");
+    }
+}
+window.applyOnboardingPreset = applyOnboardingPreset;
+
+function openSocialLaunchStoryFromOnboarding() {
+    changePage('social');
+    setTimeout(() => {
+        const select = document.getElementById('ss-template-select');
+        if (select) {
+            select.value = 'launch_no_app';
+            onSocialTemplateChanged('launch_no_app');
+        }
+    }, 200);
+}
+window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
+
+// =========================================================================
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (TOUCH GESTURES, SAFE-ZONE, QR)
 // =========================================================================
 
 window._socialStudioState = {
-    template: 'custom',      // 'custom' | 'lastminute' | 'promo' | 'pricelist' | 'quote'
-    format: 'story',          // 'story' (9:16) | 'portrait' (4:5) | 'square' (1:1)
+    template: 'launch_no_app',
+    format: 'story',
     theme: 'luxury-gold',
-    badgeText: 'SPECIALE',
-    title: 'Esperienza di Bellezza Esclusiva',
-    subtitle: 'Prenditi cura di te con i nostri trattamenti personalizzati.',
-    highlightText: 'A partire da € 25.00',
+    badgeText: 'NOVITÀ SMART',
+    title: 'Prenota in 5 secondi senza scaricare nessuna app!',
+    subtitle: 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.',
+    highlightText: 'Zero App da Scaricare • 24/7',
     uploadedBgImg: null,
+    bgOverlayOpacity: 0.65,
     showLogo: true,
     showBookingBadge: true,
+    showQrCode: false,
+    showSafeZone: false,
     selectedPresetId: 'current',
     salonLogoImg: null,
+    qrImage: null,
     customCheckedServiceIds: new Set()
 };
 
-// Configurazione posizioni e dimensioni predefinite degli elementi mobili
 function getDefaultSocialElements(W, H, isStory) {
     return {
         logo: { id: 'logo', name: 'Logo', icon: '🖼️', x: W / 2, y: isStory ? 230 : 160, scale: 1.0, w: 150, h: 150 },
-        badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 410 : 270, scale: 1.0, w: 260, h: 50 },
-        title: { id: 'title', name: 'Titolo', icon: '✨', x: W / 2, y: isStory ? 580 : 420, scale: 1.0, w: 850, h: 160 },
-        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 800 : 590, scale: 1.0, w: 820, h: 100 },
-        highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1040 : 780, scale: 1.0, w: 520, h: 80 },
+        badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 410 : 270, scale: 1.0, w: 280, h: 50 },
+        title: { id: 'title', name: 'Titolo', icon: '✨', x: W / 2, y: isStory ? 590 : 420, scale: 1.0, w: 860, h: 160 },
+        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 810 : 590, scale: 1.0, w: 820, h: 100 },
+        highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1040 : 770, scale: 1.0, w: 540, h: 80 },
         menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 920 : 680, scale: 1.0, w: 860, h: 360 },
-        sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 240 : 170), scale: 1.0, w: 480, h: 70 }
+        qrcode: { id: 'qrcode', name: 'QR Code', icon: '📲', x: W / 2, y: isStory ? 1320 : 920, scale: 1.0, w: 230, h: 230 },
+        sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 240 : 160), scale: 1.0, w: 500, h: 72 }
     };
 }
 
 window._socialElements = null;
 window._activeSocialElemId = null;
 
-// Variabili interne rilevamento gesti touch
 let isTouchDragging = false;
 let touchDragStartX = 0;
 let touchDragStartY = 0;
@@ -27463,18 +27570,13 @@ function ensureSocialElementsInitialized(W, H, isStory) {
     }
 }
 
-// -------------------------------------------------------------------------
-// 1. INIZIALIZZAZIONE DELLA VISTA SOCIAL STUDIO
-// -------------------------------------------------------------------------
 async function initSocialStudioView() {
-    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore con catalogo reale salone...");
-
+    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore ad alta conversione...");
     const s = window._socialStudioState;
     const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
         ? String(currentUser.salon_id || '').trim().toLowerCase() 
         : 'salon_001';
 
-    // Risoluzione sicura di allInventory (evita l'errore di array vuoto)
     let inventory = [];
     if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
         inventory = allInventory;
@@ -27486,10 +27588,9 @@ async function initSocialStudioView() {
     window.allInventory = inventory;
     if (typeof allInventory !== 'undefined') allInventory = inventory;
 
-    // Risolve i prezzi reali da price_history
     await resolveRealPricesForSocialInventory(inventory);
 
-    // Carica il logo salone salvato
+    // Caricamento logo del salone salvato
     const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
     if (savedLogo) {
         const img = new Image();
@@ -27500,21 +27601,26 @@ async function initSocialStudioView() {
         img.src = savedLogo;
     }
 
-    // Popola i preset salvati dal Print Studio
-    populatePrintStudioPresetsInSocialStudio(currentSalon);
+    // Pre-caricamento QR Code
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const qrImg = new Image();
+    qrImg.onload = () => {
+        s.qrImage = qrImg;
+        renderSocialCanvas();
+    };
+    qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(bookingUrl)}&size=600&dark=1e1b4b&ecLevel=H`;
 
-    // Popola la checklist dei tuoi trattamenti reali
+    if (typeof populatePrintStudioPresetsInSocialStudio === 'function') {
+        populatePrintStudioPresetsInSocialStudio(currentSalon);
+    }
     renderSocialPricelistItemCheckboxes();
-
     updateCaptionPreview();
     renderSocialCanvas();
 }
 window.initSocialStudioView = initSocialStudioView;
 
-// Risolutore deterministico dei prezzi in vigore
 async function resolveRealPricesForSocialInventory(inventory) {
     if (!Array.isArray(inventory) || inventory.length === 0) return;
-
     const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -27546,31 +27652,10 @@ async function resolveRealPricesForSocialInventory(inventory) {
                 resolvedPrice = (!isNaN(listingP) && listingP > 0) ? listingP : 0.00;
             }
         }
-
         item.price = resolvedPrice;
     });
 }
 
-function populatePrintStudioPresetsInSocialStudio(currentSalon) {
-    const select = document.getElementById('ss-preset-source-select');
-    if (!select) return;
-
-    let allPresets = [];
-    if (typeof loadAllPresetsFromStorage === 'function') {
-        allPresets = loadAllPresetsFromStorage(currentSalon);
-    }
-
-    let html = `<option value="current">Tutti i Servizi Attivi del Salone</option>`;
-    allPresets.forEach(p => {
-        html += `<option value="${p.id}">📑 ${p.name}</option>`;
-    });
-
-    select.innerHTML = html;
-}
-
-// -------------------------------------------------------------------------
-// 2. CHECKLIST TRATTAMENTI REALI
-// -------------------------------------------------------------------------
 function renderSocialPricelistItemCheckboxes() {
     const container = document.getElementById('ss-pricelist-items-picker');
     if (!container) return;
@@ -27578,46 +27663,14 @@ function renderSocialPricelistItemCheckboxes() {
     const s = window._socialStudioState;
     s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
 
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
-        : 'salon_001';
-
     let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
     let services = inventory.filter(i => i.type === 'servizio');
-
-    // Se è selezionato un preset del Print Studio, filtra i suoi trattamenti
-    if (s.selectedPresetId && s.selectedPresetId !== 'current') {
-        let allPresets = [];
-        if (typeof loadAllPresetsFromStorage === 'function') allPresets = loadAllPresetsFromStorage(currentSalon);
-        const preset = allPresets.find(p => String(p.id) === String(s.selectedPresetId));
-        
-        if (preset && preset.config) {
-            const cfg = preset.config;
-            const fullPool = [...inventory, ...(cfg.customItems || [])];
-            let presetItemIds = [];
-
-            if (Array.isArray(cfg.categories)) {
-                cfg.categories.forEach(c => {
-                    if (Array.isArray(c.itemIds)) presetItemIds.push(...c.itemIds);
-                });
-            }
-            if (presetItemIds.length === 0 && Array.isArray(cfg.selectedItemIds)) {
-                presetItemIds = cfg.selectedItemIds;
-            }
-
-            if (presetItemIds.length > 0) {
-                const presetIdSet = new Set(presetItemIds.map(String));
-                services = fullPool.filter(x => presetIdSet.has(String(x.id)));
-            }
-        }
-    }
 
     if (services.length === 0) {
         container.innerHTML = `<span style="font-size:11px; color:#888; padding:6px;">Nessun servizio registrato nel listino.</span>`;
         return;
     }
 
-    // Preseleziona i primi 4 di default
     if (s.customCheckedServiceIds.size === 0) {
         services.slice(0, 4).forEach(srv => s.customCheckedServiceIds.add(String(srv.id)));
     }
@@ -27625,13 +27678,11 @@ function renderSocialPricelistItemCheckboxes() {
     container.innerHTML = services.map(srv => {
         const isChecked = s.customCheckedServiceIds.has(String(srv.id));
         const priceFmt = parseFloat(srv.price || 0).toFixed(2);
-        const cleanTitle = typeof cleanItemNameForPrint === 'function' ? cleanItemNameForPrint(srv.name) : srv.name;
-
         return `
             <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; padding: 4px 6px; border-radius: 6px; background: ${isChecked ? '#f5f3ff' : 'transparent'}; cursor: pointer; margin: 0;">
                 <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                     <input type="checkbox" value="${srv.id}" ${isChecked ? 'checked' : ''} onchange="toggleSocialPricelistItem('${srv.id}', this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
-                    <span style="font-weight: 600; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cleanTitle}</span>
+                    <span style="font-weight: 600; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${srv.name}</span>
                 </div>
                 <b style="font-size: 11px; color: var(--p); margin-left: 6px;">€ ${priceFmt}</b>
             </label>
@@ -27643,13 +27694,8 @@ window.renderSocialPricelistItemCheckboxes = renderSocialPricelistItemCheckboxes
 function toggleSocialPricelistItem(serviceId, isChecked) {
     const s = window._socialStudioState;
     s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
-
-    if (isChecked) {
-        s.customCheckedServiceIds.add(String(serviceId));
-    } else {
-        s.customCheckedServiceIds.delete(String(serviceId));
-    }
-
+    if (isChecked) s.customCheckedServiceIds.add(String(serviceId));
+    else s.customCheckedServiceIds.delete(String(serviceId));
     renderSocialCanvas();
 }
 window.toggleSocialPricelistItem = toggleSocialPricelistItem;
@@ -27662,13 +27708,8 @@ function onSocialPresetSourceChanged(val) {
 }
 window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
 
-// -------------------------------------------------------------------------
-// 3. CAMBIO MODELLO / FORMATO / TEMA
-// -------------------------------------------------------------------------
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
-    const s = window._socialStudioState;
-
     const sourceBox = document.getElementById('ss-pricelist-source-box');
     const badgeInput = document.getElementById('ss-input-badge');
     const titleInput = document.getElementById('ss-input-title');
@@ -27677,32 +27718,42 @@ function onSocialTemplateChanged(tpl) {
 
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
 
-    if (tpl === 'lastminute') {
-        badgeInput.value = '⚡ LAST-MINUTE OGGI';
-        titleInput.value = 'Si è liberato un posto!';
-        subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
-        highInput.value = '🕒 OGGI • ORE 16:30';
+    if (tpl === 'launch_no_app') {
+        if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
+        if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
+        if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
+        if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
+    } else if (tpl === 'lastminute') {
+        if (badgeInput) badgeInput.value = '⚡ LAST-MINUTE OGGI';
+        if (titleInput) titleInput.value = 'Si è liberato un posto!';
+        if (subInput) subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
+        if (highInput) highInput.value = '🕒 OGGI • ORE 16:30';
     } else if (tpl === 'promo') {
-        badgeInput.value = '🔥 OFFERTA SPECIALE';
-        titleInput.value = 'Trattamento Glow Viso & Ciglia';
-        subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
-        highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
+        if (badgeInput) badgeInput.value = '🔥 OFFERTA SPECIALE';
+        if (titleInput) titleInput.value = 'Trattamento Glow Viso & Ciglia';
+        if (subInput) subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
+        if (highInput) highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
     } else if (tpl === 'pricelist') {
-        badgeInput.value = 'MENU TRATTAMENTI';
-        titleInput.value = 'I Nostri Servizi Esclusivi';
-        subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
-        highInput.value = 'Scegli il tuo trattamento e prenota online';
+        if (badgeInput) badgeInput.value = 'MENU TRATTAMENTI';
+        if (titleInput) titleInput.value = 'I Nostri Servizi Esclusivi';
+        if (subInput) subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
+        if (highInput) highInput.value = 'Scegli il tuo trattamento e prenota online';
         renderSocialPricelistItemCheckboxes();
+    } else if (tpl === 'transformation') {
+        if (badgeInput) badgeInput.value = '✨ TRASFORMAZIONE LOOK';
+        if (titleInput) titleInput.value = 'Prima & Dopo: Luce & Armonia';
+        if (subInput) subInput.value = 'Consulenza morfologica e tecnica colore su misura. Scopri il cambio look perfetto.';
+        if (highInput) highInput.value = 'Richiedi la tua consulenza personalizzata';
     } else if (tpl === 'quote') {
-        badgeInput.value = 'PAROLA DI CLIENTE';
-        titleInput.value = '«Il miglior salone in assoluto!»';
-        subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
-        highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
+        if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
+        if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
+        if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
+        if (highInput) highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
     } else {
-        badgeInput.value = 'SPECIALE';
-        titleInput.value = 'Esperienza di Bellezza Esclusiva';
-        subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
-        highInput.value = 'A partire da € 25.00';
+        if (badgeInput) badgeInput.value = 'SPECIALE';
+        if (titleInput) titleInput.value = 'Esperienza di Bellezza Esclusiva';
+        if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
+        if (highInput) highInput.value = 'A partire da € 25.00';
     }
 
     updateCaptionPreview();
@@ -27712,26 +27763,19 @@ window.onSocialTemplateChanged = onSocialTemplateChanged;
 
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
-
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
     const btnMap = { story: 'btn-format-story', portrait: 'btn-format-portrait', square: 'btn-format-square' };
     const activeBtn = document.getElementById(btnMap[fmt]);
     if (activeBtn) activeBtn.classList.add('active-pill');
 
     const canvas = document.getElementById('social-render-canvas');
-    if (fmt === 'story') {
-        canvas.width = 1080;
-        canvas.height = 1920;
-    } else if (fmt === 'portrait') {
-        canvas.width = 1080;
-        canvas.height = 1350;
-    } else if (fmt === 'square') {
-        canvas.width = 1080;
-        canvas.height = 1080;
+    if (canvas) {
+        if (fmt === 'story') { canvas.width = 1080; canvas.height = 1920; }
+        else if (fmt === 'portrait') { canvas.width = 1080; canvas.height = 1350; }
+        else if (fmt === 'square') { canvas.width = 1080; canvas.height = 1080; }
+        window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, fmt === 'story');
     }
 
-    // Reimposta gli elementi per il nuovo formato
-    window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, fmt === 'story');
     deselectActiveElement();
     renderSocialCanvas();
 }
@@ -27742,6 +27786,39 @@ function onSocialThemeChanged(thm) {
     renderSocialCanvas();
 }
 window.onSocialThemeChanged = onSocialThemeChanged;
+
+function onSocialBgOverlayChanged(val) {
+    const opacity = parseFloat(val) || 0.65;
+    window._socialStudioState.bgOverlayOpacity = opacity;
+    const lbl = document.getElementById('ss-bg-overlay-label');
+    if (lbl) lbl.innerText = `${Math.round(opacity * 100)}%`;
+    renderSocialCanvas();
+}
+window.onSocialBgOverlayChanged = onSocialBgOverlayChanged;
+
+function onSocialQrToggleChanged(isChecked) {
+    window._socialStudioState.showQrCode = Boolean(isChecked);
+    renderSocialCanvas();
+}
+window.onSocialQrToggleChanged = onSocialQrToggleChanged;
+
+function toggleSocialSafeZone() {
+    window._socialStudioState.showSafeZone = !window._socialStudioState.showSafeZone;
+    const btn = document.getElementById('btn-toggle-safezone-btn');
+    if (btn) {
+        if (window._socialStudioState.showSafeZone) {
+            btn.style.background = '#ede9fe';
+            btn.style.color = '#6d28d9';
+            btn.style.borderColor = '#c4b5fd';
+        } else {
+            btn.style.background = '#f8fafc';
+            btn.style.color = '#475569';
+            btn.style.borderColor = '#cbd5e1';
+        }
+    }
+    renderSocialCanvas();
+}
+window.toggleSocialSafeZone = toggleSocialSafeZone;
 
 function handleSocialBgUpload(e) {
     const file = e.target.files?.[0];
@@ -27792,15 +27869,24 @@ function attachCanvasTouchGestures() {
 
     function hitTestElement(clickX, clickY) {
         const elems = window._socialElements;
-        if (!elems) return null;
+        const s = window._socialStudioState;
+        if (!elems || !s) return null;
 
-        const keys = ['sticker', 'highlight', 'menu', 'subtitle', 'title', 'badge', 'logo'];
-        for (let key of keys) {
+        const candidates = ['sticker', 'qrcode', 'highlight', 'menu', 'subtitle', 'title', 'badge', 'logo'];
+        for (let key of candidates) {
+            if (key === 'logo' && !s.showLogo) continue;
+            if (key === 'sticker' && !s.showBookingBadge) continue;
+            if (key === 'qrcode' && !s.showQrCode) continue;
+            if (key === 'menu' && s.template !== 'pricelist') continue;
+            if (key === 'subtitle' && (s.template === 'pricelist' || !s.subtitle)) continue;
+            if (key === 'highlight' && (s.template === 'pricelist' || !s.highlightText)) continue;
+            if (key === 'badge' && !s.badgeText) continue;
+
             const el = elems[key];
             if (!el) continue;
 
-            const halfW = (el.w * el.scale) / 2 + 35; // Margine di tolleranza touch per il dito
-            const halfH = (el.h * el.scale) / 2 + 35;
+            const halfW = (el.w * el.scale) / 2 + 40;
+            const halfH = (el.h * el.scale) / 2 + 40;
 
             if (clickX >= el.x - halfW && clickX <= el.x + halfW &&
                 clickY >= el.y - halfH && clickY <= el.y + halfH) {
@@ -27810,7 +27896,6 @@ function attachCanvasTouchGestures() {
         return null;
     }
 
-    // Touch Start
     canvas.addEventListener('touchstart', (e) => {
         const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
 
@@ -27838,7 +27923,6 @@ function attachCanvasTouchGestures() {
         }
     }, { passive: false });
 
-    // Touch Move
     canvas.addEventListener('touchmove', (e) => {
         if (e.touches.length === 1 && isTouchDragging && window._activeSocialElemId) {
             e.preventDefault();
@@ -27849,7 +27933,6 @@ function attachCanvasTouchGestures() {
             const el = window._socialElements[window._activeSocialElemId];
             el.x = Math.max(60, Math.min(canvas.width - 60, initialElemX + dx));
             el.y = Math.max(50, Math.min(canvas.height - 50, initialElemY + dy));
-
             renderSocialCanvas();
         } else if (e.touches.length === 2 && window._activeSocialElemId && initialPinchDistance > 0) {
             e.preventDefault();
@@ -27860,13 +27943,11 @@ function attachCanvasTouchGestures() {
 
             const el = window._socialElements[window._activeSocialElemId];
             el.scale = Math.min(Math.max(initialPinchScale * factor, 0.4), 2.5);
-
             updateTransformBarValues();
             renderSocialCanvas();
         }
     }, { passive: false });
 
-    // Touch End
     canvas.addEventListener('touchend', (e) => {
         if (e.touches.length === 0) {
             isTouchDragging = false;
@@ -27874,7 +27955,7 @@ function attachCanvasTouchGestures() {
         }
     });
 
-    // Supporto Mouse (PC)
+    // Supporto Mouse PC
     let isMouseDown = false;
     canvas.addEventListener('mousedown', (e) => {
         const coords = getCanvasCoords(e.clientX, e.clientY);
@@ -27905,22 +27986,10 @@ function attachCanvasTouchGestures() {
     });
 
     window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-    // Rotella del mouse per scalare su PC
-    canvas.addEventListener('wheel', (e) => {
-        if (window._activeSocialElemId) {
-            e.preventDefault();
-            const el = window._socialElements[window._activeSocialElemId];
-            const delta = e.deltaY < 0 ? 0.05 : -0.05;
-            el.scale = Math.min(Math.max(el.scale + delta, 0.4), 2.5);
-            updateTransformBarValues();
-            renderSocialCanvas();
-        }
-    }, { passive: false });
 }
 
 // -------------------------------------------------------------------------
-// 5. CONTROLLI BARRA TRASFORMAZIONE
+// 5. TRASFORMAZIONE RAPIDA
 // -------------------------------------------------------------------------
 function setActiveSocialElement(elemId) {
     window._activeSocialElemId = elemId;
@@ -28016,7 +28085,7 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
-    // Sincronizza valori dai campi input
+    // Sincronizza testi
     s.badgeText = document.getElementById('ss-input-badge')?.value.trim() || '';
     s.title = document.getElementById('ss-input-title')?.value.trim() || '';
     s.subtitle = document.getElementById('ss-input-subtitle')?.value.trim() || '';
@@ -28028,29 +28097,34 @@ function renderSocialCanvas() {
         ? (currentUser.salon_id || 'SALON_001') 
         : 'SALON_001';
 
-    // Palette tema
+    // Tipografia e Palette
     let bgColors = ['#11141a', '#080a0e'];
     let accentColor = '#D4AF37';
     let textMain = '#ffffff';
     let textSub = '#cbd5e1';
+    let titleFontStack = "'Playfair Display', 'Cinzel', Didot, 'Times New Roman', serif";
 
     if (s.theme === 'rose-glamour') {
         bgColors = ['#2e1c24', '#170b11'];
         accentColor = '#e8c4ca';
+        titleFontStack = "'Playfair Display', 'Bodoni MT', Georgia, serif";
     } else if (s.theme === 'barber-vintage') {
         bgColors = ['#1c1917', '#0c0a09'];
         accentColor = '#d97706';
+        titleFontStack = "'Impact', 'Trebuchet MS', 'Arial Black', sans-serif";
     } else if (s.theme === 'botanical-minimal') {
         bgColors = ['#062c21', '#021510'];
         accentColor = '#34d399';
+        titleFontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     } else if (s.theme === 'neon-violet') {
         bgColors = ['#1e1035', '#0c0517'];
         accentColor = '#818cf8';
+        titleFontStack = "'Inter', -apple-system, sans-serif";
     }
 
     ctx.clearRect(0, 0, W, H);
 
-    // A. SFONDO
+    // A. SFONDO FOTOGRAFICO O RADIALE
     if (s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28058,10 +28132,11 @@ function renderSocialCanvas() {
         const shiftY = (H - img.height * ratio) / 2;
         ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
 
+        const overlayAlpha = s.bgOverlayOpacity || 0.65;
         const darkGrad = ctx.createLinearGradient(0, 0, 0, H);
-        darkGrad.addColorStop(0, 'rgba(10, 12, 18, 0.72)');
-        darkGrad.addColorStop(0.5, 'rgba(10, 12, 18, 0.60)');
-        darkGrad.addColorStop(1, 'rgba(10, 12, 18, 0.90)');
+        darkGrad.addColorStop(0, `rgba(10, 12, 18, ${Math.min(overlayAlpha + 0.1, 0.95)})`);
+        darkGrad.addColorStop(0.5, `rgba(10, 12, 18, ${overlayAlpha})`);
+        darkGrad.addColorStop(1, `rgba(10, 12, 18, ${Math.min(overlayAlpha + 0.2, 0.98)})`);
         ctx.fillStyle = darkGrad;
         ctx.fillRect(0, 0, W, H);
     } else {
@@ -28080,7 +28155,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // B. CORNICE PERIMETRALE
+    // B. CORNICE PERIMETRALE SOTTILE
     ctx.save();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2.5;
@@ -28089,7 +28164,7 @@ function renderSocialCanvas() {
     ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
     ctx.restore();
 
-    // C. LOGO
+    // C. LOGO SALONE
     if (s.showLogo) {
         const el = elems.logo;
         const baseSize = isStory ? 150 : 120;
@@ -28119,12 +28194,12 @@ function renderSocialCanvas() {
         }
     }
 
-    // D. BADGE
+    // D. BADGE IN ALTO
     if (s.badgeText) {
         const el = elems.badge;
         ctx.save();
         ctx.font = `900 ${Math.round(24 * el.scale)}px sans-serif`;
-        const badgeW = (ctx.measureText(s.badgeText).width + 44) * el.scale;
+        const badgeW = (ctx.measureText(s.badgeText).width + 48) * el.scale;
         const badgeH = 46 * el.scale;
         el.w = badgeW;
         el.h = badgeH;
@@ -28140,14 +28215,14 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // E. TITOLO
+    // E. TITOLO PRINCIPALE (HEADLINE)
     if (s.title) {
         const el = elems.title;
         ctx.save();
         ctx.fillStyle = textMain;
         ctx.textAlign = 'center';
-        const fontSize = Math.round((isStory ? 66 : 56) * el.scale);
-        ctx.font = `900 ${fontSize}px serif`;
+        const fontSize = Math.round((isStory ? 64 : 54) * el.scale);
+        ctx.font = `900 ${fontSize}px ${titleFontStack}`;
         ctx.shadowColor = 'rgba(0,0,0,0.8)';
         ctx.shadowBlur = 15;
         const maxTextW = (W - (margin * 3)) * el.scale;
@@ -28157,7 +28232,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // F. LISTINO O SOTTOTITOLO
+    // F. LISTINO MENU OPPURE SOTTOTITOLO + HIGHLIGHT
     if (s.template === 'pricelist') {
         const el = elems.menu;
         drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain);
@@ -28178,9 +28253,9 @@ function renderSocialCanvas() {
         if (s.highlightText) {
             const el = elems.highlight;
             ctx.save();
-            const highFont = Math.round(38 * el.scale);
+            const highFont = Math.round(36 * el.scale);
             ctx.font = `900 ${highFont}px sans-serif`;
-            const boxW = (ctx.measureText(s.highlightText).width + 60) * el.scale;
+            const boxW = (ctx.measureText(s.highlightText).width + 64) * el.scale;
             const boxH = 75 * el.scale;
             el.w = boxW;
             el.h = boxH;
@@ -28200,34 +28275,76 @@ function renderSocialCanvas() {
         }
     }
 
-    // G. STICKER PRENOTA ONLINE
+    // G. QR CODE SU GRAFICA (OPZIONALE)
+    if (s.showQrCode && s.qrImage) {
+        const el = elems.qrcode;
+        const qrSize = (isStory ? 220 : 180) * el.scale;
+        el.w = qrSize + 30;
+        el.h = qrSize + 50;
+
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 15;
+        drawRoundedRect(ctx, el.x - (el.w / 2), el.y - (el.h / 2), el.w, el.h, 16 * el.scale);
+        ctx.fill();
+
+        ctx.drawImage(s.qrImage, el.x - (qrSize / 2), el.y - (el.h / 2) + 12, qrSize, qrSize);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = `900 ${Math.round(14 * el.scale)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('INQUADRA E PRENOTA', el.x, el.y + (el.h / 2) - 12);
+        ctx.restore();
+    }
+
+    // H. STICKER CALL-TO-ACTION PRENOTA ONLINE
     if (s.showBookingBadge) {
         const el = elems.sticker;
         ctx.save();
-        const stW = 480 * el.scale;
-        const stH = 68 * el.scale;
+        const stW = 500 * el.scale;
+        const stH = 70 * el.scale;
         el.w = stW;
         el.h = stH;
 
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 20;
-        drawRoundedRect(ctx, el.x - (stW / 2), el.y - (stH / 2), stW, stH, 34 * el.scale);
+        drawRoundedRect(ctx, el.x - (stW / 2), el.y - (stH / 2), stW, stH, 35 * el.scale);
         ctx.fill();
 
         ctx.fillStyle = '#0f172a';
-        ctx.font = `900 ${Math.round(24 * el.scale)}px sans-serif`;
+        ctx.font = `900 ${Math.round(23 * el.scale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🔗 PRENOTA IN UN ATTIMO ONLINE', el.x, el.y);
+        ctx.fillText('🔗 PRENOTA IN UN ATTIMO SENZA APP', el.x, el.y);
         ctx.restore();
     }
 
-    // 🌟 BORDO DI SELEZIONE STILE INSTAGRAM SULL'ELEMENTO ATTIVO
+    // I. GUIDE SAFE ZONE INSTAGRAM (SE ATTIVE)
+    if (s.showSafeZone && isStory) {
+        ctx.save();
+        // Top 14%
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.fillRect(0, 0, W, H * 0.14);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ Zona coperta da Instagram (Nome Salone & Storie)', W / 2, H * 0.08);
+
+        // Bottom 14%
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.fillRect(0, H * 0.86, W, H * 0.14);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('⚠️ Zona coperta da Instagram (Barra messaggi)', W / 2, H * 0.93);
+        ctx.restore();
+    }
+
+    // L. BORDO SELEZIONE TOUCH STILE INSTAGRAM
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         const active = elems[window._activeSocialElemId];
         ctx.save();
-        ctx.strokeStyle = '#38bdf8'; // Celeste neon
+        ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 3;
         ctx.setLineDash([8, 8]);
         const pad = 16;
@@ -28236,7 +28353,6 @@ function renderSocialCanvas() {
         drawRoundedRect(ctx, active.x - (selW / 2), active.y - (selH / 2), selW, selH, 12);
         ctx.stroke();
 
-        // 4 pallini di ancoraggio
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#0284c7';
         ctx.lineWidth = 2;
@@ -28258,7 +28374,6 @@ function renderSocialCanvas() {
 }
 window.renderSocialCanvas = renderSocialCanvas;
 
-// Disegno del menu reale centrato
 function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
     const isStory = (s.format === 'story');
     const maxItems = isStory ? 5 : 4;
@@ -28266,9 +28381,8 @@ function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
     let itemsToDraw = [];
 
     if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
-        const fullPool = [...inventory, ...(window._printStudioState?.customItems || [])];
         for (let sId of s.customCheckedServiceIds) {
-            const found = fullPool.find(x => String(x.id).trim() === String(sId).trim());
+            const found = inventory.find(x => String(x.id).trim() === String(sId).trim());
             if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
         }
     }
@@ -28292,7 +28406,7 @@ function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
     el.h = displayList.length * lineHeight;
 
     displayList.forEach(item => {
-        const cleanName = typeof cleanItemNameForPrint === 'function' ? cleanItemNameForPrint(item.name) : item.name;
+        const cleanName = item.name.replace(/^[🔥⚡✨🏷️👑🎁]?\s*\[[^\]]+\]\s*/i, '').trim();
         const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
 
         ctx.save();
@@ -28322,7 +28436,7 @@ function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
 }
 
 // -------------------------------------------------------------------------
-// 7. CONDIVISIONE, DOWNLOAD & DIDASCALIA
+// 7. CONDIVISIONE, SALVATAGGIO & DIDASCALIA
 // -------------------------------------------------------------------------
 async function shareSocialGraphic() {
     const canvas = document.getElementById('social-render-canvas');
@@ -28394,7 +28508,6 @@ function copySocialCaption() {
 }
 window.copySocialCaption = copySocialCaption;
 
-// Helper Canvas
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
     const words = text.split(' ');
     let line = '';
@@ -28428,9 +28541,6 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
     ctx.quadraticCurveTo(x, y, x + radius, y);
     ctx.closePath();
 }
-
-
-
 
 
     document.addEventListener('DOMContentLoaded', () => {
