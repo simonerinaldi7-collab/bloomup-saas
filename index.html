@@ -28040,9 +28040,10 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING TESTUALE & GEOMETRICO (IN CIMA)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO DEFINITIVO)
 // =========================================================================
 
+// 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING GEOMETRICO E TESTUALE
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
     if (!text) return 0;
     const words = String(text).split(' ');
@@ -28088,10 +28089,62 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 window.drawRoundedRect = drawRoundedRect;
 
-// =========================================================================
-// 🎨 2. GALLERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
-// =========================================================================
+// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE (RISOLUZIONE ERRORE REFERENCE)
+function onSocialTextInput(inputId, value) {
+    const s = window._socialStudioState;
+    if (inputId === 'ss-input-badge') s.badgeText = value;
+    else if (inputId === 'ss-input-title') s.title = value;
+    else if (inputId === 'ss-input-subtitle') s.subtitle = value;
+    else if (inputId === 'ss-input-highlight') s.highlightText = value;
 
+    const activeId = window._activeSocialElemId;
+    const quickInput = document.getElementById('ss-quick-text-input');
+    if (quickInput && activeId) {
+        if ((activeId === 'badge' && inputId === 'ss-input-badge') ||
+            (activeId === 'title' && inputId === 'ss-input-title') ||
+            (activeId === 'subtitle' && inputId === 'ss-input-subtitle') ||
+            (activeId === 'highlight' && inputId === 'ss-input-highlight')) {
+            quickInput.value = value;
+        }
+    }
+
+    if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
+    if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+}
+window.onSocialTextInput = onSocialTextInput;
+
+function onQuickTextEdit(value) {
+    const activeId = window._activeSocialElemId;
+    if (!activeId) return;
+
+    const s = window._socialStudioState;
+    let sideInputId = null;
+
+    if (activeId === 'badge') {
+        s.badgeText = value;
+        sideInputId = 'ss-input-badge';
+    } else if (activeId === 'title') {
+        s.title = value;
+        sideInputId = 'ss-input-title';
+    } else if (activeId === 'subtitle') {
+        s.subtitle = value;
+        sideInputId = 'ss-input-subtitle';
+    } else if (activeId === 'highlight') {
+        s.highlightText = value;
+        sideInputId = 'ss-input-highlight';
+    }
+
+    if (sideInputId) {
+        const sideInput = document.getElementById(sideInputId);
+        if (sideInput) sideInput.value = value;
+    }
+
+    if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
+    if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+}
+window.onQuickTextEdit = onQuickTextEdit;
+
+// 🎨 3. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
 window.SOCIAL_BG_PRESETS = [
     // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
@@ -28252,10 +28305,7 @@ function ensureSocialElementsInitialized(W, H, isStory) {
     }
 }
 
-// =========================================================================
-// 📝 3. DIDASCALIE, CONDIVISIONE & CAPTION
-// =========================================================================
-
+// 📢 4. DIDASCALIE E CONDIVISIONE SOCIAL
 function generateSocialCaptionText(salonId, link) {
     const s = window._socialStudioState;
     return `✨ ${s.title}\n${s.subtitle}\n\n👉 ${s.highlightText}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${String(salonId).replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
@@ -28287,8 +28337,7 @@ async function shareSocialGraphic() {
     if (!canvas) return;
 
     const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+    const caption = generateSocialCaptionText(currentSalon, `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`);
 
     try {
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
@@ -28328,10 +28377,7 @@ function downloadSocialGraphic() {
 }
 window.downloadSocialGraphic = downloadSocialGraphic;
 
-// =========================================================================
-// 🚀 4. CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
-// =========================================================================
-
+// 🚀 5. CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
@@ -28421,10 +28467,7 @@ function onSocialTemplateChanged(tpl) {
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
-// =========================================================================
-// 🎨 5. GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
-// =========================================================================
-
+// 🎨 6. GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
 let _activeBgGalleryCategory = 'all';
 
 function renderSocialBgGalleryThumbnails() {
@@ -28554,10 +28597,7 @@ function resetToThemeDefaultBackground() {
 }
 window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
 
-// =========================================================================
-// 🖌️ 6. DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
-// =========================================================================
-
+// 🖌️ 7. DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
 function drawSocialBackgroundPreset(ctx, W, H, presetId) {
     const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId) || window.SOCIAL_BG_PRESETS[0];
 
@@ -28605,10 +28645,7 @@ function drawSocialBackgroundPreset(ctx, W, H, presetId) {
 }
 window.drawSocialBackgroundPreset = drawSocialBackgroundPreset;
 
-// =========================================================================
-// 🎨 7. RENDERING CANVAS PRINCIPALE
-// =========================================================================
-
+// 🎨 8. RENDERING CANVAS PRINCIPALE
 function renderSocialCanvas() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -28625,16 +28662,16 @@ function renderSocialCanvas() {
     const elems = window._socialElements;
 
     const bIn = document.getElementById('ss-input-badge');
-    if (bIn && bIn.value !== undefined) s.badgeText = bIn.value.trim();
+    if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
 
     const tIn = document.getElementById('ss-input-title');
-    if (tIn && tIn.value !== undefined) s.title = tIn.value.trim();
+    if (tIn && tIn.value !== undefined) s.title = tIn.value;
 
     const sIn = document.getElementById('ss-input-subtitle');
-    if (sIn && sIn.value !== undefined) s.subtitle = sIn.value.trim();
+    if (sIn && sIn.value !== undefined) s.subtitle = sIn.value;
 
     const hIn = document.getElementById('ss-input-highlight');
-    if (hIn && hIn.value !== undefined) s.highlightText = hIn.value.trim();
+    if (hIn && hIn.value !== undefined) s.highlightText = hIn.value;
 
     s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
     s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
@@ -28751,10 +28788,7 @@ function renderSocialCanvas() {
 }
 window.renderSocialCanvas = renderSocialCanvas;
 
-// =========================================================================
-// 🌟 8. COMPONENTI GRAFICI SPECIALIZZATI
-// =========================================================================
-
+// 🌟 9. COMPONENTI GRAFICI SPECIALIZZATI
 function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     const perks = [
         { icon: '📱', title: 'Zero App da Scaricare', sub: 'Funziona subito da Safari o Chrome' },
@@ -29311,10 +29345,7 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// =========================================================================
-// 🔤 9. CONTROLLI FORMATO, FONT, COLORI & LOGHI
-// =========================================================================
-
+// 🔤 10. CONTROLLI FORMATO, FONT, COLORI & LOGHI
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
@@ -29571,6 +29602,26 @@ function setActiveSocialElement(elemId) {
 
     updateTransformBarValues();
 
+    const quickTextInput = document.getElementById('ss-quick-text-input');
+    const s = window._socialStudioState;
+    if (quickTextInput) {
+        if (elemId === 'title') {
+            quickTextInput.style.display = 'block';
+            quickTextInput.value = s.title;
+        } else if (elemId === 'subtitle') {
+            quickTextInput.style.display = 'block';
+            quickTextInput.value = s.subtitle;
+        } else if (elemId === 'badge') {
+            quickTextInput.style.display = 'block';
+            quickTextInput.value = s.badgeText;
+        } else if (elemId === 'highlight') {
+            quickTextInput.style.display = 'block';
+            quickTextInput.value = s.highlightText;
+        } else {
+            quickTextInput.style.display = 'none';
+        }
+    }
+
     const quickColorPicker = document.getElementById('ss-quick-color-picker');
     const quickBgWrapper = document.getElementById('ss-quick-bgcolor-wrapper');
     const quickBgPicker = document.getElementById('ss-quick-bgcolor-picker');
@@ -29641,10 +29692,7 @@ function resetSocialElementsPositions() {
 }
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
-// =========================================================================
-// 💾 10. PERSISTENZA BOZZE (DRAFTS)
-// =========================================================================
-
+// 💾 11. PERSISTENZA BOZZE
 async function saveCurrentSocialDraft() {
     const nameInput = document.getElementById('ss-draft-name-input');
     const draftName = (nameInput?.value || '').trim();
@@ -29857,10 +29905,7 @@ async function deleteSelectedSocialDraft() {
 }
 window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
 
-// =========================================================================
-// 👆 11. GESTI TOUCH & MOUSE IMMUNI DA NaN
-// =========================================================================
-
+// 👆 12. GESTI TOUCH & MOUSE IMMUNI DA NaN
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas || canvas._touchAttached) return;
@@ -30015,10 +30060,7 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-// =========================================================================
-// 🚀 12. INIZIALIZZAZIONE & CARICAMENTO LISTINI
-// =========================================================================
-
+// 🚀 13. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
 async function initSocialStudioView() {
     console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
     const s = window._socialStudioState;
