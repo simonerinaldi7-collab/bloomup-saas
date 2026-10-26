@@ -4228,6 +4228,38 @@
                 </select>
             </div>
 
+            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SOLO SU MODELLO TRASFORMAZIONE) -->
+            <div id="ss-before-after-upload-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; margin-bottom: 8px;">
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto Prima & Dopo</label>
+                <small style="color: #7c3aed; font-size: 11px; display: block; margin-bottom: 8px;">Carica le foto dal tuo dispositivo. Verranno affiancate con divisione centrale:</small>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Carica Foto PRIMA -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
+                        <span style="font-size: 10.5px; font-weight: 800; color: #475569; display: block; margin-bottom: 4px;">FOTO PRIMA (SX)</span>
+                        <input type="file" id="ss-before-file-input" accept="image/*" style="display: none;" onchange="handleBeforePhotoUpload(event)">
+                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-before-file-input').click()">
+                            📁 Scegli Prima
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-before-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearBeforePhoto()">
+                            ✕ Rimuovi
+                        </button>
+                    </div>
+
+                    <!-- Carica Foto DOPO -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
+                        <span style="font-size: 10.5px; font-weight: 800; color: #d97706; display: block; margin-bottom: 4px;">FOTO DOPO (DX)</span>
+                        <input type="file" id="ss-after-file-input" accept="image/*" style="display: none;" onchange="handleAfterPhotoUpload(event)">
+                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-after-file-input').click()">
+                            📁 Scegli Dopo
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-after-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearAfterPhoto()">
+                            ✕ Rimuovi
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- SELETTORE LISTINO DA PRINT STUDIO -->
             <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Fonte Listino:</label>
@@ -28040,7 +28072,7 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO DEFINITIVO)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COLORI TOTALI & PRIMA/DOPO HD)
 // =========================================================================
 
 // 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING GEOMETRICO E TESTUALE
@@ -28089,7 +28121,7 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 window.drawRoundedRect = drawRoundedRect;
 
-// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE (RISOLUZIONE ERRORE REFERENCE)
+// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE
 function onSocialTextInput(inputId, value) {
     const s = window._socialStudioState;
     if (inputId === 'ss-input-badge') s.badgeText = value;
@@ -28144,9 +28176,8 @@ function onQuickTextEdit(value) {
 }
 window.onQuickTextEdit = onQuickTextEdit;
 
-// 🎨 3. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
+// 🎨 3. LIBRERIA SFONDI (18 PRESET CON FOTO HD E FORME)
 window.SOCIAL_BG_PRESETS = [
-    // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
         id: 'season_autumn', category: 'seasons', name: 'Autunno & Foglie Oro', isLight: false,
         imgUrl: 'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
@@ -28167,8 +28198,6 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=1080&q=80',
         gradient: ['#0F172A', '#020617'], accent: '#38BDF8', textMain: '#FFFFFF', textSub: '#BAE6FD' 
     },
-
-    // 🌸 BEAUTY, SPA & GLAMOUR
     { 
         id: 'beauty_skincare_glow', category: 'beauty', name: 'Rituale Glow Skincare', isLight: true,
         imgUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1080&q=80',
@@ -28189,8 +28218,6 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#F5F3FF', '#EDE9FE'], accent: '#7C3AED', textMain: '#1E1B4B', textSub: '#4C1D95' 
     },
-
-    // ✂️ HAIR & BARBER
     { 
         id: 'hair_balayage_salon', category: 'hair', name: 'Onde Balayage Salone', isLight: false,
         imgUrl: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=1080&q=80',
@@ -28206,8 +28233,6 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#3E1E0F', '#140803'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
     },
-
-    // 👑 LUXURY & ORO
     { 
         id: 'lux_carrara_marble', category: 'luxury', name: 'Marmo Bianco & Venature', isLight: true,
         imgUrl: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1080&q=80',
@@ -28223,8 +28248,6 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#2E2318', '#120D08'], accent: '#FDE68A', textMain: '#FFFFFF', textSub: '#FDE047' 
     },
-
-    // 🌿 MINIMAL & BOHO
     { 
         id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho Arch', isLight: true,
         imgUrl: null,
@@ -28235,8 +28258,6 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#064E3B', '#022C22'], accent: '#34D399', textMain: '#FFFFFF', textSub: '#A7F3D0' 
     },
-
-    // ⚡ NEON & TREND
     { 
         id: 'neon_sunset_glow', category: 'neon', name: 'Sunset Magenta & Arancio', isLight: false,
         imgUrl: null,
@@ -28258,6 +28279,8 @@ window._socialStudioState = {
     bgType: 'preset',
     bgPresetId: 'season_autumn',
     uploadedBgImg: null,
+    beforeImg: null,             // 📸 Foto Prima caricata dal dispositivo
+    afterImg: null,              // 📸 Foto Dopo caricata dal dispositivo
     bgOverlayOpacity: 0.15,
     badgeText: 'NOVITÀ SMART',
     title: 'Prenota in 5 secondi senza scaricare nessuna app!',
@@ -28291,102 +28314,89 @@ function getDefaultSocialElements(W, H, isStory) {
 window._socialElements = null;
 window._activeSocialElemId = null;
 
-let isTouchDragging = false;
-let touchDragStartX = 0;
-let touchDragStartY = 0;
-let initialElemX = 0;
-let initialElemY = 0;
-let initialPinchDistance = 0;
-let initialPinchScale = 1.0;
-
 function ensureSocialElementsInitialized(W, H, isStory) {
     if (!window._socialElements) {
         window._socialElements = getDefaultSocialElements(W, H, isStory);
     }
 }
 
-// 📢 4. DIDASCALIE E CONDIVISIONE SOCIAL
-function generateSocialCaptionText(salonId, link) {
-    const s = window._socialStudioState;
-    return `✨ ${s.title}\n${s.subtitle}\n\n👉 ${s.highlightText}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${String(salonId).replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
+// =========================================================================
+// 📸 GESTIONE FOTO PRIMA E DOPO
+// =========================================================================
+
+function handleBeforePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            window._socialStudioState.beforeImg = img;
+            const btnClear = document.getElementById('btn-clear-before-photo');
+            if (btnClear) btnClear.style.display = 'block';
+            renderSocialCanvas();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
 }
-window.generateSocialCaptionText = generateSocialCaptionText;
+window.handleBeforePhotoUpload = handleBeforePhotoUpload;
 
-function updateCaptionPreview() {
-    const previewEl = document.getElementById('ss-caption-preview');
-    if (!previewEl) return;
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
+function clearBeforePhoto() {
+    window._socialStudioState.beforeImg = null;
+    const input = document.getElementById('ss-before-file-input');
+    if (input) input.value = '';
+    const btnClear = document.getElementById('btn-clear-before-photo');
+    if (btnClear) btnClear.style.display = 'none';
+    renderSocialCanvas();
 }
-window.updateCaptionPreview = updateCaptionPreview;
+window.clearBeforePhoto = clearBeforePhoto;
 
-function copySocialCaption() {
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
-
-    navigator.clipboard.writeText(caption).then(() => {
-        alert("✅ Didascalia e link copiati negli appunti!\nIncollala su Instagram, Facebook o WhatsApp.");
-    });
+function handleAfterPhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            window._socialStudioState.afterImg = img;
+            const btnClear = document.getElementById('btn-clear-after-photo');
+            if (btnClear) btnClear.style.display = 'block';
+            renderSocialCanvas();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
 }
-window.copySocialCaption = copySocialCaption;
+window.handleAfterPhotoUpload = handleAfterPhotoUpload;
 
-async function shareSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const caption = generateSocialCaptionText(currentSalon, `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`);
-
-    try {
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                title: `Novità ${currentSalon}`,
-                text: caption,
-                files: [file]
-            });
-        } else {
-            downloadSocialGraphic();
-            copySocialCaption();
-            alert("📥 Immagine scaricata nella galleria!\n\n📋 Didascalia e link copiati negli appunti.");
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error("Errore condivisione:", err);
-            downloadSocialGraphic();
-        }
-    }
+function clearAfterPhoto() {
+    window._socialStudioState.afterImg = null;
+    const input = document.getElementById('ss-after-file-input');
+    if (input) input.value = '';
+    const btnClear = document.getElementById('btn-clear-after-photo');
+    if (btnClear) btnClear.style.display = 'none';
+    renderSocialCanvas();
 }
-window.shareSocialGraphic = shareSocialGraphic;
+window.clearAfterPhoto = clearAfterPhoto;
 
-function downloadSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
+// =========================================================================
+// 🚀 CAMBIO MODELLO STRATEGICO
+// =========================================================================
 
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const link = document.createElement('a');
-    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-}
-window.downloadSocialGraphic = downloadSocialGraphic;
-
-// 🚀 5. CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
+    const beforeAfterBox = document.getElementById('ss-before-after-upload-box');
+
     const badgeInput = document.getElementById('ss-input-badge');
     const titleInput = document.getElementById('ss-input-title');
     const subInput = document.getElementById('ss-input-subtitle');
     const highInput = document.getElementById('ss-input-highlight');
 
+    // Visualizza box condizionali
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
+    if (beforeAfterBox) beforeAfterBox.style.display = (tpl === 'transformation') ? 'block' : 'none';
 
     if (tpl === 'launch_no_app') {
         if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
@@ -28442,21 +28452,22 @@ function onSocialTemplateChanged(tpl) {
     if (window._socialElements) {
         if (tpl === 'lastminute') {
             window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 780 : 580;
-            window._socialElements.subtitle.y = isStory ? 1040 : 790;
+            window._socialElements.highlight.y = isStory ? 770 : 580;
+            window._socialElements.subtitle.y = isStory ? 1000 : 770;
         } else if (tpl === 'promo') {
             window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 770 : 570;
-            window._socialElements.subtitle.y = isStory ? 990 : 760;
+            window._socialElements.highlight.y = isStory ? 760 : 570;
+            window._socialElements.subtitle.y = isStory ? 970 : 750;
+        } else if (tpl === 'transformation') {
+            window._socialElements.badge.y = isStory ? 370 : 250;
+            window._socialElements.title.y = isStory ? 480 : 340;
+            window._socialElements.subtitle.y = isStory ? 1160 : 860;
+            window._socialElements.highlight.y = isStory ? 1300 : 960;
         } else if (tpl === 'quote') {
             window._socialElements.badge.y = isStory ? 390 : 260;
             window._socialElements.title.y = isStory ? 690 : 510;
             window._socialElements.subtitle.y = isStory ? 940 : 720;
             window._socialElements.highlight.y = isStory ? 1140 : 880;
-        } else if (tpl === 'transformation') {
-            window._socialElements.title.y = isStory ? 480 : 350;
-            window._socialElements.subtitle.y = isStory ? 1050 : 800;
-            window._socialElements.highlight.y = isStory ? 1200 : 920;
         } else {
             window._socialElements = getDefaultSocialElements(W, H, isStory);
         }
@@ -28467,185 +28478,10 @@ function onSocialTemplateChanged(tpl) {
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
-// 🎨 6. GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
-let _activeBgGalleryCategory = 'all';
+// =========================================================================
+// 🎨 RENDERING CANVAS PRINCIPALE
+// =========================================================================
 
-function renderSocialBgGalleryThumbnails() {
-    const container = document.getElementById('ss-bg-thumbnails-scroll');
-    if (!container) return;
-
-    if (!container._wheelAttached) {
-        container._wheelAttached = true;
-        container.addEventListener('wheel', (e) => {
-            if (e.deltaY !== 0) {
-                e.preventDefault();
-                container.scrollLeft += e.deltaY * 1.4;
-            }
-        }, { passive: false });
-    }
-
-    const activePresetId = window._socialStudioState.bgPresetId;
-    const cat = _activeBgGalleryCategory;
-
-    const filtered = (cat === 'all') 
-        ? window.SOCIAL_BG_PRESETS 
-        : window.SOCIAL_BG_PRESETS.filter(p => p.category === cat);
-
-    container.innerHTML = filtered.map(p => {
-        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
-        
-        let thumbStyle = '';
-        if (p.imgUrl) {
-            thumbStyle = `background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.65)), url('${p.imgUrl}');`;
-        } else {
-            thumbStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
-        }
-
-        return `
-            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
-                 id="bg-thumb-${p.id}"
-                 style="${thumbStyle}"
-                 onclick="selectSocialBgPreset('${p.id}')"
-                 title="${p.name}">
-                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
-                <div class="ss-bg-thumb-title" style="color: ${p.isLight ? '#0F172A' : '#FFFFFF'}; background: ${p.isLight ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)'};">${p.name}</div>
-            </div>
-        `;
-    }).join('');
-}
-window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
-
-function scrollBgThumbnails(px) {
-    const container = document.getElementById('ss-bg-thumbnails-scroll');
-    if (container) {
-        container.scrollBy({ left: px, behavior: 'smooth' });
-    }
-}
-window.scrollBgThumbnails = scrollBgThumbnails;
-
-function filterSocialBgGallery(cat) {
-    _activeBgGalleryCategory = cat;
-    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
-    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
-    if (activeBtn) activeBtn.classList.add('active-pill');
-    renderSocialBgGalleryThumbnails();
-}
-window.filterSocialBgGallery = filterSocialBgGallery;
-
-function selectSocialBgPreset(presetId) {
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId);
-    if (!p) return;
-
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = presetId;
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = p.imgUrl ? 0.35 : 0.05;
-
-    const clearBtn = document.getElementById('btn-clear-social-bg');
-    if (clearBtn) clearBtn.style.display = 'none';
-
-    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
-    const overlayLabel = document.getElementById('ss-bg-overlay-label');
-    if (overlaySlider) overlaySlider.value = window._socialStudioState.bgOverlayOpacity;
-    if (overlayLabel) overlayLabel.innerText = `${Math.round(window._socialStudioState.bgOverlayOpacity * 100)}%`;
-
-    if (p.imgUrl && !window._socialBgImageCache.has(p.imgUrl)) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            window._socialBgImageCache.set(p.imgUrl, img);
-            renderSocialCanvas();
-        };
-        img.src = p.imgUrl;
-    }
-
-    if (window._socialElements) {
-        if (!window._socialElements.title.color) {
-            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
-        }
-        if (!window._socialElements.subtitle.color) {
-            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
-        }
-    }
-
-    highlightActiveBgThumbnail();
-    syncSideColorPickersToTheme();
-    renderSocialCanvas();
-}
-window.selectSocialBgPreset = selectSocialBgPreset;
-
-function highlightActiveBgThumbnail() {
-    const s = window._socialStudioState;
-    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
-    if (s.bgType === 'preset') {
-        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
-        if (card) {
-            card.classList.add('active-bg');
-            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-    }
-}
-window.highlightActiveBgThumbnail = highlightActiveBgThumbnail;
-
-function resetToThemeDefaultBackground() {
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = 'season_autumn';
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = 0.15;
-    highlightActiveBgThumbnail();
-    renderSocialCanvas();
-}
-window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
-
-// 🖌️ 7. DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
-function drawSocialBackgroundPreset(ctx, W, H, presetId) {
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId) || window.SOCIAL_BG_PRESETS[0];
-
-    let imageDrawn = false;
-    if (p.imgUrl && window._socialBgImageCache.has(p.imgUrl)) {
-        const img = window._socialBgImageCache.get(p.imgUrl);
-        if (img && img.complete && img.naturalWidth > 0) {
-            const ratio = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-            const shiftX = (W - img.naturalWidth * ratio) / 2;
-            const shiftY = (H - img.naturalHeight * ratio) / 2;
-            ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-            imageDrawn = true;
-        }
-    }
-
-    if (!imageDrawn) {
-        const grad = ctx.createLinearGradient(0, 0, W, H);
-        grad.addColorStop(0, p.gradient[0]);
-        grad.addColorStop(1, p.gradient[1]);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.save();
-        if (p.id === 'season_autumn') {
-            const rad = ctx.createRadialGradient(W * 0.7, H * 0.3, 50, W * 0.7, H * 0.3, W * 0.7);
-            rad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
-            rad.addColorStop(1, 'transparent');
-            ctx.fillStyle = rad;
-            ctx.fillRect(0, 0, W, H);
-        } else if (p.id === 'lux_obsidian_gold' || p.id === 'lux_carrara_marble') {
-            ctx.strokeStyle = p.accent;
-            ctx.lineWidth = 2.5;
-            ctx.globalAlpha = 0.45;
-            ctx.beginPath();
-            ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (p.id === 'beauty_rose_silk') {
-            ctx.fillStyle = 'rgba(219, 39, 119, 0.12)';
-            ctx.beginPath();
-            ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
-}
-window.drawSocialBackgroundPreset = drawSocialBackgroundPreset;
-
-// 🎨 8. RENDERING CANVAS PRINCIPALE
 function renderSocialCanvas() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -28661,6 +28497,7 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
+    // Lettura sicura dagli input preservando gli spazi
     const bIn = document.getElementById('ss-input-badge');
     if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
 
@@ -28694,7 +28531,7 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // 1. SFONDO (FOTO O PRESET VIVIDO)
+    // 1. SFONDO (FOTO O PRESET)
     if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28729,54 +28566,70 @@ function renderSocialCanvas() {
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // 4. RENDERING STRUTTURALE DIFFERENZIATO
+    // =========================================================================
+    // 🌟 4. RENDERING STRUTTURALE SPECIALIZZATO (TUTTI I TESTI VISIBILI)
+    // =========================================================================
+
     if (s.template === 'pricelist') {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
-    } 
-    else if (s.template === 'launch_no_app') {
+        // --- 1. LISTINO TRATTAMENTI: BADGE, TITOLO, SOTTOTITOLO, MENU & HIGHLIGHT TUTTI VISIBILI! ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        drawLaunchFeatureCards(ctx, W, isStory ? 1040 : 790, activePreset, accentColor);
+        drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
+        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+    } 
+    else if (s.template === 'launch_no_app') {
+        // --- 2. LANCIO SENZA APP: BADGE, TITOLO, SOTTOTITOLO, 3 CARD E BOX EVIDENZA VISIBILI! ---
+        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+        drawLaunchFeatureCards(ctx, W, isStory ? 940 : 720, activePreset, accentColor);
+        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
     else if (s.template === 'lastminute') {
+        // --- 3. LAST MINUTE / BUCO AGENDA: TICKET DINAMICO E COLORABILE ---
         drawUrgencyBadge(ctx, s, elems.badge, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'promo') {
+        // --- 4. OFFERTA FLASH: TAGLIO PREZZO COLORABILE ---
         drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'transformation') {
+        // --- 5. NUOVO PRIMA & DOPO: CONFRONTO SLIDER REALE CON FOTO DA DISPOSITIVO ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawTransformationSplitFrames(ctx, W, isStory ? 770 : 570, accentColor, activePreset);
+        
+        // 🌟 DISEGNO SLIDER CONFRONTO PRIMA & DOPO CON MANIGLIA CENTRALE
+        drawBeforeAfterComparisonHero(ctx, s, W, isStory ? 580 : 420, isStory ? 520 : 380, accentColor, activePreset);
+        
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
     else if (s.template === 'quote') {
+        // --- 6. RECENSIONE: 5 STELLE ORO E VIRGOLETTE ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
     }
     else {
+        // --- 7. GRAFICA LIBERA ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
 
-    // 5. QR CODE
+    // 5. QR CODE (SE ATTIVO)
     if (s.showQrCode && s.qrImage) {
         drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
     }
 
-    // 6. STICKER CALL TO ACTION
+    // 6. STICKER CALL TO ACTION (SE ATTIVO)
     if (s.showBookingBadge) {
         drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
     }
@@ -28788,7 +28641,134 @@ function renderSocialCanvas() {
 }
 window.renderSocialCanvas = renderSocialCanvas;
 
-// 🌟 9. COMPONENTI GRAFICI SPECIALIZZATI
+// =========================================================================
+// 📸 NUOVO MOTORE PRIMA & DOPO: CONFRONTO FOTOGRAFICO REALE
+// =========================================================================
+
+function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentColor, activePreset) {
+    const frameW = Math.min(W - 140, 920);
+    const frameH = blockHeight;
+    const startX = W / 2 - frameW / 2;
+    const splitX = startX + frameW / 2; // Linea di divisione esatta al 50%
+
+    ctx.save();
+
+    // 1. Maschera perimetrale arrotondata per l'intero blocco del confronto
+    drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
+    ctx.clip();
+
+    // 2. FOTO PRIMA (LATO SINISTRO)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(startX, startY, frameW / 2, frameH);
+    ctx.clip();
+
+    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
+        const img = s.beforeImg;
+        const ratio = Math.max((frameW / 2) / img.naturalWidth, frameH / img.naturalHeight);
+        const shiftX = startX + ((frameW / 2) - img.naturalWidth * ratio) / 2;
+        const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+    } else {
+        // Placeholder estetico prima del caricamento
+        ctx.fillStyle = activePreset.isLight ? '#F1F5F9' : '#1E293B';
+        ctx.fillRect(startX, startY, frameW / 2, frameH);
+        ctx.fillStyle = activePreset.isLight ? '#94A3B8' : '#64748B';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📷 Carica Foto PRIMA', startX + frameW / 4, startY + frameH / 2);
+    }
+    ctx.restore();
+
+    // 3. FOTO DOPO (LATO DESTRO)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(splitX, startY, frameW / 2, frameH);
+    ctx.clip();
+
+    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
+        const img = s.afterImg;
+        const ratio = Math.max((frameW / 2) / img.naturalWidth, frameH / img.naturalHeight);
+        const shiftX = splitX + ((frameW / 2) - img.naturalWidth * ratio) / 2;
+        const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+    } else {
+        // Placeholder estetico prima del caricamento
+        ctx.fillStyle = activePreset.isLight ? '#E2E8F0' : '#0F172A';
+        ctx.fillRect(splitX, startY, frameW / 2, frameH);
+        ctx.fillStyle = activePreset.isLight ? '#64748B' : '#94A3B8';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✨ Carica Foto DOPO', splitX + frameW / 4, startY + frameH / 2);
+    }
+    ctx.restore();
+
+    ctx.restore(); // Fine clip generale
+
+    // 4. BORDO PERIMETRALE ELEGANTE
+    ctx.save();
+    ctx.strokeStyle = activePreset.isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 2;
+    drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
+    ctx.stroke();
+
+    // 5. LINEA DI SEPARAZIONE VERTICALE CON MANIGLIA CENTRALE (COME NELLE MIGLIORI APP)
+    ctx.beginPath();
+    ctx.moveTo(splitX, startY);
+    ctx.lineTo(splitX, startY + frameH);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    // Maniglia circolare centrale con frecce
+    const handleY = startY + frameH / 2;
+    ctx.beginPath();
+    ctx.arc(splitX, handleY, 26, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = accentColor;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '900 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀ ✦ ▶', splitX, handleY);
+
+    // 6. BADGE GLASSMORPHIC "PRIMA" E "DOPO" SOPRA LE FOTO
+    // Badge PRIMA (Sinistra)
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    drawRoundedRect(ctx, startX + 16, startY + 16, 95, 34, 17);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PRIMA', startX + 16 + 95 / 2, startY + 16 + 17);
+
+    // Badge DOPO (Destra)
+    ctx.fillStyle = accentColor;
+    drawRoundedRect(ctx, startX + frameW - 16 - 110, startY + 16, 110, 34, 17);
+    ctx.fill();
+    ctx.fillStyle = activePreset.isLight ? '#FFFFFF' : '#0F172A';
+    ctx.font = '900 13px sans-serif';
+    ctx.fillText('DOPO ✨', startX + frameW - 16 - 110 / 2, startY + 16 + 17);
+
+    ctx.restore();
+}
+
+// =========================================================================
+// 🌟 COMPONENTI GRAFICI SPECIALIZZATI (REATTIVI AI COLORI)
+// =========================================================================
+
 function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     const perks = [
         { icon: '📱', title: 'Zero App da Scaricare', sub: 'Funziona subito da Safari o Chrome' },
@@ -28827,34 +28807,42 @@ function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     ctx.restore();
 }
 
+// 🎫 TICKET LAST MINUTE CON COLORI COMPLETAMENTE REATTIVI
 function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
     const boxH = 150 * scale;
     const x = (Number.isFinite(el.x) ? el.x : W / 2) - boxW / 2;
-    const y = (Number.isFinite(el.y) ? el.y : 780) - boxH / 2;
+    const y = (Number.isFinite(el.y) ? el.y : 770) - boxH / 2;
 
     el.w = boxW;
     el.h = boxH;
 
+    // Colore primario del ticket (prende el.bgColor scelto dall'utente o l'accento)
+    const ticketColor = el.bgColor || accentColor || '#F59E0B';
+
     ctx.save();
-    ctx.fillStyle = activePreset.isLight ? '#FFFFFF' : 'rgba(245, 158, 11, 0.15)';
+    // Sfondo Ticket
+    ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? '#FFFFFF' : 'rgba(245, 158, 11, 0.15)');
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.fill();
 
-    ctx.strokeStyle = '#F59E0B';
+    // Bordo Tratteggiato da Coupon
+    ctx.strokeStyle = ticketColor;
     ctx.lineWidth = 3 * scale;
     ctx.setLineDash([12 * scale, 8 * scale]);
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#F59E0B';
+    // Dicitura in alto
+    ctx.fillStyle = ticketColor;
     ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('⚡ POSTO UNICO DISPONIBILE ADESSO ⚡', x + boxW / 2, y + 16 * scale);
 
+    // Orario Gigante
     ctx.fillStyle = el.color || (activePreset.isLight ? '#1C1917' : '#FFFFFF');
     ctx.font = `900 ${Math.round(52 * scale)}px serif`;
     ctx.textBaseline = 'middle';
@@ -28863,25 +28851,28 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.restore();
 }
 
+// 🏷️ PROMO PRICE SLASH CON COLORI REATTIVI
 function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
     const boxH = 140 * scale;
     const x = (Number.isFinite(el.x) ? el.x : W / 2) - boxW / 2;
-    const y = (Number.isFinite(el.y) ? el.y : 770) - boxH / 2;
+    const y = (Number.isFinite(el.y) ? el.y : 760) - boxH / 2;
 
     el.w = boxW;
     el.h = boxH;
 
+    const promoColor = el.bgColor || '#EF4444';
+
     ctx.save();
-    ctx.fillStyle = activePreset.isLight ? 'rgba(254, 226, 226, 0.65)' : 'rgba(220, 38, 38, 0.2)';
-    ctx.strokeStyle = '#EF4444';
+    ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? 'rgba(254, 226, 226, 0.65)' : 'rgba(220, 38, 38, 0.2)');
+    ctx.strokeStyle = promoColor;
     ctx.lineWidth = 2.5 * scale;
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#DC2626';
+    ctx.fillStyle = promoColor;
     ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -28891,48 +28882,6 @@ function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.font = `900 ${Math.round(48 * scale)}px sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.fillText(s.highlightText || '€ 49.00 (invece di € 70)', x + boxW / 2, y + boxH / 2 + 12 * scale);
-
-    ctx.restore();
-}
-
-function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset) {
-    const cardW = Math.min((W - 160) / 2, 400);
-    const cardH = 210;
-    const leftX = W / 2 - cardW - 10;
-    const rightX = W / 2 + 10;
-
-    ctx.save();
-    ctx.fillStyle = activePreset.isLight ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.05)';
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 6]);
-    drawRoundedRect(ctx, leftX, startY, cardW, cardH, 16);
-    ctx.fill();
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#64748B';
-    drawRoundedRect(ctx, leftX + cardW / 2 - 45, startY + 12, 90, 30, 15);
-    ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('PRIMA', leftX + cardW / 2, startY + 27);
-
-    ctx.fillStyle = activePreset.isLight ? 'rgba(254, 243, 199, 0.65)' : 'rgba(245, 158, 11, 0.18)';
-    ctx.strokeStyle = '#F59E0B';
-    ctx.lineWidth = 2.5;
-    drawRoundedRect(ctx, rightX, startY, cardW, cardH, 16);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#F59E0B';
-    drawRoundedRect(ctx, rightX + cardW / 2 - 45, startY + 12, 90, 30, 15);
-    ctx.fill();
-    ctx.fillStyle = '#0F172A';
-    ctx.font = '900 13px sans-serif';
-    ctx.fillText('DOPO ✨', rightX + cardW / 2, startY + 27);
 
     ctx.restore();
 }
@@ -29073,6 +29022,7 @@ function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     ctx.restore();
 }
 
+// 🚨 BADGE URGENZA CON SUPPORTO COLORE E SFONDO REATTIVI
 function drawUrgencyBadge(ctx, s, el, isStory) {
     if (!s.badgeText) return;
     ctx.save();
@@ -29086,11 +29036,11 @@ function drawUrgencyBadge(ctx, s, el, isStory) {
     el.w = w;
     el.h = h;
 
-    ctx.fillStyle = '#EF4444';
+    ctx.fillStyle = el.bgColor || '#EF4444'; // Prende il colore scelto nel box o rosso vivo
     drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 24 * scale);
     ctx.fill();
 
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = el.color || '#FFFFFF'; // Prende il colore testo scelto nel picker
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(s.badgeText, x, y);
@@ -29345,7 +29295,10 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// 🔤 10. CONTROLLI FORMATO, FONT, COLORI & LOGHI
+// =========================================================================
+// 🔤 CONTROLLI FORMATO, FONT, COLORI & LOGHI
+// =========================================================================
+
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
@@ -29692,7 +29645,7 @@ function resetSocialElementsPositions() {
 }
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
-// 💾 11. PERSISTENZA BOZZE
+// 💾 PERSISTENZA BOZZE (DRAFTS)
 async function saveCurrentSocialDraft() {
     const nameInput = document.getElementById('ss-draft-name-input');
     const draftName = (nameInput?.value || '').trim();
@@ -29905,7 +29858,7 @@ async function deleteSelectedSocialDraft() {
 }
 window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
 
-// 👆 12. GESTI TOUCH & MOUSE IMMUNI DA NaN
+// 👆 GESTI TOUCH & MOUSE IMMUNI DA NaN
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas || canvas._touchAttached) return;
@@ -30060,7 +30013,7 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-// 🚀 13. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
+// 🚀 INIZIALIZZAZIONE & CATALOGO PREZZI REALI
 async function initSocialStudioView() {
     console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
     const s = window._socialStudioState;
