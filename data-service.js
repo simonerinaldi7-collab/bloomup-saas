@@ -54,21 +54,21 @@ function isPullAllowed(table) {
     return false;
 }
 
-// --- 🔄 MODULO DI SINCRONIZZAZIONE INTELLIGENTE MULTI-OPERATORE ---
+// --- 🔄 MODULO DI SINCRONIZZAZIONE INTELLIGENTE MULTI-OPERATORE AGGIORNATO ---
 let backgroundSyncInterval = null;
 let backgroundSyncTickCounter = 0;
 
 function startBackgroundMultiOperatorSync() {
     if (backgroundSyncInterval) clearInterval(backgroundSyncInterval);
 
-    // 🛑 SE L'APP È APERTA DA UN CLIENTE TRAMITE QR CODE SELF-BOOKING, DISATTIVA IL SYNC GESTIONALE
+    // 🛑 Se l'app è aperta da un cliente tramite QR code self-booking, disattiva il sync gestionale
     if (window._isPublicBookingMode || (currentUser && currentUser.role === 'guest_customer')) {
         console.log("🌐 [SMART-SYNC] Disattivato: portale self-booking pubblico cliente attivo.");
         return;
     }
 
     const runSyncCycle = async () => {
-        // 🛑 Se la scheda è in background, siamo offline o in modalità self-booking cliente, non sincronizzare
+        // 🛑 Se la scheda è in background, siamo offline o in modalità self-booking, non sincronizzare
         if (window._isPublicBookingMode || document.visibilityState !== 'visible' || !navigator.onLine || !currentUser || !currentUser.salon_id || currentUser.role === 'guest_customer') {
             return;
         }
@@ -77,35 +77,42 @@ function startBackgroundMultiOperatorSync() {
         backgroundSyncTickCounter++;
 
         try {
-            // ⚡ TABELLE CALDE (Sincronizzate a ogni ciclo: ~35 secondi)
+            // ⚡ TABELLE CALDE (Sincronizzate ogni ~35 secondi):
+            // Include vendite, righe vendute, lotti FIFO e giacenze di magazzino in tempo reale!
             await backgroundPullFromSupabase('appointments', salonId);
             await backgroundPullFromSupabase('sales', salonId);
             await backgroundPullFromSupabase('sale_items', salonId);
+            await backgroundPullFromSupabase('inventory', salonId);
+            await backgroundPullFromSupabase('stock_lots', salonId);
 
             if (typeof pullWorkstationsFromSupabase === 'function') {
                 await pullWorkstationsFromSupabase(salonId);
             }
 
-            // 🧊 TABELLE FREDDE (Sincronizzate ogni 3 cicli: ~105 secondi, o all'apertura vista)
+            // 🧊 TABELLE FREDDE (Ogni 3 cicli: ~105 secondi)
             if (backgroundSyncTickCounter % 3 === 0) {
-                await backgroundPullFromSupabase('inventory', salonId);
                 await backgroundPullFromSupabase('customers', salonId);
+                await backgroundPullFromSupabase('suppliers', salonId);
+                await backgroundPullFromSupabase('product_suppliers', salonId);
                 if (typeof pullPackagesFromSupabase === 'function') {
                     await pullPackagesFromSupabase(salonId);
                 }
             }
 
-            // Aggiornamento memoria locale per l'agenda e statistiche
+            // Aggiornamento memoria locale per l'agenda, prodotti e statistiche
             allAppointments = await getVisibleAppointmentsForSalon(salonId);
             allCustomers = await getVisibleCustomersForSalon(salonId);
             allSales = await localDb.sales.where('salon_id').equals(salonId).toArray() || [];
             allInventory = await localDb.inventory.where('salon_id').equals(salonId).toArray() || [];
 
+            // Se l'utente si trova attualmente sulla schermata del magazzino prodotti, aggiorna la tabella
             const activeView = document.querySelector('.view.active');
-            if (activeView && activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
-                const isModalOpen = document.querySelector('.modal.active');
-                if (!isModalOpen) {
-                    renderCalendar();
+            if (activeView) {
+                if (activeView.id === 'v-products' && typeof renderProducts === 'function') {
+                    renderProducts();
+                } else if (activeView.id === 'v-calendar' && typeof renderCalendar === 'function') {
+                    const isModalOpen = document.querySelector('.modal.active');
+                    if (!isModalOpen) renderCalendar();
                 }
             }
             
@@ -116,8 +123,10 @@ function startBackgroundMultiOperatorSync() {
         }
     };
 
+    // Controllo immediato e poi ogni 35 secondi
     backgroundSyncInterval = setInterval(runSyncCycle, 35000);
 
+    // Risveglio istantaneo non appena la scheda o il tablet dell'admin torna visibile
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             runSyncCycle();
@@ -384,7 +393,7 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 };
 
-// Sincronizzazione atomica Cloud ➔ IndexedDB con cancellazione sicura
+// Sincronizzazione atomica Cloud ➔ IndexedDB con cancellazione sicura e gestione lotti
 async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
@@ -436,7 +445,7 @@ async function backgroundPullFromSupabase(table, salonId) {
         if (table === 'users') break;
     }
 
-    // 🧹 CANCELLAZIONE SICURA (Solo se abbiamo recuperato con successo il catalogo completo)
+    // 🧹 CANCELLAZIONE SICURA E ALLINEAMENTO RECORD LOCALI
     if (allCloudRecords.length > 0 || offset === 0) {
         const cloudIdsSet = new Set(allCloudRecords.map(r => r.id));
         const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
@@ -447,7 +456,7 @@ async function backgroundPullFromSupabase(table, salonId) {
                 if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
                     await localDb.table(table).delete(localRec.id);
                 }
-            } else if (['customers', 'inventory', 'sales'].includes(table)) {
+            } else if (['customers', 'inventory', 'sales', 'stock_lots'].includes(table)) {
                 if (!cloudIdsSet.has(localRec.id)) {
                     await localDb.table(table).delete(localRec.id);
                 }
@@ -810,29 +819,29 @@ async function processBrowserSyncQueue() {
     }
 }
 
-// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Protegge dai picchi e dai 429 Too Many Requests)
+// ⚡ IDRATAZIONE OTTIMIZZATA & SCAGLIONATA (Con inclusione lotti FIFO)
 window.hydrateLocalDatabase = async function(salonId) {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || !salonId) return;
     
     try {
-        // FASE 1: Dati essenziali per l'operatività immediata (Agenda e Clienti)
-        const criticalTables = ['users', 'settings', 'customers', 'appointments'];
+        // FASE 1: Dati essenziali per l'operatività immediata (Agenda, Clienti, Vendite recenti)
+        const criticalTables = ['users', 'settings', 'customers', 'appointments', 'inventory', 'stock_lots'];
         for (let table of criticalTables) {
             await backgroundPullFromSupabase(table, salonId);
             await new Promise(r => setTimeout(r, 60));
         }
 
-        // FASE 2: Dati di magazzino e listini (in background leggero)
+        // FASE 2: Dati di magazzino estesi e fornitori (in background leggero)
         setTimeout(async () => {
             if (!navigator.onLine) return;
-            const inventoryTables = ['inventory', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history', 'packages_config', 'package_items', 'customer_packages'];
+            const inventoryTables = ['sales', 'sale_items', 'suppliers', 'product_suppliers', 'service_consumables', 'price_history', 'packages_config', 'package_items', 'customer_packages'];
             for (let table of inventoryTables) {
                 await backgroundPullFromSupabase(table, salonId);
                 await new Promise(r => setTimeout(r, 100));
             }
+            if (typeof updateStats === 'function') updateStats();
         }, 1200);
 
-        // FASE 3: Tabelle storiche pesanti caricate on-demand alla richiesta
     } catch (err) {
         console.warn("⚠️ [FAST SYNC] Errore durante l'idratazione scaglionata:", err);
     }
