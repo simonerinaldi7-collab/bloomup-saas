@@ -4218,14 +4218,242 @@
             <div>
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico Strategico</label>
                 <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
-                    <option value="launch_no_app" selected>🚀 Annuncio: Prenota Online Senza App!</option>
+                    <option value="transformation" selected>✨ Prima & Dopo / Trasformazione Look</option>
+                    <option value="launch_no_app">🚀 Annuncio: Prenota Online Senza App!</option>
                     <option value="lastminute">⚡ Posto Libero Last-Minute (Buchi Agenda)</option>
                     <option value="promo">🔥 Offerta Flash & Promozione</option>
                     <option value="pricelist">📑 Menu Listino (dal Print Studio & Catalogo)</option>
-                    <option value="transformation">✨ Prima & Dopo / Trasformazione Look</option>
                     <option value="quote">💬 Recensione 5 Stelle & Cliente</option>
                     <option value="custom">🎨 Grafica Libera Personalizzata</option>
                 </select>
+            </div>
+
+            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SOLO SU TRASFORMAZIONE) -->
+            <div id="ss-before-after-upload-box" style="display: block; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; margin-bottom: 8px;">
+                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto a Schermo Intero</label>
+                <small style="color: #7c3aed; font-size: 11px; display: block; margin-bottom: 8px;">Carica le due foto: prenderanno tutto lo schermo con separazione centrale:</small>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Carica Foto PRIMA -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
+                        <span style="font-size: 10.5px; font-weight: 800; color: #475569; display: block; margin-bottom: 4px;">FOTO PRIMA (SX)</span>
+                        <input type="file" id="ss-before-file-input" accept="image/*" style="display: none;" onchange="handleBeforePhotoUpload(event)">
+                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-before-file-input').click()">
+                            📁 Scegli Prima
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-before-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearBeforePhoto()">
+                            ✕ Rimuovi
+                        </button>
+                    </div>
+
+                    <!-- Carica Foto DOPO -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
+                        <span style="font-size: 10.5px; font-weight: 800; color: #d97706; display: block; margin-bottom: 4px;">FOTO DOPO (DX)</span>
+                        <input type="file" id="ss-after-file-input" accept="image/*" style="display: none;" onchange="handleAfterPhotoUpload(event)">
+                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-after-file-input').click()">
+                            📁 Scegli Dopo
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-after-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearAfterPhoto()">
+                            ✕ Rimuovi
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SELETTORE LISTINO DA PRINT STUDIO -->
+            <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Fonte Listino:</label>
+                <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <option value="current">Tutti i Servizi Attivi del Salone</option>
+                </select>
+                <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali trattamenti mostrare nella grafica:</small>
+
+                <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
+                    <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;"></div>
+                </div>
+            </div>
+
+            <!-- 3. GALLERIA SFONDI D'AUTORE, STAGIONI & FORME -->
+            <div id="ss-bg-gallery-section-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Stagionali</label>
+                    <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
+                </div>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+                    <button type="button" class="btn social-pill-btn active-pill" id="btn-bg-cat-all" onclick="filterSocialBgGallery('all')">Tutti</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-seasons" onclick="filterSocialBgGallery('seasons')">🍂 Stagioni</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-beauty" onclick="filterSocialBgGallery('beauty')">🌸 Beauty & Spa</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-hair" onclick="filterSocialBgGallery('hair')">✂️ Hair & Barber</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-luxury" onclick="filterSocialBgGallery('luxury')">👑 Luxury & Oro</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-minimal" onclick="filterSocialBgGallery('minimal')">🌿 Minimal & Boho</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon & Trend</button>
+                </div>
+
+                <div style="position: relative; width: 100%;">
+                    <button type="button" onclick="scrollBgThumbnails(-180)" style="position: absolute; left: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a sinistra">◀</button>
+                    <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px 18px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;"></div>
+                    <button type="button" onclick="scrollBgThumbnails(180)" style="position: absolute; right: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a destra">▶</button>
+                </div>
+
+                <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                    <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 6px;">— CARICA FOTO PERSONALIZZATA —</small>
+                    <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
+                            📷 Scegli o Scatta Foto Sfondo
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
+                            ✕ Rimuovi
+                        </button>
+                    </div>
+
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo Foto:</span>
+                            <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">0%</span>
+                        </div>
+                        <input type="range" id="ss-bg-overlay-slider" min="0.0" max="0.95" step="0.05" value="0.0" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Mostra Logo del Negozio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Sticker Link "Prenota Online Senza App"</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Includi QR Code Scansionabile sulla Grafica</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4. GESTIONE LOGO SALONE -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
+                    <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
+                        📁 Carica / Cambia Logo
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Forma Visualizzazione</label>
+                        <select id="ss-logo-shape-select" onchange="onSocialLogoShapeChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                            <option value="natural" selected>✨ Trasparente (Originale)</option>
+                            <option value="circle">⚪ Cerchio Protettivo</option>
+                            <option value="card">🏷️ Scheda Morbida</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
+                        <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                            <option value="none" selected>Originale (Colori reali)</option>
+                            <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
+                            <option value="gold">👑 Oro Luxury</option>
+                            <option value="dark">🌑 Nero Profondo</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================================= -->
+            <!-- 5. TESTI SULLA GRAFICA: CAMPI DINAMICI ED EDITABILI     -->
+            <!-- ======================================================= -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <label style="margin: 0 0 2px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modifica Testi, Colori & Grandezze</label>
+                
+                <!-- A. BADGE IN ALTO (Nascosto se Prima & Dopo per pulizia) -->
+                <div id="ss-group-badge" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Badge in Alto (Tag)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Badge">
+                                <span>Box:</span>
+                                <input type="color" id="ss-color-badge-bg" value="#D4AF37" oninput="setSocialElemBgColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Badge">
+                                <span>Testo:</span>
+                                <input type="color" id="ss-color-badge-text" value="#0f172a" oninput="setSocialElemColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-badge" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('badge')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-badge" value="" oninput="onSocialTextInput('ss-input-badge', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
+                </div>
+
+                <!-- B. TESTO SINISTRA / TITOLO PRINCIPALE -->
+                <div id="ss-group-title" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small id="ss-label-title" style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Etichetta Sinistra (Foto Prima)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-title-text" value="#ffffff" oninput="setSocialElemColor('title', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-title" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('title')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-title" value="PRIMA" oninput="onSocialTextInput('ss-input-title', this.value)" style="margin: 0; padding: 7px 10px; font-size: 13px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
+                </div>
+
+                <!-- C. TESTO DESTRA / BOX EVIDENZA -->
+                <div id="ss-group-highlight" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small id="ss-label-highlight" style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">Etichetta Destra (Foto Dopo)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo & Sfondo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-highlight-text" value="#D4AF37" oninput="setSocialElemColor('highlight', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-highlight" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('highlight')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-highlight" value="DOPO ✨" oninput="onSocialTextInput('ss-input-highlight', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: 900; color: #047857; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
+                </div>
+
+                <!-- D. SOTTOTITOLO (Nascosto su Prima & Dopo, attivo su altri template) -->
+                <div id="ss-group-subtitle" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Sottotitolo / Dettagli</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Sottotitolo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-subtitle-text" value="#cbd5e1" oninput="setSocialElemColor('subtitle', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-subtitle" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('subtitle')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <textarea id="ss-input-subtitle" rows="2" oninput="onSocialTextInput('ss-input-subtitle', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;"></textarea>
+                </div>
+
             </div>
 
             <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SOLO SU MODELLO TRASFORMAZIONE) -->
@@ -28650,59 +28878,99 @@ function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
     const beforeAfterBox = document.getElementById('ss-before-after-upload-box');
+    const bgGalleryBox = document.getElementById('ss-bg-gallery-section-box');
+
+    const groupBadge = document.getElementById('ss-group-badge');
+    const groupSubtitle = document.getElementById('ss-group-subtitle');
+    const labelTitle = document.getElementById('ss-label-title');
+    const labelHighlight = document.getElementById('ss-label-highlight');
 
     const badgeInput = document.getElementById('ss-input-badge');
     const titleInput = document.getElementById('ss-input-title');
     const subInput = document.getElementById('ss-input-subtitle');
     const highInput = document.getElementById('ss-input-highlight');
 
+    // Mostra/Nascondi box dedicati
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
     if (beforeAfterBox) beforeAfterBox.style.display = (tpl === 'transformation') ? 'block' : 'none';
+    if (bgGalleryBox) bgGalleryBox.style.display = (tpl === 'transformation') ? 'none' : 'flex';
 
-    if (tpl === 'launch_no_app') {
-        if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
-        if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
-        if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
-        if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
-    } else if (tpl === 'lastminute') {
-        if (badgeInput) badgeInput.value = '⚡ ALLERTA BUCO IN AGENDA';
-        if (titleInput) titleInput.value = 'Si è liberato un posto!';
-        if (subInput) subInput.value = 'Taglio & Styling • Solo 1 disponibilità rimasta per oggi.';
-        if (highInput) highInput.value = 'OGGI • ORE 16:30';
-    } else if (tpl === 'promo') {
-        if (badgeInput) badgeInput.value = '🔥 OFFERTA FLASH -30%';
-        if (titleInput) titleInput.value = 'Rituale Glow Viso & Ciglia';
-        if (subInput) subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Valido solo questa settimana!';
-        if (highInput) highInput.value = '€ 49.00 (invece di € 70)';
-    } else if (tpl === 'pricelist') {
-        if (badgeInput) badgeInput.value = 'MENU TRATTAMENTI';
-        if (titleInput) titleInput.value = 'I Nostri Servizi Esclusivi';
-        if (subInput) subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
-        if (highInput) highInput.value = 'Scegli il tuo trattamento e prenota online';
-        if (typeof renderSocialPricelistItemCheckboxes === 'function') {
-            renderSocialPricelistItemCheckboxes();
+    const canvas = document.getElementById('social-render-canvas');
+    const W = canvas ? canvas.width : 1080;
+    const H = canvas ? canvas.height : 1920;
+    const isStory = (window._socialStudioState.format === 'story');
+
+    if (tpl === 'transformation') {
+        // 🌟 MODELLO PRIMA E DOPO: SOLO 2 TESTI + LOGO IN ALTO
+        if (groupBadge) groupBadge.style.display = 'none';
+        if (groupSubtitle) groupSubtitle.style.display = 'none';
+        if (labelTitle) labelTitle.innerText = 'Etichetta Sinistra (Foto Prima)';
+        if (labelHighlight) labelHighlight.innerText = 'Etichetta Destra (Foto Dopo)';
+
+        if (titleInput) titleInput.value = 'PRIMA';
+        if (highInput) highInput.value = 'DOPO ✨';
+        if (badgeInput) badgeInput.value = '';
+        if (subInput) subInput.value = '';
+
+        if (window._socialElements) {
+            // Logo in alto al centro
+            window._socialElements.logo.x = W / 2;
+            window._socialElements.logo.y = isStory ? 170 : 120;
+            window._socialElements.logo.scale = 0.95;
+
+            // Testo PRIMA a sinistra
+            window._socialElements.title.x = W / 4;
+            window._socialElements.title.y = isStory ? 320 : 220;
+            window._socialElements.title.scale = 1.0;
+
+            // Testo DOPO a destra
+            window._socialElements.highlight.x = (3 * W) / 4;
+            window._socialElements.highlight.y = isStory ? 320 : 220;
+            window._socialElements.highlight.scale = 1.0;
         }
-    } else if (tpl === 'transformation') {
-        if (badgeInput) badgeInput.value = '✨ PRIMA & DOPO LOOK';
-        if (titleInput) titleInput.value = 'Luce, Armonia & Nuova Forma';
-        if (subInput) subInput.value = 'Tecnica Balayage Biondo Sabbia & Trattamento Botox Capillare.';
-        if (highInput) highInput.value = 'Richiedi la tua consulenza personalizzata';
-    } else if (tpl === 'pricelist') {
-    window._socialElements.badge.y = isStory ? 330 : 220;
-    window._socialElements.title.y = isStory ? 430 : 300;
-    window._socialElements.subtitle.y = isStory ? 530 : 380;     // ✅ Sopra il listino
-    window._socialElements.menu.y = isStory ? 920 : 680;         // Al centro
-    window._socialElements.highlight.y = isStory ? 1340 : 960;   // ✅ Sotto il listino
-} else if (tpl === 'quote') {
-        if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
-        if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
-        if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
-        if (highInput) highInput.value = 'Maria R. • Recensione Verificata';
     } else {
-        if (badgeInput) badgeInput.value = 'SPECIALE';
-        if (titleInput) titleInput.value = 'Esperienza di Bellezza Esclusiva';
-        if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
-        if (highInput) highInput.value = 'A partire da € 25.00';
+        // RIPRISTINO ALTRI MODELLI (TUTTI I CAMPI ATTIVI)
+        if (groupBadge) groupBadge.style.display = 'block';
+        if (groupSubtitle) groupSubtitle.style.display = 'block';
+        if (labelTitle) labelTitle.innerText = 'Titolo Principale (Headline)';
+        if (labelHighlight) labelHighlight.innerText = 'Box in Evidenza (Prezzo o Orario)';
+
+        if (tpl === 'launch_no_app') {
+            if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
+            if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
+            if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
+            if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
+        } else if (tpl === 'lastminute') {
+            if (badgeInput) badgeInput.value = '⚡ ALLERTA BUCO IN AGENDA';
+            if (titleInput) titleInput.value = 'Si è liberato un posto!';
+            if (subInput) subInput.value = 'Taglio & Styling • Solo 1 disponibilità rimasta per oggi.';
+            if (highInput) highInput.value = 'OGGI • ORE 16:30';
+        } else if (tpl === 'promo') {
+            if (badgeInput) badgeInput.value = '🔥 OFFERTA FLASH -30%';
+            if (titleInput) titleInput.value = 'Rituale Glow Viso & Ciglia';
+            if (subInput) subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Valido solo questa settimana!';
+            if (highInput) highInput.value = '€ 49.00 (invece di € 70)';
+        } else if (tpl === 'pricelist') {
+            if (badgeInput) badgeInput.value = 'MENU TRATTAMENTI';
+            if (titleInput) titleInput.value = 'I Nostri Servizi Esclusivi';
+            if (subInput) subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
+            if (highInput) highInput.value = 'Scegli il tuo trattamento e prenota online';
+            if (typeof renderSocialPricelistItemCheckboxes === 'function') renderSocialPricelistItemCheckboxes();
+        } else if (tpl === 'quote') {
+            if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
+            if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
+            if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
+            if (highInput) highInput.value = 'Maria R. • Recensione Verificata';
+        } else {
+            if (badgeInput) badgeInput.value = 'SPECIALE';
+            if (titleInput) titleInput.value = 'Esperienza di Bellezza Esclusiva';
+            if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
+            if (highInput) highInput.value = 'A partire da € 25.00';
+        }
+
+        if (window._socialElements) {
+            window._socialElements = getDefaultSocialElements(W, H, isStory);
+        }
     }
 
     const s = window._socialStudioState;
@@ -28711,39 +28979,192 @@ function onSocialTemplateChanged(tpl) {
     if (subInput) s.subtitle = subInput.value;
     if (highInput) s.highlightText = highInput.value;
 
-    const canvas = document.getElementById('social-render-canvas');
-    const W = canvas ? canvas.width : 1080;
-    const H = canvas ? canvas.height : 1920;
-    const isStory = (s.format === 'story');
-
-    if (window._socialElements) {
-        if (tpl === 'lastminute') {
-            window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 770 : 580;
-            window._socialElements.subtitle.y = isStory ? 1000 : 770;
-        } else if (tpl === 'promo') {
-            window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 760 : 570;
-            window._socialElements.subtitle.y = isStory ? 970 : 750;
-        } else if (tpl === 'transformation') {
-            window._socialElements.badge.y = isStory ? 370 : 250;
-            window._socialElements.title.y = isStory ? 480 : 340;
-            window._socialElements.subtitle.y = isStory ? 1160 : 860;
-            window._socialElements.highlight.y = isStory ? 1300 : 960;
-        } else if (tpl === 'quote') {
-            window._socialElements.badge.y = isStory ? 390 : 260;
-            window._socialElements.title.y = isStory ? 690 : 510;
-            window._socialElements.subtitle.y = isStory ? 940 : 720;
-            window._socialElements.highlight.y = isStory ? 1140 : 880;
-        } else {
-            window._socialElements = getDefaultSocialElements(W, H, isStory);
-        }
-    }
-
     if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
     renderSocialCanvas();
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
+
+function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
+    const splitX = W / 2; // Divisione esatta a metà schermo
+
+    // 1. FOTO PRIMA A SCHERMO INTERO (LATO SINISTRO DA 0 A W/2)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, splitX, H);
+    ctx.clip();
+
+    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
+        const img = s.beforeImg;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const shiftX = (splitX - img.naturalWidth * ratio) / 2;
+        const shiftY = (H - img.naturalHeight * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+
+        // Ombreggiatura gradient in alto e in basso per far risaltare il logo e i testi
+        const gradL = ctx.createLinearGradient(0, 0, 0, H);
+        gradL.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+        gradL.addColorStop(0.25, 'rgba(0, 0, 0, 0.05)');
+        gradL.addColorStop(0.75, 'rgba(0, 0, 0, 0.05)');
+        gradL.addColorStop(1, 'rgba(0, 0, 0, 0.60)');
+        ctx.fillStyle = gradL;
+        ctx.fillRect(0, 0, splitX, H);
+    } else {
+        // Placeholder estetico elegante a schermo intero
+        const gradPlaceL = ctx.createLinearGradient(0, 0, splitX, H);
+        gradPlaceL.addColorStop(0, '#1E293B');
+        gradPlaceL.addColorStop(1, '#0F172A');
+        ctx.fillStyle = gradPlaceL;
+        ctx.fillRect(0, 0, splitX, H);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillText('(Prende tutta la metà sinistra)', splitX / 2, H / 2 + 20);
+    }
+    ctx.restore();
+
+    // 2. FOTO DOPO A SCHERMO INTERO (LATO DESTRO DA W/2 A W)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(splitX, 0, splitX, H);
+    ctx.clip();
+
+    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
+        const img = s.afterImg;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const shiftX = splitX + (splitX - img.naturalWidth * ratio) / 2;
+        const shiftY = (H - img.naturalHeight * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+
+        // Ombreggiatura gradient
+        const gradR = ctx.createLinearGradient(0, 0, 0, H);
+        gradR.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+        gradR.addColorStop(0.25, 'rgba(0, 0, 0, 0.05)');
+        gradR.addColorStop(0.75, 'rgba(0, 0, 0, 0.05)');
+        gradR.addColorStop(1, 'rgba(0, 0, 0, 0.60)');
+        ctx.fillStyle = gradR;
+        ctx.fillRect(splitX, 0, splitX, H);
+    } else {
+        // Placeholder estetico
+        const gradPlaceR = ctx.createLinearGradient(splitX, 0, W, H);
+        gradPlaceR.addColorStop(0, '#2E1022');
+        gradPlaceR.addColorStop(1, '#12050E');
+        ctx.fillStyle = gradPlaceR;
+        ctx.fillRect(splitX, 0, splitX, H);
+
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillText('(Prende tutta la metà destra)', splitX + splitX / 2, H / 2 + 20);
+    }
+    ctx.restore();
+
+    // 3. LINEA DI SEPARAZIONE VERTICALE E CURSORE SLIDER CENTRALE
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(splitX, 0);
+    ctx.lineTo(splitX, H);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+
+    // Maniglia circolare a metà schermo con frecce
+    const handleY = H / 2;
+    ctx.beginPath();
+    ctx.arc(splitX, handleY, 32, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 15;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = accentColor;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '900 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀ ✦ ▶', splitX, handleY);
+    ctx.restore();
+}
+
+// 🔤 3. DISEGNO DELLE DUE SOVRIMPRESSIONI PRIMA E DOPO
+function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
+    // A. TESTO A SINISTRA (PRIMA)
+    const elBefore = elems.title;
+    if (s.title && s.title.trim() !== '') {
+        ctx.save();
+        const scale = (Number.isFinite(elBefore.scale) && elBefore.scale > 0.1) ? elBefore.scale : 1.0;
+        const x = Number.isFinite(elBefore.x) ? elBefore.x : W / 4;
+        const y = Number.isFinite(elBefore.y) ? elBefore.y : (isStory ? 320 : 220);
+
+        ctx.font = `900 ${Math.round(28 * scale)}px sans-serif`;
+        const text = s.title.trim();
+        const textW = ctx.measureText(text).width;
+        const badgeW = (textW + 48) * scale;
+        const badgeH = 50 * scale;
+
+        elBefore.w = badgeW;
+        elBefore.h = badgeH;
+
+        // Badge a capsula in vetro scuro semitrasparente
+        ctx.fillStyle = elBefore.bgColor || 'rgba(15, 23, 42, 0.82)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 12;
+        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = elBefore.color || '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+
+    // B. TESTO A DESTRA (DOPO)
+    const elAfter = elems.highlight;
+    if (s.highlightText && s.highlightText.trim() !== '') {
+        ctx.save();
+        const scale = (Number.isFinite(elAfter.scale) && elAfter.scale > 0.1) ? elAfter.scale : 1.0;
+        const x = Number.isFinite(elAfter.x) ? elAfter.x : (3 * W) / 4;
+        const y = Number.isFinite(elAfter.y) ? elAfter.y : (isStory ? 320 : 220);
+
+        ctx.font = `900 ${Math.round(28 * scale)}px sans-serif`;
+        const text = s.highlightText.trim();
+        const textW = ctx.measureText(text).width;
+        const badgeW = (textW + 48) * scale;
+        const badgeH = 50 * scale;
+
+        elAfter.w = badgeW;
+        elAfter.h = badgeH;
+
+        // Badge a capsula dorato o con colore scelto
+        ctx.fillStyle = elAfter.bgColor || accentColor;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 12;
+        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = elAfter.color || '#0F172A';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+}
 
 // 🎨 7. RENDERING CANVAS PRINCIPALE
 function renderSocialCanvas() {
@@ -28761,6 +29182,7 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
+    // Lettura testi preservando la digitazione
     const bIn = document.getElementById('ss-input-badge');
     if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
 
@@ -28775,9 +29197,6 @@ function renderSocialCanvas() {
 
     s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
     s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
-
-    if (!s.title) s.title = 'Prenota in 5 secondi senza scaricare nessuna app!';
-    if (!s.badgeText) s.badgeText = 'NOVITÀ SMART';
 
     const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
         ? (currentUser.salon_id || 'SALON_001') 
@@ -28794,94 +29213,109 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // SFONDO
-    if (s.bgType === 'upload' && s.uploadedBgImg) {
-        const img = s.uploadedBgImg;
-        const ratio = Math.max(W / img.width, H / img.height);
-        const shiftX = (W - img.width * ratio) / 2;
-        const shiftY = (H - img.height * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
+    // =========================================================================
+    // 🌟 SELEZIONE MODELLO: PRIMA & DOPO A SCHERMO INTERO VS ALTRI MODELLI
+    // =========================================================================
 
-        const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
-        ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
-        ctx.fillRect(0, 0, W, H);
-    } else {
-        drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
+    if (s.template === 'transformation') {
+        // 📸 1. LE FOTO PRENDONO IL 100% DELLO SCHERMO
+        drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor);
 
-        if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
-            ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
+        // 2. LOGO DEL SALONE IN ALTO AL CENTRO (SOPRA LE FOTO)
+        if (s.showLogo) {
+            const el = elems.logo;
+            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
+        }
+
+        // 3. SOLO I 2 TESTI SOVRIMPRESSI: "PRIMA" A SX E "DOPO" A DX
+        drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor);
+    } 
+    else {
+        // --- RENDERING STANDARD PER GLI ALTRI MODELLI ---
+        if (s.bgType === 'upload' && s.uploadedBgImg) {
+            const img = s.uploadedBgImg;
+            const ratio = Math.max(W / img.width, H / img.height);
+            const shiftX = (W - img.width * ratio) / 2;
+            const shiftY = (H - img.height * ratio) / 2;
+            ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
+
+            const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
+            ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
             ctx.fillRect(0, 0, W, H);
+        } else {
+            drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
+
+            if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
+                ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
+                ctx.fillRect(0, 0, W, H);
+            }
+        }
+
+        // Cornice
+        ctx.save();
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2.5;
+        ctx.globalAlpha = 0.4;
+        const margin = isStory ? 60 : 45;
+        ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
+        ctx.restore();
+
+        // Logo
+        if (s.showLogo) {
+            const el = elems.logo;
+            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
+        }
+
+        // Testi e layout specifici per ogni template
+        if (s.template === 'pricelist') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+        } 
+        else if (s.template === 'launch_no_app') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawLaunchFeatureCards(ctx, W, isStory ? 940 : 720, activePreset, accentColor);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+        }
+        else if (s.template === 'lastminute') {
+            drawUrgencyBadge(ctx, s, elems.badge, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+        }
+        else if (s.template === 'promo') {
+            drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+        }
+        else if (s.template === 'quote') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
+        }
+        else {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
         }
     }
 
-    // CORNICE PERIMETRALE
-    ctx.save();
-    ctx.strokeStyle = accentColor;
-    ctx.lineWidth = 2.5;
-    ctx.globalAlpha = 0.4;
-    const margin = isStory ? 60 : 45;
-    ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
-    ctx.restore();
-
-    // LOGO SALONE
-    if (s.showLogo) {
-        const el = elems.logo;
-        drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
-    }
-
-    // RENDERING STRUTTURALE SPECIALIZZATO
-    if (s.template === 'pricelist') {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
-        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-    } 
-    else if (s.template === 'launch_no_app') {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        drawLaunchFeatureCards(ctx, W, isStory ? 940 : 720, activePreset, accentColor);
-        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-    }
-    else if (s.template === 'lastminute') {
-        drawUrgencyBadge(ctx, s, elems.badge, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-    }
-    else if (s.template === 'promo') {
-        drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-    }
-    else if (s.template === 'transformation') {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawBeforeAfterComparisonHero(ctx, s, W, isStory ? 580 : 420, isStory ? 520 : 380, accentColor, activePreset);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-    }
-    else if (s.template === 'quote') {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
-    }
-    else {
-        drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-    }
-
+    // QR Code (se abilitato dall'utente)
     if (s.showQrCode && s.qrImage) {
         drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
     }
 
+    // Sticker Prenotazione (se abilitato dall'utente)
     if (s.showBookingBadge) {
         drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
     }
 
+    // Bordo interattivo di selezione dell'elemento toccato
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
     }
