@@ -21,12 +21,41 @@
 
 
 /* ======================================================== */
-/* 🎨 MINIATURE GALLERIA SFONDI SOCIAL STUDIO               */
+/* 📱 BOTTONI CATEGORIA & MINIATURE SFONDI SOCIAL STUDIO    */
 /* ======================================================== */
+.social-pill-btn {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 20px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #475569 !important;
+    min-height: unset !important;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap !important;
+    flex: 0 0 auto !important; /* Non si schiaccia e non taglia il testo */
+    transition: all 0.15s ease;
+}
+
+.social-pill-btn:hover {
+    background: #f1f5f9 !important;
+    border-color: var(--p) !important;
+    color: var(--p) !important;
+}
+
+.social-pill-btn.active-pill {
+    background: var(--p) !important;
+    color: #ffffff !important;
+    border-color: var(--p) !important;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3) !important;
+}
+
 .ss-bg-thumb-card {
-    min-width: 72px;
-    width: 72px;
-    height: 104px;
+    min-width: 78px;
+    width: 78px;
+    height: 115px;
     border-radius: 12px;
     border: 2px solid #cbd5e1;
     cursor: pointer;
@@ -34,12 +63,14 @@
     overflow: hidden;
     flex-shrink: 0;
     transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     padding: 4px;
     box-sizing: border-box;
+    background-size: cover !important;
+    background-position: center !important;
 }
 
 .ss-bg-thumb-card:hover {
@@ -50,15 +81,15 @@
 .ss-bg-thumb-card.active-bg {
     border-color: var(--p) !important;
     transform: scale(1.05);
-    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.4), 0 4px 12px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.4), 0 4px 12px rgba(0,0,0,0.3) !important;
 }
 
 .ss-bg-thumb-title {
-    font-size: 8.5px;
+    font-size: 8px;
     font-weight: 800;
     color: #ffffff;
     text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(15, 23, 42, 0.75);
     padding: 2px 4px;
     border-radius: 4px;
     text-align: center;
@@ -67,6 +98,7 @@
     text-overflow: ellipsis;
     backdrop-filter: blur(2px);
 }
+
 
 /* ======================================================== */
 /* 📱 VAIMUP SOCIAL STUDIO: LAYOUT DESKTOP & MOBILE-FIRST   */
@@ -272,24 +304,7 @@
     animation: fadeInScale 0.2s ease-out;
 }
 
-.social-pill-btn {
-    padding: 6px 10px !important;
-    font-size: 11.5px !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    border: 1.5px solid #cbd5e1 !important;
-    background: #f8fafc !important;
-    color: #475569 !important;
-    min-height: unset !important;
-    cursor: pointer;
-    flex: 1;
-    text-align: center;
-}
-.social-pill-btn.active-pill {
-    background: var(--p) !important;
-    color: #ffffff !important;
-    border-color: var(--p) !important;
-} 
+
 
 /* ======================================================== */
 /* ⚙️ CONFIGURAZIONE: TABS RESPONSIVE & SWITCH IOS ULTRA-CHIARO */
@@ -4102,8 +4117,8 @@
                 </div>
             </div>
 
-            <!-- TOOLBAR TRASFORMAZIONE ELEMENTO SELEZIONATO (STILE INSTAGRAM) -->
-            <<!-- TOOLBAR TRASFORMAZIONE RAPIDA ELEMENTO SELEZIONATO (CON COLORI E FONT SIZE) -->
+            
+            <!-- TOOLBAR TRASFORMAZIONE RAPIDA ELEMENTO SELEZIONATO (CON COLORI E FONT SIZE) -->
             <div id="ss-quick-transform-bar" style="background: #1e293b; border: 1.5px solid #334155; border-radius: 12px; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.35);">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 13px;" id="ss-active-elem-icon">✏️</span>
@@ -4236,26 +4251,33 @@
             <!-- 🌟 3. GALLERIA SFONDI D'AUTORE, FORME & FOTO PERSONALIZZATE -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Forme</label>
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Stagionali</label>
                     <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
                 </div>
 
-                <!-- Filtri Categorie Sfondi -->
-                <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
+                <!-- 🌟 TUTTI I PULSANTI CATEGORIA COMPLETAMENTE VISIBILI (WRAP NATURALE SU PC E MOBILE) -->
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
                     <button type="button" class="btn social-pill-btn active-pill" id="btn-bg-cat-all" onclick="filterSocialBgGallery('all')">Tutti</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-luxury" onclick="filterSocialBgGallery('luxury')">👑 Luxury</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-beauty" onclick="filterSocialBgGallery('beauty')">🌸 Beauty</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-barber" onclick="filterSocialBgGallery('barber')">💈 Barber</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-minimal" onclick="filterSocialBgGallery('minimal')">🌿 Minimal</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-seasons" onclick="filterSocialBgGallery('seasons')">🍂 Stagioni</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-beauty" onclick="filterSocialBgGallery('beauty')">🌸 Beauty & Spa</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-hair" onclick="filterSocialBgGallery('hair')">✂️ Hair & Barber</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-luxury" onclick="filterSocialBgGallery('luxury')">👑 Luxury & Oro</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-minimal" onclick="filterSocialBgGallery('minimal')">🌿 Minimal & Boho</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon & Trend</button>
                 </div>
 
-                <!-- Slider Orizzontale Miniature Sfondi (18 Sfondi Unici) -->
-                <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px 2px; -webkit-overflow-scrolling: touch;">
-                    <!-- Generato dinamicamente da JS -->
+                <!-- CAROUSEL MINIATURE CON TASTI SCROLL PER PC -->
+                <div style="position: relative; width: 100%;">
+                    <button type="button" onclick="scrollBgThumbnails(-180)" style="position: absolute; left: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a sinistra">◀</button>
+                    
+                    <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px 18px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;">
+                        <!-- Generato dinamicamente con foto reali e gradienti -->
+                    </div>
+
+                    <button type="button" onclick="scrollBgThumbnails(180)" style="position: absolute; right: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a destra">▶</button>
                 </div>
 
-                <!-- Sezione Foto Personale del Salone (Sempre attiva) -->
+                <!-- Sezione Foto Personale del Salone -->
                 <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
                     <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 6px;">— OPPURE CARICA LA TUA FOTO —</small>
                     
@@ -4269,17 +4291,15 @@
                         </button>
                     </div>
 
-                    <!-- Slider Contrasto / Oscuramento Sfondo (Funziona su qualsiasi sfondo) -->
                     <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                             <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo (Leggibilità Testo):</span>
-                            <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">65%</span>
+                            <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">0%</span>
                         </div>
-                        <input type="range" id="ss-bg-overlay-slider" min="0.10" max="0.95" step="0.05" value="0.65" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
+                        <input type="range" id="ss-bg-overlay-slider" min="0.0" max="0.95" step="0.05" value="0.0" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
                     </div>
                 </div>
 
-                <!-- Toggle Logo, Sticker e QR Code -->
                 <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 4px;">
                     <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
                         <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
@@ -27974,102 +27994,124 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (SFONDI VIVIDI, CONTRASTO & TESTI)
+// 📱 VAIMUP SOCIAL STUDIO: IMMAGINI REALI, 4 STAGIONI & BUGFIX TEMPLATE
 // =========================================================================
 
-// 1. GALLERIA SFONDI D'AUTORE: 18 PRESET CON COLORI REALI, FORME E CONTRASTO
+// 1. GALLERIA CON FOTOGRAFIE REALI (UNSPLASH HD CON CORS) + FORME VETTORIALI
 const SOCIAL_BG_PRESETS = [
-    // 👑 LUXURY (Chiari e Scuri)
+    // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
-        id: 'lux_marble_gold', category: 'luxury', name: 'Marmo Bianco & Oro', isLight: true,
-        gradient: ['#FAF8F5', '#F2E9DC'], accent: '#B45309', textMain: '#1C1917', textSub: '#57534E' 
+        id: 'season_autumn', category: 'seasons', name: 'Autunno & Foglie Oro', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#78350F', '#1F0B03'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
     },
     { 
-        id: 'lux_obsidian_gold', category: 'luxury', name: 'Noir & Oro Caldo', isLight: false,
-        gradient: ['#171923', '#090A0F'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#CBD5E1' 
+        id: 'season_spring', category: 'seasons', name: 'Primavera Cherry Blossom', isLight: true,
+        imgUrl: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#FDF2F8', '#FCE7F3'], accent: '#DB2777', textMain: '#371326', textSub: '#831843' 
     },
     { 
-        id: 'lux_champagne', category: 'luxury', name: 'Champagne Perlato', isLight: false,
-        gradient: ['#2E2318', '#120D08'], accent: '#FDE68A', textMain: '#FFFFFF', textSub: '#FDE047' 
+        id: 'season_summer', category: 'seasons', name: 'Estate Sun & Gold', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#C2410C', '#451A03'], accent: '#FBBF24', textMain: '#FFFFFF', textSub: '#FEF08A' 
+    },
+    { 
+        id: 'season_winter', category: 'seasons', name: 'Inverno Ice & Luci', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#0F172A', '#020617'], accent: '#38BDF8', textMain: '#FFFFFF', textSub: '#BAE6FD' 
     },
 
-    // 🌸 BEAUTY & GLAMOUR (Colorati, Luminosi e Femminili)
+    // 🌸 BEAUTY, SPA & GLAMOUR
+    { 
+        id: 'beauty_skincare_glow', category: 'beauty', name: 'Rituale Glow Skincare', isLight: true,
+        imgUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#FFF7ED', '#FFEDD5'], accent: '#EA580C', textMain: '#1C1917', textSub: '#78350F' 
+    },
+    { 
+        id: 'beauty_spa_candles', category: 'beauty', name: 'Wellness Spa & Relax', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#1C1917', '#0A0705'], accent: '#D4AF37', textMain: '#FFFFFF', textSub: '#E7E5E4' 
+    },
     { 
         id: 'beauty_rose_silk', category: 'beauty', name: 'Seta Rosa Cipria', isLight: true,
+        imgUrl: null, // Procedurale vettoriale
         gradient: ['#FDF2F4', '#FCE7EB'], accent: '#BE185D', textMain: '#371326', textSub: '#701A45' 
     },
     { 
-        id: 'beauty_glamour_blush', category: 'beauty', name: 'Blush & Onde Rosa', isLight: true,
-        gradient: ['#FFF1F2', '#FCE7F3'], accent: '#DB2777', textMain: '#371326', textSub: '#831843' 
-    },
-    { 
         id: 'beauty_lavender_spa', category: 'beauty', name: 'Lilla Etereo Spa', isLight: true,
+        imgUrl: null,
         gradient: ['#F5F3FF', '#EDE9FE'], accent: '#7C3AED', textMain: '#1E1B4B', textSub: '#4C1D95' 
     },
-    { 
-        id: 'beauty_ruby_velvet', category: 'beauty', name: 'Rosso Rubino Glamour', isLight: false,
-        gradient: ['#4C0519', '#1A0207'], accent: '#FB7185', textMain: '#FFFFFF', textSub: '#FECDD3' 
-    },
 
-    // 💈 BARBER & EXECUTIVE (Caldi, Legno e Maschili)
+    // ✂️ HAIR & BARBER
     { 
-        id: 'barber_warm_wood', category: 'barber', name: 'Rovere & Whisky', isLight: false,
+        id: 'hair_balayage_salon', category: 'hair', name: 'Onde Balayage Salone', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#29180E', '#0D0602'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
+    },
+    { 
+        id: 'barber_vintage_chair', category: 'hair', name: 'Poltrona Barber Vintage', isLight: false,
+        imgUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#18181B', '#09090B'], accent: '#D97706', textMain: '#FFFFFF', textSub: '#D4D4D8' 
+    },
+    { 
+        id: 'barber_warm_wood', category: 'hair', name: 'Rovere & Whisky Speakeasy', isLight: false,
+        imgUrl: null,
         gradient: ['#3E1E0F', '#140803'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
     },
+
+    // 👑 LUXURY & ORO
     { 
-        id: 'barber_dark_leather', category: 'barber', name: 'Cuoio & Pinstripe', isLight: false,
-        gradient: ['#291E1A', '#0D0907'], accent: '#D97706', textMain: '#FFFFFF', textSub: '#E2E8F0' 
+        id: 'lux_carrara_marble', category: 'luxury', name: 'Marmo Bianco & Venature', isLight: true,
+        imgUrl: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1080&q=80',
+        gradient: ['#F8FAFC', '#E2E8F0'], accent: '#B45309', textMain: '#0F172A', textSub: '#475569' 
     },
     { 
-        id: 'barber_carbon_smoke', category: 'barber', name: 'Carbonio & Fumo', isLight: false,
-        gradient: ['#1E293B', '#0F172A'], accent: '#38BDF8', textMain: '#FFFFFF', textSub: '#94A3B8' 
+        id: 'lux_obsidian_gold', category: 'luxury', name: 'Noir & Oro Caldo', isLight: false,
+        imgUrl: null,
+        gradient: ['#171923', '#090A0F'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#CBD5E1' 
+    },
+    { 
+        id: 'lux_champagne', category: 'luxury', name: 'Champagne Perlato & Bokeh', isLight: false,
+        imgUrl: null,
+        gradient: ['#2E2318', '#120D08'], accent: '#FDE68A', textMain: '#FFFFFF', textSub: '#FDE047' 
     },
 
-    // 🌿 MINIMAL & BOHO (Luminosi, Spa e Zen)
+    // 🌿 MINIMAL & BOHO
     { 
-        id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho', isLight: true,
+        id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho Arch', isLight: true,
+        imgUrl: null,
         gradient: ['#FAF5F0', '#F4EAE0'], accent: '#C2410C', textMain: '#2E1508', textSub: '#7C2D12' 
     },
     { 
         id: 'minimal_emerald', category: 'minimal', name: 'Smeraldo Botanico', isLight: false,
+        imgUrl: null,
         gradient: ['#064E3B', '#022C22'], accent: '#34D399', textMain: '#FFFFFF', textSub: '#A7F3D0' 
     },
-    { 
-        id: 'minimal_sand_dune', category: 'minimal', name: 'Sabbia & Ocra Zen', isLight: true,
-        gradient: ['#FDFBF7', '#F5EFE6'], accent: '#B45309', textMain: '#291E13', textSub: '#6B4A28' 
-    },
-    { 
-        id: 'minimal_ceramic_white', category: 'minimal', name: 'Studio Bianco Pulito', isLight: true,
-        gradient: ['#FFFFFF', '#F1F5F9'], accent: '#4F46E5', textMain: '#0F172A', textSub: '#475569' 
-    },
 
-    // ⚡ NEON & TREND (Vibranti ad Alta Energia)
+    // ⚡ NEON & TREND
     { 
         id: 'neon_sunset_glow', category: 'neon', name: 'Sunset Magenta & Arancio', isLight: false,
+        imgUrl: null,
         gradient: ['#831843', '#3B0764'], accent: '#FBBF24', textMain: '#FFFFFF', textSub: '#FDE68A' 
     },
     { 
         id: 'neon_cyber_purple', category: 'neon', name: 'Cyber Violetto & Ciano', isLight: false,
+        imgUrl: null,
         gradient: ['#2E0854', '#080112'], accent: '#22D3EE', textMain: '#FFFFFF', textSub: '#E9D5FF' 
-    },
-    { 
-        id: 'neon_cyan_matrix', category: 'neon', name: 'Ciano Notte Elettrico', isLight: false,
-        gradient: ['#0E3B43', '#031417'], accent: '#06B6D4', textMain: '#FFFFFF', textSub: '#CFFAFE' 
-    },
-    { 
-        id: 'duotone_indigo', category: 'neon', name: 'Duotone Indaco & Corallo', isLight: false,
-        gradient: ['#1E1B4B', '#090822'], accent: '#FB7185', textMain: '#FFFFFF', textSub: '#C7D2FE' 
     }
 ];
+
+window._socialBgImageCache = window._socialBgImageCache || new Map();
 
 window._socialStudioState = {
     template: 'launch_no_app',
     format: 'story',
     theme: 'luxury-gold',
     bgType: 'preset',
-    bgPresetId: 'beauty_rose_silk', // 🌟 Sfondo iniziale luminoso rosa/oro (non nero!)
+    bgPresetId: 'season_autumn', // 🍂 Inizio su Autunno fotografico d'impatto
     uploadedBgImg: null,
-    bgOverlayOpacity: 0.0,          // 🌟 Zero scurimento di default per gli sfondi artistici
+    bgOverlayOpacity: 0.15,
     badgeText: 'NOVITÀ SMART',
     title: 'Prenota in 5 secondi senza scaricare nessuna app!',
     subtitle: 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.',
@@ -28109,143 +28151,264 @@ function ensureSocialElementsInitialized(W, H, isStory) {
 }
 
 // =========================================================================
-// 🖌️ MOTORE DISEGNO SFONDI ARTISTICI VIVIDI (CANVAS 2D ULTRA-HD)
+// 🚀 BUGFIX: CAMBIO MODELLO STRATEGICO (SENZA ERRORI)
+// =========================================================================
+
+function onSocialTemplateChanged(tpl) {
+    window._socialStudioState.template = tpl;
+    const sourceBox = document.getElementById('ss-pricelist-source-box');
+    const badgeInput = document.getElementById('ss-input-badge');
+    const titleInput = document.getElementById('ss-input-title');
+    const subInput = document.getElementById('ss-input-subtitle');
+    const highInput = document.getElementById('ss-input-highlight');
+
+    if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
+
+    if (tpl === 'launch_no_app') {
+        if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
+        if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
+        if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
+        if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
+    } else if (tpl === 'lastminute') {
+        if (badgeInput) badgeInput.value = '⚡ LAST-MINUTE OGGI';
+        if (titleInput) titleInput.value = 'Si è liberato un posto!';
+        if (subInput) subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
+        if (highInput) highInput.value = '🕒 OGGI • ORE 16:30';
+    } else if (tpl === 'promo') {
+        if (badgeInput) badgeInput.value = '🔥 OFFERTA SPECIALE';
+        if (titleInput) titleInput.value = 'Trattamento Glow Viso & Ciglia';
+        if (subInput) subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
+        if (highInput) highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
+    } else if (tpl === 'pricelist') {
+        if (badgeInput) badgeInput.value = 'MENU TRATTAMENTI';
+        if (titleInput) titleInput.value = 'I Nostri Servizi Esclusivi';
+        if (subInput) subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
+        if (highInput) highInput.value = 'Scegli il tuo trattamento e prenota online';
+        if (typeof renderSocialPricelistItemCheckboxes === 'function') {
+            renderSocialPricelistItemCheckboxes();
+        }
+    } else if (tpl === 'transformation') {
+        if (badgeInput) badgeInput.value = '✨ TRASFORMAZIONE LOOK';
+        if (titleInput) titleInput.value = 'Prima & Dopo: Luce & Armonia';
+        if (subInput) subInput.value = 'Consulenza morfologica e tecnica colore su misura. Scopri il cambio look perfetto.';
+        if (highInput) highInput.value = 'Richiedi la tua consulenza personalizzata';
+    } else if (tpl === 'quote') {
+        if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
+        if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
+        if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
+        if (highInput) highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
+    } else {
+        if (badgeInput) badgeInput.value = 'SPECIALE';
+        if (titleInput) titleInput.value = 'Esperienza di Bellezza Esclusiva';
+        if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
+        if (highInput) highInput.value = 'A partire da € 25.00';
+    }
+
+    // Allineamento immediato delle variabili di stato
+    const s = window._socialStudioState;
+    if (badgeInput) s.badgeText = badgeInput.value;
+    if (titleInput) s.title = titleInput.value;
+    if (subInput) s.subtitle = subInput.value;
+    if (highInput) s.highlightText = highInput.value;
+
+    updateCaptionPreview();
+    renderSocialCanvas();
+}
+window.onSocialTemplateChanged = onSocialTemplateChanged;
+
+// =========================================================================
+// 🎨 GALLERIA SFONDI: MINIATURE REALI, SCROLL PC & FILTRI CATEGORIA
+// =========================================================================
+
+let _activeBgGalleryCategory = 'all';
+
+function renderSocialBgGalleryThumbnails() {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (!container) return;
+
+    // Attacca ascoltatore per consentire alla rotella del mouse verticale di scorrere in orizzontale su PC
+    if (!container._wheelAttached) {
+        container._wheelAttached = true;
+        container.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                container.scrollLeft += e.deltaY * 1.4;
+            }
+        }, { passive: false });
+    }
+
+    const activePresetId = window._socialStudioState.bgPresetId;
+    const cat = _activeBgGalleryCategory;
+
+    const filtered = (cat === 'all') 
+        ? SOCIAL_BG_PRESETS 
+        : SOCIAL_BG_PRESETS.filter(p => p.category === cat);
+
+    container.innerHTML = filtered.map(p => {
+        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
+        
+        // Se ha un'immagine reale, mostra l'immagine nella miniatura!
+        let thumbStyle = '';
+        if (p.imgUrl) {
+            thumbStyle = `background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.6)), url('${p.imgUrl}');`;
+        } else {
+            thumbStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
+        }
+
+        return `
+            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
+                 id="bg-thumb-${p.id}"
+                 style="${thumbStyle}"
+                 onclick="selectSocialBgPreset('${p.id}')"
+                 title="${p.name}">
+                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
+                <div class="ss-bg-thumb-title">${p.name}</div>
+            </div>
+        `;
+    }).join('');
+}
+window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
+
+function scrollBgThumbnails(px) {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (container) {
+        container.scrollBy({ left: px, behavior: 'smooth' });
+    }
+}
+window.scrollBgThumbnails = scrollBgThumbnails;
+
+function filterSocialBgGallery(cat) {
+    _activeBgGalleryCategory = cat;
+    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
+    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+    renderSocialBgGalleryThumbnails();
+}
+window.filterSocialBgGallery = filterSocialBgGallery;
+
+function selectSocialBgPreset(presetId) {
+    const p = SOCIAL_BG_PRESETS.find(x => x.id === presetId);
+    if (!p) return;
+
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = presetId;
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = p.imgUrl ? 0.40 : 0.05;
+
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
+    const overlayLabel = document.getElementById('ss-bg-overlay-label');
+    if (overlaySlider) overlaySlider.value = window._socialStudioState.bgOverlayOpacity;
+    if (overlayLabel) overlayLabel.innerText = `${Math.round(window._socialStudioState.bgOverlayOpacity * 100)}%`;
+
+    // Pre-caricamento dell'immagine reale con CORS garantito
+    if (p.imgUrl && !window._socialBgImageCache.has(p.imgUrl)) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            window._socialBgImageCache.set(p.imgUrl, img);
+            renderSocialCanvas();
+        };
+        img.src = p.imgUrl;
+    }
+
+    // Contrasto intelligente automatico per non rendere invisibile il testo
+    if (window._socialElements) {
+        if (!window._socialElements.title.color) {
+            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
+        }
+        if (!window._socialElements.subtitle.color) {
+            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
+        }
+    }
+
+    highlightActiveBgThumbnail();
+    syncSideColorPickersToTheme();
+    renderSocialCanvas();
+}
+window.selectSocialBgPreset = selectSocialBgPreset;
+
+function highlightActiveBgThumbnail() {
+    const s = window._socialStudioState;
+    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
+    if (s.bgType === 'preset') {
+        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
+        if (card) {
+            card.classList.add('active-bg');
+            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }
+}
+
+function resetToThemeDefaultBackground() {
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = 'season_autumn';
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = 0.15;
+    highlightActiveBgThumbnail();
+    renderSocialCanvas();
+}
+window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
+
+// =========================================================================
+// 🖌️ MOTORE DISEGNO SFONDI: FOTO REALI + PATTERN GEOMETRICI D'AUTORE
 // =========================================================================
 
 function drawSocialBackgroundPreset(ctx, W, H, presetId) {
     const p = SOCIAL_BG_PRESETS.find(x => x.id === presetId) || SOCIAL_BG_PRESETS[0];
 
-    // 1. Gradiente di base vivido
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, p.gradient[0]);
-    grad.addColorStop(1, p.gradient[1]);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.save();
-
-    // 2. Forme e Geometrie Vettoriali ad Alto Contrasto
-    if (p.id === 'lux_marble_gold') {
-        // Venature d'oro su marmo bianco/avorio
-        ctx.strokeStyle = '#D4AF37';
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 0.55;
-        ctx.beginPath();
-        ctx.moveTo(0, H * 0.25);
-        ctx.bezierCurveTo(W * 0.35, H * 0.20, W * 0.55, H * 0.35, W, H * 0.28);
-        ctx.stroke();
-
-        ctx.lineWidth = 1.5;
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.moveTo(W * 0.45, H * 0.26);
-        ctx.lineTo(W * 0.65, H * 0.15);
-        ctx.stroke();
-
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(0, H * 0.78);
-        ctx.bezierCurveTo(W * 0.4, H * 0.85, W * 0.7, H * 0.70, W, H * 0.76);
-        ctx.stroke();
+    // 1. Se il preset ha un'immagine reale già caricata in cache, disegnala a tutto schermo
+    let imageDrawn = false;
+    if (p.imgUrl && window._socialBgImageCache.has(p.imgUrl)) {
+        const img = window._socialBgImageCache.get(p.imgUrl);
+        if (img && img.complete && img.naturalWidth > 0) {
+            const ratio = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+            const shiftX = (W - img.naturalWidth * ratio) / 2;
+            const shiftY = (H - img.naturalHeight * ratio) / 2;
+            ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+            imageDrawn = true;
+        }
     }
-    else if (p.id === 'beauty_rose_silk' || p.id === 'beauty_glamour_blush') {
-        // Onde di seta rosa fluida e sfere morbide
-        const rad = ctx.createRadialGradient(W * 0.8, H * 0.2, 50, W * 0.8, H * 0.2, W * 0.7);
-        rad.addColorStop(0, 'rgba(244, 114, 182, 0.45)');
-        rad.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad;
+
+    // 2. Se l'immagine non è ancora pronta o è un preset procedurale, disegna la grafica vettoriale
+    if (!imageDrawn) {
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, p.gradient[0]);
+        grad.addColorStop(1, p.gradient[1]);
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, W, H);
 
-        ctx.fillStyle = 'rgba(219, 39, 119, 0.10)';
-        ctx.beginPath();
-        ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = p.accent;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.3;
-        ctx.beginPath();
-        ctx.arc(W * 0.9, H * 0.15, 240, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.save();
+        if (p.id === 'season_autumn') {
+            // Bagliore oro autunnale e cerchi morbidi
+            const rad = ctx.createRadialGradient(W * 0.7, H * 0.3, 50, W * 0.7, H * 0.3, W * 0.7);
+            rad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
+            rad.addColorStop(1, 'transparent');
+            ctx.fillStyle = rad;
+            ctx.fillRect(0, 0, W, H);
+        } else if (p.id === 'lux_obsidian_gold' || p.id === 'lux_carrara_marble') {
+            // Venature oro geometriche
+            ctx.strokeStyle = p.accent;
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = 0.45;
+            ctx.beginPath();
+            ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (p.id === 'beauty_rose_silk') {
+            // Seta e curve rosa
+            ctx.fillStyle = 'rgba(219, 39, 119, 0.12)';
+            ctx.beginPath();
+            ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     }
-    else if (p.id === 'lux_obsidian_gold') {
-        // Bagliore radiale oro caldo e archi art-déco
-        const rad = ctx.createRadialGradient(W * 0.5, H * 0.35, 80, W * 0.5, H * 0.35, W * 0.75);
-        rad.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
-        rad.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.strokeStyle = p.accent;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(W * 0.15, H * 0.85, 220, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-    else if (p.id === 'minimal_terracotta') {
-        // Arco architettonico terracotta e sole boho
-        ctx.fillStyle = 'rgba(194, 65, 12, 0.18)';
-        ctx.beginPath();
-        ctx.arc(W / 2, H * 0.55, W * 0.42, Math.PI, 0, false);
-        ctx.lineTo(W * 0.92, H * 0.85);
-        ctx.lineTo(W * 0.08, H * 0.85);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(234, 88, 12, 0.25)';
-        ctx.beginPath();
-        ctx.arc(W * 0.75, H * 0.22, 100, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    else if (p.id === 'minimal_emerald') {
-        // Cerchi dorati e luce smeraldo
-        const rad = ctx.createRadialGradient(W * 0.5, H * 0.4, 50, W * 0.5, H * 0.4, W * 0.65);
-        rad.addColorStop(0, 'rgba(52, 211, 153, 0.35)');
-        rad.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.strokeStyle = p.accent;
-        ctx.lineWidth = 2.5;
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.arc(W / 2, H * 0.4, W * 0.38, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-    else if (p.id === 'neon_sunset_glow') {
-        // Cerchio sole dorato e glow tramonto
-        const rad = ctx.createRadialGradient(W * 0.5, H * 0.75, 40, W * 0.5, H * 0.75, W * 0.6);
-        rad.addColorStop(0, 'rgba(251, 191, 36, 0.45)');
-        rad.addColorStop(0.5, 'rgba(236, 72, 153, 0.25)');
-        rad.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad;
-        ctx.fillRect(0, 0, W, H);
-    }
-    else if (p.id.startsWith('neon_')) {
-        // Fasce laser neon luminose
-        const rad1 = ctx.createRadialGradient(W * 0.2, H * 0.25, 40, W * 0.2, H * 0.25, W * 0.6);
-        rad1.addColorStop(0, 'rgba(168, 85, 247, 0.45)');
-        rad1.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad1;
-        ctx.fillRect(0, 0, W, H);
-
-        const rad2 = ctx.createRadialGradient(W * 0.8, H * 0.75, 40, W * 0.8, H * 0.75, W * 0.6);
-        rad2.addColorStop(0, 'rgba(6, 182, 212, 0.4)');
-        rad2.addColorStop(1, 'transparent');
-        ctx.fillStyle = rad2;
-        ctx.fillRect(0, 0, W, H);
-    }
-
-    ctx.restore();
 }
 
 // =========================================================================
-// 🎨 DISEGNO PRINCIPALE DEL CANVAS CON GARANZIA DI CONTRASTO & TESTI
+// 🎨 DISEGNO PRINCIPALE CANVAS (CON RISOLUZIONE BUG TEMPLATE)
 // =========================================================================
 
 function renderSocialCanvas() {
@@ -28263,7 +28426,7 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
-    // Sincronizzazione sicura dagli input (senza azzerare il testo se non trovato)
+    // Lettura sicura dagli input
     const bIn = document.getElementById('ss-input-badge');
     if (bIn && bIn.value !== undefined) s.badgeText = bIn.value.trim();
 
@@ -28279,7 +28442,6 @@ function renderSocialCanvas() {
     s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
     s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
 
-    // Fallback di sicurezza: i testi non devono MAI essere nulli o vuoti
     if (!s.title) s.title = 'Prenota in 5 secondi senza scaricare nessuna app!';
     if (!s.badgeText) s.badgeText = 'NOVITÀ SMART';
     if (!s.subtitle) s.subtitle = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
@@ -28289,17 +28451,15 @@ function renderSocialCanvas() {
         ? (currentUser.salon_id || 'SALON_001') 
         : 'SALON_001';
 
-    // Recupera il preset attivo
     const activePreset = SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || SOCIAL_BG_PRESETS[0];
 
-    // Colori di contrasto garantiti: chiari o scuri a seconda dello sfondo
     const defaultTextMain = activePreset.isLight ? '#1C1917' : '#FFFFFF';
     const defaultTextSub = activePreset.isLight ? '#57534E' : '#CBD5E1';
     const accentColor = activePreset.accent || '#D4AF37';
 
     ctx.clearRect(0, 0, W, H);
 
-    // A. SFONDO: FOTO O PRESET VIVIDO
+    // A. SFONDO (FOTO UTENTE OPPURE PRESET REALE/VETTORIALE)
     if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28307,25 +28467,20 @@ function renderSocialCanvas() {
         const shiftY = (H - img.height * ratio) / 2;
         ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
 
-        const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.65;
-        const darkGrad = ctx.createLinearGradient(0, 0, 0, H);
-        darkGrad.addColorStop(0, `rgba(10, 12, 18, ${Math.min(overlayAlpha + 0.1, 0.95)})`);
-        darkGrad.addColorStop(0.5, `rgba(10, 12, 18, ${overlayAlpha})`);
-        darkGrad.addColorStop(1, `rgba(10, 12, 18, ${Math.min(overlayAlpha + 0.2, 0.98)})`);
-        ctx.fillStyle = darkGrad;
+        const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
+        ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
         ctx.fillRect(0, 0, W, H);
     } else {
-        // Disegna lo sfondo artistico vivo
         drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
 
-        // Se l'utente ha impostato manualmente lo slider di scurimento, applicalo
+        // Se applicata opacità aggiuntiva sullo sfondo
         if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
-            ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity * 0.6})`;
+            ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
             ctx.fillRect(0, 0, W, H);
         }
     }
 
-    // B. CORNICE PERIMETRALE
+    // B. CORNICE PERIMETRALE SOTTILE
     ctx.save();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2.5;
@@ -28340,7 +28495,7 @@ function renderSocialCanvas() {
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // D. BADGE IN ALTO (Con testo contrastato)
+    // D. BADGE IN ALTO
     if (s.badgeText) {
         const el = elems.badge;
         ctx.save();
@@ -28365,7 +28520,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // E. TITOLO PRINCIPALE (Testo Garantito Visibile)
+    // E. TITOLO PRINCIPALE (CENTRATO E VISIBILE)
     if (s.title) {
         const el = elems.title;
         ctx.save();
@@ -28392,10 +28547,11 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // F. SOTTOTITOLO O LISTINO MENU
+    // F. LISTINO MENU OPPURE SOTTOTITOLO + HIGHLIGHT
     if (s.template === 'pricelist') {
         const el = elems.menu;
-        drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, defaultTextMain);
+        // 🌟 CHIAMATA SICURA: Passiamo activePreset per evitare ReferenceError
+        drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, defaultTextMain, activePreset);
     } else {
         if (s.subtitle) {
             const el = elems.subtitle;
@@ -28475,7 +28631,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // H. STICKER CALL-TO-ACTION PRENOTA ONLINE
+    // H. STICKER PRENOTAZIONE ONLINE
     if (s.showBookingBadge) {
         const el = elems.sticker;
         ctx.save();
@@ -28502,7 +28658,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // I. BORDO SELEZIONE TOUCH ELEMENTO ATTIVO
+    // I. BORDO TOUCH SELEZIONE ATTIVA
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         const active = elems[window._activeSocialElemId];
         const aX = Number.isFinite(active.x) ? active.x : W / 2;
@@ -28540,7 +28696,80 @@ function renderSocialCanvas() {
 window.renderSocialCanvas = renderSocialCanvas;
 
 // =========================================================================
-// 🔤 CENTRATURA MULTILINEA VERTICALE DEL TESTO
+// 📑 DISEGNO MENU LISTINO (IMMUNE DA REFERENCE ERROR)
+// =========================================================================
+
+function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain, activePresetParam = null) {
+    const isStory = (s.format === 'story');
+    const maxItems = isStory ? 5 : 4;
+    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
+    let itemsToDraw = [];
+
+    // Risoluzione sicura di activePreset locale
+    const activePreset = activePresetParam || SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || SOCIAL_BG_PRESETS[0];
+
+    if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
+        for (let sId of s.customCheckedServiceIds) {
+            const found = inventory.find(x => String(x.id).trim() === String(sId).trim());
+            if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
+        }
+    }
+
+    if (itemsToDraw.length === 0) {
+        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, maxItems).map(srv => ({
+            name: srv.name,
+            price: parseFloat(srv.price || 0)
+        }));
+    }
+
+    if (itemsToDraw.length === 0) return;
+
+    const displayList = itemsToDraw.slice(0, maxItems);
+    const menuScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
+    const menuW = (W - 240) * menuScale;
+    const menuX = (Number.isFinite(el.x) ? el.x : W / 2) - (menuW / 2);
+    const lineHeight = Math.round((isStory ? 75 : 62) * menuScale);
+    let curY = (Number.isFinite(el.y) ? el.y : (isStory ? 920 : 680)) - ((displayList.length * lineHeight) / 2);
+
+    el.w = menuW;
+    el.h = displayList.length * lineHeight;
+
+    const itemTextColor = el.color || textMain;
+    const priceTextColor = el.bgColor || accentColor;
+
+    displayList.forEach(item => {
+        const cleanName = item.name.replace(/^[🔥⚡✨🏷️👑🎁]?\s*\[[^\]]+\]\s*/i, '').trim();
+        const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
+
+        ctx.save();
+        ctx.font = `bold ${Math.round(30 * menuScale)}px sans-serif`;
+        ctx.fillStyle = itemTextColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cleanName, menuX, curY);
+
+        ctx.fillStyle = priceTextColor;
+        ctx.textAlign = 'right';
+        ctx.font = `900 ${Math.round(32 * menuScale)}px serif`;
+        ctx.fillText(priceStr, menuX + menuW, curY);
+
+        const nameW = ctx.measureText(cleanName).width;
+        const priceW = ctx.measureText(priceStr).width;
+        ctx.strokeStyle = activePreset?.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 2 * menuScale;
+        ctx.beginPath();
+        ctx.moveTo(menuX + nameW + 16, curY);
+        ctx.lineTo(menuX + menuW - priceW - 16, curY);
+        ctx.stroke();
+        ctx.restore();
+
+        curY += lineHeight;
+    });
+}
+
+// =========================================================================
+// 🔤 CENTRATURA TESTO, SALVATAGGI & GESTI TOUCH
 // =========================================================================
 
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -28569,109 +28798,6 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
     }
     return totalBlockH;
 }
-
-// =========================================================================
-// 🎨 GALLERIA SFONDI: MINIATURE VIVIDE E SELEZIONE
-// =========================================================================
-
-let _activeBgGalleryCategory = 'all';
-
-function renderSocialBgGalleryThumbnails() {
-    const container = document.getElementById('ss-bg-thumbnails-scroll');
-    if (!container) return;
-
-    const activePresetId = window._socialStudioState.bgPresetId;
-    const cat = _activeBgGalleryCategory;
-
-    const filtered = (cat === 'all') 
-        ? SOCIAL_BG_PRESETS 
-        : SOCIAL_BG_PRESETS.filter(p => p.category === cat);
-
-    container.innerHTML = filtered.map(p => {
-        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
-        const gradStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
-
-        return `
-            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
-                 id="bg-thumb-${p.id}"
-                 style="${gradStyle}"
-                 onclick="selectSocialBgPreset('${p.id}')"
-                 title="${p.name}">
-                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
-                <div class="ss-bg-thumb-title" style="color: ${p.isLight ? '#0F172A' : '#FFFFFF'}; background: ${p.isLight ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)'};">${p.name}</div>
-            </div>
-        `;
-    }).join('');
-}
-window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
-
-function filterSocialBgGallery(cat) {
-    _activeBgGalleryCategory = cat;
-    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
-    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
-    if (activeBtn) activeBtn.classList.add('active-pill');
-    renderSocialBgGalleryThumbnails();
-}
-window.filterSocialBgGallery = filterSocialBgGallery;
-
-function selectSocialBgPreset(presetId) {
-    const p = SOCIAL_BG_PRESETS.find(x => x.id === presetId);
-    if (!p) return;
-
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = presetId;
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = 0.0; // Reset scurimento per mostrare i colori vivi
-
-    const clearBtn = document.getElementById('btn-clear-social-bg');
-    if (clearBtn) clearBtn.style.display = 'none';
-
-    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
-    const overlayLabel = document.getElementById('ss-bg-overlay-label');
-    if (overlaySlider) overlaySlider.value = 0;
-    if (overlayLabel) overlayLabel.innerText = '0%';
-
-    // Se l'utente non ha impostato colori manuali, adatta il testo al contrasto dello sfondo scelto
-    if (window._socialElements) {
-        if (!window._socialElements.title.color) {
-            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
-        }
-        if (!window._socialElements.subtitle.color) {
-            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
-        }
-    }
-
-    highlightActiveBgThumbnail();
-    syncSideColorPickersToTheme();
-    renderSocialCanvas();
-}
-window.selectSocialBgPreset = selectSocialBgPreset;
-
-function highlightActiveBgThumbnail() {
-    const s = window._socialStudioState;
-    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
-    if (s.bgType === 'preset') {
-        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
-        if (card) {
-            card.classList.add('active-bg');
-            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-    }
-}
-
-function resetToThemeDefaultBackground() {
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = 'beauty_rose_silk';
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = 0.0;
-    highlightActiveBgThumbnail();
-    renderSocialCanvas();
-}
-window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
-
-// =========================================================================
-// 🔤 CONTROLLI DIMENSIONE FONT & COLORI
-// =========================================================================
 
 function stepScaleSocialElem(elemId, step) {
     const canvas = document.getElementById('social-render-canvas');
@@ -28893,7 +29019,223 @@ function resetSocialElementsPositions() {
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
 // =========================================================================
-// 🚀 INIZIALIZZAZIONE VISTA SOCIAL STUDIO
+// 💾 PERSISTENZA BOZZE (LOCAL-FIRST & CLOUD SUPABASE)
+// =========================================================================
+
+async function saveCurrentSocialDraft() {
+    const nameInput = document.getElementById('ss-draft-name-input');
+    const draftName = (nameInput?.value || '').trim();
+
+    if (!draftName) {
+        return alert("Inserisci un nome per la bozza prima di salvare (es. Story Autunno, Promo Balayage).");
+    }
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    const s = window._socialStudioState;
+
+    const draftData = {
+        id: 'draft_' + Date.now(),
+        name: draftName,
+        salon_id: currentSalon,
+        saved_at: new Date().toISOString(),
+        config: {
+            template: s.template,
+            format: s.format,
+            theme: s.theme,
+            bgType: s.bgType,
+            bgPresetId: s.bgPresetId,
+            bgOverlayOpacity: s.bgOverlayOpacity,
+            badgeText: s.badgeText,
+            title: s.title,
+            subtitle: s.subtitle,
+            highlightText: s.highlightText,
+            showLogo: s.showLogo,
+            showBookingBadge: s.showBookingBadge,
+            showQrCode: s.showQrCode,
+            logoShape: s.logoShape,
+            logoFilter: s.logoFilter,
+            selectedPresetId: s.selectedPresetId,
+            customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
+            elements: JSON.parse(JSON.stringify(window._socialElements || {}))
+        }
+    };
+
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+
+    const existingIdx = allDrafts.findIndex(d => d.name.toLowerCase() === draftName.toLowerCase());
+    if (existingIdx >= 0) {
+        if (!confirm(`Esiste già una bozza denominata "${draftName}". Vuoi sovrascriverla?`)) {
+            return;
+        }
+        allDrafts[existingIdx] = draftData;
+    } else {
+        allDrafts.unshift(draftData);
+    }
+
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+    renderSavedSocialDraftsDropdown(allDrafts, draftData.id);
+    alert(`✅ Bozza "${draftName}" salvata con successo!`);
+}
+window.saveCurrentSocialDraft = saveCurrentSocialDraft;
+
+function loadAllSocialDraftsFromStorage(currentSalon) {
+    const raw = (typeof sysSettings !== 'undefined' && sysSettings['social_saved_drafts']) || localStorage.getItem(`vaimup_social_drafts_${currentSalon}`);
+    if (raw) {
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+    return [];
+}
+
+async function persistAllSocialDrafts(draftsArray, currentSalon) {
+    const jsonStr = JSON.stringify(draftsArray);
+    localStorage.setItem(`vaimup_social_drafts_${currentSalon}`, jsonStr);
+    if (typeof sysSettings !== 'undefined') sysSettings['social_saved_drafts'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'social_saved_drafts', value: jsonStr }
+    });
+}
+
+function renderSavedSocialDraftsDropdown(draftsArray = null, selectedId = '') {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const badge = document.getElementById('ss-saved-drafts-badge');
+    if (!dropdown) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const drafts = draftsArray || loadAllSocialDraftsFromStorage(currentSalon);
+
+    if (badge) badge.innerText = `${drafts.length} salvat${drafts.length === 1 ? 'a' : 'e'}`;
+
+    if (drafts.length === 0) {
+        dropdown.innerHTML = `<option value="">-- Nessuna bozza salvata --</option>`;
+        return;
+    }
+
+    dropdown.innerHTML = `<option value="">-- Seleziona una bozza salvata --</option>` +
+        drafts.map(d => {
+            const dateStr = d.saved_at ? new Date(d.saved_at).toLocaleDateString('it-IT') : '';
+            return `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.name} (${dateStr})</option>`;
+        }).join('');
+}
+window.renderSavedSocialDraftsDropdown = renderSavedSocialDraftsDropdown;
+
+function loadSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima una bozza dalla tendina.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target || !target.config) return alert("Impossibile caricare la bozza selezionata.");
+
+    const c = target.config;
+    const s = window._socialStudioState;
+
+    s.template = c.template || 'custom';
+    s.theme = c.theme || 'luxury-gold';
+    s.bgType = c.bgType || 'preset';
+    s.bgPresetId = c.bgPresetId || 'season_autumn';
+    s.bgOverlayOpacity = c.bgOverlayOpacity !== undefined ? c.bgOverlayOpacity : 0.15;
+    s.badgeText = c.badgeText || '';
+    s.title = c.title || '';
+    s.subtitle = c.subtitle || '';
+    s.highlightText = c.highlightText || '';
+    s.showLogo = c.showLogo ?? true;
+    s.showBookingBadge = c.showBookingBadge ?? true;
+    s.showQrCode = c.showQrCode ?? false;
+    s.logoShape = c.logoShape || 'natural';
+    s.logoFilter = c.logoFilter || 'none';
+    s.selectedPresetId = c.selectedPresetId || 'current';
+    s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
+
+    if (c.format) {
+        setSocialFormat(c.format);
+    }
+
+    if (c.elements) {
+        window._socialElements = JSON.parse(JSON.stringify(c.elements));
+    }
+
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = target.name;
+
+    const tplSelect = document.getElementById('ss-template-select');
+    if (tplSelect) tplSelect.value = s.template;
+
+    const thmSelect = document.getElementById('ss-theme-select');
+    if (thmSelect) thmSelect.value = s.theme;
+
+    const badgeInput = document.getElementById('ss-input-badge');
+    if (badgeInput) badgeInput.value = s.badgeText;
+
+    const titleInput = document.getElementById('ss-input-title');
+    if (titleInput) titleInput.value = s.title;
+
+    const subInput = document.getElementById('ss-input-subtitle');
+    if (subInput) subInput.value = s.subtitle;
+
+    const highInput = document.getElementById('ss-input-highlight');
+    if (highInput) highInput.value = s.highlightText;
+
+    const sliderOverlay = document.getElementById('ss-bg-overlay-slider');
+    const lblOverlay = document.getElementById('ss-bg-overlay-label');
+    if (sliderOverlay) sliderOverlay.value = s.bgOverlayOpacity;
+    if (lblOverlay) lblOverlay.innerText = `${Math.round(s.bgOverlayOpacity * 100)}%`;
+
+    const cbLogo = document.getElementById('ss-toggle-logo');
+    if (cbLogo) cbLogo.checked = s.showLogo;
+
+    const cbSticker = document.getElementById('ss-toggle-booking-badge');
+    if (cbSticker) cbSticker.checked = s.showBookingBadge;
+
+    const cbQr = document.getElementById('ss-toggle-qr');
+    if (cbQr) cbQr.checked = s.showQrCode;
+
+    highlightActiveBgThumbnail();
+    renderSocialPricelistItemCheckboxes();
+    syncSideColorPickersToTheme();
+    updateCaptionPreview();
+    renderSocialCanvas();
+
+    alert(`📖 Bozza "${target.name}" caricata con successo!`);
+}
+window.loadSelectedSocialDraft = loadSelectedSocialDraft;
+
+async function deleteSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima la bozza da eliminare.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target) return;
+    if (!confirm(`Sei sicuro di voler eliminare la bozza "${target.name}"?`)) return;
+
+    allDrafts = allDrafts.filter(d => d.id !== selectedId);
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+
+    renderSavedSocialDraftsDropdown(allDrafts);
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = '';
+    alert("🗑️ Bozza eliminata.");
+}
+window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
+
+// =========================================================================
+// 🚀 INIZIALIZZAZIONE & GESTI TOUCH
 // =========================================================================
 
 async function initSocialStudioView() {
@@ -29037,59 +29379,6 @@ function onSocialPresetSourceChanged(val) {
 }
 window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
 
-function onSocialTemplateChanged(tpl) {
-    window._socialStudioState.template = tpl;
-    const sourceBox = document.getElementById('ss-pricelist-source-box');
-    const badgeInput = document.getElementById('ss-input-badge');
-    const titleInput = document.getElementById('ss-input-title');
-    const subInput = document.getElementById('ss-input-subtitle');
-    const highInput = document.getElementById('ss-input-highlight');
-
-    if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
-
-    if (tpl === 'launch_no_app') {
-        if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
-        if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
-        if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
-        if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
-    } else if (tpl === 'lastminute') {
-        if (badgeInput) badgeInput.value = '⚡ LAST-MINUTE OGGI';
-        if (titleInput) titleInput.value = 'Si è liberato un posto!';
-        if (subInput) subInput.value = 'Prenota subito prima che venga occupato. Disponibile oggi alle 16:30 per Taglio & Styling.';
-        if (highInput) highInput.value = '🕒 OGGI • ORE 16:30';
-    } else if (tpl === 'promo') {
-        if (badgeInput) badgeInput.value = '🔥 OFFERTA SPECIALE';
-        if (titleInput) titleInput.value = 'Trattamento Glow Viso & Ciglia';
-        if (subInput) subInput.value = 'Rigenerazione profonda con il nostro rituale esclusivo. Solo per questa settimana!';
-        if (highInput) highInput.value = 'Prezzo Promo: € 49.00 (invece di € 70.00)';
-    } else if (tpl === 'pricelist') {
-        if (badgeInput) badgeInput.value = 'MENU TRATTAMENTI';
-        if (titleInput) titleInput.value = 'I Nostri Servizi Esclusivi';
-        if (subInput) subInput.value = 'Esperienza di cura e bellezza con prodotti professionali di alta gamma.';
-        if (highInput) highInput.value = 'Scegli il tuo trattamento e prenota online';
-        renderSocialPricelistItemCheckboxes();
-    } else if (tpl === 'transformation') {
-        if (badgeInput) badgeInput.value = '✨ TRASFORMAZIONE LOOK';
-        if (titleInput) titleInput.value = 'Prima & Dopo: Luce & Armonia';
-        if (subInput) subInput.value = 'Consulenza morfologica e tecnica colore su misura. Scopri il cambio look perfetto.';
-        if (highInput) highInput.value = 'Richiedi la tua consulenza personalizzata';
-    } else if (tpl === 'quote') {
-        if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
-        if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
-        if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
-        if (highInput) highInput.value = '⭐⭐⭐⭐⭐ • Recensione Verificata';
-    } else {
-        if (badgeInput) badgeInput.value = 'SPECIALE';
-        if (titleInput) titleInput.value = 'Esperienza di Bellezza Esclusiva';
-        if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
-        if (highInput) highInput.value = 'A partire da € 25.00';
-    }
-
-    updateCaptionPreview();
-    renderSocialCanvas();
-}
-window.onSocialTemplateChanged = onSocialTemplateChanged;
-
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
@@ -29160,7 +29449,7 @@ function handleSocialBgUpload(e) {
         img.onload = () => {
             window._socialStudioState.uploadedBgImg = img;
             window._socialStudioState.bgType = 'upload';
-            window._socialStudioState.bgOverlayOpacity = 0.55; // Scurimento confortevole per foto esterne
+            window._socialStudioState.bgOverlayOpacity = 0.50;
             const clearBtn = document.getElementById('btn-clear-social-bg');
             if (clearBtn) clearBtn.style.display = 'inline-flex';
             document.querySelectorAll('.ss-bg-thumb-card').forEach(c => c.classList.remove('active-bg'));
@@ -29175,7 +29464,7 @@ window.handleSocialBgUpload = handleSocialBgUpload;
 function clearSocialBgPhoto() {
     window._socialStudioState.uploadedBgImg = null;
     window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgOverlayOpacity = 0.0;
+    window._socialStudioState.bgOverlayOpacity = 0.15;
     const input = document.getElementById('ss-bg-file-input');
     if (input) input.value = '';
     const clearBtn = document.getElementById('btn-clear-social-bg');
@@ -29184,10 +29473,6 @@ function clearSocialBgPhoto() {
     renderSocialCanvas();
 }
 window.clearSocialBgPhoto = clearSocialBgPhoto;
-
-// =========================================================================
-// 👆 GESTI TOUCH & MOUSE IMMUNI DA NaN
-// =========================================================================
 
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
@@ -29343,76 +29628,6 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain) {
-    const isStory = (s.format === 'story');
-    const maxItems = isStory ? 5 : 4;
-    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
-    let itemsToDraw = [];
-
-    if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
-        for (let sId of s.customCheckedServiceIds) {
-            const found = inventory.find(x => String(x.id).trim() === String(sId).trim());
-            if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
-        }
-    }
-
-    if (itemsToDraw.length === 0) {
-        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, maxItems).map(srv => ({
-            name: srv.name,
-            price: parseFloat(srv.price || 0)
-        }));
-    }
-
-    if (itemsToDraw.length === 0) return;
-
-    const displayList = itemsToDraw.slice(0, maxItems);
-    const menuScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const menuW = (W - 240) * menuScale;
-    const menuX = (Number.isFinite(el.x) ? el.x : W / 2) - (menuW / 2);
-    const lineHeight = Math.round((isStory ? 75 : 62) * menuScale);
-    let curY = (Number.isFinite(el.y) ? el.y : (isStory ? 920 : 680)) - ((displayList.length * lineHeight) / 2);
-
-    el.w = menuW;
-    el.h = displayList.length * lineHeight;
-
-    const itemTextColor = el.color || textMain;
-    const priceTextColor = el.bgColor || accentColor;
-
-    displayList.forEach(item => {
-        const cleanName = item.name.replace(/^[🔥⚡✨🏷️👑🎁]?\s*\[[^\]]+\]\s*/i, '').trim();
-        const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
-
-        ctx.save();
-        ctx.font = `bold ${Math.round(30 * menuScale)}px sans-serif`;
-        ctx.fillStyle = itemTextColor;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(cleanName, menuX, curY);
-
-        ctx.fillStyle = priceTextColor;
-        ctx.textAlign = 'right';
-        ctx.font = `900 ${Math.round(32 * menuScale)}px serif`;
-        ctx.fillText(priceStr, menuX + menuW, curY);
-
-        const nameW = ctx.measureText(cleanName).width;
-        const priceW = ctx.measureText(priceStr).width;
-        ctx.strokeStyle = activePreset?.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
-        ctx.setLineDash([4, 6]);
-        ctx.lineWidth = 2 * menuScale;
-        ctx.beginPath();
-        ctx.moveTo(menuX + nameW + 16, curY);
-        ctx.lineTo(menuX + menuW - priceW - 16, curY);
-        ctx.stroke();
-        ctx.restore();
-
-        curY += lineHeight;
-    });
-}
-
-// -------------------------------------------------------------------------
-// 📤 CONDIVISIONE, SALVATAGGIO & UTILITIES
-// -------------------------------------------------------------------------
-
 async function shareSocialGraphic() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -29491,11 +29706,11 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
     ctx.lineTo(x + width - r, y);
     ctx.quadraticCurveTo(x + width, y, x + width, y + r);
     ctx.lineTo(x + width, y + height - r);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
     ctx.lineTo(x + r, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
     ctx.closePath();
 }
 
