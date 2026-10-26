@@ -27994,11 +27994,11 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL STUDIO: IMMAGINI REALI, 4 STAGIONI & BUGFIX TEMPLATE
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO & COMPLETO)
 // =========================================================================
 
-// 1. GALLERIA CON FOTOGRAFIE REALI (UNSPLASH HD CON CORS) + FORME VETTORIALI
-const SOCIAL_BG_PRESETS = [
+// 1. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD (CORS ANONYMOUS) & FORME
+window.SOCIAL_BG_PRESETS = [
     // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
         id: 'season_autumn', category: 'seasons', name: 'Autunno & Foglie Oro', isLight: false,
@@ -28034,7 +28034,7 @@ const SOCIAL_BG_PRESETS = [
     },
     { 
         id: 'beauty_rose_silk', category: 'beauty', name: 'Seta Rosa Cipria', isLight: true,
-        imgUrl: null, // Procedurale vettoriale
+        imgUrl: null,
         gradient: ['#FDF2F4', '#FCE7EB'], accent: '#BE185D', textMain: '#371326', textSub: '#701A45' 
     },
     { 
@@ -28109,7 +28109,7 @@ window._socialStudioState = {
     format: 'story',
     theme: 'luxury-gold',
     bgType: 'preset',
-    bgPresetId: 'season_autumn', // 🍂 Inizio su Autunno fotografico d'impatto
+    bgPresetId: 'season_autumn',
     uploadedBgImg: null,
     bgOverlayOpacity: 0.15,
     badgeText: 'NOVITÀ SMART',
@@ -28144,6 +28144,14 @@ function getDefaultSocialElements(W, H, isStory) {
 window._socialElements = null;
 window._activeSocialElemId = null;
 
+let isTouchDragging = false;
+let touchDragStartX = 0;
+let touchDragStartY = 0;
+let initialElemX = 0;
+let initialElemY = 0;
+let initialPinchDistance = 0;
+let initialPinchScale = 1.0;
+
 function ensureSocialElementsInitialized(W, H, isStory) {
     if (!window._socialElements) {
         window._socialElements = getDefaultSocialElements(W, H, isStory);
@@ -28151,7 +28159,83 @@ function ensureSocialElementsInitialized(W, H, isStory) {
 }
 
 // =========================================================================
-// 🚀 MOTORE STRUTTURE GRAFICHE DIVERSIFICATE PER OGNI MODELLO
+// 📝 DIDASCALIE & CONDIVISIONE (DICHIARATE PRIMA PER EVITARE REFERENCE ERROR)
+// =========================================================================
+
+function generateSocialCaptionText(salonId, link) {
+    const s = window._socialStudioState;
+    return `✨ ${s.title}\n${s.subtitle}\n\n👉 ${s.highlightText}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${String(salonId).replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
+}
+window.generateSocialCaptionText = generateSocialCaptionText;
+
+function updateCaptionPreview() {
+    const previewEl = document.getElementById('ss-caption-preview');
+    if (!previewEl) return;
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
+}
+window.updateCaptionPreview = updateCaptionPreview;
+
+function copySocialCaption() {
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+
+    navigator.clipboard.writeText(caption).then(() => {
+        alert("✅ Didascalia e link copiati negli appunti!\nIncollala su Instagram, Facebook o WhatsApp.");
+    });
+}
+window.copySocialCaption = copySocialCaption;
+
+async function shareSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+
+    try {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: `Novità ${currentSalon}`,
+                text: caption,
+                files: [file]
+            });
+        } else {
+            downloadSocialGraphic();
+            copySocialCaption();
+            alert("📥 Immagine scaricata nella galleria!\n\n📋 Didascalia e link copiati negli appunti.");
+        }
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error("Errore condivisione:", err);
+            downloadSocialGraphic();
+        }
+    }
+}
+window.shareSocialGraphic = shareSocialGraphic;
+
+function downloadSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const link = document.createElement('a');
+    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+window.downloadSocialGraphic = downloadSocialGraphic;
+
+// =========================================================================
+// 🚀 CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
 // =========================================================================
 
 function onSocialTemplateChanged(tpl) {
@@ -28164,7 +28248,6 @@ function onSocialTemplateChanged(tpl) {
 
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
 
-    // 1. Assegnazione testi specializzati per ogni modello
     if (tpl === 'launch_no_app') {
         if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
         if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
@@ -28205,14 +28288,12 @@ function onSocialTemplateChanged(tpl) {
         if (highInput) highInput.value = 'A partire da € 25.00';
     }
 
-    // 2. Allineamento variabili di stato
     const s = window._socialStudioState;
     if (badgeInput) s.badgeText = badgeInput.value;
     if (titleInput) s.title = titleInput.value;
     if (subInput) s.subtitle = subInput.value;
     if (highInput) s.highlightText = highInput.value;
 
-    // 3. Riposizionamento proporzionato degli elementi in base alla nuova struttura
     const canvas = document.getElementById('social-render-canvas');
     const W = canvas ? canvas.width : 1080;
     const H = canvas ? canvas.height : 1920;
@@ -28221,15 +28302,15 @@ function onSocialTemplateChanged(tpl) {
     if (window._socialElements) {
         if (tpl === 'lastminute') {
             window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 780 : 580; // Ticket gigante al centro
+            window._socialElements.highlight.y = isStory ? 780 : 580;
             window._socialElements.subtitle.y = isStory ? 1040 : 790;
         } else if (tpl === 'promo') {
             window._socialElements.title.y = isStory ? 520 : 380;
-            window._socialElements.highlight.y = isStory ? 770 : 570; // Prezzo promozionale gigante
+            window._socialElements.highlight.y = isStory ? 770 : 570;
             window._socialElements.subtitle.y = isStory ? 990 : 760;
         } else if (tpl === 'quote') {
             window._socialElements.badge.y = isStory ? 390 : 260;
-            window._socialElements.title.y = isStory ? 690 : 510; // Citazione al centro
+            window._socialElements.title.y = isStory ? 690 : 510;
             window._socialElements.subtitle.y = isStory ? 940 : 720;
             window._socialElements.highlight.y = isStory ? 1140 : 880;
         } else if (tpl === 'transformation') {
@@ -28247,7 +28328,190 @@ function onSocialTemplateChanged(tpl) {
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
 // =========================================================================
-// 🎨 MOTORE PRINCIPALE DI RENDERING CANVAS (STRUTTURE DIVERSIFICATE)
+// 🎨 GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
+// =========================================================================
+
+let _activeBgGalleryCategory = 'all';
+
+function renderSocialBgGalleryThumbnails() {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (!container) return;
+
+    if (!container._wheelAttached) {
+        container._wheelAttached = true;
+        container.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                container.scrollLeft += e.deltaY * 1.4;
+            }
+        }, { passive: false });
+    }
+
+    const activePresetId = window._socialStudioState.bgPresetId;
+    const cat = _activeBgGalleryCategory;
+
+    const filtered = (cat === 'all') 
+        ? window.SOCIAL_BG_PRESETS 
+        : window.SOCIAL_BG_PRESETS.filter(p => p.category === cat);
+
+    container.innerHTML = filtered.map(p => {
+        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
+        
+        let thumbStyle = '';
+        if (p.imgUrl) {
+            thumbStyle = `background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.65)), url('${p.imgUrl}');`;
+        } else {
+            thumbStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
+        }
+
+        return `
+            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
+                 id="bg-thumb-${p.id}"
+                 style="${thumbStyle}"
+                 onclick="selectSocialBgPreset('${p.id}')"
+                 title="${p.name}">
+                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
+                <div class="ss-bg-thumb-title" style="color: ${p.isLight ? '#0F172A' : '#FFFFFF'}; background: ${p.isLight ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)'};">${p.name}</div>
+            </div>
+        `;
+    }).join('');
+}
+window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
+
+function scrollBgThumbnails(px) {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (container) {
+        container.scrollBy({ left: px, behavior: 'smooth' });
+    }
+}
+window.scrollBgThumbnails = scrollBgThumbnails;
+
+function filterSocialBgGallery(cat) {
+    _activeBgGalleryCategory = cat;
+    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
+    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+    renderSocialBgGalleryThumbnails();
+}
+window.filterSocialBgGallery = filterSocialBgGallery;
+
+function selectSocialBgPreset(presetId) {
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId);
+    if (!p) return;
+
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = presetId;
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = p.imgUrl ? 0.35 : 0.05;
+
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
+    const overlayLabel = document.getElementById('ss-bg-overlay-label');
+    if (overlaySlider) overlaySlider.value = window._socialStudioState.bgOverlayOpacity;
+    if (overlayLabel) overlayLabel.innerText = `${Math.round(window._socialStudioState.bgOverlayOpacity * 100)}%`;
+
+    if (p.imgUrl && !window._socialBgImageCache.has(p.imgUrl)) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            window._socialBgImageCache.set(p.imgUrl, img);
+            renderSocialCanvas();
+        };
+        img.src = p.imgUrl;
+    }
+
+    if (window._socialElements) {
+        if (!window._socialElements.title.color) {
+            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
+        }
+        if (!window._socialElements.subtitle.color) {
+            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
+        }
+    }
+
+    highlightActiveBgThumbnail();
+    syncSideColorPickersToTheme();
+    renderSocialCanvas();
+}
+window.selectSocialBgPreset = selectSocialBgPreset;
+
+function highlightActiveBgThumbnail() {
+    const s = window._socialStudioState;
+    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
+    if (s.bgType === 'preset') {
+        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
+        if (card) {
+            card.classList.add('active-bg');
+            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }
+}
+window.highlightActiveBgThumbnail = highlightActiveBgThumbnail;
+
+function resetToThemeDefaultBackground() {
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = 'season_autumn';
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = 0.15;
+    highlightActiveBgThumbnail();
+    renderSocialCanvas();
+}
+window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
+
+// =========================================================================
+// 🖌️ MOTORE DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
+// =========================================================================
+
+function drawSocialBackgroundPreset(ctx, W, H, presetId) {
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId) || window.SOCIAL_BG_PRESETS[0];
+
+    let imageDrawn = false;
+    if (p.imgUrl && window._socialBgImageCache.has(p.imgUrl)) {
+        const img = window._socialBgImageCache.get(p.imgUrl);
+        if (img && img.complete && img.naturalWidth > 0) {
+            const ratio = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+            const shiftX = (W - img.naturalWidth * ratio) / 2;
+            const shiftY = (H - img.naturalHeight * ratio) / 2;
+            ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+            imageDrawn = true;
+        }
+    }
+
+    if (!imageDrawn) {
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, p.gradient[0]);
+        grad.addColorStop(1, p.gradient[1]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.save();
+        if (p.id === 'season_autumn') {
+            const rad = ctx.createRadialGradient(W * 0.7, H * 0.3, 50, W * 0.7, H * 0.3, W * 0.7);
+            rad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
+            rad.addColorStop(1, 'transparent');
+            ctx.fillStyle = rad;
+            ctx.fillRect(0, 0, W, H);
+        } else if (p.id === 'lux_obsidian_gold' || p.id === 'lux_carrara_marble') {
+            ctx.strokeStyle = p.accent;
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = 0.45;
+            ctx.beginPath();
+            ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (p.id === 'beauty_rose_silk') {
+            ctx.fillStyle = 'rgba(219, 39, 119, 0.12)';
+            ctx.beginPath();
+            ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
+// =========================================================================
+// 🎨 MOTORE PRINCIPALE DI RENDERING CANVAS
 // =========================================================================
 
 function renderSocialCanvas() {
@@ -28265,7 +28529,6 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
-    // Lettura sicura dagli input (senza svuotare i testi se non trovati)
     const bIn = document.getElementById('ss-input-badge');
     if (bIn && bIn.value !== undefined) s.badgeText = bIn.value.trim();
 
@@ -28288,7 +28551,7 @@ function renderSocialCanvas() {
         ? (currentUser.salon_id || 'SALON_001') 
         : 'SALON_001';
 
-    const activePreset = SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || SOCIAL_BG_PRESETS[0];
+    const activePreset = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
 
     const defaultTextMain = activePreset.isLight ? '#1C1917' : '#FFFFFF';
     const defaultTextSub = activePreset.isLight ? '#57534E' : '#CBD5E1';
@@ -28299,7 +28562,7 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // 1. SFONDO (FOTO UTENTE O PRESET VIVIDO)
+    // 1. SFONDO (FOTO O PRESET VIVIDO)
     if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28334,79 +28597,59 @@ function renderSocialCanvas() {
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // =========================================================================
-    // 🌟 RENDERING STRUTTURALE DIFFERENZIATO IN BASE AL MODELLO STRATEGICO
-    // =========================================================================
-
+    // 4. RENDERING STRUTTURALE DIFFERENZIATO
     if (s.template === 'pricelist') {
-        // --- MODELLO 1: LISTINO TRATTAMENTI ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
     } 
     else if (s.template === 'launch_no_app') {
-        // --- MODELLO 2: LANCIO PRENOTAZIONE SENZA APP (CON 3 CARD VANTAGGI) ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        
-        // 🌟 STRUTTURA SPECIALE: 3 Card Vantaggi Visibili
         drawLaunchFeatureCards(ctx, W, isStory ? 1040 : 790, activePreset, accentColor);
     }
     else if (s.template === 'lastminute') {
-        // --- MODELLO 3: LAST MINUTE / BUCO AGENDA (LAYOUT TICKET / COUPON VIBRANTE) ---
         drawUrgencyBadge(ctx, s, elems.badge, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        
-        // 🌟 STRUTTURA SPECIALE: Biglietto Orario con Tratteggio e Orologio
         drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'promo') {
-        // --- MODELLO 4: OFFERTA FLASH & TAGLIO PREZZO ---
         drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        
-        // 🌟 STRUTTURA SPECIALE: Riquadro Prezzo Promozionale con Sconto
         drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'transformation') {
-        // --- MODELLO 5: PRIMA & DOPO LOOK (CONFRONTO SPLIT CARDS) ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        
-        // 🌟 STRUTTURA SPECIALE: Riquadri a confronto "PRIMA" e "DOPO"
         drawTransformationSplitFrames(ctx, W, isStory ? 770 : 570, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
     else if (s.template === 'quote') {
-        // --- MODELLO 6: RECENSIONE & 5 STELLE ORO ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-        
-        // 🌟 STRUTTURA SPECIALE: 5 Stelle d'Oro e Virgolette Editoriali « »
         drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
     }
     else {
-        // --- MODELLO 7: GRAFICA LIBERA PERSONALIZZATA ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
 
-    // 4. QR CODE (SE ATTIVO)
+    // 5. QR CODE
     if (s.showQrCode && s.qrImage) {
         drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
     }
 
-    // 5. STICKER CALL TO ACTION (SE ATTIVO)
+    // 6. STICKER CALL TO ACTION
     if (s.showBookingBadge) {
         drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
     }
 
-    // 6. BORDO TOUCH SELEZIONE ELEMENTO ATTIVO
+    // 7. BORDO TOUCH SELEZIONE
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
     }
@@ -28414,10 +28657,9 @@ function renderSocialCanvas() {
 window.renderSocialCanvas = renderSocialCanvas;
 
 // =========================================================================
-// 🌟 COMPONENTI STRUTTURALI GRAFICI SPECIALIZZATI
+// 🌟 COMPONENTI GRAFICI SPECIALIZZATI (ZERO REFERENCE ERROR)
 // =========================================================================
 
-// 1. Struttura "Lancio Senza App": 3 Card Vantaggi
 function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     const perks = [
         { icon: '📱', title: 'Zero App da Scaricare', sub: 'Funziona subito da Safari o Chrome' },
@@ -28433,7 +28675,6 @@ function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     perks.forEach((p, idx) => {
         const y = startY + (idx * (cardH + 12));
         
-        // Sfondo card morbido con bordo ad accento
         ctx.fillStyle = activePreset.isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.08)';
         ctx.strokeStyle = activePreset.isLight ? 'rgba(0, 0, 0, 0.08)' : accentColor;
         ctx.lineWidth = 1.5;
@@ -28441,18 +28682,15 @@ function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
         ctx.fill();
         ctx.stroke();
 
-        // Icona
         ctx.font = '32px sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(p.icon, startX + 18, y + cardH / 2);
 
-        // Titolo
         ctx.fillStyle = activePreset.isLight ? '#1C1917' : '#FFFFFF';
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText(p.title, startX + 68, y + cardH / 2 - 10);
 
-        // Sottotitolo
         ctx.fillStyle = activePreset.isLight ? '#78716C' : '#CBD5E1';
         ctx.font = '15px sans-serif';
         ctx.fillText(p.sub, startX + 68, y + cardH / 2 + 14);
@@ -28460,7 +28698,6 @@ function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     ctx.restore();
 }
 
-// 2. Struttura "Last Minute": Biglietto Flash Ticket con Orario Gigante
 function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
@@ -28472,27 +28709,23 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     el.h = boxH;
 
     ctx.save();
-    // Sfondo Ticket
     ctx.fillStyle = activePreset.isLight ? '#FFFFFF' : 'rgba(245, 158, 11, 0.15)';
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.fill();
 
-    // Bordo Tratteggiato da Coupon
     ctx.strokeStyle = '#F59E0B';
     ctx.lineWidth = 3 * scale;
     ctx.setLineDash([12 * scale, 8 * scale]);
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.stroke();
-    ctx.setLineDash([]); // Reset tratteggio
+    ctx.setLineDash([]);
 
-    // Dicitura in alto
     ctx.fillStyle = '#F59E0B';
     ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('⚡ POSTO UNICO DISPONIBILE ADESSO ⚡', x + boxW / 2, y + 16 * scale);
 
-    // Orario Gigante
     ctx.fillStyle = el.color || (activePreset.isLight ? '#1C1917' : '#FFFFFF');
     ctx.font = `900 ${Math.round(52 * scale)}px serif`;
     ctx.textBaseline = 'middle';
@@ -28501,7 +28734,6 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.restore();
 }
 
-// 3. Struttura "Promo Flash": Taglio Prezzo e Sconto
 function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
@@ -28513,7 +28745,6 @@ function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     el.h = boxH;
 
     ctx.save();
-    // Sfondo con gradiente rosso/oro
     ctx.fillStyle = activePreset.isLight ? 'rgba(254, 226, 226, 0.65)' : 'rgba(220, 38, 38, 0.2)';
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 2.5 * scale;
@@ -28521,14 +28752,12 @@ function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.fill();
     ctx.stroke();
 
-    // Dicitura offerta
     ctx.fillStyle = '#DC2626';
     ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('🔥 PREZZO SPECIALE PROMOZIONE 🔥', x + boxW / 2, y + 15 * scale);
 
-    // Prezzo in evidenza
     ctx.fillStyle = el.color || (activePreset.isLight ? '#991B1B' : '#FDE047');
     ctx.font = `900 ${Math.round(48 * scale)}px sans-serif`;
     ctx.textBaseline = 'middle';
@@ -28537,7 +28766,6 @@ function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.restore();
 }
 
-// 4. Struttura "Prima & Dopo": Riquadri di Confronto
 function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset) {
     const cardW = Math.min((W - 160) / 2, 400);
     const cardH = 210;
@@ -28545,7 +28773,6 @@ function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset
     const rightX = W / 2 + 10;
 
     ctx.save();
-    // 1. Frame "PRIMA"
     ctx.fillStyle = activePreset.isLight ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.05)';
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
     ctx.lineWidth = 2;
@@ -28555,7 +28782,6 @@ function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Badge "PRIMA"
     ctx.fillStyle = '#64748B';
     drawRoundedRect(ctx, leftX + cardW / 2 - 45, startY + 12, 90, 30, 15);
     ctx.fill();
@@ -28565,7 +28791,6 @@ function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset
     ctx.textBaseline = 'middle';
     ctx.fillText('PRIMA', leftX + cardW / 2, startY + 27);
 
-    // 2. Frame "DOPO" (Glow Oro)
     ctx.fillStyle = activePreset.isLight ? 'rgba(254, 243, 199, 0.65)' : 'rgba(245, 158, 11, 0.18)';
     ctx.strokeStyle = '#F59E0B';
     ctx.lineWidth = 2.5;
@@ -28573,7 +28798,6 @@ function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset
     ctx.fill();
     ctx.stroke();
 
-    // Badge "DOPO"
     ctx.fillStyle = '#F59E0B';
     drawRoundedRect(ctx, rightX + cardW / 2 - 45, startY + 12, 90, 30, 15);
     ctx.fill();
@@ -28584,11 +28808,9 @@ function drawTransformationSplitFrames(ctx, W, startY, accentColor, activePreset
     ctx.restore();
 }
 
-// 5. Struttura "Recensione": 5 Stelle d'Oro & Citazione
 function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultTextMain, accentColor, activePreset, isStory) {
     ctx.save();
     
-    // 🌟 5 STELLE D'ORO METALLICHE
     const starsY = isStory ? 520 : 380;
     ctx.font = '900 46px sans-serif';
     ctx.fillStyle = '#F59E0B';
@@ -28599,7 +28821,6 @@ function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultText
     ctx.fillText('★ ★ ★ ★ ★', W / 2, starsY);
     ctx.shadowBlur = 0;
 
-    // Citazione (Virgolette)
     const quoteScale = elTitle.scale || 1.0;
     const fontSize = Math.round((isStory ? 58 : 48) * quoteScale);
     ctx.font = `italic 900 ${fontSize}px Georgia, serif`;
@@ -28608,13 +28829,11 @@ function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultText
     const lineHeight = Math.round(fontSize * 1.3);
     wrapCanvasText(ctx, s.title, W / 2, isStory ? 710 : 530, maxW, lineHeight);
 
-    // Testo Recensione / Dettagli
     const subFont = Math.round(28 * (elSub.scale || 1.0));
     ctx.font = `500 ${subFont}px sans-serif`;
     ctx.fillStyle = elSub.color || (activePreset.isLight ? '#57534E' : '#CBD5E1');
     wrapCanvasText(ctx, s.subtitle, W / 2, isStory ? 940 : 720, maxW, Math.round(subFont * 1.35));
 
-    // Badge Cliente Verificata
     const authText = s.highlightText || 'Maria R. • Recensione Verificata';
     ctx.font = 'bold 20px sans-serif';
     const bW = ctx.measureText(authText).width + 40;
@@ -28630,9 +28849,73 @@ function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultText
     ctx.restore();
 }
 
-// =========================================================================
-// 🔤 FUNZIONI DI SUPPORTO DISEGNO ELEMENTI BASE
-// =========================================================================
+function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain, activePresetParam = null) {
+    const isStory = (s.format === 'story');
+    const maxItems = isStory ? 5 : 4;
+    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
+    let itemsToDraw = [];
+
+    const activePreset = activePresetParam || window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
+
+    if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
+        for (let sId of s.customCheckedServiceIds) {
+            const found = inventory.find(x => String(x.id).trim() === String(sId).trim());
+            if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
+        }
+    }
+
+    if (itemsToDraw.length === 0) {
+        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, maxItems).map(srv => ({
+            name: srv.name,
+            price: parseFloat(srv.price || 0)
+        }));
+    }
+
+    if (itemsToDraw.length === 0) return;
+
+    const displayList = itemsToDraw.slice(0, maxItems);
+    const menuScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
+    const menuW = (W - 240) * menuScale;
+    const menuX = (Number.isFinite(el.x) ? el.x : W / 2) - (menuW / 2);
+    const lineHeight = Math.round((isStory ? 75 : 62) * menuScale);
+    let curY = (Number.isFinite(el.y) ? el.y : (isStory ? 920 : 680)) - ((displayList.length * lineHeight) / 2);
+
+    el.w = menuW;
+    el.h = displayList.length * lineHeight;
+
+    const itemTextColor = el.color || textMain;
+    const priceTextColor = el.bgColor || accentColor;
+
+    displayList.forEach(item => {
+        const cleanName = item.name.replace(/^[🔥⚡✨🏷️👑🎁]?\s*\[[^\]]+\]\s*/i, '').trim();
+        const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
+
+        ctx.save();
+        ctx.font = `bold ${Math.round(30 * menuScale)}px sans-serif`;
+        ctx.fillStyle = itemTextColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cleanName, menuX, curY);
+
+        ctx.fillStyle = priceTextColor;
+        ctx.textAlign = 'right';
+        ctx.font = `900 ${Math.round(32 * menuScale)}px serif`;
+        ctx.fillText(priceStr, menuX + menuW, curY);
+
+        const nameW = ctx.measureText(cleanName).width;
+        const priceW = ctx.measureText(priceStr).width;
+        ctx.strokeStyle = activePreset?.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 2 * menuScale;
+        ctx.beginPath();
+        ctx.moveTo(menuX + nameW + 16, curY);
+        ctx.lineTo(menuX + menuW - priceW - 16, curY);
+        ctx.stroke();
+        ctx.restore();
+
+        curY += lineHeight;
+    });
+}
 
 function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     if (!s.badgeText) return;
@@ -28671,7 +28954,7 @@ function drawUrgencyBadge(ctx, s, el, isStory) {
     el.w = w;
     el.h = h;
 
-    ctx.fillStyle = '#EF4444'; // Rosso vivo emergenza
+    ctx.fillStyle = '#EF4444';
     drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 24 * scale);
     ctx.fill();
 
@@ -28834,6 +29117,817 @@ function drawActiveElementTouchBorder(ctx, active, W, H) {
         ctx.stroke();
     });
     ctx.restore();
+}
+
+function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
+    const baseSize = (s.format === 'story') ? 160 : 130;
+    const actualBoxSize = baseSize * (el.scale || 1.0);
+    const shape = s.logoShape || 'natural';
+    const filter = s.logoFilter || 'none';
+
+    if (!s.salonLogoImg) {
+        ctx.save();
+        ctx.fillStyle = el.color || accentColor;
+        ctx.font = `bold ${Math.round(28 * (el.scale || 1.0))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(currentSalon.toUpperCase(), el.x, el.y);
+        ctx.restore();
+        el.w = actualBoxSize;
+        el.h = 40;
+        return;
+    }
+
+    const img = s.salonLogoImg;
+    const natW = img.naturalWidth || img.width || 100;
+    const natH = img.naturalHeight || img.height || 100;
+    const aspect = natW / natH;
+
+    let drawW = actualBoxSize;
+    let drawH = actualBoxSize;
+
+    if (aspect > 1) {
+        drawH = actualBoxSize / aspect;
+    } else {
+        drawW = actualBoxSize * aspect;
+    }
+
+    el.w = drawW;
+    el.h = drawH;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const drawX = el.x - (drawW / 2);
+    const drawY = el.y - (drawH / 2);
+
+    if (shape === 'circle') {
+        const radius = (Math.max(drawW, drawH) / 2) + 16;
+        ctx.beginPath();
+        ctx.arc(el.x, el.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = el.color || accentColor;
+        ctx.stroke();
+    } else if (shape === 'card') {
+        const padW = 20;
+        const padH = 12;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 18;
+        drawRoundedRect(ctx, drawX - padW, drawY - padH, drawW + (padW * 2), drawH + (padH * 2), 12);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = el.color || accentColor;
+        ctx.stroke();
+    }
+
+    if (filter === 'none') {
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    } else {
+        const tintCanvas = document.createElement('canvas');
+        tintCanvas.width = drawW;
+        tintCanvas.height = drawH;
+        const tintCtx = tintCanvas.getContext('2d');
+        tintCtx.imageSmoothingEnabled = true;
+        tintCtx.imageSmoothingQuality = 'high';
+
+        tintCtx.drawImage(img, 0, 0, drawW, drawH);
+
+        tintCtx.globalCompositeOperation = 'source-in';
+        if (filter === 'white') tintCtx.fillStyle = '#ffffff';
+        else if (filter === 'gold') tintCtx.fillStyle = accentColor;
+        else if (filter === 'dark') tintCtx.fillStyle = '#0f172a';
+        tintCtx.fillRect(0, 0, drawW, drawH);
+
+        ctx.drawImage(tintCanvas, drawX, drawY);
+    }
+
+    ctx.restore();
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
+    const r = Math.min(radius || 10, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+// =========================================================================
+// 🔤 CONTROLLI FORMATO, FONT, COLORI & LOGHI
+// =========================================================================
+
+function setSocialFormat(fmt) {
+    window._socialStudioState.format = fmt;
+    document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
+    const btnMap = { story: 'btn-format-story', portrait: 'btn-format-portrait', square: 'btn-format-square' };
+    const activeBtn = document.getElementById(btnMap[fmt]);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+
+    const canvas = document.getElementById('social-render-canvas');
+    if (canvas) {
+        if (fmt === 'story') { canvas.width = 1080; canvas.height = 1920; }
+        else if (fmt === 'portrait') { canvas.width = 1080; canvas.height = 1350; }
+        else if (fmt === 'square') { canvas.width = 1080; canvas.height = 1080; }
+        window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, fmt === 'story');
+    }
+
+    deselectActiveElement();
+    renderSocialCanvas();
+}
+window.setSocialFormat = setSocialFormat;
+
+function onSocialThemeChanged(thm) {
+    window._socialStudioState.theme = thm;
+    syncSideColorPickersToTheme();
+    renderSocialCanvas();
+}
+window.onSocialThemeChanged = onSocialThemeChanged;
+
+function onSocialBgOverlayChanged(val) {
+    const opacity = parseFloat(val) || 0.0;
+    window._socialStudioState.bgOverlayOpacity = opacity;
+    const lbl = document.getElementById('ss-bg-overlay-label');
+    if (lbl) lbl.innerText = `${Math.round(opacity * 100)}%`;
+    renderSocialCanvas();
+}
+window.onSocialBgOverlayChanged = onSocialBgOverlayChanged;
+
+function onSocialQrToggleChanged(isChecked) {
+    window._socialStudioState.showQrCode = Boolean(isChecked);
+    renderSocialCanvas();
+}
+window.onSocialQrToggleChanged = onSocialQrToggleChanged;
+
+function toggleSocialSafeZone() {
+    window._socialStudioState.showSafeZone = !window._socialStudioState.showSafeZone;
+    const btn = document.getElementById('btn-toggle-safezone-btn');
+    if (btn) {
+        if (window._socialStudioState.showSafeZone) {
+            btn.style.background = '#ede9fe';
+            btn.style.color = '#6d28d9';
+            btn.style.borderColor = '#c4b5fd';
+        } else {
+            btn.style.background = '#f8fafc';
+            btn.style.color = '#475569';
+            btn.style.borderColor = '#cbd5e1';
+        }
+    }
+    renderSocialCanvas();
+}
+window.toggleSocialSafeZone = toggleSocialSafeZone;
+
+function onSocialLogoShapeChanged(val) {
+    window._socialStudioState.logoShape = val;
+    renderSocialCanvas();
+}
+window.onSocialLogoShapeChanged = onSocialLogoShapeChanged;
+
+function onSocialLogoFilterChanged(val) {
+    window._socialStudioState.logoFilter = val;
+    renderSocialCanvas();
+}
+window.onSocialLogoFilterChanged = onSocialLogoFilterChanged;
+
+function handleSocialBgUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            window._socialStudioState.uploadedBgImg = img;
+            window._socialStudioState.bgType = 'upload';
+            window._socialStudioState.bgOverlayOpacity = 0.50;
+            const clearBtn = document.getElementById('btn-clear-social-bg');
+            if (clearBtn) clearBtn.style.display = 'inline-flex';
+            document.querySelectorAll('.ss-bg-thumb-card').forEach(c => c.classList.remove('active-bg'));
+            renderSocialCanvas();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+window.handleSocialBgUpload = handleSocialBgUpload;
+
+function clearSocialBgPhoto() {
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgOverlayOpacity = 0.15;
+    const input = document.getElementById('ss-bg-file-input');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+    highlightActiveBgThumbnail();
+    renderSocialCanvas();
+}
+window.clearSocialBgPhoto = clearSocialBgPhoto;
+
+function stepScaleSocialElem(elemId, step) {
+    const canvas = document.getElementById('social-render-canvas');
+    const isStory = (window._socialStudioState.format === 'story');
+    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
+
+    const el = window._socialElements[elemId];
+    if (!el) return;
+
+    el.scale = Math.min(Math.max((el.scale || 1.0) + step, 0.4), 2.5);
+    updateElementScaleUI(elemId);
+    renderSocialCanvas();
+}
+window.stepScaleSocialElem = stepScaleSocialElem;
+
+function stepScaleActiveElement(step) {
+    if (!window._activeSocialElemId) return;
+    stepScaleSocialElem(window._activeSocialElemId, step);
+}
+window.stepScaleActiveElement = stepScaleActiveElement;
+
+function onSliderScaleActiveElement(val) {
+    if (!window._activeSocialElemId) return;
+    const el = window._socialElements[window._activeSocialElemId];
+    if (!el) return;
+    el.scale = Math.min(Math.max(parseFloat(val) || 1.0, 0.4), 2.5);
+    updateElementScaleUI(window._activeSocialElemId);
+    renderSocialCanvas();
+}
+window.onSliderScaleActiveElement = onSliderScaleActiveElement;
+
+function updateElementScaleUI(elemId) {
+    const el = window._socialElements[elemId];
+    if (!el) return;
+
+    const pctText = `${Math.round(el.scale * 100)}%`;
+    const sideBadge = document.getElementById(`ss-scale-label-${elemId}`);
+    if (sideBadge) sideBadge.innerText = pctText;
+
+    if (window._activeSocialElemId === elemId) {
+        const slider = document.getElementById('ss-active-elem-slider');
+        const badge = document.getElementById('ss-active-elem-scale-badge');
+        if (slider) slider.value = el.scale.toFixed(2);
+        if (badge) badge.innerText = pctText;
+    }
+}
+
+function setSocialElemColor(elemId, hexVal) {
+    const canvas = document.getElementById('social-render-canvas');
+    const isStory = (window._socialStudioState.format === 'story');
+    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
+
+    const el = window._socialElements[elemId];
+    if (!el) return;
+
+    el.color = hexVal;
+
+    const sidePicker = document.getElementById(`ss-color-${elemId}-text`);
+    if (sidePicker) sidePicker.value = hexVal;
+
+    if (window._activeSocialElemId === elemId) {
+        const quickPicker = document.getElementById('ss-quick-color-picker');
+        if (quickPicker) quickPicker.value = hexVal;
+    }
+
+    renderSocialCanvas();
+}
+window.setSocialElemColor = setSocialElemColor;
+
+function setSocialElemBgColor(elemId, hexVal) {
+    const canvas = document.getElementById('social-render-canvas');
+    const isStory = (window._socialStudioState.format === 'story');
+    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
+
+    const el = window._socialElements[elemId];
+    if (!el) return;
+
+    el.bgColor = hexVal;
+
+    const sidePicker = document.getElementById(`ss-color-${elemId}-bg`);
+    if (sidePicker) sidePicker.value = hexVal;
+
+    if (window._activeSocialElemId === elemId) {
+        const quickBgPicker = document.getElementById('ss-quick-bgcolor-picker');
+        if (quickBgPicker) quickBgPicker.value = hexVal;
+    }
+
+    renderSocialCanvas();
+}
+window.setSocialElemBgColor = setSocialElemBgColor;
+
+function onQuickColorChange(hexVal) {
+    if (!window._activeSocialElemId) return;
+    setSocialElemColor(window._activeSocialElemId, hexVal);
+}
+window.onQuickColorChange = onQuickColorChange;
+
+function onQuickBgColorChange(hexVal) {
+    if (!window._activeSocialElemId) return;
+    setSocialElemBgColor(window._activeSocialElemId, hexVal);
+}
+window.onQuickBgColorChange = onQuickBgColorChange;
+
+function resetSocialElemStyle(elemId) {
+    const el = window._socialElements ? window._socialElements[elemId] : null;
+    if (!el) return;
+
+    el.color = null;
+    el.bgColor = null;
+    el.scale = 1.0;
+
+    updateElementScaleUI(elemId);
+    syncSideColorPickersToTheme();
+    renderSocialCanvas();
+}
+window.resetSocialElemStyle = resetSocialElemStyle;
+
+function syncSideColorPickersToTheme() {
+    const s = window._socialStudioState;
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
+
+    const elems = window._socialElements;
+    if (!elems) return;
+
+    const setPicker = (id, val) => {
+        const picker = document.getElementById(id);
+        if (picker && /^#[0-9A-Fa-f]{6}$/.test(val)) picker.value = val;
+    };
+
+    setPicker('ss-color-badge-bg', elems.badge.bgColor || p.accent);
+    setPicker('ss-color-badge-text', elems.badge.color || '#FFFFFF');
+    setPicker('ss-color-title-text', elems.title.color || (p.isLight ? '#1C1917' : '#FFFFFF'));
+    setPicker('ss-color-subtitle-text', elems.subtitle.color || (p.isLight ? '#57534E' : '#CBD5E1'));
+    setPicker('ss-color-highlight-text', elems.highlight.color || p.accent);
+}
+
+function setActiveSocialElement(elemId) {
+    window._activeSocialElemId = elemId;
+    const bar = document.getElementById('ss-quick-transform-bar');
+    const el = window._socialElements[elemId];
+    if (!el || !bar) return;
+
+    bar.style.display = 'flex';
+    const iconEl = document.getElementById('ss-active-elem-icon');
+    const nameEl = document.getElementById('ss-active-elem-name');
+    if (iconEl) iconEl.innerText = el.icon;
+    if (nameEl) nameEl.innerText = el.name;
+
+    updateTransformBarValues();
+
+    const quickColorPicker = document.getElementById('ss-quick-color-picker');
+    const quickBgWrapper = document.getElementById('ss-quick-bgcolor-wrapper');
+    const quickBgPicker = document.getElementById('ss-quick-bgcolor-picker');
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === window._socialStudioState.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
+
+    if (quickColorPicker) {
+        let curCol = el.color;
+        if (!curCol) {
+            if (elemId === 'title' || elemId === 'menu') curCol = p.isLight ? '#1C1917' : '#FFFFFF';
+            else if (elemId === 'subtitle') curCol = p.isLight ? '#57534E' : '#CBD5E1';
+            else if (elemId === 'badge' || elemId === 'sticker') curCol = '#FFFFFF';
+            else if (elemId === 'highlight') curCol = p.accent;
+            else curCol = '#FFFFFF';
+        }
+        quickColorPicker.value = curCol;
+    }
+
+    if (quickBgWrapper && quickBgPicker) {
+        if (elemId === 'badge' || elemId === 'highlight' || elemId === 'sticker' || elemId === 'menu') {
+            quickBgWrapper.style.display = 'inline-flex';
+            quickBgPicker.value = el.bgColor || p.accent;
+        } else {
+            quickBgWrapper.style.display = 'none';
+        }
+    }
+
+    renderSocialCanvas();
+}
+window.setActiveSocialElement = setActiveSocialElement;
+
+function updateTransformBarValues() {
+    if (!window._activeSocialElemId) return;
+    const el = window._socialElements[window._activeSocialElemId];
+    if (!el) return;
+
+    const slider = document.getElementById('ss-active-elem-slider');
+    const badge = document.getElementById('ss-active-elem-scale-badge');
+    if (slider) slider.value = el.scale.toFixed(2);
+    if (badge) badge.innerText = `${Math.round(el.scale * 100)}%`;
+}
+
+function centerActiveElementHorizontally() {
+    if (!window._activeSocialElemId) return;
+    const canvas = document.getElementById('social-render-canvas');
+    const el = window._socialElements[window._activeSocialElemId];
+    if (el && canvas) {
+        el.x = canvas.width / 2;
+        renderSocialCanvas();
+    }
+}
+window.centerActiveElementHorizontally = centerActiveElementHorizontally;
+
+function deselectActiveElement() {
+    window._activeSocialElemId = null;
+    const bar = document.getElementById('ss-quick-transform-bar');
+    if (bar) bar.style.display = 'none';
+    renderSocialCanvas();
+}
+window.deselectActiveElement = deselectActiveElement;
+
+function resetSocialElementsPositions() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+    const isStory = (window._socialStudioState.format === 'story');
+    window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, isStory);
+    deselectActiveElement();
+    renderSocialCanvas();
+}
+window.resetSocialElementsPositions = resetSocialElementsPositions;
+
+// =========================================================================
+// 💾 GESTIONE PERSISTENZA BOZZE (DRAFTS)
+// =========================================================================
+
+async function saveCurrentSocialDraft() {
+    const nameInput = document.getElementById('ss-draft-name-input');
+    const draftName = (nameInput?.value || '').trim();
+
+    if (!draftName) {
+        return alert("Inserisci un nome per la bozza prima di salvare (es. Story Autunno, Promo Balayage).");
+    }
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    const s = window._socialStudioState;
+
+    const draftData = {
+        id: 'draft_' + Date.now(),
+        name: draftName,
+        salon_id: currentSalon,
+        saved_at: new Date().toISOString(),
+        config: {
+            template: s.template,
+            format: s.format,
+            theme: s.theme,
+            bgType: s.bgType,
+            bgPresetId: s.bgPresetId,
+            bgOverlayOpacity: s.bgOverlayOpacity,
+            badgeText: s.badgeText,
+            title: s.title,
+            subtitle: s.subtitle,
+            highlightText: s.highlightText,
+            showLogo: s.showLogo,
+            showBookingBadge: s.showBookingBadge,
+            showQrCode: s.showQrCode,
+            logoShape: s.logoShape,
+            logoFilter: s.logoFilter,
+            selectedPresetId: s.selectedPresetId,
+            customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
+            elements: JSON.parse(JSON.stringify(window._socialElements || {}))
+        }
+    };
+
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+
+    const existingIdx = allDrafts.findIndex(d => d.name.toLowerCase() === draftName.toLowerCase());
+    if (existingIdx >= 0) {
+        if (!confirm(`Esiste già una bozza denominata "${draftName}". Vuoi sovrascriverla?`)) {
+            return;
+        }
+        allDrafts[existingIdx] = draftData;
+    } else {
+        allDrafts.unshift(draftData);
+    }
+
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+    renderSavedSocialDraftsDropdown(allDrafts, draftData.id);
+    alert(`✅ Bozza "${draftName}" salvata con successo!`);
+}
+window.saveCurrentSocialDraft = saveCurrentSocialDraft;
+
+function loadAllSocialDraftsFromStorage(currentSalon) {
+    const raw = (typeof sysSettings !== 'undefined' && sysSettings['social_saved_drafts']) || localStorage.getItem(`vaimup_social_drafts_${currentSalon}`);
+    if (raw) {
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+    return [];
+}
+
+async function persistAllSocialDrafts(draftsArray, currentSalon) {
+    const jsonStr = JSON.stringify(draftsArray);
+    localStorage.setItem(`vaimup_social_drafts_${currentSalon}`, jsonStr);
+    if (typeof sysSettings !== 'undefined') sysSettings['social_saved_drafts'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'social_saved_drafts', value: jsonStr }
+    });
+}
+
+function renderSavedSocialDraftsDropdown(draftsArray = null, selectedId = '') {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const badge = document.getElementById('ss-saved-drafts-badge');
+    if (!dropdown) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const drafts = draftsArray || loadAllSocialDraftsFromStorage(currentSalon);
+
+    if (badge) badge.innerText = `${drafts.length} salvat${drafts.length === 1 ? 'a' : 'e'}`;
+
+    if (drafts.length === 0) {
+        dropdown.innerHTML = `<option value="">-- Nessuna bozza salvata --</option>`;
+        return;
+    }
+
+    dropdown.innerHTML = `<option value="">-- Seleziona una bozza salvata --</option>` +
+        drafts.map(d => {
+            const dateStr = d.saved_at ? new Date(d.saved_at).toLocaleDateString('it-IT') : '';
+            return `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.name} (${dateStr})</option>`;
+        }).join('');
+}
+window.renderSavedSocialDraftsDropdown = renderSavedSocialDraftsDropdown;
+
+function loadSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima una bozza dalla tendina.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target || !target.config) return alert("Impossibile caricare la bozza selezionata.");
+
+    const c = target.config;
+    const s = window._socialStudioState;
+
+    s.template = c.template || 'custom';
+    s.theme = c.theme || 'luxury-gold';
+    s.bgType = c.bgType || 'preset';
+    s.bgPresetId = c.bgPresetId || 'season_autumn';
+    s.bgOverlayOpacity = c.bgOverlayOpacity !== undefined ? c.bgOverlayOpacity : 0.15;
+    s.badgeText = c.badgeText || '';
+    s.title = c.title || '';
+    s.subtitle = c.subtitle || '';
+    s.highlightText = c.highlightText || '';
+    s.showLogo = c.showLogo ?? true;
+    s.showBookingBadge = c.showBookingBadge ?? true;
+    s.showQrCode = c.showQrCode ?? false;
+    s.logoShape = c.logoShape || 'natural';
+    s.logoFilter = c.logoFilter || 'none';
+    s.selectedPresetId = c.selectedPresetId || 'current';
+    s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
+
+    if (c.format) {
+        setSocialFormat(c.format);
+    }
+
+    if (c.elements) {
+        window._socialElements = JSON.parse(JSON.stringify(c.elements));
+    }
+
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = target.name;
+
+    const tplSelect = document.getElementById('ss-template-select');
+    if (tplSelect) tplSelect.value = s.template;
+
+    const thmSelect = document.getElementById('ss-theme-select');
+    if (thmSelect) thmSelect.value = s.theme;
+
+    const badgeInput = document.getElementById('ss-input-badge');
+    if (badgeInput) badgeInput.value = s.badgeText;
+
+    const titleInput = document.getElementById('ss-input-title');
+    if (titleInput) titleInput.value = s.title;
+
+    const subInput = document.getElementById('ss-input-subtitle');
+    if (subInput) subInput.value = s.subtitle;
+
+    const highInput = document.getElementById('ss-input-highlight');
+    if (highInput) highInput.value = s.highlightText;
+
+    const sliderOverlay = document.getElementById('ss-bg-overlay-slider');
+    const lblOverlay = document.getElementById('ss-bg-overlay-label');
+    if (sliderOverlay) sliderOverlay.value = s.bgOverlayOpacity;
+    if (lblOverlay) lblOverlay.innerText = `${Math.round(s.bgOverlayOpacity * 100)}%`;
+
+    const cbLogo = document.getElementById('ss-toggle-logo');
+    if (cbLogo) cbLogo.checked = s.showLogo;
+
+    const cbSticker = document.getElementById('ss-toggle-booking-badge');
+    if (cbSticker) cbSticker.checked = s.showBookingBadge;
+
+    const cbQr = document.getElementById('ss-toggle-qr');
+    if (cbQr) cbQr.checked = s.showQrCode;
+
+    highlightActiveBgThumbnail();
+    renderSocialPricelistItemCheckboxes();
+    syncSideColorPickersToTheme();
+    updateCaptionPreview();
+    renderSocialCanvas();
+
+    alert(`📖 Bozza "${target.name}" caricata con successo!`);
+}
+window.loadSelectedSocialDraft = loadSelectedSocialDraft;
+
+async function deleteSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima la bozza da eliminare.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target) return;
+    if (!confirm(`Sei sicuro di voler eliminare definitivamente la bozza "${target.name}"?`)) return;
+
+    allDrafts = allDrafts.filter(d => d.id !== selectedId);
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+
+    renderSavedSocialDraftsDropdown(allDrafts);
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = '';
+    alert("🗑️ Bozza eliminata.");
+}
+window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
+
+// =========================================================================
+// 👆 GESTI TOUCH & MOUSE IMMUNI DA NaN
+// =========================================================================
+
+function attachCanvasTouchGestures() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas || canvas._touchAttached) return;
+    canvas._touchAttached = true;
+
+    function getCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return { x: 540, y: 960 };
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function hitTestElement(clickX, clickY) {
+        const elems = window._socialElements;
+        const s = window._socialStudioState;
+        if (!elems || !s) return null;
+
+        const candidates = ['sticker', 'qrcode', 'highlight', 'menu', 'subtitle', 'title', 'badge', 'logo'];
+        for (let key of candidates) {
+            if (key === 'logo' && !s.showLogo) continue;
+            if (key === 'sticker' && !s.showBookingBadge) continue;
+            if (key === 'qrcode' && !s.showQrCode) continue;
+            if (key === 'menu' && s.template !== 'pricelist') continue;
+            if (key === 'subtitle' && (s.template === 'pricelist' || !s.subtitle)) continue;
+            if (key === 'highlight' && (s.template === 'pricelist' || !s.highlightText)) continue;
+            if (key === 'badge' && !s.badgeText) continue;
+
+            const el = elems[key];
+            if (!el || !Number.isFinite(el.x) || !Number.isFinite(el.y)) continue;
+
+            const elScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
+            const halfW = ((el.w || 200) * elScale) / 2 + 40;
+            const halfH = ((el.h || 60) * elScale) / 2 + 40;
+
+            if (clickX >= el.x - halfW && clickX <= el.x + halfW &&
+                clickY >= el.y - halfH && clickY <= el.y + halfH) {
+                return el.id;
+            }
+        }
+        return null;
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+
+        if (e.touches.length === 1) {
+            const hitId = hitTestElement(coords.x, coords.y);
+            if (hitId) {
+                e.preventDefault();
+                setActiveSocialElement(hitId);
+                isTouchDragging = true;
+                touchDragStartX = coords.x;
+                touchDragStartY = coords.y;
+                const el = window._socialElements[hitId];
+                initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
+                initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
+            } else {
+                deselectActiveElement();
+            }
+        } else if (e.touches.length === 2 && window._activeSocialElemId) {
+            e.preventDefault();
+            isTouchDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialPinchScale = window._socialElements[window._activeSocialElemId]?.scale || 1.0;
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isTouchDragging && window._activeSocialElemId) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+            const dx = coords.x - touchDragStartX;
+            const dy = coords.y - touchDragStartY;
+
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el && Number.isFinite(dx) && Number.isFinite(dy)) {
+                el.x = Math.max(60, Math.min(canvas.width - 60, initialElemX + dx));
+                el.y = Math.max(50, Math.min(canvas.height - 50, initialElemY + dy));
+                renderSocialCanvas();
+            }
+        } else if (e.touches.length === 2 && window._activeSocialElemId && initialPinchDistance > 0) {
+            e.preventDefault();
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const factor = currentDist / initialPinchDistance;
+
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el && Number.isFinite(factor)) {
+                el.scale = Math.min(Math.max(initialPinchScale * factor, 0.4), 2.5);
+                updateTransformBarValues();
+                renderSocialCanvas();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+        isTouchDragging = false;
+        initialPinchDistance = 0;
+    });
+
+    let isMouseDown = false;
+    canvas.addEventListener('mousedown', (e) => {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const hitId = hitTestElement(coords.x, coords.y);
+        if (hitId) {
+            setActiveSocialElement(hitId);
+            isMouseDown = true;
+            touchDragStartX = coords.x;
+            touchDragStartY = coords.y;
+            const el = window._socialElements[hitId];
+            initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
+            initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
+        } else {
+            deselectActiveElement();
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (isMouseDown && window._activeSocialElemId) {
+            const coords = getCanvasCoords(e.clientX, e.clientY);
+            const dx = coords.x - touchDragStartX;
+            const dy = coords.y - touchDragStartY;
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el && Number.isFinite(dx) && Number.isFinite(dy)) {
+                el.x = Math.max(60, Math.min(canvas.width - 60, initialElemX + dx));
+                el.y = Math.max(50, Math.min(canvas.height - 50, initialElemY + dy));
+                renderSocialCanvas();
+            }
+        }
+    });
+
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    canvas.addEventListener('wheel', (e) => {
+        if (window._activeSocialElemId && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el) {
+                const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                el.scale = Math.min(Math.max((el.scale || 1.0) + delta, 0.4), 2.5);
+                updateTransformBarValues();
+                renderSocialCanvas();
+            }
+        }
+    }, { passive: false });
 }
 
 
