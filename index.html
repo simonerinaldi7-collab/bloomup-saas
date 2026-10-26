@@ -4080,13 +4080,13 @@
 
 
 <!-- ======================================================== -->
-<!-- 📱 VISTA SOCIAL CONTENT STUDIO (HTML COMPLETO E UNIFICATO) -->
+<!-- 📱 VISTA SOCIAL CONTENT STUDIO (UNIFICATA & ORDINATA)    -->
 <!-- ======================================================== -->
 <section id="v-social" class="view" style="padding: 10px !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch;">
     <div class="social-studio-container">
         
         <!-- ========================================== -->
-        <!-- COLONNA ANTEPRIMA (CANVAS, CONDIVIDI & BARRA) -->
+        <!-- COLONNA ANTEPRIMA (CANVAS & BARRA RAPIDA)  -->
         <!-- ========================================== -->
         <div class="social-preview-column">
             
@@ -4099,7 +4099,7 @@
                         <button type="button" class="btn social-pill-btn" id="btn-format-square" onclick="setSocialFormat('square')">Post 1:1</button>
                     </div>
 
-                    <button type="button" id="btn-toggle-safezone-btn" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #475569;" onclick="toggleSocialSafeZone()" title="Mostra guide Safe-Zone di Instagram per non coprire i testi">
+                    <button type="button" id="btn-toggle-safezone-btn" class="btn" style="padding: 6px 10px; font-size: 11px; font-weight: 800; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #475569;" onclick="toggleSocialSafeZone()" title="Mostra guide Safe-Zone di Instagram">
                         🛡️ Safe Zone IG
                     </button>
                 </div>
@@ -4114,7 +4114,7 @@
                 </div>
             </div>
 
-            <!-- TOOLBAR TRASFORMAZIONE RAPIDA (CON MODIFICA TESTO DIRETTA DAL CANVAS) -->
+            <!-- TOOLBAR TRASFORMAZIONE RAPIDA ELEMENTI SELEZIONATI -->
             <div id="ss-quick-transform-bar" style="background: #1e293b; border: 1.5px solid #334155; border-radius: 12px; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.35);">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 13px;" id="ss-active-elem-icon">✏️</span>
@@ -4122,21 +4122,20 @@
                     <span id="ss-active-elem-scale-badge" style="font-size: 10px; font-weight: 800; background: rgba(255,255,255,0.1); color: #FBBF24; padding: 2px 6px; border-radius: 4px;">100%</span>
                 </div>
 
-                <!-- Campo per modificare il testo direttamente al tocco -->
                 <input type="text" id="ss-quick-text-input" placeholder="Scrivi il testo qui..." oninput="onQuickTextEdit(this.value)" style="margin: 0; padding: 4px 8px; font-size: 11.5px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 6px; flex: 1; min-width: 130px; display: none;">
 
                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore testo">
+                    <label id="ss-quick-color-wrapper" style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore testo">
                         <span>Testo:</span>
                         <input type="color" id="ss-quick-color-picker" oninput="onQuickColorChange(this.value)" style="width: 24px; height: 24px; padding: 0; border: 1px solid #475569; border-radius: 6px; cursor: pointer; background: transparent;">
                     </label>
 
-                    <label id="ss-quick-bgcolor-wrapper" style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore sfondo o accento">
+                    <label id="ss-quick-bgcolor-wrapper" style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore sfondo">
                         <span>Box:</span>
                         <input type="color" id="ss-quick-bgcolor-picker" oninput="onQuickBgColorChange(this.value)" style="width: 24px; height: 24px; padding: 0; border: 1px solid #475569; border-radius: 6px; cursor: pointer; background: transparent;">
                     </label>
 
-                    <div style="display: inline-flex; align-items: center; gap: 3px;">
+                    <div id="ss-quick-scale-controls" style="display: inline-flex; align-items: center; gap: 3px;">
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; font-weight: 900; background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; min-height: unset;" onclick="stepScaleActiveElement(-0.1)" title="Riduci dimensione">A-</button>
                         <input type="range" id="ss-active-elem-slider" min="0.4" max="2.5" step="0.05" value="1.0" oninput="onSliderScaleActiveElement(this.value)" style="width: 75px; margin: 0; cursor: pointer; accent-color: var(--p);">
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; font-weight: 900; background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; min-height: unset;" onclick="stepScaleActiveElement(0.1)" title="Aumenta dimensione">A+</button>
@@ -4147,7 +4146,7 @@
                 </div>
             </div>
 
-            <!-- VIEWPORT DEL CANVAS (UNICO) -->
+            <!-- VIEWPORT CANVAS AD ALTA RISOLUZIONE -->
             <div class="social-preview-viewport">
                 <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
             </div>
@@ -4177,12 +4176,12 @@
                     <span style="font-size: 20px;">🎨</span>
                     <div>
                         <b style="font-size: 14px; color: #1e1b4b;">Personalizza Grafica</b>
-                        <small style="display: block; color: #64748b; font-size: 11px;">Scrivi i testi, modifica colori e grandezze</small>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Scrivi testi, centra e sposta foto con drag & drop</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 1. GESTIONE BOZZE & CONFIGURAZIONI SALVATE -->
+            <!-- 1. GESTIONE BOZZE SALVATE -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Bozze & Post Salvati</label>
@@ -4202,7 +4201,7 @@
                 </div>
 
                 <div style="display: flex; gap: 6px;">
-                    <input type="text" id="ss-draft-name-input" placeholder="Nome bozza (es. Promo Balayage, Story Lunedì)" style="margin: 0; padding: 6px 10px; font-size: 12px; background: white; flex: 1; border-radius: 8px;">
+                    <input type="text" id="ss-draft-name-input" placeholder="Nome bozza (es. Prima & Dopo Biondo)" style="margin: 0; padding: 6px 10px; font-size: 12px; background: white; flex: 1; border-radius: 8px;">
                     <button type="button" class="btn btn-p" style="padding: 6px 14px; font-size: 11.5px; font-weight: 800; min-height: unset; white-space: nowrap;" onclick="saveCurrentSocialDraft()">
                         💾 Salva Bozza
                     </button>
@@ -4211,10 +4210,10 @@
 
             <!-- TASTO RESET POSIZIONI -->
             <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
-                ↩ Ripristina Posizioni Predefinite Elementi
+                ↩ Ripristina Layout & Posizioni Predefinite
             </button>
 
-            <!-- 2. MODELLO GRAFICO STRATEGICO -->
+            <!-- 2. SELETTORE MODELLO GRAFICO STRATEGICO -->
             <div>
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico Strategico</label>
                 <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
@@ -4228,10 +4227,13 @@
                 </select>
             </div>
 
-            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SOLO SU TRASFORMAZIONE) -->
-            <div id="ss-before-after-upload-box" style="display: block; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; margin-bottom: 8px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto a Schermo Intero</label>
-                <small style="color: #7c3aed; font-size: 11px; display: block; margin-bottom: 8px;">Carica le due foto: prenderanno tutto lo schermo con separazione centrale:</small>
+            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SU MODELLO TRASFORMAZIONE) -->
+            <div id="ss-before-after-upload-box" style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto Schermo Intero</label>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #d8b4fe; color: #6b21a8; font-weight: bold;" onclick="resetPhotoPans()">↺ Centra Foto</button>
+                </div>
+                <small style="color: #7c3aed; font-size: 11px; line-height: 1.35;">Trascina con il dito o il mouse direttamente sopra ogni foto nell'anteprima per inquadrarla e centrarla al millimetro:</small>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <!-- Carica Foto PRIMA -->
@@ -4267,14 +4269,13 @@
                     <option value="current">Tutti i Servizi Attivi del Salone</option>
                 </select>
                 <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali trattamenti mostrare nella grafica:</small>
-
                 <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
                     <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;"></div>
                 </div>
             </div>
 
-            <!-- 3. GALLERIA SFONDI D'AUTORE, STAGIONI & FORME -->
-            <div id="ss-bg-gallery-section-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <!-- 3. GALLERIA SFONDI D'AUTORE & STAGIONI -->
+            <div id="ss-bg-gallery-section-box" style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: none; flex-direction: column; gap: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Stagionali</label>
                     <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
@@ -4301,7 +4302,7 @@
                     <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
                     <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                         <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
-                            📷 Scegli o Scatta Foto Sfondo
+                            📷 Scegli Foto Sfondo
                         </button>
                         <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
                             ✕ Rimuovi
@@ -4316,21 +4317,22 @@
                         <input type="range" id="ss-bg-overlay-slider" min="0.0" max="0.95" step="0.05" value="0.0" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
                     </div>
                 </div>
+            </div>
 
-                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 4px;">
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Logo del Negozio</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Sticker Link "Prenota Online Senza App"</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Includi QR Code Scansionabile sulla Grafica</span>
-                    </label>
-                </div>
+            <!-- OPZIONI DI VISIBILITÀ (STRETTAMENTE UNICHE NEL DOM) -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+                <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none; font-weight: 600;">
+                    <input type="checkbox" id="ss-toggle-logo" checked onchange="onSocialToggleShowOption('logo', this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                    <span>Mostra Logo del Negozio</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none; font-weight: 600;">
+                    <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="onSocialToggleShowOption('badge_sticker', this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                    <span>Sticker Link "Prenota Online Senza App"</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none; font-weight: 600;">
+                    <input type="checkbox" id="ss-toggle-qr" onchange="onSocialToggleShowOption('qr', this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                    <span>Includi QR Code Scansionabile sulla Grafica</span>
+                </label>
             </div>
 
             <!-- 4. GESTIONE LOGO SALONE -->
@@ -4339,7 +4341,7 @@
                     <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
                     <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
                     <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
-                        📁 Carica / Cambia Logo
+                        📁 Carica Logo
                     </button>
                 </div>
 
@@ -4353,10 +4355,10 @@
                         </select>
                     </div>
                     <div>
-                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore</label>
                         <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
                             <option value="none" selected>Originale (Colori reali)</option>
-                            <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
+                            <option value="white">⚪ Bianco Titanio</option>
                             <option value="gold">👑 Oro Luxury</option>
                             <option value="dark">🌑 Nero Profondo</option>
                         </select>
@@ -4365,327 +4367,112 @@
             </div>
 
             <!-- ======================================================= -->
-            <!-- 5. TESTI SULLA GRAFICA: CAMPI DINAMICI ED EDITABILI     -->
+            <!-- 5. TESTI SULLA GRAFICA: EDITING ORDINATO & COMPLETO     -->
             <!-- ======================================================= -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                 <label style="margin: 0 0 2px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modifica Testi, Colori & Grandezze</label>
                 
-                <!-- A. BADGE IN ALTO (Nascosto se Prima & Dopo per pulizia) -->
+                <!-- A. DESCRIZIONE TRATTAMENTO / BANNER LIBERO (SOPRA LE FOTO IN PRIMA & DOPO) -->
+                <div id="ss-group-treatment" style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px; display: block;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #6b21a8; text-transform: uppercase;">Descrizione Trattamento (Sopra le Foto)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Banner">
+                                <span>Box:</span>
+                                <input type="color" id="ss-color-treatment-bg" value="#0f172a" oninput="setSocialElemBgColor('treatment', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Banner">
+                                <span>Testo:</span>
+                                <input type="color" id="ss-color-treatment-text" value="#ffffff" oninput="setSocialElemColor('treatment', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('treatment', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-treatment" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('treatment', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-treatment" value="Balayage Biondo Vaniglia + Trattamento Rigenerante" placeholder="Descrivi il servizio o la tecnica eseguita..." oninput="onSocialTextInput('ss-input-treatment', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
+                </div>
+
+                <!-- B. BADGE IN ALTO (TAG) -->
                 <div id="ss-group-badge" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
                         <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Badge in Alto (Tag)</small>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Badge">
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;">
                                 <span>Box:</span>
                                 <input type="color" id="ss-color-badge-bg" value="#D4AF37" oninput="setSocialElemBgColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
                             </label>
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Badge">
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;">
                                 <span>Testo:</span>
                                 <input type="color" id="ss-color-badge-text" value="#0f172a" oninput="setSocialElemColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
                             </label>
                             <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)" title="Riduci font">A-</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)">A-</button>
                                 <span id="ss-scale-label-badge" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)" title="Aumenta font">A+</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)">A+</button>
                             </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('badge')" title="Ripristina stile tema">↺</button>
                         </div>
                     </div>
                     <input type="text" id="ss-input-badge" value="" oninput="onSocialTextInput('ss-input-badge', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
 
-                <!-- B. TESTO SINISTRA / TITOLO PRINCIPALE -->
+                <!-- C. TITOLO PRINCIPALE (HEADLINE O ETICHETTA PRIMA) -->
                 <div id="ss-group-title" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
                         <small id="ss-label-title" style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Etichetta Sinistra (Foto Prima)</small>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;">
                                 <span>Colore:</span>
                                 <input type="color" id="ss-color-title-text" value="#ffffff" oninput="setSocialElemColor('title', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
                             </label>
                             <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)" title="Riduci font">A-</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)">A-</button>
                                 <span id="ss-scale-label-title" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)" title="Aumenta font">A+</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)">A+</button>
                             </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('title')" title="Ripristina stile tema">↺</button>
                         </div>
                     </div>
                     <input type="text" id="ss-input-title" value="PRIMA" oninput="onSocialTextInput('ss-input-title', this.value)" style="margin: 0; padding: 7px 10px; font-size: 13px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
 
-                <!-- C. TESTO DESTRA / BOX EVIDENZA -->
+                <!-- D. BOX EVIDENZA (PREZZO, DATA O ETICHETTA DOPO) -->
                 <div id="ss-group-highlight" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
                         <small id="ss-label-highlight" style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">Etichetta Destra (Foto Dopo)</small>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo & Sfondo">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;">
                                 <span>Colore:</span>
                                 <input type="color" id="ss-color-highlight-text" value="#D4AF37" oninput="setSocialElemColor('highlight', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
                             </label>
                             <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)" title="Riduci font">A-</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)">A-</button>
                                 <span id="ss-scale-label-highlight" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)" title="Aumenta font">A+</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)">A+</button>
                             </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('highlight')" title="Ripristina stile tema">↺</button>
                         </div>
                     </div>
                     <input type="text" id="ss-input-highlight" value="DOPO ✨" oninput="onSocialTextInput('ss-input-highlight', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: 900; color: #047857; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
 
-                <!-- D. SOTTOTITOLO (Nascosto su Prima & Dopo, attivo su altri template) -->
+                <!-- E. SOTTOTITOLO (VISIBILE SUI TEMPLATE ANNUNCIO, PROMO, LAST-MINUTE) -->
                 <div id="ss-group-subtitle" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
                         <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Sottotitolo / Dettagli</small>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Sottotitolo">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;">
                                 <span>Colore:</span>
                                 <input type="color" id="ss-color-subtitle-text" value="#cbd5e1" oninput="setSocialElemColor('subtitle', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
                             </label>
                             <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)" title="Riduci font">A-</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)">A-</button>
                                 <span id="ss-scale-label-subtitle" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)" title="Aumenta font">A+</button>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)">A+</button>
                             </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('subtitle')" title="Ripristina stile tema">↺</button>
                         </div>
                     </div>
                     <textarea id="ss-input-subtitle" rows="2" oninput="onSocialTextInput('ss-input-subtitle', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;"></textarea>
-                </div>
-
-            </div>
-
-            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SOLO SU MODELLO TRASFORMAZIONE) -->
-            <div id="ss-before-after-upload-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; margin-bottom: 8px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto Prima & Dopo</label>
-                <small style="color: #7c3aed; font-size: 11px; display: block; margin-bottom: 8px;">Carica le foto dal tuo dispositivo. Verranno affiancate con divisione centrale:</small>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <!-- Carica Foto PRIMA -->
-                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
-                        <span style="font-size: 10.5px; font-weight: 800; color: #475569; display: block; margin-bottom: 4px;">FOTO PRIMA (SX)</span>
-                        <input type="file" id="ss-before-file-input" accept="image/*" style="display: none;" onchange="handleBeforePhotoUpload(event)">
-                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-before-file-input').click()">
-                            📁 Scegli Prima
-                        </button>
-                        <button type="button" class="btn btn-d" id="btn-clear-before-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearBeforePhoto()">
-                            ✕ Rimuovi
-                        </button>
-                    </div>
-
-                    <!-- Carica Foto DOPO -->
-                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center;">
-                        <span style="font-size: 10.5px; font-weight: 800; color: #d97706; display: block; margin-bottom: 4px;">FOTO DOPO (DX)</span>
-                        <input type="file" id="ss-after-file-input" accept="image/*" style="display: none;" onchange="handleAfterPhotoUpload(event)">
-                        <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-after-file-input').click()">
-                            📁 Scegli Dopo
-                        </button>
-                        <button type="button" class="btn btn-d" id="btn-clear-after-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearAfterPhoto()">
-                            ✕ Rimuovi
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SELETTORE LISTINO DA PRINT STUDIO -->
-            <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Fonte Listino:</label>
-                <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px;">
-                    <option value="current">Tutti i Servizi Attivi del Salone</option>
-                </select>
-                <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali trattamenti mostrare nella grafica:</small>
-
-                <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
-                    <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;"></div>
-                </div>
-            </div>
-
-            <!-- 3. GALLERIA SFONDI D'AUTORE, STAGIONI & FORME -->
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Stagionali</label>
-                    <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
-                </div>
-
-                <!-- Categorie a capo naturale (visibili al 100% su PC) -->
-                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
-                    <button type="button" class="btn social-pill-btn active-pill" id="btn-bg-cat-all" onclick="filterSocialBgGallery('all')">Tutti</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-seasons" onclick="filterSocialBgGallery('seasons')">🍂 Stagioni</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-beauty" onclick="filterSocialBgGallery('beauty')">🌸 Beauty & Spa</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-hair" onclick="filterSocialBgGallery('hair')">✂️ Hair & Barber</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-luxury" onclick="filterSocialBgGallery('luxury')">👑 Luxury & Oro</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-minimal" onclick="filterSocialBgGallery('minimal')">🌿 Minimal & Boho</button>
-                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon & Trend</button>
-                </div>
-
-                <!-- Giostra miniature con frecce scroll -->
-                <div style="position: relative; width: 100%;">
-                    <button type="button" onclick="scrollBgThumbnails(-180)" style="position: absolute; left: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a sinistra">◀</button>
-                    
-                    <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px 18px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;"></div>
-
-                    <button type="button" onclick="scrollBgThumbnails(180)" style="position: absolute; right: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a destra">▶</button>
-                </div>
-
-                <!-- Caricamento Foto del Salone -->
-                <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-                    <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 6px;">— OPPURE CARICA LA TUA FOTO —</small>
-                    
-                    <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
-                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                        <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
-                            📷 Scegli o Scatta Foto Lavoro
-                        </button>
-                        <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
-                            ✕ Rimuovi
-                        </button>
-                    </div>
-
-                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo (Leggibilità Testo):</span>
-                            <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">0%</span>
-                        </div>
-                        <input type="range" id="ss-bg-overlay-slider" min="0.0" max="0.95" step="0.05" value="0.0" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
-                    </div>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 4px;">
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Logo del Negozio</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Sticker Link "Prenota Online Senza App"</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Includi QR Code Scansionabile sulla Grafica</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- 4. GESTIONE & FORMA LOGO SALONE -->
-            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
-                    <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
-                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
-                        📁 Carica / Cambia Logo
-                    </button>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div>
-                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Forma Visualizzazione</label>
-                        <select id="ss-logo-shape-select" onchange="onSocialLogoShapeChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
-                            <option value="natural" selected>✨ Trasparente (Originale)</option>
-                            <option value="circle">⚪ Cerchio Protettivo</option>
-                            <option value="card">🏷️ Scheda Morbida</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
-                        <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
-                            <option value="none" selected>Originale (Colori reali)</option>
-                            <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
-                            <option value="gold">👑 Oro Luxury</option>
-                            <option value="dark">🌑 Nero Profondo</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================================================= -->
-            <!-- 5. TESTI SULLA GRAFICA: DIGITAZIONE, COLORI & FONT SIZE -->
-            <!-- ======================================================= -->
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
-                <label style="margin: 0 0 2px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modifica Testi, Colori & Font Size</label>
-                
-                <!-- A. BADGE IN ALTO -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Badge in Alto (Tag)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Badge">
-                                <span>Box:</span>
-                                <input type="color" id="ss-color-badge-bg" value="#D4AF37" oninput="setSocialElemBgColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Badge">
-                                <span>Testo:</span>
-                                <input type="color" id="ss-color-badge-text" value="#0f172a" oninput="setSocialElemColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-badge" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('badge')" title="Ripristina stile tema">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-badge" value="NOVITÀ SMART" oninput="onSocialTextInput('ss-input-badge', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
-                </div>
-
-                <!-- B. TITOLO PRINCIPALE -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Titolo Principale (Headline)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Titolo">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-title-text" value="#ffffff" oninput="setSocialElemColor('title', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-title" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('title')" title="Ripristina stile tema">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-title" value="Prenota in 5 secondi senza scaricare nessuna app!" oninput="onSocialTextInput('ss-input-title', this.value)" style="margin: 0; padding: 7px 10px; font-size: 13px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
-                </div>
-
-                <!-- C. SOTTOTITOLO / DETTAGLI -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Sottotitolo / Dettagli</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Sottotitolo">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-subtitle-text" value="#cbd5e1" oninput="setSocialElemColor('subtitle', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-subtitle" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('subtitle')" title="Ripristina stile tema">↺</button>
-                        </div>
-                    </div>
-                    <textarea id="ss-input-subtitle" rows="2" oninput="onSocialTextInput('ss-input-subtitle', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.</textarea>
-                </div>
-
-                <!-- D. BOX IN EVIDENZA -->
-                <div id="ss-highlight-box" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo & Bordo">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-highlight-text" value="#D4AF37" oninput="setSocialElemColor('highlight', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-highlight" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('highlight')" title="Ripristina stile tema">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-highlight" value="Zero App da Scaricare • 24/7" oninput="onSocialTextInput('ss-input-highlight', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: 900; color: #047857; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
 
             </div>
@@ -28300,130 +28087,484 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO DEFINITIVO)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (GESTIONE PERFETTA & PAN DRAG)
 // =========================================================================
 
-// 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING GEOMETRICO E TESTUALE
-function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
-    if (!text) return 0;
-    const words = String(text).split(' ');
-    let line = '';
-    let lines = [];
+window._socialStudioState = {
+    template: 'transformation', // Default allineato al select HTML
+    format: 'story',
+    theme: 'luxury-gold',
+    bgType: 'preset',
+    bgPresetId: 'season_autumn',
+    uploadedBgImg: null,
+    beforeImg: null,
+    afterImg: null,
+    beforePanX: 0,
+    beforePanY: 0,
+    afterPanX: 0,
+    afterPanY: 0,
+    bgOverlayOpacity: 0.15,
+    treatmentText: 'Balayage Biondo Vaniglia + Trattamento Rigenerante',
+    badgeText: '',
+    title: 'PRIMA',
+    subtitle: '',
+    highlightText: 'DOPO ✨',
+    showLogo: true,
+    showBookingBadge: false, // Default pulito per le trasformazioni
+    showQrCode: false,
+    showSafeZone: false,
+    logoShape: 'natural',
+    logoFilter: 'none',
+    selectedPresetId: 'current',
+    salonLogoImg: null,
+    qrImage: null,
+    customCheckedServiceIds: new Set()
+};
 
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) {
-            lines.push(line.trim());
-            line = words[n] + ' ';
-        } else {
-            line = testLine;
-        }
+// Gerarchia ordinata e priva di collisioni
+function getDefaultSocialElements(W, H, isStory) {
+    const tpl = window._socialStudioState ? window._socialStudioState.template : 'transformation';
+
+    if (tpl === 'transformation') {
+        return {
+            logo: { id: 'logo', name: 'Logo Salone', icon: '🖼️', x: W / 2, y: isStory ? 140 : 100, scale: 0.95, w: 160, h: 100, color: null, bgColor: null },
+            treatment: { id: 'treatment', name: 'Trattamento', icon: '✂️', x: W / 2, y: isStory ? 245 : 185, scale: 1.0, w: 840, h: 54, color: '#ffffff', bgColor: 'rgba(15, 23, 42, 0.88)' },
+            title: { id: 'title', name: 'Etichetta Prima', icon: '📷', x: W / 4, y: isStory ? 350 : 260, scale: 1.0, w: 200, h: 54, color: '#ffffff', bgColor: 'rgba(15, 23, 42, 0.82)' },
+            highlight: { id: 'highlight', name: 'Etichetta Dopo', icon: '✨', x: (3 * W) / 4, y: isStory ? 350 : 260, scale: 1.0, w: 220, h: 54, color: '#0f172a', bgColor: '#D4AF37' },
+            badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 430 : 310, scale: 1.0, w: 280, h: 50, color: null, bgColor: null },
+            subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 530 : 390, scale: 1.0, w: 820, h: 80, color: null, bgColor: null },
+            menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 920 : 680, scale: 1.0, w: 860, h: 360, color: null, bgColor: null },
+            qrcode: { id: 'qrcode', name: 'QR Code', icon: '📲', x: W / 2, y: isStory ? 1340 : 940, scale: 1.0, w: 230, h: 230, color: null, bgColor: null },
+            sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 200 : 130), scale: 1.0, w: 500, h: 72, color: null, bgColor: null }
+        };
     }
-    lines.push(line.trim());
 
-    const totalBlockH = lines.length * lineHeight;
-    let startY = y - (totalBlockH / 2) + (lineHeight / 2);
-
-    for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], x, startY + (i * lineHeight));
-    }
-    return totalBlockH;
+    // Template generali: flusso verticale pulito senza sovrapposizioni
+    return {
+        logo: { id: 'logo', name: 'Logo Salone', icon: '🖼️', x: W / 2, y: isStory ? 150 : 110, scale: 1.0, w: 150, h: 100, color: null, bgColor: null },
+        badge: { id: 'badge', name: 'Badge Tag', icon: '🏷️', x: W / 2, y: isStory ? 290 : 200, scale: 1.0, w: 280, h: 48, color: null, bgColor: null },
+        title: { id: 'title', name: 'Titolo Principale', icon: '✨', x: W / 2, y: isStory ? 430 : 310, scale: 1.0, w: 860, h: 140, color: null, bgColor: null },
+        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 600 : 450, scale: 1.0, w: 820, h: 90, color: null, bgColor: null },
+        menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 890 : 660, scale: 1.0, w: 860, h: 360, color: null, bgColor: null },
+        highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1160 : 840, scale: 1.0, w: 560, h: 80, color: null, bgColor: null },
+        qrcode: { id: 'qrcode', name: 'QR Code', icon: '📲', x: W / 2, y: isStory ? 1410 : 980, scale: 1.0, w: 230, h: 230, color: null, bgColor: null },
+        sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 200 : 130), scale: 1.0, w: 500, h: 72, color: null, bgColor: null }
+    };
 }
-window.wrapCanvasText = wrapCanvasText;
 
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
-    const r = Math.min(radius || 10, width / 2, height / 2);
+// Gestione toggle di visibilità immediata
+function onSocialToggleShowOption(opt, isChecked) {
+    const s = window._socialStudioState;
+    if (opt === 'logo') s.showLogo = isChecked;
+    else if (opt === 'badge_sticker') s.showBookingBadge = isChecked;
+    else if (opt === 'qr') s.showQrCode = isChecked;
+
+    renderSocialCanvas();
+}
+window.onSocialToggleShowOption = onSocialToggleShowOption;
+
+function resetPhotoPans() {
+    window._socialStudioState.beforePanX = 0;
+    window._socialStudioState.beforePanY = 0;
+    window._socialStudioState.afterPanX = 0;
+    window._socialStudioState.afterPanY = 0;
+    renderSocialCanvas();
+}
+window.resetPhotoPans = resetPhotoPans;
+
+// 📸 Disegno Prima & Dopo con supporto al Pan/Offset
+function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
+    const splitX = W / 2;
+
+    // 1. FOTO PRIMA A SCHERMO INTERO (LATO SX)
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + width - r, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-    ctx.lineTo(x + width, y + height - r);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
+    ctx.rect(0, 0, splitX, H);
+    ctx.clip();
+
+    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
+        const img = s.beforeImg;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const drawW = img.naturalWidth * ratio;
+        const drawH = img.naturalHeight * ratio;
+        const baseX = (splitX - drawW) / 2 + (s.beforePanX || 0);
+        const baseY = (H - drawH) / 2 + (s.beforePanY || 0);
+
+        ctx.drawImage(img, baseX, baseY, drawW, drawH);
+
+        const gradL = ctx.createLinearGradient(0, 0, 0, H);
+        gradL.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+        gradL.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
+        gradL.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+        gradL.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+        ctx.fillStyle = gradL;
+        ctx.fillRect(0, 0, splitX, H);
+    } else {
+        const gradPlaceL = ctx.createLinearGradient(0, 0, splitX, H);
+        gradPlaceL.addColorStop(0, '#1E293B');
+        gradPlaceL.addColorStop(1, '#0F172A');
+        ctx.fillStyle = gradPlaceL;
+        ctx.fillRect(0, 0, splitX, H);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillText('(Trascina qui per centrare l\'inquadratura)', splitX / 2, H / 2 + 20);
+    }
+    ctx.restore();
+
+    // 2. FOTO DOPO A SCHERMO INTERO (LATO DX)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(splitX, 0, splitX, H);
+    ctx.clip();
+
+    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
+        const img = s.afterImg;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const drawW = img.naturalWidth * ratio;
+        const drawH = img.naturalHeight * ratio;
+        const baseX = splitX + (splitX - drawW) / 2 + (s.afterPanX || 0);
+        const baseY = (H - drawH) / 2 + (s.afterPanY || 0);
+
+        ctx.drawImage(img, baseX, baseY, drawW, drawH);
+
+        const gradR = ctx.createLinearGradient(0, 0, 0, H);
+        gradR.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+        gradR.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
+        gradR.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+        gradR.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+        ctx.fillStyle = gradR;
+        ctx.fillRect(splitX, 0, splitX, H);
+    } else {
+        const gradPlaceR = ctx.createLinearGradient(splitX, 0, W, H);
+        gradPlaceR.addColorStop(0, '#2E1022');
+        gradPlaceR.addColorStop(1, '#12050E');
+        ctx.fillStyle = gradPlaceR;
+        ctx.fillRect(splitX, 0, splitX, H);
+
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillText('(Trascina qui per centrare l\'inquadratura)', splitX + splitX / 2, H / 2 + 20);
+    }
+    ctx.restore();
+
+    // 3. SEPARATORE CENTRALE CON MANIGLIA
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(splitX, 0);
+    ctx.lineTo(splitX, H);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+
+    const handleY = H / 2;
+    ctx.beginPath();
+    ctx.arc(splitX, handleY, 30, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = accentColor;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '900 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀ ✦ ▶', splitX, handleY);
+    ctx.restore();
 }
-window.drawRoundedRect = drawRoundedRect;
 
-// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE & DIDASCALIE (IN CIMA)
-function generateSocialCaptionText(salonId, link) {
-    const s = window._socialStudioState || {};
-    return `✨ ${s.title || ''}\n${s.subtitle || ''}\n\n👉 ${s.highlightText || ''}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${String(salonId || '').replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
+// 🔤 Sovrimpressioni specifiche per Trasformazione Look
+function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
+    // 1. BANNER TRATTAMENTO IN ALTO SOPRA LE FOTO
+    const elTreat = elems.treatment;
+    if (elTreat && s.treatmentText && s.treatmentText.trim() !== '') {
+        ctx.save();
+        const scale = (Number.isFinite(elTreat.scale) && elTreat.scale > 0.1) ? elTreat.scale : 1.0;
+        const x = Number.isFinite(elTreat.x) ? elTreat.x : W / 2;
+        const y = Number.isFinite(elTreat.y) ? elTreat.y : (isStory ? 245 : 185);
+
+        ctx.font = `800 ${Math.round(23 * scale)}px sans-serif`;
+        const text = s.treatmentText.trim();
+        const textW = ctx.measureText(text).width;
+        const boxW = Math.min(Math.max(textW + 48, 380), W - 80) * scale;
+        const boxH = 50 * scale;
+
+        elTreat.w = boxW;
+        elTreat.h = boxH;
+
+        ctx.fillStyle = elTreat.bgColor || 'rgba(15, 23, 42, 0.88)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 14;
+        drawRoundedRect(ctx, x - boxW / 2, y - boxH / 2, boxW, boxH, 14);
+        ctx.fill();
+
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = elTreat.color || '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+
+    // 2. ETICHETTA PRIMA (SX)
+    const elBefore = elems.title;
+    if (s.title && s.title.trim() !== '') {
+        ctx.save();
+        const scale = (Number.isFinite(elBefore.scale) && elBefore.scale > 0.1) ? elBefore.scale : 1.0;
+        const x = Number.isFinite(elBefore.x) ? elBefore.x : W / 4;
+        const y = Number.isFinite(elBefore.y) ? elBefore.y : (isStory ? 350 : 260);
+
+        ctx.font = `900 ${Math.round(24 * scale)}px sans-serif`;
+        const text = s.title.trim();
+        const textW = ctx.measureText(text).width;
+        const badgeW = (textW + 44) * scale;
+        const badgeH = 46 * scale;
+
+        elBefore.w = badgeW;
+        elBefore.h = badgeH;
+
+        ctx.fillStyle = elBefore.bgColor || 'rgba(15, 23, 42, 0.85)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 10;
+        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = elBefore.color || '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+
+    // 3. ETICHETTA DOPO (DX)
+    const elAfter = elems.highlight;
+    if (s.highlightText && s.highlightText.trim() !== '') {
+        ctx.save();
+        const scale = (Number.isFinite(elAfter.scale) && elAfter.scale > 0.1) ? elAfter.scale : 1.0;
+        const x = Number.isFinite(elAfter.x) ? elAfter.x : (3 * W) / 4;
+        const y = Number.isFinite(elAfter.y) ? elAfter.y : (isStory ? 350 : 260);
+
+        ctx.font = `900 ${Math.round(24 * scale)}px sans-serif`;
+        const text = s.highlightText.trim();
+        const textW = ctx.measureText(text).width;
+        const badgeW = (textW + 44) * scale;
+        const badgeH = 46 * scale;
+
+        elAfter.w = badgeW;
+        elAfter.h = badgeH;
+
+        ctx.fillStyle = elAfter.bgColor || accentColor;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 10;
+        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = elAfter.color || '#0F172A';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
 }
-window.generateSocialCaptionText = generateSocialCaptionText;
 
-function updateCaptionPreview() {
-    const previewEl = document.getElementById('ss-caption-preview');
-    if (!previewEl) return;
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
-}
-window.updateCaptionPreview = updateCaptionPreview;
+// 👆 Attacco Gesti con Supporto al Trascinamento Foto (Pan) e Testi
+let activePanTarget = null; // 'before' | 'after' | 'element'
 
-function copySocialCaption() {
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
-    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+function attachCanvasTouchGestures() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas || canvas._touchAttached) return;
+    canvas._touchAttached = true;
 
-    navigator.clipboard.writeText(caption).then(() => {
-        alert("✅ Didascalia e link copiati negli appunti!\nIncollala su Instagram, Facebook o WhatsApp.");
+    function getCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return { x: 540, y: 960 };
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function hitTestElement(clickX, clickY) {
+        const elems = window._socialElements;
+        const s = window._socialStudioState;
+        if (!elems || !s) return null;
+
+        const candidates = ['treatment', 'sticker', 'qrcode', 'highlight', 'subtitle', 'title', 'badge', 'menu', 'logo'];
+        for (let key of candidates) {
+            if (key === 'logo' && !s.showLogo) continue;
+            if (key === 'sticker' && !s.showBookingBadge) continue;
+            if (key === 'qrcode' && !s.showQrCode) continue;
+            if (key === 'menu' && s.template !== 'pricelist') continue;
+            if (key === 'treatment' && s.template !== 'transformation') continue;
+            if (key === 'subtitle' && s.template === 'transformation') continue;
+
+            const el = elems[key];
+            if (!el || !Number.isFinite(el.x) || !Number.isFinite(el.y)) continue;
+
+            const elScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
+            const halfW = ((el.w || 200) * elScale) / 2 + 25;
+            const halfH = ((el.h || 60) * elScale) / 2 + 25;
+
+            if (clickX >= el.x - halfW && clickX <= el.x + halfW &&
+                clickY >= el.y - halfH && clickY <= el.y + halfH) {
+                return el.id;
+            }
+        }
+        return null;
+    }
+
+    // Touch Event Handlers
+    canvas.addEventListener('touchstart', (e) => {
+        const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+        const s = window._socialStudioState;
+
+        if (e.touches.length === 1) {
+            const hitId = hitTestElement(coords.x, coords.y);
+            if (hitId) {
+                e.preventDefault();
+                activePanTarget = 'element';
+                setActiveSocialElement(hitId);
+                isTouchDragging = true;
+                touchDragStartX = coords.x;
+                touchDragStartY = coords.y;
+                const el = window._socialElements[hitId];
+                initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
+                initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
+            } else if (s.template === 'transformation') {
+                // Drag & Pan delle foto PRIMA o DOPO
+                activePanTarget = coords.x < (canvas.width / 2) ? 'before' : 'after';
+                isTouchDragging = true;
+                touchDragStartX = coords.x;
+                touchDragStartY = coords.y;
+                initialElemX = activePanTarget === 'before' ? (s.beforePanX || 0) : (s.afterPanX || 0);
+                initialElemY = activePanTarget === 'before' ? (s.beforePanY || 0) : (s.afterPanY || 0);
+                deselectActiveElement();
+            } else {
+                deselectActiveElement();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isTouchDragging) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+            const dx = coords.x - touchDragStartX;
+            const dy = coords.y - touchDragStartY;
+
+            if (activePanTarget === 'element' && window._activeSocialElemId) {
+                const el = window._socialElements[window._activeSocialElemId];
+                if (el) {
+                    el.x = Math.max(50, Math.min(canvas.width - 50, initialElemX + dx));
+                    el.y = Math.max(40, Math.min(canvas.height - 40, initialElemY + dy));
+                    renderSocialCanvas();
+                }
+            } else if (activePanTarget === 'before') {
+                window._socialStudioState.beforePanX = initialElemX + dx;
+                window._socialStudioState.beforePanY = initialElemY + dy;
+                renderSocialCanvas();
+            } else if (activePanTarget === 'after') {
+                window._socialStudioState.afterPanX = initialElemX + dx;
+                window._socialStudioState.afterPanY = initialElemY + dy;
+                renderSocialCanvas();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+        isTouchDragging = false;
+        activePanTarget = null;
+    });
+
+    // Mouse Event Handlers (Desktop)
+    let isMouseDown = false;
+
+    canvas.addEventListener('mousedown', (e) => {
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const s = window._socialStudioState;
+        const hitId = hitTestElement(coords.x, coords.y);
+
+        if (hitId) {
+            activePanTarget = 'element';
+            setActiveSocialElement(hitId);
+            isMouseDown = true;
+            touchDragStartX = coords.x;
+            touchDragStartY = coords.y;
+            const el = window._socialElements[hitId];
+            initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
+            initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
+        } else if (s.template === 'transformation') {
+            activePanTarget = coords.x < (canvas.width / 2) ? 'before' : 'after';
+            isMouseDown = true;
+            touchDragStartX = coords.x;
+            touchDragStartY = coords.y;
+            initialElemX = activePanTarget === 'before' ? (s.beforePanX || 0) : (s.afterPanX || 0);
+            initialElemY = activePanTarget === 'before' ? (s.beforePanY || 0) : (s.afterPanY || 0);
+            deselectActiveElement();
+        } else {
+            deselectActiveElement();
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        const coords = getCanvasCoords(e.clientX, e.clientY);
+        const dx = coords.x - touchDragStartX;
+        const dy = coords.y - touchDragStartY;
+
+        if (activePanTarget === 'element' && window._activeSocialElemId) {
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el) {
+                el.x = Math.max(50, Math.min(canvas.width - 50, initialElemX + dx));
+                el.y = Math.max(40, Math.min(canvas.height - 40, initialElemY + dy));
+                renderSocialCanvas();
+            }
+        } else if (activePanTarget === 'before') {
+            window._socialStudioState.beforePanX = initialElemX + dx;
+            window._socialStudioState.beforePanY = initialElemY + dy;
+            renderSocialCanvas();
+        } else if (activePanTarget === 'after') {
+            window._socialStudioState.afterPanX = initialElemX + dx;
+            window._socialStudioState.afterPanY = initialElemY + dy;
+            renderSocialCanvas();
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        activePanTarget = null;
     });
 }
-window.copySocialCaption = copySocialCaption;
 
-async function shareSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const caption = generateSocialCaptionText(currentSalon, `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`);
-
-    try {
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                title: `Novità ${currentSalon}`,
-                text: caption,
-                files: [file]
-            });
-        } else {
-            downloadSocialGraphic();
-            copySocialCaption();
-            alert("📥 Immagine scaricata nella galleria!\n\n📋 Didascalia e link copiati negli appunti.");
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error("Errore condivisione:", err);
-            downloadSocialGraphic();
-        }
-    }
-}
-window.shareSocialGraphic = shareSocialGraphic;
-
-function downloadSocialGraphic() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
-    const link = document.createElement('a');
-    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-}
-window.downloadSocialGraphic = downloadSocialGraphic;
-
+// 🔤 Ascolto input descrizione trattamento
 function onSocialTextInput(inputId, value) {
     const s = window._socialStudioState;
-    if (inputId === 'ss-input-badge') s.badgeText = value;
+    if (inputId === 'ss-input-treatment') s.treatmentText = value;
+    else if (inputId === 'ss-input-badge') s.badgeText = value;
     else if (inputId === 'ss-input-title') s.title = value;
     else if (inputId === 'ss-input-subtitle') s.subtitle = value;
     else if (inputId === 'ss-input-highlight') s.highlightText = value;
@@ -28431,7 +28572,8 @@ function onSocialTextInput(inputId, value) {
     const activeId = window._activeSocialElemId;
     const quickInput = document.getElementById('ss-quick-text-input');
     if (quickInput && activeId) {
-        if ((activeId === 'badge' && inputId === 'ss-input-badge') ||
+        if ((activeId === 'treatment' && inputId === 'ss-input-treatment') ||
+            (activeId === 'badge' && inputId === 'ss-input-badge') ||
             (activeId === 'title' && inputId === 'ss-input-title') ||
             (activeId === 'subtitle' && inputId === 'ss-input-subtitle') ||
             (activeId === 'highlight' && inputId === 'ss-input-highlight')) {
@@ -28451,7 +28593,10 @@ function onQuickTextEdit(value) {
     const s = window._socialStudioState;
     let sideInputId = null;
 
-    if (activeId === 'badge') {
+    if (activeId === 'treatment') {
+        s.treatmentText = value;
+        sideInputId = 'ss-input-treatment';
+    } else if (activeId === 'badge') {
         s.badgeText = value;
         sideInputId = 'ss-input-badge';
     } else if (activeId === 'title') {
@@ -28475,424 +28620,27 @@ function onQuickTextEdit(value) {
 }
 window.onQuickTextEdit = onQuickTextEdit;
 
-// 🎨 3. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
-window.SOCIAL_BG_PRESETS = [
-    // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
-    { 
-        id: 'season_autumn', category: 'seasons', name: 'Autunno & Foglie Oro', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#78350F', '#1F0B03'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
-    },
-    { 
-        id: 'season_spring', category: 'seasons', name: 'Primavera Cherry Blossom', isLight: true,
-        imgUrl: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#FDF2F8', '#FCE7F3'], accent: '#DB2777', textMain: '#371326', textSub: '#831843' 
-    },
-    { 
-        id: 'season_summer', category: 'seasons', name: 'Estate Sun & Gold', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#C2410C', '#451A03'], accent: '#FBBF24', textMain: '#FFFFFF', textSub: '#FEF08A' 
-    },
-    { 
-        id: 'season_winter', category: 'seasons', name: 'Inverno Ice & Luci', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#0F172A', '#020617'], accent: '#38BDF8', textMain: '#FFFFFF', textSub: '#BAE6FD' 
-    },
-
-    // 🌸 BEAUTY, SPA & GLAMOUR
-    { 
-        id: 'beauty_skincare_glow', category: 'beauty', name: 'Rituale Glow Skincare', isLight: true,
-        imgUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#FFF7ED', '#FFEDD5'], accent: '#EA580C', textMain: '#1C1917', textSub: '#78350F' 
-    },
-    { 
-        id: 'beauty_spa_candles', category: 'beauty', name: 'Wellness Spa & Relax', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#1C1917', '#0A0705'], accent: '#D4AF37', textMain: '#FFFFFF', textSub: '#E7E5E4' 
-    },
-    { 
-        id: 'beauty_rose_silk', category: 'beauty', name: 'Seta Rosa Cipria', isLight: true,
-        imgUrl: null,
-        gradient: ['#FDF2F4', '#FCE7EB'], accent: '#BE185D', textMain: '#371326', textSub: '#701A45' 
-    },
-    { 
-        id: 'beauty_lavender_spa', category: 'beauty', name: 'Lilla Etereo Spa', isLight: true,
-        imgUrl: null,
-        gradient: ['#F5F3FF', '#EDE9FE'], accent: '#7C3AED', textMain: '#1E1B4B', textSub: '#4C1D95' 
-    },
-
-    // ✂️ HAIR & BARBER
-    { 
-        id: 'hair_balayage_salon', category: 'hair', name: 'Onde Balayage Salone', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#29180E', '#0D0602'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
-    },
-    { 
-        id: 'barber_vintage_chair', category: 'hair', name: 'Poltrona Barber Vintage', isLight: false,
-        imgUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#18181B', '#09090B'], accent: '#D97706', textMain: '#FFFFFF', textSub: '#D4D4D8' 
-    },
-    { 
-        id: 'barber_warm_wood', category: 'hair', name: 'Rovere & Whisky Speakeasy', isLight: false,
-        imgUrl: null,
-        gradient: ['#3E1E0F', '#140803'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
-    },
-
-    // 👑 LUXURY & ORO
-    { 
-        id: 'lux_carrara_marble', category: 'luxury', name: 'Marmo Bianco & Venature', isLight: true,
-        imgUrl: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1080&q=80',
-        gradient: ['#F8FAFC', '#E2E8F0'], accent: '#B45309', textMain: '#0F172A', textSub: '#475569' 
-    },
-    { 
-        id: 'lux_obsidian_gold', category: 'luxury', name: 'Noir & Oro Caldo', isLight: false,
-        imgUrl: null,
-        gradient: ['#171923', '#090A0F'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#CBD5E1' 
-    },
-    { 
-        id: 'lux_champagne', category: 'luxury', name: 'Champagne Perlato & Bokeh', isLight: false,
-        imgUrl: null,
-        gradient: ['#2E2318', '#120D08'], accent: '#FDE68A', textMain: '#FFFFFF', textSub: '#FDE047' 
-    },
-
-    // 🌿 MINIMAL & BOHO
-    { 
-        id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho Arch', isLight: true,
-        imgUrl: null,
-        gradient: ['#FAF5F0', '#F4EAE0'], accent: '#C2410C', textMain: '#2E1508', textSub: '#7C2D12' 
-    },
-    { 
-        id: 'minimal_emerald', category: 'minimal', name: 'Smeraldo Botanico', isLight: false,
-        imgUrl: null,
-        gradient: ['#064E3B', '#022C22'], accent: '#34D399', textMain: '#FFFFFF', textSub: '#A7F3D0' 
-    },
-
-    // ⚡ NEON & TREND
-    { 
-        id: 'neon_sunset_glow', category: 'neon', name: 'Sunset Magenta & Arancio', isLight: false,
-        imgUrl: null,
-        gradient: ['#831843', '#3B0764'], accent: '#FBBF24', textMain: '#FFFFFF', textSub: '#FDE68A' 
-    },
-    { 
-        id: 'neon_cyber_purple', category: 'neon', name: 'Cyber Violetto & Ciano', isLight: false,
-        imgUrl: null,
-        gradient: ['#2E0854', '#080112'], accent: '#22D3EE', textMain: '#FFFFFF', textSub: '#E9D5FF' 
-    }
-];
-
-window._socialBgImageCache = window._socialBgImageCache || new Map();
-
-window._socialStudioState = {
-    template: 'launch_no_app',
-    format: 'story',
-    theme: 'luxury-gold',
-    bgType: 'preset',
-    bgPresetId: 'season_autumn',
-    uploadedBgImg: null,
-    beforeImg: null,
-    afterImg: null,
-    bgOverlayOpacity: 0.15,
-    badgeText: 'NOVITÀ SMART',
-    title: 'Prenota in 5 secondi senza scaricare nessuna app!',
-    subtitle: 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.',
-    highlightText: 'Zero App da Scaricare • 24/7',
-    showLogo: true,
-    showBookingBadge: true,
-    showQrCode: false,
-    showSafeZone: false,
-    logoShape: 'natural',
-    logoFilter: 'none',
-    selectedPresetId: 'current',
-    salonLogoImg: null,
-    qrImage: null,
-    customCheckedServiceIds: new Set()
-};
-
-function getDefaultSocialElements(W, H, isStory) {
-    return {
-        logo: { id: 'logo', name: 'Logo', icon: '🖼️', x: W / 2, y: isStory ? 230 : 160, scale: 1.0, w: 150, h: 150, color: null, bgColor: null },
-        badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 410 : 270, scale: 1.0, w: 280, h: 50, color: null, bgColor: null },
-        title: { id: 'title', name: 'Titolo', icon: '✨', x: W / 2, y: isStory ? 590 : 420, scale: 1.0, w: 860, h: 160, color: null, bgColor: null },
-        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 530 : 380, scale: 1.0, w: 820, h: 100, color: null, bgColor: null },
-highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1340 : 960, scale: 1.0, w: 540, h: 80, color: null, bgColor: null },
-        highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1040 : 770, scale: 1.0, w: 540, h: 80, color: null, bgColor: null },
-        menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 920 : 680, scale: 1.0, w: 860, h: 360, color: null, bgColor: null },
-        qrcode: { id: 'qrcode', name: 'QR Code', icon: '📲', x: W / 2, y: isStory ? 1320 : 920, scale: 1.0, w: 230, h: 230, color: null, bgColor: null },
-        sticker: { id: 'sticker', name: 'Sticker Prenota', icon: '🔗', x: W / 2, y: H - (isStory ? 240 : 160), scale: 1.0, w: 500, h: 72, color: null, bgColor: null }
-    };
-}
-
-window._socialElements = null;
-window._activeSocialElemId = null;
-
-let isTouchDragging = false;
-let touchDragStartX = 0;
-let touchDragStartY = 0;
-let initialElemX = 0;
-let initialElemY = 0;
-let initialPinchDistance = 0;
-let initialPinchScale = 1.0;
-
-function ensureSocialElementsInitialized(W, H, isStory) {
-    if (!window._socialElements) {
-        window._socialElements = getDefaultSocialElements(W, H, isStory);
-    }
-}
-
-// 📸 4. CARICAMENTO FOTO PRIMA E DOPO
-function handleBeforePhotoUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            window._socialStudioState.beforeImg = img;
-            const btnClear = document.getElementById('btn-clear-before-photo');
-            if (btnClear) btnClear.style.display = 'block';
-            renderSocialCanvas();
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-window.handleBeforePhotoUpload = handleBeforePhotoUpload;
-
-function clearBeforePhoto() {
-    window._socialStudioState.beforeImg = null;
-    const input = document.getElementById('ss-before-file-input');
-    if (input) input.value = '';
-    const btnClear = document.getElementById('btn-clear-before-photo');
-    if (btnClear) btnClear.style.display = 'none';
-    renderSocialCanvas();
-}
-window.clearBeforePhoto = clearBeforePhoto;
-
-function handleAfterPhotoUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            window._socialStudioState.afterImg = img;
-            const btnClear = document.getElementById('btn-clear-after-photo');
-            if (btnClear) btnClear.style.display = 'block';
-            renderSocialCanvas();
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-window.handleAfterPhotoUpload = handleAfterPhotoUpload;
-
-function clearAfterPhoto() {
-    window._socialStudioState.afterImg = null;
-    const input = document.getElementById('ss-after-file-input');
-    if (input) input.value = '';
-    const btnClear = document.getElementById('btn-clear-after-photo');
-    if (btnClear) btnClear.style.display = 'none';
-    renderSocialCanvas();
-}
-window.clearAfterPhoto = clearAfterPhoto;
-
-// 🖼️ 5. GALLERIA SFONDI: MINIATURE, SCROLL PC, FILTRI & DISEGNO
-let _activeBgGalleryCategory = 'all';
-
-function renderSocialBgGalleryThumbnails() {
-    const container = document.getElementById('ss-bg-thumbnails-scroll');
-    if (!container) return;
-
-    if (!container._wheelAttached) {
-        container._wheelAttached = true;
-        container.addEventListener('wheel', (e) => {
-            if (e.deltaY !== 0) {
-                e.preventDefault();
-                container.scrollLeft += e.deltaY * 1.4;
-            }
-        }, { passive: false });
-    }
-
-    const activePresetId = window._socialStudioState.bgPresetId;
-    const cat = _activeBgGalleryCategory;
-
-    const filtered = (cat === 'all') 
-        ? window.SOCIAL_BG_PRESETS 
-        : window.SOCIAL_BG_PRESETS.filter(p => p.category === cat);
-
-    container.innerHTML = filtered.map(p => {
-        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
-        
-        let thumbStyle = '';
-        if (p.imgUrl) {
-            thumbStyle = `background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.65)), url('${p.imgUrl}');`;
-        } else {
-            thumbStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
-        }
-
-        return `
-            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
-                 id="bg-thumb-${p.id}"
-                 style="${thumbStyle}"
-                 onclick="selectSocialBgPreset('${p.id}')"
-                 title="${p.name}">
-                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
-                <div class="ss-bg-thumb-title" style="color: ${p.isLight ? '#0F172A' : '#FFFFFF'}; background: ${p.isLight ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)'};">${p.name}</div>
-            </div>
-        `;
-    }).join('');
-}
-window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
-
-function scrollBgThumbnails(px) {
-    const container = document.getElementById('ss-bg-thumbnails-scroll');
-    if (container) {
-        container.scrollBy({ left: px, behavior: 'smooth' });
-    }
-}
-window.scrollBgThumbnails = scrollBgThumbnails;
-
-function filterSocialBgGallery(cat) {
-    _activeBgGalleryCategory = cat;
-    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
-    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
-    if (activeBtn) activeBtn.classList.add('active-pill');
-    renderSocialBgGalleryThumbnails();
-}
-window.filterSocialBgGallery = filterSocialBgGallery;
-
-function selectSocialBgPreset(presetId) {
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId);
-    if (!p) return;
-
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = presetId;
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = p.imgUrl ? 0.35 : 0.05;
-
-    const clearBtn = document.getElementById('btn-clear-social-bg');
-    if (clearBtn) clearBtn.style.display = 'none';
-
-    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
-    const overlayLabel = document.getElementById('ss-bg-overlay-label');
-    if (overlaySlider) overlaySlider.value = window._socialStudioState.bgOverlayOpacity;
-    if (overlayLabel) overlayLabel.innerText = `${Math.round(window._socialStudioState.bgOverlayOpacity * 100)}%`;
-
-    if (p.imgUrl && !window._socialBgImageCache.has(p.imgUrl)) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            window._socialBgImageCache.set(p.imgUrl, img);
-            renderSocialCanvas();
-        };
-        img.src = p.imgUrl;
-    }
-
-    if (window._socialElements) {
-        if (!window._socialElements.title.color) {
-            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
-        }
-        if (!window._socialElements.subtitle.color) {
-            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
-        }
-    }
-
-    highlightActiveBgThumbnail();
-    syncSideColorPickersToTheme();
-    renderSocialCanvas();
-}
-window.selectSocialBgPreset = selectSocialBgPreset;
-
-function highlightActiveBgThumbnail() {
-    const s = window._socialStudioState;
-    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
-    if (s.bgType === 'preset') {
-        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
-        if (card) {
-            card.classList.add('active-bg');
-            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-    }
-}
-window.highlightActiveBgThumbnail = highlightActiveBgThumbnail;
-
-function resetToThemeDefaultBackground() {
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgPresetId = 'season_autumn';
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgOverlayOpacity = 0.15;
-    highlightActiveBgThumbnail();
-    renderSocialCanvas();
-}
-window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
-
-function drawSocialBackgroundPreset(ctx, W, H, presetId) {
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId) || window.SOCIAL_BG_PRESETS[0];
-
-    let imageDrawn = false;
-    if (p.imgUrl && window._socialBgImageCache.has(p.imgUrl)) {
-        const img = window._socialBgImageCache.get(p.imgUrl);
-        if (img && img.complete && img.naturalWidth > 0) {
-            const ratio = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-            const shiftX = (W - img.naturalWidth * ratio) / 2;
-            const shiftY = (H - img.naturalHeight * ratio) / 2;
-            ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-            imageDrawn = true;
-        }
-    }
-
-    if (!imageDrawn) {
-        const grad = ctx.createLinearGradient(0, 0, W, H);
-        grad.addColorStop(0, p.gradient[0]);
-        grad.addColorStop(1, p.gradient[1]);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.save();
-        if (p.id === 'season_autumn') {
-            const rad = ctx.createRadialGradient(W * 0.7, H * 0.3, 50, W * 0.7, H * 0.3, W * 0.7);
-            rad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
-            rad.addColorStop(1, 'transparent');
-            ctx.fillStyle = rad;
-            ctx.fillRect(0, 0, W, H);
-        } else if (p.id === 'lux_obsidian_gold' || p.id === 'lux_carrara_marble') {
-            ctx.strokeStyle = p.accent;
-            ctx.lineWidth = 2.5;
-            ctx.globalAlpha = 0.45;
-            ctx.beginPath();
-            ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (p.id === 'beauty_rose_silk') {
-            ctx.fillStyle = 'rgba(219, 39, 119, 0.12)';
-            ctx.beginPath();
-            ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
-}
-window.drawSocialBackgroundPreset = drawSocialBackgroundPreset;
-
-// 🚀 6. CAMBIO MODELLO STRATEGICO
+// Cambio template con allineamento pulito
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
     const beforeAfterBox = document.getElementById('ss-before-after-upload-box');
     const bgGalleryBox = document.getElementById('ss-bg-gallery-section-box');
 
+    const groupTreatment = document.getElementById('ss-group-treatment');
     const groupBadge = document.getElementById('ss-group-badge');
     const groupSubtitle = document.getElementById('ss-group-subtitle');
     const labelTitle = document.getElementById('ss-label-title');
     const labelHighlight = document.getElementById('ss-label-highlight');
 
+    const treatInput = document.getElementById('ss-input-treatment');
     const badgeInput = document.getElementById('ss-input-badge');
     const titleInput = document.getElementById('ss-input-title');
     const subInput = document.getElementById('ss-input-subtitle');
     const highInput = document.getElementById('ss-input-highlight');
 
-    // Mostra/Nascondi box dedicati
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
-    if (beforeAfterBox) beforeAfterBox.style.display = (tpl === 'transformation') ? 'block' : 'none';
+    if (beforeAfterBox) beforeAfterBox.style.display = (tpl === 'transformation') ? 'flex' : 'none';
     if (bgGalleryBox) bgGalleryBox.style.display = (tpl === 'transformation') ? 'none' : 'flex';
 
     const canvas = document.getElementById('social-render-canvas');
@@ -28901,7 +28649,7 @@ function onSocialTemplateChanged(tpl) {
     const isStory = (window._socialStudioState.format === 'story');
 
     if (tpl === 'transformation') {
-        // 🌟 MODELLO PRIMA E DOPO: SOLO 2 TESTI + LOGO IN ALTO
+        if (groupTreatment) groupTreatment.style.display = 'block';
         if (groupBadge) groupBadge.style.display = 'none';
         if (groupSubtitle) groupSubtitle.style.display = 'none';
         if (labelTitle) labelTitle.innerText = 'Etichetta Sinistra (Foto Prima)';
@@ -28909,27 +28657,9 @@ function onSocialTemplateChanged(tpl) {
 
         if (titleInput) titleInput.value = 'PRIMA';
         if (highInput) highInput.value = 'DOPO ✨';
-        if (badgeInput) badgeInput.value = '';
-        if (subInput) subInput.value = '';
-
-        if (window._socialElements) {
-            // Logo in alto al centro
-            window._socialElements.logo.x = W / 2;
-            window._socialElements.logo.y = isStory ? 170 : 120;
-            window._socialElements.logo.scale = 0.95;
-
-            // Testo PRIMA a sinistra
-            window._socialElements.title.x = W / 4;
-            window._socialElements.title.y = isStory ? 320 : 220;
-            window._socialElements.title.scale = 1.0;
-
-            // Testo DOPO a destra
-            window._socialElements.highlight.x = (3 * W) / 4;
-            window._socialElements.highlight.y = isStory ? 320 : 220;
-            window._socialElements.highlight.scale = 1.0;
-        }
+        if (treatInput && !treatInput.value) treatInput.value = 'Balayage Biondo Vaniglia + Trattamento Rigenerante';
     } else {
-        // RIPRISTINO ALTRI MODELLI (TUTTI I CAMPI ATTIVI)
+        if (groupTreatment) groupTreatment.style.display = 'none';
         if (groupBadge) groupBadge.style.display = 'block';
         if (groupSubtitle) groupSubtitle.style.display = 'block';
         if (labelTitle) labelTitle.innerText = 'Titolo Principale (Headline)';
@@ -28938,7 +28668,7 @@ function onSocialTemplateChanged(tpl) {
         if (tpl === 'launch_no_app') {
             if (badgeInput) badgeInput.value = 'NOVITÀ SMART';
             if (titleInput) titleInput.value = 'Prenota in 5 secondi senza scaricare nessuna app!';
-            if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.';
+            if (subInput) subInput.value = 'Scegli trattamenti, orari e operatore preferito in totale comodità dal browser.';
             if (highInput) highInput.value = 'Zero App da Scaricare • 24/7';
         } else if (tpl === 'lastminute') {
             if (badgeInput) badgeInput.value = '⚡ ALLERTA BUCO IN AGENDA';
@@ -28967,13 +28697,12 @@ function onSocialTemplateChanged(tpl) {
             if (subInput) subInput.value = 'Prenditi cura di te con i nostri trattamenti personalizzati.';
             if (highInput) highInput.value = 'A partire da € 25.00';
         }
-
-        if (window._socialElements) {
-            window._socialElements = getDefaultSocialElements(W, H, isStory);
-        }
     }
 
+    window._socialElements = getDefaultSocialElements(W, H, isStory);
+
     const s = window._socialStudioState;
+    if (treatInput) s.treatmentText = treatInput.value;
     if (badgeInput) s.badgeText = badgeInput.value;
     if (titleInput) s.title = titleInput.value;
     if (subInput) s.subtitle = subInput.value;
@@ -28984,1709 +28713,21 @@ function onSocialTemplateChanged(tpl) {
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
-function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
-    const splitX = W / 2; // Divisione esatta a metà schermo
-
-    // 1. FOTO PRIMA A SCHERMO INTERO (LATO SINISTRO DA 0 A W/2)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, splitX, H);
-    ctx.clip();
-
-    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
-        const img = s.beforeImg;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
-        const shiftX = (splitX - img.naturalWidth * ratio) / 2;
-        const shiftY = (H - img.naturalHeight * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-
-        // Ombreggiatura gradient in alto e in basso per far risaltare il logo e i testi
-        const gradL = ctx.createLinearGradient(0, 0, 0, H);
-        gradL.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
-        gradL.addColorStop(0.25, 'rgba(0, 0, 0, 0.05)');
-        gradL.addColorStop(0.75, 'rgba(0, 0, 0, 0.05)');
-        gradL.addColorStop(1, 'rgba(0, 0, 0, 0.60)');
-        ctx.fillStyle = gradL;
-        ctx.fillRect(0, 0, splitX, H);
-    } else {
-        // Placeholder estetico elegante a schermo intero
-        const gradPlaceL = ctx.createLinearGradient(0, 0, splitX, H);
-        gradPlaceL.addColorStop(0, '#1E293B');
-        gradPlaceL.addColorStop(1, '#0F172A');
-        ctx.fillStyle = gradPlaceL;
-        ctx.fillRect(0, 0, splitX, H);
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Prende tutta la metà sinistra)', splitX / 2, H / 2 + 20);
-    }
-    ctx.restore();
-
-    // 2. FOTO DOPO A SCHERMO INTERO (LATO DESTRO DA W/2 A W)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(splitX, 0, splitX, H);
-    ctx.clip();
-
-    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
-        const img = s.afterImg;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
-        const shiftX = splitX + (splitX - img.naturalWidth * ratio) / 2;
-        const shiftY = (H - img.naturalHeight * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-
-        // Ombreggiatura gradient
-        const gradR = ctx.createLinearGradient(0, 0, 0, H);
-        gradR.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
-        gradR.addColorStop(0.25, 'rgba(0, 0, 0, 0.05)');
-        gradR.addColorStop(0.75, 'rgba(0, 0, 0, 0.05)');
-        gradR.addColorStop(1, 'rgba(0, 0, 0, 0.60)');
-        ctx.fillStyle = gradR;
-        ctx.fillRect(splitX, 0, splitX, H);
-    } else {
-        // Placeholder estetico
-        const gradPlaceR = ctx.createLinearGradient(splitX, 0, W, H);
-        gradPlaceR.addColorStop(0, '#2E1022');
-        gradPlaceR.addColorStop(1, '#12050E');
-        ctx.fillStyle = gradPlaceR;
-        ctx.fillRect(splitX, 0, splitX, H);
-
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Prende tutta la metà destra)', splitX + splitX / 2, H / 2 + 20);
-    }
-    ctx.restore();
-
-    // 3. LINEA DI SEPARAZIONE VERTICALE E CURSORE SLIDER CENTRALE
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(splitX, 0);
-    ctx.lineTo(splitX, H);
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    ctx.shadowBlur = 12;
-    ctx.stroke();
-
-    // Maniglia circolare a metà schermo con frecce
-    const handleY = H / 2;
-    ctx.beginPath();
-    ctx.arc(splitX, handleY, 32, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 15;
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = accentColor;
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#0F172A';
-    ctx.font = '900 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('◀ ✦ ▶', splitX, handleY);
-    ctx.restore();
-}
-
-// 🔤 3. DISEGNO DELLE DUE SOVRIMPRESSIONI PRIMA E DOPO
-function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
-    // A. TESTO A SINISTRA (PRIMA)
-    const elBefore = elems.title;
-    if (s.title && s.title.trim() !== '') {
-        ctx.save();
-        const scale = (Number.isFinite(elBefore.scale) && elBefore.scale > 0.1) ? elBefore.scale : 1.0;
-        const x = Number.isFinite(elBefore.x) ? elBefore.x : W / 4;
-        const y = Number.isFinite(elBefore.y) ? elBefore.y : (isStory ? 320 : 220);
-
-        ctx.font = `900 ${Math.round(28 * scale)}px sans-serif`;
-        const text = s.title.trim();
-        const textW = ctx.measureText(text).width;
-        const badgeW = (textW + 48) * scale;
-        const badgeH = 50 * scale;
-
-        elBefore.w = badgeW;
-        elBefore.h = badgeH;
-
-        // Badge a capsula in vetro scuro semitrasparente
-        ctx.fillStyle = elBefore.bgColor || 'rgba(15, 23, 42, 0.82)';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 12;
-        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = elBefore.color || '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y);
-        ctx.restore();
-    }
-
-    // B. TESTO A DESTRA (DOPO)
-    const elAfter = elems.highlight;
-    if (s.highlightText && s.highlightText.trim() !== '') {
-        ctx.save();
-        const scale = (Number.isFinite(elAfter.scale) && elAfter.scale > 0.1) ? elAfter.scale : 1.0;
-        const x = Number.isFinite(elAfter.x) ? elAfter.x : (3 * W) / 4;
-        const y = Number.isFinite(elAfter.y) ? elAfter.y : (isStory ? 320 : 220);
-
-        ctx.font = `900 ${Math.round(28 * scale)}px sans-serif`;
-        const text = s.highlightText.trim();
-        const textW = ctx.measureText(text).width;
-        const badgeW = (textW + 48) * scale;
-        const badgeH = 50 * scale;
-
-        elAfter.w = badgeW;
-        elAfter.h = badgeH;
-
-        // Badge a capsula dorato o con colore scelto
-        ctx.fillStyle = elAfter.bgColor || accentColor;
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 12;
-        drawRoundedRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = elAfter.color || '#0F172A';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y);
-        ctx.restore();
-    }
-}
-
-// 🎨 7. RENDERING CANVAS PRINCIPALE
-function renderSocialCanvas() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const s = window._socialStudioState;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const isStory = (s.format === 'story');
-
-    ensureSocialElementsInitialized(W, H, isStory);
-    attachCanvasTouchGestures();
-
-    const elems = window._socialElements;
-
-    // Lettura testi preservando la digitazione
-    const bIn = document.getElementById('ss-input-badge');
-    if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
-
-    const tIn = document.getElementById('ss-input-title');
-    if (tIn && tIn.value !== undefined) s.title = tIn.value;
-
-    const sIn = document.getElementById('ss-input-subtitle');
-    if (sIn && sIn.value !== undefined) s.subtitle = sIn.value;
-
-    const hIn = document.getElementById('ss-input-highlight');
-    if (hIn && hIn.value !== undefined) s.highlightText = hIn.value;
-
-    s.showLogo = document.getElementById('ss-toggle-logo')?.checked ?? true;
-    s.showBookingBadge = document.getElementById('ss-toggle-booking-badge')?.checked ?? true;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? (currentUser.salon_id || 'SALON_001') 
-        : 'SALON_001';
-
-    const activePreset = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
-
-    const defaultTextMain = activePreset.isLight ? '#1C1917' : '#FFFFFF';
-    const defaultTextSub = activePreset.isLight ? '#57534E' : '#CBD5E1';
-    const accentColor = activePreset.accent || '#D4AF37';
-    const titleFontStack = activePreset.isLight 
-        ? "'Playfair Display', 'Cinzel', Didot, serif"
-        : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-
-    ctx.clearRect(0, 0, W, H);
-
-    // =========================================================================
-    // 🌟 SELEZIONE MODELLO: PRIMA & DOPO A SCHERMO INTERO VS ALTRI MODELLI
-    // =========================================================================
-
-    if (s.template === 'transformation') {
-        // 📸 1. LE FOTO PRENDONO IL 100% DELLO SCHERMO
-        drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor);
-
-        // 2. LOGO DEL SALONE IN ALTO AL CENTRO (SOPRA LE FOTO)
-        if (s.showLogo) {
-            const el = elems.logo;
-            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
-        }
-
-        // 3. SOLO I 2 TESTI SOVRIMPRESSI: "PRIMA" A SX E "DOPO" A DX
-        drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor);
-    } 
-    else {
-        // --- RENDERING STANDARD PER GLI ALTRI MODELLI ---
-        if (s.bgType === 'upload' && s.uploadedBgImg) {
-            const img = s.uploadedBgImg;
-            const ratio = Math.max(W / img.width, H / img.height);
-            const shiftX = (W - img.width * ratio) / 2;
-            const shiftY = (H - img.height * ratio) / 2;
-            ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
-
-            const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
-            ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
-            ctx.fillRect(0, 0, W, H);
-        } else {
-            drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
-
-            if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
-                ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
-                ctx.fillRect(0, 0, W, H);
-            }
-        }
-
-        // Cornice
-        ctx.save();
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 2.5;
-        ctx.globalAlpha = 0.4;
-        const margin = isStory ? 60 : 45;
-        ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
-        ctx.restore();
-
-        // Logo
-        if (s.showLogo) {
-            const el = elems.logo;
-            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
-        }
-
-        // Testi e layout specifici per ogni template
-        if (s.template === 'pricelist') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        } 
-        else if (s.template === 'launch_no_app') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawLaunchFeatureCards(ctx, W, isStory ? 940 : 720, activePreset, accentColor);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        }
-        else if (s.template === 'lastminute') {
-            drawUrgencyBadge(ctx, s, elems.badge, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        }
-        else if (s.template === 'promo') {
-            drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        }
-        else if (s.template === 'quote') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
-        }
-        else {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        }
-    }
-
-    // QR Code (se abilitato dall'utente)
-    if (s.showQrCode && s.qrImage) {
-        drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
-    }
-
-    // Sticker Prenotazione (se abilitato dall'utente)
-    if (s.showBookingBadge) {
-        drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
-    }
-
-    // Bordo interattivo di selezione dell'elemento toccato
-    if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
-        drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
-    }
-}
-window.renderSocialCanvas = renderSocialCanvas;
-
-// 📸 8. COMPONENTI GRAFICI SPECIALIZZATI
-function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentColor, activePreset) {
-    const frameW = Math.min(W - 140, 920);
-    const frameH = blockHeight;
-    const startX = W / 2 - frameW / 2;
-    const splitX = startX + frameW / 2;
-
-    ctx.save();
-    drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
-    ctx.clip();
-
-    // Foto PRIMA (SX)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(startX, startY, frameW / 2, frameH);
-    ctx.clip();
-
-    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
-        const img = s.beforeImg;
-        const ratio = Math.max((frameW / 2) / img.naturalWidth, frameH / img.naturalHeight);
-        const shiftX = startX + ((frameW / 2) - img.naturalWidth * ratio) / 2;
-        const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-    } else {
-        ctx.fillStyle = activePreset.isLight ? '#F1F5F9' : '#1E293B';
-        ctx.fillRect(startX, startY, frameW / 2, frameH);
-        ctx.fillStyle = activePreset.isLight ? '#94A3B8' : '#64748B';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('📷 Carica Foto PRIMA', startX + frameW / 4, startY + frameH / 2);
-    }
-    ctx.restore();
-
-    // Foto DOPO (DX)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(splitX, startY, frameW / 2, frameH);
-    ctx.clip();
-
-    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
-        const img = s.afterImg;
-        const ratio = Math.max((frameW / 2) / img.naturalWidth, frameH / img.naturalHeight);
-        const shiftX = splitX + ((frameW / 2) - img.naturalWidth * ratio) / 2;
-        const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
-    } else {
-        ctx.fillStyle = activePreset.isLight ? '#E2E8F0' : '#0F172A';
-        ctx.fillRect(splitX, startY, frameW / 2, frameH);
-        ctx.fillStyle = activePreset.isLight ? '#64748B' : '#94A3B8';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('✨ Carica Foto DOPO', splitX + frameW / 4, startY + frameH / 2);
-    }
-    ctx.restore();
-
-    ctx.restore();
-
-    // Bordo e Cursore Divisorio
-    ctx.save();
-    ctx.strokeStyle = activePreset.isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 2;
-    drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(splitX, startY);
-    ctx.lineTo(splitX, startY + frameH);
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 3.5;
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 8;
-    ctx.stroke();
-
-    const handleY = startY + frameH / 2;
-    ctx.beginPath();
-    ctx.arc(splitX, handleY, 26, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 12;
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = accentColor;
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#0F172A';
-    ctx.font = '900 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('◀ ✦ ▶', splitX, handleY);
-
-    // Badge PRIMA
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-    drawRoundedRect(ctx, startX + 16, startY + 16, 95, 34, 17);
-    ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('PRIMA', startX + 16 + 95 / 2, startY + 16 + 17);
-
-    // Badge DOPO
-    ctx.fillStyle = accentColor;
-    drawRoundedRect(ctx, startX + frameW - 16 - 110, startY + 16, 110, 34, 17);
-    ctx.fill();
-    ctx.fillStyle = activePreset.isLight ? '#FFFFFF' : '#0F172A';
-    ctx.font = '900 13px sans-serif';
-    ctx.fillText('DOPO ✨', startX + frameW - 16 - 110 / 2, startY + 16 + 17);
-
-    ctx.restore();
-}
-
-function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
-    const perks = [
-        { icon: '📱', title: 'Zero App da Scaricare', sub: 'Funziona subito da Safari o Chrome' },
-        { icon: '⚡', title: 'Prenoti in 5 Secondi', sub: 'Basta inserire il tuo cellulare' },
-        { icon: '🕒', title: 'Disponibile h24', sub: 'Scegli giorno, ora e operatore preferito' }
-    ];
-
-    const cardW = Math.min(W - 140, 880);
-    const cardH = 68;
-    const startX = W / 2 - cardW / 2;
-
-    ctx.save();
-    perks.forEach((p, idx) => {
-        const y = startY + (idx * (cardH + 12));
-        
-        ctx.fillStyle = activePreset.isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.08)';
-        ctx.strokeStyle = activePreset.isLight ? 'rgba(0, 0, 0, 0.08)' : accentColor;
-        ctx.lineWidth = 1.5;
-        drawRoundedRect(ctx, startX, y, cardW, cardH, 14);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.font = '32px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(p.icon, startX + 18, y + cardH / 2);
-
-        ctx.fillStyle = activePreset.isLight ? '#1C1917' : '#FFFFFF';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(p.title, startX + 68, y + cardH / 2 - 10);
-
-        ctx.fillStyle = activePreset.isLight ? '#78716C' : '#CBD5E1';
-        ctx.font = '15px sans-serif';
-        ctx.fillText(p.sub, startX + 68, y + cardH / 2 + 14);
-    });
-    ctx.restore();
-}
-
-function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const boxW = Math.min(W - 160, 840) * scale;
-    const boxH = 150 * scale;
-    const x = (Number.isFinite(el.x) ? el.x : W / 2) - boxW / 2;
-    const y = (Number.isFinite(el.y) ? el.y : 770) - boxH / 2;
-
-    el.w = boxW;
-    el.h = boxH;
-
-    const ticketColor = el.bgColor || accentColor || '#F59E0B';
-
-    ctx.save();
-    ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? '#FFFFFF' : 'rgba(245, 158, 11, 0.15)');
-    drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
-    ctx.fill();
-
-    ctx.strokeStyle = ticketColor;
-    ctx.lineWidth = 3 * scale;
-    ctx.setLineDash([12 * scale, 8 * scale]);
-    drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = ticketColor;
-    ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('⚡ POSTO UNICO DISPONIBILE ADESSO ⚡', x + boxW / 2, y + 16 * scale);
-
-    ctx.fillStyle = el.color || (activePreset.isLight ? '#1C1917' : '#FFFFFF');
-    ctx.font = `900 ${Math.round(52 * scale)}px serif`;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(s.highlightText || 'OGGI • ORE 16:30', x + boxW / 2, y + boxH / 2 + 10 * scale);
-
-    ctx.restore();
-}
-
-function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const boxW = Math.min(W - 160, 840) * scale;
-    const boxH = 140 * scale;
-    const x = (Number.isFinite(el.x) ? el.x : W / 2) - boxW / 2;
-    const y = (Number.isFinite(el.y) ? el.y : 760) - boxH / 2;
-
-    el.w = boxW;
-    el.h = boxH;
-
-    const promoColor = el.bgColor || '#EF4444';
-
-    ctx.save();
-    ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? 'rgba(254, 226, 226, 0.65)' : 'rgba(220, 38, 38, 0.2)');
-    ctx.strokeStyle = promoColor;
-    ctx.lineWidth = 2.5 * scale;
-    drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = promoColor;
-    ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('🔥 PREZZO SPECIALE PROMOZIONE 🔥', x + boxW / 2, y + 15 * scale);
-
-    ctx.fillStyle = el.color || (activePreset.isLight ? '#991B1B' : '#FDE047');
-    ctx.font = `900 ${Math.round(48 * scale)}px sans-serif`;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(s.highlightText || '€ 49.00 (invece di € 70)', x + boxW / 2, y + boxH / 2 + 12 * scale);
-
-    ctx.restore();
-}
-
-function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultTextMain, accentColor, activePreset, isStory) {
-    ctx.save();
-    
-    const starsY = isStory ? 520 : 380;
-    ctx.font = '900 46px sans-serif';
-    ctx.fillStyle = '#F59E0B';
-    ctx.shadowColor = 'rgba(245, 158, 11, 0.5)';
-    ctx.shadowBlur = 15;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★ ★ ★ ★ ★', W / 2, starsY);
-    ctx.shadowBlur = 0;
-
-    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
-
-    const quoteScale = elTitle.scale || 1.0;
-    const fontSize = Math.round((isStory ? 58 : 48) * quoteScale);
-    ctx.font = `italic 900 ${fontSize}px Georgia, serif`;
-    ctx.fillStyle = elTitle.color || defaultTextMain;
-    const maxW = W - 220;
-    const lineHeight = Math.round(fontSize * 1.3);
-    wrapFn(ctx, s.title, W / 2, isStory ? 710 : 530, maxW, lineHeight);
-
-    const subFont = Math.round(28 * (elSub.scale || 1.0));
-    ctx.font = `500 ${subFont}px sans-serif`;
-    ctx.fillStyle = elSub.color || (activePreset.isLight ? '#57534E' : '#CBD5E1');
-    wrapFn(ctx, s.subtitle, W / 2, isStory ? 940 : 720, maxW, Math.round(subFont * 1.35));
-
-    const authText = s.highlightText || 'Maria R. • Recensione Verificata';
-    ctx.font = 'bold 20px sans-serif';
-    const bW = ctx.measureText(authText).width + 40;
-    const bH = 40;
-    const bY = isStory ? 1120 : 860;
-    ctx.fillStyle = activePreset.isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.12)';
-    drawRoundedRect(ctx, W / 2 - bW / 2, bY - bH / 2, bW, bH, 20);
-    ctx.fill();
-
-    ctx.fillStyle = activePreset.isLight ? '#1C1917' : '#FFFFFF';
-    ctx.fillText(authText, W / 2, bY);
-
-    ctx.restore();
-}
-
-function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain, activePresetParam = null) {
-    const isStory = (s.format === 'story');
-    const maxItems = isStory ? 5 : 4;
-    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
-    let itemsToDraw = [];
-
-    const activePreset = activePresetParam || window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
-
-    if (s.customCheckedServiceIds && s.customCheckedServiceIds.size > 0) {
-        for (let sId of s.customCheckedServiceIds) {
-            const found = inventory.find(x => String(x.id).trim() === String(sId).trim());
-            if (found) itemsToDraw.push({ name: found.name, price: parseFloat(found.price || 0) });
-        }
-    }
-
-    if (itemsToDraw.length === 0) {
-        itemsToDraw = inventory.filter(i => i.type === 'servizio').slice(0, maxItems).map(srv => ({
-            name: srv.name,
-            price: parseFloat(srv.price || 0)
-        }));
-    }
-
-    if (itemsToDraw.length === 0) return;
-
-    const displayList = itemsToDraw.slice(0, maxItems);
-    const menuScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const menuW = (W - 240) * menuScale;
-    const menuX = (Number.isFinite(el.x) ? el.x : W / 2) - (menuW / 2);
-    const lineHeight = Math.round((isStory ? 75 : 62) * menuScale);
-    let curY = (Number.isFinite(el.y) ? el.y : (isStory ? 920 : 680)) - ((displayList.length * lineHeight) / 2);
-
-    el.w = menuW;
-    el.h = displayList.length * lineHeight;
-
-    const itemTextColor = el.color || textMain;
-    const priceTextColor = el.bgColor || accentColor;
-
-    displayList.forEach(item => {
-        const cleanName = item.name.replace(/^[🔥⚡✨🏷️👑🎁]?\s*\[[^\]]+\]\s*/i, '').trim();
-        const priceStr = `€ ${parseFloat(item.price || 0).toFixed(2)}`;
-
-        ctx.save();
-        ctx.font = `bold ${Math.round(30 * menuScale)}px sans-serif`;
-        ctx.fillStyle = itemTextColor;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(cleanName, menuX, curY);
-
-        ctx.fillStyle = priceTextColor;
-        ctx.textAlign = 'right';
-        ctx.font = `900 ${Math.round(32 * menuScale)}px serif`;
-        ctx.fillText(priceStr, menuX + menuW, curY);
-
-        const nameW = ctx.measureText(cleanName).width;
-        const priceW = ctx.measureText(priceStr).width;
-        ctx.strokeStyle = activePreset?.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
-        ctx.setLineDash([4, 6]);
-        ctx.lineWidth = 2 * menuScale;
-        ctx.beginPath();
-        ctx.moveTo(menuX + nameW + 16, curY);
-        ctx.lineTo(menuX + menuW - priceW - 16, curY);
-        ctx.stroke();
-        ctx.restore();
-
-        curY += lineHeight;
-    });
-}
-window.drawPriceListMenuOnCanvas = drawPriceListMenuOnCanvas;
-
-function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
-    if (!s.badgeText) return;
-    ctx.save();
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : ctx.canvas.width / 2;
-    const y = Number.isFinite(el.y) ? el.y : (isStory ? 410 : 270);
-
-    ctx.font = `900 ${Math.round(24 * scale)}px sans-serif`;
-    const w = (ctx.measureText(s.badgeText).width + 50) * scale;
-    const h = 48 * scale;
-    el.w = w;
-    el.h = h;
-
-    ctx.fillStyle = el.bgColor || accentColor;
-    drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 24 * scale);
-    ctx.fill();
-
-    ctx.fillStyle = el.color || '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(s.badgeText, x, y);
-    ctx.restore();
-}
-
-function drawUrgencyBadge(ctx, s, el, isStory) {
-    if (!s.badgeText) return;
-    ctx.save();
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : ctx.canvas.width / 2;
-    const y = Number.isFinite(el.y) ? el.y : (isStory ? 390 : 260);
-
-    ctx.font = `900 ${Math.round(23 * scale)}px sans-serif`;
-    const w = (ctx.measureText(s.badgeText).width + 50) * scale;
-    const h = 48 * scale;
-    el.w = w;
-    el.h = h;
-
-    ctx.fillStyle = el.bgColor || '#EF4444';
-    drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 24 * scale);
-    ctx.fill();
-
-    ctx.fillStyle = el.color || '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(s.badgeText, x, y);
-    ctx.restore();
-}
-
-function drawDefaultTitle(ctx, s, el, defaultTextMain, titleFontStack, W, margin, isStory) {
-    if (!s.title) return;
-    ctx.save();
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : W / 2;
-    const y = Number.isFinite(el.y) ? el.y : (isStory ? 590 : 420);
-
-    ctx.fillStyle = el.color || defaultTextMain;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const fontSize = Math.round((isStory ? 64 : 54) * scale);
-    ctx.font = `900 ${fontSize}px ${titleFontStack}`;
-
-    const maxW = Math.max((W - (margin * 3)) * scale, 200);
-    const lineHeight = Math.round(fontSize * 1.25);
-    el.w = maxW;
-    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
-    el.h = wrapFn(ctx, s.title, x, y, maxW, lineHeight);
-    ctx.restore();
-}
-
-function drawDefaultSubtitle(ctx, s, el, defaultTextSub, W, margin, isStory) {
-    if (!s.subtitle) return;
-    ctx.save();
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : W / 2;
-    const y = Number.isFinite(el.y) ? el.y : (isStory ? 810 : 590);
-
-    ctx.fillStyle = el.color || defaultTextSub;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const subFont = Math.round(32 * scale);
-    ctx.font = `600 ${subFont}px sans-serif`;
-
-    const maxW = Math.max((W - (margin * 3.5)) * scale, 200);
-    el.w = maxW;
-    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
-    el.h = wrapFn(ctx, s.subtitle, x, y, maxW, Math.round(subFont * 1.35));
-    ctx.restore();
-}
-
-function drawDefaultHighlight(ctx, s, el, accentColor, activePreset) {
-    if (!s.highlightText) return;
-    ctx.save();
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : ctx.canvas.width / 2;
-    const y = Number.isFinite(el.y) ? el.y : 1040;
-
-    const font = Math.round(36 * scale);
-    ctx.font = `900 ${font}px sans-serif`;
-
-    const w = (ctx.measureText(s.highlightText).width + 64) * scale;
-    const h = 75 * scale;
-    el.w = w;
-    el.h = h;
-
-    ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.10)');
-    ctx.strokeStyle = el.bgColor || el.color || accentColor;
-    ctx.lineWidth = 2.5;
-    drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 18 * scale);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = el.color || el.bgColor || (activePreset.isLight ? '#1C1917' : accentColor);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(s.highlightText, x, y);
-    ctx.restore();
-}
-
-function drawQrCodeOnCanvas(ctx, s, el, W, H, isStory, activePreset) {
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : W / 2;
-    const y = Number.isFinite(el.y) ? el.y : (isStory ? 1320 : 920);
-
-    const qrSize = (isStory ? 220 : 180) * scale;
-    el.w = qrSize + 30;
-    el.h = qrSize + 50;
-
-    ctx.save();
-    ctx.fillStyle = el.bgColor || '#FFFFFF';
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
-    ctx.shadowBlur = 15;
-    drawRoundedRect(ctx, x - (el.w / 2), y - (el.h / 2), el.w, el.h, 16 * scale);
-    ctx.fill();
-
-    ctx.drawImage(s.qrImage, x - (qrSize / 2), y - (el.h / 2) + 12, qrSize, qrSize);
-
-    ctx.fillStyle = el.color || '#0F172A';
-    ctx.font = `900 ${Math.round(14 * scale)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('INQUADRA E PRENOTA', x, y + (el.h / 2) - 14);
-    ctx.restore();
-}
-
-function drawBookingSticker(ctx, s, el, W, H, isStory, activePreset) {
-    const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-    const x = Number.isFinite(el.x) ? el.x : W / 2;
-    const y = Number.isFinite(el.y) ? el.y : H - (isStory ? 240 : 160);
-
-    const w = 500 * scale;
-    const h = 70 * scale;
-    el.w = w;
-    el.h = h;
-
-    ctx.save();
-    ctx.fillStyle = el.bgColor || (activePreset.isLight ? '#0F172A' : '#FFFFFF');
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 18;
-    drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 35 * scale);
-    ctx.fill();
-
-    ctx.fillStyle = el.color || (activePreset.isLight ? '#FFFFFF' : '#0F172A');
-    ctx.font = `900 ${Math.round(23 * scale)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🔗 PRENOTA IN UN ATTIMO SENZA APP', x, y);
-    ctx.restore();
-}
-
-function drawActiveElementTouchBorder(ctx, active, W, H) {
-    const aX = Number.isFinite(active.x) ? active.x : W / 2;
-    const aY = Number.isFinite(active.y) ? active.y : H / 2;
-
-    ctx.save();
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 8]);
-    const pad = 16;
-    const selW = (active.w || 200) + pad * 2;
-    const selH = (active.h || 60) + pad * 2;
-    drawRoundedRect(ctx, aX - (selW / 2), aY - (selH / 2), selW, selH, 12);
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#0284c7';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([]);
-    const corners = [
-        { x: aX - (selW / 2), y: aY - (selH / 2) },
-        { x: aX + (selW / 2), y: aY - (selH / 2) },
-        { x: aX - (selW / 2), y: aY + (selH / 2) },
-        { x: aX + (selW / 2), y: aY + (selH / 2) }
-    ];
-    corners.forEach(c => {
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-    });
-    ctx.restore();
-}
-
-function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
-    const baseSize = (s.format === 'story') ? 160 : 130;
-    const actualBoxSize = baseSize * (el.scale || 1.0);
-    const shape = s.logoShape || 'natural';
-    const filter = s.logoFilter || 'none';
-
-    if (!s.salonLogoImg) {
-        ctx.save();
-        ctx.fillStyle = el.color || accentColor;
-        ctx.font = `bold ${Math.round(28 * (el.scale || 1.0))}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(currentSalon.toUpperCase(), el.x, el.y);
-        ctx.restore();
-        el.w = actualBoxSize;
-        el.h = 40;
-        return;
-    }
-
-    const img = s.salonLogoImg;
-    const natW = img.naturalWidth || img.width || 100;
-    const natH = img.naturalHeight || img.height || 100;
-    const aspect = natW / natH;
-
-    let drawW = actualBoxSize;
-    let drawH = actualBoxSize;
-
-    if (aspect > 1) {
-        drawH = actualBoxSize / aspect;
-    } else {
-        drawW = actualBoxSize * aspect;
-    }
-
-    el.w = drawW;
-    el.h = drawH;
-
-    ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    const drawX = el.x - (drawW / 2);
-    const drawY = el.y - (drawH / 2);
-
-    if (shape === 'circle') {
-        const radius = (Math.max(drawW, drawH) / 2) + 16;
-        ctx.beginPath();
-        ctx.arc(el.x, el.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 15;
-        ctx.fill();
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = el.color || accentColor;
-        ctx.stroke();
-    } else if (shape === 'card') {
-        const padW = 20;
-        const padH = 12;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.shadowColor = 'rgba(0,0,0,0.35)';
-        ctx.shadowBlur = 18;
-        drawRoundedRect(ctx, drawX - padW, drawY - padH, drawW + (padW * 2), drawH + (padH * 2), 12);
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = el.color || accentColor;
-        ctx.stroke();
-    }
-
-    if (filter === 'none') {
-        ctx.drawImage(img, drawX, drawY, drawW, drawH);
-    } else {
-        const tintCanvas = document.createElement('canvas');
-        tintCanvas.width = drawW;
-        tintCanvas.height = drawH;
-        const tintCtx = tintCanvas.getContext('2d');
-        tintCtx.imageSmoothingEnabled = true;
-        tintCtx.imageSmoothingQuality = 'high';
-
-        tintCtx.drawImage(img, 0, 0, drawW, drawH);
-
-        tintCtx.globalCompositeOperation = 'source-in';
-        if (filter === 'white') tintCtx.fillStyle = '#ffffff';
-        else if (filter === 'gold') tintCtx.fillStyle = accentColor;
-        else if (filter === 'dark') tintCtx.fillStyle = '#0f172a';
-        tintCtx.fillRect(0, 0, drawW, drawH);
-
-        ctx.drawImage(tintCanvas, drawX, drawY);
-    }
-
-    ctx.restore();
-}
-window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
-
-// 🔤 10. CONTROLLI FORMATO, FONT, COLORI & LOGHI
-function setSocialFormat(fmt) {
-    window._socialStudioState.format = fmt;
-    document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
-    const btnMap = { story: 'btn-format-story', portrait: 'btn-format-portrait', square: 'btn-format-square' };
-    const activeBtn = document.getElementById(btnMap[fmt]);
-    if (activeBtn) activeBtn.classList.add('active-pill');
-
-    const canvas = document.getElementById('social-render-canvas');
-    if (canvas) {
-        if (fmt === 'story') { canvas.width = 1080; canvas.height = 1920; }
-        else if (fmt === 'portrait') { canvas.width = 1080; canvas.height = 1350; }
-        else if (fmt === 'square') { canvas.width = 1080; canvas.height = 1080; }
-        window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, fmt === 'story');
-    }
-
-    deselectActiveElement();
-    renderSocialCanvas();
-}
-window.setSocialFormat = setSocialFormat;
-
-function onSocialThemeChanged(thm) {
-    window._socialStudioState.theme = thm;
-    syncSideColorPickersToTheme();
-    renderSocialCanvas();
-}
-window.onSocialThemeChanged = onSocialThemeChanged;
-
-function onSocialBgOverlayChanged(val) {
-    const opacity = parseFloat(val) || 0.0;
-    window._socialStudioState.bgOverlayOpacity = opacity;
-    const lbl = document.getElementById('ss-bg-overlay-label');
-    if (lbl) lbl.innerText = `${Math.round(opacity * 100)}%`;
-    renderSocialCanvas();
-}
-window.onSocialBgOverlayChanged = onSocialBgOverlayChanged;
-
-function onSocialQrToggleChanged(isChecked) {
-    window._socialStudioState.showQrCode = Boolean(isChecked);
-    renderSocialCanvas();
-}
-window.onSocialQrToggleChanged = onSocialQrToggleChanged;
-
-function toggleSocialSafeZone() {
-    window._socialStudioState.showSafeZone = !window._socialStudioState.showSafeZone;
-    const btn = document.getElementById('btn-toggle-safezone-btn');
-    if (btn) {
-        if (window._socialStudioState.showSafeZone) {
-            btn.style.background = '#ede9fe';
-            btn.style.color = '#6d28d9';
-            btn.style.borderColor = '#c4b5fd';
-        } else {
-            btn.style.background = '#f8fafc';
-            btn.style.color = '#475569';
-            btn.style.borderColor = '#cbd5e1';
-        }
-    }
-    renderSocialCanvas();
-}
-window.toggleSocialSafeZone = toggleSocialSafeZone;
-
-function onSocialLogoShapeChanged(val) {
-    window._socialStudioState.logoShape = val;
-    renderSocialCanvas();
-}
-window.onSocialLogoShapeChanged = onSocialLogoShapeChanged;
-
-function onSocialLogoFilterChanged(val) {
-    window._socialStudioState.logoFilter = val;
-    renderSocialCanvas();
-}
-window.onSocialLogoFilterChanged = onSocialLogoFilterChanged;
-
-function handleSocialBgUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            window._socialStudioState.uploadedBgImg = img;
-            window._socialStudioState.bgType = 'upload';
-            window._socialStudioState.bgOverlayOpacity = 0.50;
-            const clearBtn = document.getElementById('btn-clear-social-bg');
-            if (clearBtn) clearBtn.style.display = 'inline-flex';
-            document.querySelectorAll('.ss-bg-thumb-card').forEach(c => c.classList.remove('active-bg'));
-            renderSocialCanvas();
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-window.handleSocialBgUpload = handleSocialBgUpload;
-
-function clearSocialBgPhoto() {
-    window._socialStudioState.uploadedBgImg = null;
-    window._socialStudioState.bgType = 'preset';
-    window._socialStudioState.bgOverlayOpacity = 0.15;
-    const input = document.getElementById('ss-bg-file-input');
-    if (input) input.value = '';
-    const clearBtn = document.getElementById('btn-clear-social-bg');
-    if (clearBtn) clearBtn.style.display = 'none';
-    highlightActiveBgThumbnail();
-    renderSocialCanvas();
-}
-window.clearSocialBgPhoto = clearSocialBgPhoto;
-
-function stepScaleSocialElem(elemId, step) {
-    const canvas = document.getElementById('social-render-canvas');
-    const isStory = (window._socialStudioState.format === 'story');
-    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
-
-    const el = window._socialElements[elemId];
-    if (!el) return;
-
-    el.scale = Math.min(Math.max((el.scale || 1.0) + step, 0.4), 2.5);
-    updateElementScaleUI(elemId);
-    renderSocialCanvas();
-}
-window.stepScaleSocialElem = stepScaleSocialElem;
-
-function stepScaleActiveElement(step) {
-    if (!window._activeSocialElemId) return;
-    stepScaleSocialElem(window._activeSocialElemId, step);
-}
-window.stepScaleActiveElement = stepScaleActiveElement;
-
-function onSliderScaleActiveElement(val) {
-    if (!window._activeSocialElemId) return;
-    const el = window._socialElements[window._activeSocialElemId];
-    if (!el) return;
-    el.scale = Math.min(Math.max(parseFloat(val) || 1.0, 0.4), 2.5);
-    updateElementScaleUI(window._activeSocialElemId);
-    renderSocialCanvas();
-}
-window.onSliderScaleActiveElement = onSliderScaleActiveElement;
-
-function updateElementScaleUI(elemId) {
-    const el = window._socialElements[elemId];
-    if (!el) return;
-
-    const pctText = `${Math.round(el.scale * 100)}%`;
-    const sideBadge = document.getElementById(`ss-scale-label-${elemId}`);
-    if (sideBadge) sideBadge.innerText = pctText;
-
-    if (window._activeSocialElemId === elemId) {
-        const slider = document.getElementById('ss-active-elem-slider');
-        const badge = document.getElementById('ss-active-elem-scale-badge');
-        if (slider) slider.value = el.scale.toFixed(2);
-        if (badge) badge.innerText = pctText;
-    }
-}
-
-function setSocialElemColor(elemId, hexVal) {
-    const canvas = document.getElementById('social-render-canvas');
-    const isStory = (window._socialStudioState.format === 'story');
-    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
-
-    const el = window._socialElements[elemId];
-    if (!el) return;
-
-    el.color = hexVal;
-
-    const sidePicker = document.getElementById(`ss-color-${elemId}-text`);
-    if (sidePicker) sidePicker.value = hexVal;
-
-    if (window._activeSocialElemId === elemId) {
-        const quickPicker = document.getElementById('ss-quick-color-picker');
-        if (quickPicker) quickPicker.value = hexVal;
-    }
-
-    renderSocialCanvas();
-}
-window.setSocialElemColor = setSocialElemColor;
-
-function setSocialElemBgColor(elemId, hexVal) {
-    const canvas = document.getElementById('social-render-canvas');
-    const isStory = (window._socialStudioState.format === 'story');
-    ensureSocialElementsInitialized(canvas ? canvas.width : 1080, canvas ? canvas.height : 1920, isStory);
-
-    const el = window._socialElements[elemId];
-    if (!el) return;
-
-    el.bgColor = hexVal;
-
-    const sidePicker = document.getElementById(`ss-color-${elemId}-bg`);
-    if (sidePicker) sidePicker.value = hexVal;
-
-    if (window._activeSocialElemId === elemId) {
-        const quickBgPicker = document.getElementById('ss-quick-bgcolor-picker');
-        if (quickBgPicker) quickBgPicker.value = hexVal;
-    }
-
-    renderSocialCanvas();
-}
-window.setSocialElemBgColor = setSocialElemBgColor;
-
-function onQuickColorChange(hexVal) {
-    if (!window._activeSocialElemId) return;
-    setSocialElemColor(window._activeSocialElemId, hexVal);
-}
-window.onQuickColorChange = onQuickColorChange;
-
-function onQuickBgColorChange(hexVal) {
-    if (!window._activeSocialElemId) return;
-    setSocialElemBgColor(window._activeSocialElemId, hexVal);
-}
-window.onQuickBgColorChange = onQuickBgColorChange;
-
-function resetSocialElemStyle(elemId) {
-    const el = window._socialElements ? window._socialElements[elemId] : null;
-    if (!el) return;
-
-    el.color = null;
-    el.bgColor = null;
-    el.scale = 1.0;
-
-    updateElementScaleUI(elemId);
-    syncSideColorPickersToTheme();
-    renderSocialCanvas();
-}
-window.resetSocialElemStyle = resetSocialElemStyle;
-
-function syncSideColorPickersToTheme() {
-    const s = window._socialStudioState;
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
-
-    const elems = window._socialElements;
-    if (!elems) return;
-
-    const setPicker = (id, val) => {
-        const picker = document.getElementById(id);
-        if (picker && /^#[0-9A-Fa-f]{6}$/.test(val)) picker.value = val;
-    };
-
-    setPicker('ss-color-badge-bg', elems.badge.bgColor || p.accent);
-    setPicker('ss-color-badge-text', elems.badge.color || '#FFFFFF');
-    setPicker('ss-color-title-text', elems.title.color || (p.isLight ? '#1C1917' : '#FFFFFF'));
-    setPicker('ss-color-subtitle-text', elems.subtitle.color || (p.isLight ? '#57534E' : '#CBD5E1'));
-    setPicker('ss-color-highlight-text', elems.highlight.color || p.accent);
-}
-
-function setActiveSocialElement(elemId) {
-    window._activeSocialElemId = elemId;
-    const bar = document.getElementById('ss-quick-transform-bar');
-    const el = window._socialElements[elemId];
-    if (!el || !bar) return;
-
-    bar.style.display = 'flex';
-    const iconEl = document.getElementById('ss-active-elem-icon');
-    const nameEl = document.getElementById('ss-active-elem-name');
-    if (iconEl) iconEl.innerText = el.icon;
-    if (nameEl) nameEl.innerText = el.name;
-
-    updateTransformBarValues();
-
-    const quickTextInput = document.getElementById('ss-quick-text-input');
-    const s = window._socialStudioState;
-    if (quickTextInput) {
-        if (elemId === 'title') {
-            quickTextInput.style.display = 'block';
-            quickTextInput.value = s.title;
-        } else if (elemId === 'subtitle') {
-            quickTextInput.style.display = 'block';
-            quickTextInput.value = s.subtitle;
-        } else if (elemId === 'badge') {
-            quickTextInput.style.display = 'block';
-            quickTextInput.value = s.badgeText;
-        } else if (elemId === 'highlight') {
-            quickTextInput.style.display = 'block';
-            quickTextInput.value = s.highlightText;
-        } else {
-            quickTextInput.style.display = 'none';
-        }
-    }
-
-    const quickColorPicker = document.getElementById('ss-quick-color-picker');
-    const quickBgWrapper = document.getElementById('ss-quick-bgcolor-wrapper');
-    const quickBgPicker = document.getElementById('ss-quick-bgcolor-picker');
-    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === window._socialStudioState.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
-
-    if (quickColorPicker) {
-        let curCol = el.color;
-        if (!curCol) {
-            if (elemId === 'title' || elemId === 'menu') curCol = p.isLight ? '#1C1917' : '#FFFFFF';
-            else if (elemId === 'subtitle') curCol = p.isLight ? '#57534E' : '#CBD5E1';
-            else if (elemId === 'badge' || elemId === 'sticker') curCol = '#FFFFFF';
-            else if (elemId === 'highlight') curCol = p.accent;
-            else curCol = '#FFFFFF';
-        }
-        quickColorPicker.value = curCol;
-    }
-
-    if (quickBgWrapper && quickBgPicker) {
-        if (elemId === 'badge' || elemId === 'highlight' || elemId === 'sticker' || elemId === 'menu') {
-            quickBgWrapper.style.display = 'inline-flex';
-            quickBgPicker.value = el.bgColor || p.accent;
-        } else {
-            quickBgWrapper.style.display = 'none';
-        }
-    }
-
-    renderSocialCanvas();
-}
-window.setActiveSocialElement = setActiveSocialElement;
-
-function updateTransformBarValues() {
-    if (!window._activeSocialElemId) return;
-    const el = window._socialElements[window._activeSocialElemId];
-    if (!el) return;
-
-    const slider = document.getElementById('ss-active-elem-slider');
-    const badge = document.getElementById('ss-active-elem-scale-badge');
-    if (slider) slider.value = el.scale.toFixed(2);
-    if (badge) badge.innerText = `${Math.round(el.scale * 100)}%`;
-}
-
-function centerActiveElementHorizontally() {
-    if (!window._activeSocialElemId) return;
-    const canvas = document.getElementById('social-render-canvas');
-    const el = window._socialElements[window._activeSocialElemId];
-    if (el && canvas) {
-        el.x = canvas.width / 2;
-        renderSocialCanvas();
-    }
-}
-window.centerActiveElementHorizontally = centerActiveElementHorizontally;
-
-function deselectActiveElement() {
-    window._activeSocialElemId = null;
-    const bar = document.getElementById('ss-quick-transform-bar');
-    if (bar) bar.style.display = 'none';
-    renderSocialCanvas();
-}
-window.deselectActiveElement = deselectActiveElement;
-
-function resetSocialElementsPositions() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-    const isStory = (window._socialStudioState.format === 'story');
-    window._socialElements = getDefaultSocialElements(canvas.width, canvas.height, isStory);
-    deselectActiveElement();
-    renderSocialCanvas();
-}
-window.resetSocialElementsPositions = resetSocialElementsPositions;
-
-// 💾 11. PERSISTENZA BOZZE (DRAFTS)
-async function saveCurrentSocialDraft() {
-    const nameInput = document.getElementById('ss-draft-name-input');
-    const draftName = (nameInput?.value || '').trim();
-
-    if (!draftName) {
-        return alert("Inserisci un nome per la bozza prima di salvare (es. Story Autunno, Promo Balayage).");
-    }
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
-        : 'salon_001';
-
-    const s = window._socialStudioState;
-
-    const draftData = {
-        id: 'draft_' + Date.now(),
-        name: draftName,
-        salon_id: currentSalon,
-        saved_at: new Date().toISOString(),
-        config: {
-            template: s.template,
-            format: s.format,
-            theme: s.theme,
-            bgType: s.bgType,
-            bgPresetId: s.bgPresetId,
-            bgOverlayOpacity: s.bgOverlayOpacity,
-            badgeText: s.badgeText,
-            title: s.title,
-            subtitle: s.subtitle,
-            highlightText: s.highlightText,
-            showLogo: s.showLogo,
-            showBookingBadge: s.showBookingBadge,
-            showQrCode: s.showQrCode,
-            logoShape: s.logoShape,
-            logoFilter: s.logoFilter,
-            selectedPresetId: s.selectedPresetId,
-            customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
-            elements: JSON.parse(JSON.stringify(window._socialElements || {}))
-        }
-    };
-
-    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
-
-    const existingIdx = allDrafts.findIndex(d => d.name.toLowerCase() === draftName.toLowerCase());
-    if (existingIdx >= 0) {
-        if (!confirm(`Esiste già una bozza denominata "${draftName}". Vuoi sovrascriverla?`)) {
-            return;
-        }
-        allDrafts[existingIdx] = draftData;
-    } else {
-        allDrafts.unshift(draftData);
-    }
-
-    await persistAllSocialDrafts(allDrafts, currentSalon);
-    renderSavedSocialDraftsDropdown(allDrafts, draftData.id);
-    alert(`✅ Bozza "${draftName}" salvata con successo!`);
-}
-window.saveCurrentSocialDraft = saveCurrentSocialDraft;
-
-function loadAllSocialDraftsFromStorage(currentSalon) {
-    const raw = (typeof sysSettings !== 'undefined' && sysSettings['social_saved_drafts']) || localStorage.getItem(`vaimup_social_drafts_${currentSalon}`);
-    if (raw) {
-        try {
-            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            return Array.isArray(parsed) ? parsed : [];
-        } catch(e) { return []; }
-    }
-    return [];
-}
-
-async function persistAllSocialDrafts(draftsArray, currentSalon) {
-    const jsonStr = JSON.stringify(draftsArray);
-    localStorage.setItem(`vaimup_social_drafts_${currentSalon}`, jsonStr);
-    if (typeof sysSettings !== 'undefined') sysSettings['social_saved_drafts'] = jsonStr;
-
-    await window.universalQuery({
-        action: 'UPSERT_SETTING',
-        data: { key: 'social_saved_drafts', value: jsonStr }
-    });
-}
-
-function renderSavedSocialDraftsDropdown(draftsArray = null, selectedId = '') {
-    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
-    const badge = document.getElementById('ss-saved-drafts-badge');
-    if (!dropdown) return;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    const drafts = draftsArray || loadAllSocialDraftsFromStorage(currentSalon);
-
-    if (badge) badge.innerText = `${drafts.length} salvat${drafts.length === 1 ? 'a' : 'e'}`;
-
-    if (drafts.length === 0) {
-        dropdown.innerHTML = `<option value="">-- Nessuna bozza salvata --</option>`;
-        return;
-    }
-
-    dropdown.innerHTML = `<option value="">-- Seleziona una bozza salvata --</option>` +
-        drafts.map(d => {
-            const dateStr = d.saved_at ? new Date(d.saved_at).toLocaleDateString('it-IT') : '';
-            return `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.name} (${dateStr})</option>`;
-        }).join('');
-}
-window.renderSavedSocialDraftsDropdown = renderSavedSocialDraftsDropdown;
-
-function loadSelectedSocialDraft() {
-    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
-    const selectedId = dropdown?.value;
-
-    if (!selectedId) return alert("Seleziona prima una bozza dalla tendina.");
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    const allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
-    const target = allDrafts.find(d => d.id === selectedId);
-
-    if (!target || !target.config) return alert("Impossibile caricare la bozza selezionata.");
-
-    const c = target.config;
-    const s = window._socialStudioState;
-
-    s.template = c.template || 'custom';
-    s.theme = c.theme || 'luxury-gold';
-    s.bgType = c.bgType || 'preset';
-    s.bgPresetId = c.bgPresetId || 'season_autumn';
-    s.bgOverlayOpacity = c.bgOverlayOpacity !== undefined ? c.bgOverlayOpacity : 0.15;
-    s.badgeText = c.badgeText || '';
-    s.title = c.title || '';
-    s.subtitle = c.subtitle || '';
-    s.highlightText = c.highlightText || '';
-    s.showLogo = c.showLogo ?? true;
-    s.showBookingBadge = c.showBookingBadge ?? true;
-    s.showQrCode = c.showQrCode ?? false;
-    s.logoShape = c.logoShape || 'natural';
-    s.logoFilter = c.logoFilter || 'none';
-    s.selectedPresetId = c.selectedPresetId || 'current';
-    s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
-
-    if (c.format) {
-        setSocialFormat(c.format);
-    }
-
-    if (c.elements) {
-        window._socialElements = JSON.parse(JSON.stringify(c.elements));
-    }
-
-    const nameInput = document.getElementById('ss-draft-name-input');
-    if (nameInput) nameInput.value = target.name;
-
-    const tplSelect = document.getElementById('ss-template-select');
-    if (tplSelect) tplSelect.value = s.template;
-
-    const thmSelect = document.getElementById('ss-theme-select');
-    if (thmSelect) thmSelect.value = s.theme;
-
-    const badgeInput = document.getElementById('ss-input-badge');
-    if (badgeInput) badgeInput.value = s.badgeText;
-
-    const titleInput = document.getElementById('ss-input-title');
-    if (titleInput) titleInput.value = s.title;
-
-    const subInput = document.getElementById('ss-input-subtitle');
-    if (subInput) subInput.value = s.subtitle;
-
-    const highInput = document.getElementById('ss-input-highlight');
-    if (highInput) highInput.value = s.highlightText;
-
-    const sliderOverlay = document.getElementById('ss-bg-overlay-slider');
-    const lblOverlay = document.getElementById('ss-bg-overlay-label');
-    if (sliderOverlay) sliderOverlay.value = s.bgOverlayOpacity;
-    if (lblOverlay) lblOverlay.innerText = `${Math.round(s.bgOverlayOpacity * 100)}%`;
-
-    const cbLogo = document.getElementById('ss-toggle-logo');
-    if (cbLogo) cbLogo.checked = s.showLogo;
-
-    const cbSticker = document.getElementById('ss-toggle-booking-badge');
-    if (cbSticker) cbSticker.checked = s.showBookingBadge;
-
-    const cbQr = document.getElementById('ss-toggle-qr');
-    if (cbQr) cbQr.checked = s.showQrCode;
-
-    highlightActiveBgThumbnail();
-    renderSocialPricelistItemCheckboxes();
-    syncSideColorPickersToTheme();
-    updateCaptionPreview();
-    renderSocialCanvas();
-
-    alert(`📖 Bozza "${target.name}" caricata con successo!`);
-}
-window.loadSelectedSocialDraft = loadSelectedSocialDraft;
-
-async function deleteSelectedSocialDraft() {
-    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
-    const selectedId = dropdown?.value;
-
-    if (!selectedId) return alert("Seleziona prima la bozza da eliminare.");
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
-    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
-    const target = allDrafts.find(d => d.id === selectedId);
-
-    if (!target) return;
-    if (!confirm(`Sei sicuro di voler eliminare definitivamente la bozza "${target.name}"?`)) return;
-
-    allDrafts = allDrafts.filter(d => d.id !== selectedId);
-    await persistAllSocialDrafts(allDrafts, currentSalon);
-
-    renderSavedSocialDraftsDropdown(allDrafts);
-    const nameInput = document.getElementById('ss-draft-name-input');
-    if (nameInput) nameInput.value = '';
-    alert("🗑️ Bozza eliminata.");
-}
-window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
-
-// 👆 12. GESTI TOUCH & MOUSE IMMUNI DA NaN
-function attachCanvasTouchGestures() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas || canvas._touchAttached) return;
-    canvas._touchAttached = true;
-
-    function getCanvasCoords(clientX, clientY) {
-        const rect = canvas.getBoundingClientRect();
-        if (!rect.width || !rect.height) return { x: 540, y: 960 };
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
-        };
-    }
-
-    function hitTestElement(clickX, clickY) {
-        const elems = window._socialElements;
-        const s = window._socialStudioState;
-        if (!elems || !s) return null;
-
-        // Spostiamo 'subtitle' e 'highlight' prima di 'menu' e togliamo il blocco s.template === 'pricelist'
-            const candidates = ['sticker', 'qrcode', 'highlight', 'subtitle', 'title', 'badge', 'menu', 'logo'];
-            for (let key of candidates) {
-                if (key === 'logo' && !s.showLogo) continue;
-                if (key === 'sticker' && !s.showBookingBadge) continue;
-                if (key === 'qrcode' && !s.showQrCode) continue;
-                if (key === 'menu' && s.template !== 'pricelist') continue;
-                if (key === 'subtitle' && !s.subtitle) continue; // ✅ MODIFICATO: ora è cliccabile e trascinabile
-                if (key === 'highlight' && !s.highlightText) continue; // ✅ MODIFICATO: ora è cliccabile e trascinabile
-            const el = elems[key];
-            if (!el || !Number.isFinite(el.x) || !Number.isFinite(el.y)) continue;
-
-            const elScale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
-            const halfW = ((el.w || 200) * elScale) / 2 + 40;
-            const halfH = ((el.h || 60) * elScale) / 2 + 40;
-
-            if (clickX >= el.x - halfW && clickX <= el.x + halfW &&
-                clickY >= el.y - halfH && clickY <= el.y + halfH) {
-                return el.id;
-            }
-        }
-        return null;
-    }
-
-    canvas.addEventListener('touchstart', (e) => {
-        const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
-
-        if (e.touches.length === 1) {
-            const hitId = hitTestElement(coords.x, coords.y);
-            if (hitId) {
-                e.preventDefault();
-                setActiveSocialElement(hitId);
-                isTouchDragging = true;
-                touchDragStartX = coords.x;
-                touchDragStartY = coords.y;
-                const el = window._socialElements[hitId];
-                initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
-                initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
-            } else {
-                deselectActiveElement();
-            }
-        } else if (e.touches.length === 2 && window._activeSocialElemId) {
-            e.preventDefault();
-            isTouchDragging = false;
-            const t1 = e.touches[0];
-            const t2 = e.touches[1];
-            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            initialPinchScale = window._socialElements[window._activeSocialElemId]?.scale || 1.0;
-        }
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1 && isTouchDragging && window._activeSocialElemId) {
-            e.preventDefault();
-            const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
-            const dx = coords.x - touchDragStartX;
-            const dy = coords.y - touchDragStartY;
-
-            const el = window._socialElements[window._activeSocialElemId];
-            if (el && Number.isFinite(dx) && Number.isFinite(dy)) {
-                el.x = Math.max(60, Math.min(canvas.width - 60, initialElemX + dx));
-                el.y = Math.max(50, Math.min(canvas.height - 50, initialElemY + dy));
-                renderSocialCanvas();
-            }
-        } else if (e.touches.length === 2 && window._activeSocialElemId && initialPinchDistance > 0) {
-            e.preventDefault();
-            const t1 = e.touches[0];
-            const t2 = e.touches[1];
-            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            const factor = currentDist / initialPinchDistance;
-
-            const el = window._socialElements[window._activeSocialElemId];
-            if (el && Number.isFinite(factor)) {
-                el.scale = Math.min(Math.max(initialPinchScale * factor, 0.4), 2.5);
-                updateTransformBarValues();
-                renderSocialCanvas();
-            }
-        }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', () => {
-        isTouchDragging = false;
-        initialPinchDistance = 0;
-    });
-
-    let isMouseDown = false;
-    canvas.addEventListener('mousedown', (e) => {
-        const coords = getCanvasCoords(e.clientX, e.clientY);
-        const hitId = hitTestElement(coords.x, coords.y);
-        if (hitId) {
-            setActiveSocialElement(hitId);
-            isMouseDown = true;
-            touchDragStartX = coords.x;
-            touchDragStartY = coords.y;
-            const el = window._socialElements[hitId];
-            initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
-            initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
-        } else {
-            deselectActiveElement();
-        }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (isMouseDown && window._activeSocialElemId) {
-            const coords = getCanvasCoords(e.clientX, e.clientY);
-            const dx = coords.x - touchDragStartX;
-            const dy = coords.y - touchDragStartY;
-            const el = window._socialElements[window._activeSocialElemId];
-            if (el && Number.isFinite(dx) && Number.isFinite(dy)) {
-                el.x = Math.max(60, Math.min(canvas.width - 60, initialElemX + dx));
-                el.y = Math.max(50, Math.min(canvas.height - 50, initialElemY + dy));
-                renderSocialCanvas();
-            }
-        }
-    });
-
-    window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-    canvas.addEventListener('wheel', (e) => {
-        if (window._activeSocialElemId && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            const el = window._socialElements[window._activeSocialElemId];
-            if (el) {
-                const delta = e.deltaY < 0 ? 0.05 : -0.05;
-                el.scale = Math.min(Math.max((el.scale || 1.0) + delta, 0.4), 2.5);
-                updateTransformBarValues();
-                renderSocialCanvas();
-            }
-        }
-    }, { passive: false });
-}
-
-// 🚀 13. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
+// Inizializzazione corretta all'apertura della vista
 async function initSocialStudioView() {
-    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
+    console.log("📱 [SOCIAL STUDIO] Inizializzazione ordinata...");
     const s = window._socialStudioState;
     const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
         ? String(currentUser.salon_id || '').trim().toLowerCase() 
         : 'salon_001';
 
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
-        inventory = allInventory;
-    } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
-        inventory = window.allInventory;
-    } else {
-        inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+    // Allineamento template selezionato nell'interfaccia HTML
+    const tplSelect = document.getElementById('ss-template-select');
+    if (tplSelect) {
+        s.template = tplSelect.value || 'transformation';
     }
-    window.allInventory = inventory;
-    if (typeof allInventory !== 'undefined') allInventory = inventory;
 
-    await resolveRealPricesForSocialInventory(inventory);
-
+    // Risoluzione logo e QR
     const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
     if (savedLogo) {
         const img = new Image();
@@ -30705,126 +28746,20 @@ async function initSocialStudioView() {
     };
     qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(bookingUrl)}&size=600&dark=1e1b4b&ecLevel=H`;
 
-    if (typeof populatePrintStudioPresetsInSocialStudio === 'function') {
-        populatePrintStudioPresetsInSocialStudio(currentSalon);
-    }
+    // Sincronizza lo stato dei checkbox con la UI
+    const cbLogo = document.getElementById('ss-toggle-logo');
+    if (cbLogo) cbLogo.checked = s.showLogo;
+    const cbSticker = document.getElementById('ss-toggle-booking-badge');
+    if (cbSticker) cbSticker.checked = s.showBookingBadge;
+    const cbQr = document.getElementById('ss-toggle-qr');
+    if (cbQr) cbQr.checked = s.showQrCode;
 
-    renderSocialPricelistItemCheckboxes();
+    onSocialTemplateChanged(s.template);
     renderSocialBgGalleryThumbnails();
     renderSavedSocialDraftsDropdown();
-    highlightActiveBgThumbnail();
-    syncSideColorPickersToTheme();
     updateCaptionPreview();
-    renderSocialCanvas();
 }
 window.initSocialStudioView = initSocialStudioView;
-
-async function resolveRealPricesForSocialInventory(inventory) {
-    if (!Array.isArray(inventory) || inventory.length === 0) return;
-    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    inventory.forEach(item => {
-        let resolvedPrice = null;
-        const pIdStr = String(item.id).trim();
-
-        const itemHistory = priceHistory.filter(ph => String(ph.product_id).trim() === pIdStr);
-        if (itemHistory.length > 0) {
-            const activeRow = itemHistory.find(ph => {
-                const fromStr = (ph.date_from || '1900-01-01').substring(0, 10);
-                const toStr = ph.date_to ? ph.date_to.substring(0, 10) : '9999-12-31';
-                return todayStr >= fromStr && todayStr <= toStr;
-            });
-            if (activeRow && activeRow.price !== undefined && activeRow.price !== null && parseFloat(activeRow.price) > 0) {
-                resolvedPrice = parseFloat(activeRow.price);
-            } else {
-                const sortedHistory = [...itemHistory].sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
-                const latestValid = sortedHistory.find(ph => ph.price !== undefined && ph.price !== null && parseFloat(ph.price) > 0);
-                if (latestValid) resolvedPrice = parseFloat(latestValid.price);
-            }
-        }
-
-        if (resolvedPrice === null || isNaN(resolvedPrice) || resolvedPrice <= 0) {
-            const basePrice = parseFloat(item.price);
-            if (!isNaN(basePrice) && basePrice > 0) resolvedPrice = basePrice;
-            else {
-                const listingP = parseFloat(item.listing_price);
-                resolvedPrice = (!isNaN(listingP) && listingP > 0) ? listingP : 0.00;
-            }
-        }
-        item.price = resolvedPrice;
-    });
-}
-
-function renderSocialPricelistItemCheckboxes() {
-    const container = document.getElementById('ss-pricelist-items-picker');
-    if (!container) return;
-
-    const s = window._socialStudioState;
-    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
-
-    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
-    let services = inventory.filter(i => i.type === 'servizio');
-
-    if (services.length === 0) {
-        container.innerHTML = `<span style="font-size:11px; color:#888; padding:6px;">Nessun servizio registrato nel listino.</span>`;
-        return;
-    }
-
-    if (s.customCheckedServiceIds.size === 0) {
-        services.slice(0, 4).forEach(srv => s.customCheckedServiceIds.add(String(srv.id)));
-    }
-
-    container.innerHTML = services.map(srv => {
-        const isChecked = s.customCheckedServiceIds.has(String(srv.id));
-        const priceFmt = parseFloat(srv.price || 0).toFixed(2);
-        return `
-            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; padding: 4px 6px; border-radius: 6px; background: ${isChecked ? '#f5f3ff' : 'transparent'}; cursor: pointer; margin: 0;">
-                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                    <input type="checkbox" value="${srv.id}" ${isChecked ? 'checked' : ''} onchange="toggleSocialPricelistItem('${srv.id}', this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
-                    <span style="font-weight: 600; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${srv.name}</span>
-                </div>
-                <b style="font-size: 11px; color: var(--p); margin-left: 6px;">€ ${priceFmt}</b>
-            </label>
-        `;
-    }).join('');
-}
-window.renderSocialPricelistItemCheckboxes = renderSocialPricelistItemCheckboxes;
-
-function toggleSocialPricelistItem(serviceId, isChecked) {
-    const s = window._socialStudioState;
-    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
-    if (isChecked) s.customCheckedServiceIds.add(String(serviceId));
-    else s.customCheckedServiceIds.delete(String(serviceId));
-    renderSocialCanvas();
-}
-window.toggleSocialPricelistItem = toggleSocialPricelistItem;
-
-function onSocialPresetSourceChanged(val) {
-    window._socialStudioState.selectedPresetId = val;
-    window._socialStudioState.customCheckedServiceIds = new Set();
-    renderSocialPricelistItemCheckboxes();
-    renderSocialCanvas();
-}
-window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
-
-function populatePrintStudioPresetsInSocialStudio(currentSalon) {
-    const select = document.getElementById('ss-preset-source-select');
-    if (!select) return;
-
-    let allPresets = [];
-    if (typeof loadAllPresetsFromStorage === 'function') {
-        allPresets = loadAllPresetsFromStorage(currentSalon);
-    }
-
-    let html = `<option value="current">Tutti i Servizi Attivi del Salone</option>`;
-    allPresets.forEach(p => {
-        html += `<option value="${p.id}">📑 ${p.name}</option>`;
-    });
-
-    select.innerHTML = html;
-}
-window.populatePrintStudioPresetsInSocialStudio = populatePrintStudioPresetsInSocialStudio;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
