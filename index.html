@@ -4080,20 +4080,18 @@
 
 
 <!-- ======================================================== -->
-<!-- 📱 VISTA SOCIAL CONTENT STUDIO (OTTIMIZZATA SMARTPHONE)  -->
+<!-- 📱 VISTA SOCIAL CONTENT STUDIO (HTML COMPLETO E UNIFICATO) -->
 <!-- ======================================================== -->
 <section id="v-social" class="view" style="padding: 10px !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch;">
     <div class="social-studio-container">
         
         <!-- ========================================== -->
-        <!-- ANTEPRIMA & CONDIVISIONE (IN CIMA SU MOBILE) -->
+        <!-- COLONNA ANTEPRIMA (CANVAS, CONDIVIDI & BARRA) -->
         <!-- ========================================== -->
         <div class="social-preview-column">
             
-            <!-- TOOLBAR CONDIVISIONE & FORMATI -->
+            <!-- TOOLBAR FORMATI & PUBBLICAZIONE -->
             <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
-                
-                <!-- Riga 1: Formati Social & Toggle Safe Zone -->
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
                     <div style="display: flex; gap: 4px; flex: 1; min-width: 220px;">
                         <button type="button" class="btn social-pill-btn active-pill" id="btn-format-story" onclick="setSocialFormat('story')">Story 9:16</button>
@@ -4106,7 +4104,6 @@
                     </button>
                 </div>
 
-                <!-- Riga 2: Pulsanti Principali di Pubblicazione -->
                 <div style="display: flex; gap: 6px;">
                     <button type="button" class="btn btn-w" style="flex: 2; padding: 11px 12px; font-size: 13px; font-weight: 900; justify-content: center; border-radius: 10px; box-shadow: 0 3px 10px rgba(37, 211, 102, 0.35);" onclick="shareSocialGraphic()">
                         📲 Condividi su Instagram / WA ➔
@@ -4117,8 +4114,7 @@
                 </div>
             </div>
 
-            
-            <!-- TOOLBAR TRASFORMAZIONE RAPIDA ELEMENTO SELEZIONATO (CON COLORI E FONT SIZE) -->
+            <!-- TOOLBAR TRASFORMAZIONE RAPIDA (CON MODIFICA TESTO DIRETTA DAL CANVAS) -->
             <div id="ss-quick-transform-bar" style="background: #1e293b; border: 1.5px solid #334155; border-radius: 12px; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.35);">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 13px;" id="ss-active-elem-icon">✏️</span>
@@ -4126,22 +4122,20 @@
                     <span id="ss-active-elem-scale-badge" style="font-size: 10px; font-weight: 800; background: rgba(255,255,255,0.1); color: #FBBF24; padding: 2px 6px; border-radius: 4px;">100%</span>
                 </div>
 
-                <!-- Controlli Dimensione Carattere, Colore & Allineamento -->
+                <!-- Campo per modificare il testo direttamente al tocco -->
+                <input type="text" id="ss-quick-text-input" placeholder="Scrivi il testo qui..." oninput="onQuickTextEdit(this.value)" style="margin: 0; padding: 4px 8px; font-size: 11.5px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 6px; flex: 1; min-width: 130px; display: none;">
+
                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    
-                    <!-- Color Picker Rapido per il Testo -->
                     <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore testo">
                         <span>Testo:</span>
                         <input type="color" id="ss-quick-color-picker" oninput="onQuickColorChange(this.value)" style="width: 24px; height: 24px; padding: 0; border: 1px solid #475569; border-radius: 6px; cursor: pointer; background: transparent;">
                     </label>
 
-                    <!-- Color Picker Rapido per Sfondo / Bordo (se applicabile) -->
                     <label id="ss-quick-bgcolor-wrapper" style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; color: #cbd5e1; margin: 0; cursor: pointer;" title="Colore sfondo o accento">
                         <span>Box:</span>
                         <input type="color" id="ss-quick-bgcolor-picker" oninput="onQuickBgColorChange(this.value)" style="width: 24px; height: 24px; padding: 0; border: 1px solid #475569; border-radius: 6px; cursor: pointer; background: transparent;">
                     </label>
 
-                    <!-- Stepper Dimensione Carattere -->
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
                         <button type="button" class="btn" style="padding: 3px 8px; font-size: 11px; font-weight: 900; background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; min-height: unset;" onclick="stepScaleActiveElement(-0.1)" title="Riduci dimensione">A-</button>
                         <input type="range" id="ss-active-elem-slider" min="0.4" max="2.5" step="0.05" value="1.0" oninput="onSliderScaleActiveElement(this.value)" style="width: 75px; margin: 0; cursor: pointer; accent-color: var(--p);">
@@ -4153,7 +4147,7 @@
                 </div>
             </div>
 
-            <!-- UNICO VIEWPORT DEL CANVAS (NESSUNA DUPLICAZIONE) -->
+            <!-- VIEWPORT DEL CANVAS (UNICO) -->
             <div class="social-preview-viewport">
                 <canvas id="social-render-canvas" width="1080" height="1920"></canvas>
             </div>
@@ -4163,7 +4157,7 @@
                 <div style="flex: 1; min-width: 0;">
                     <small style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Didascalia con link del tuo salone:</small>
                     <div id="ss-caption-preview" style="font-size: 11.5px; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic;">
-                        Caricamento...
+                        Caricamento didascalia...
                     </div>
                 </div>
                 <button type="button" class="btn" style="padding: 6px 12px; font-size: 11px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold; border-radius: 8px; flex-shrink: 0;" onclick="copySocialCaption()">
@@ -4173,9 +4167,8 @@
 
         </div>
 
-  
-<!-- ========================================== -->
-        <!-- PANNELLO CONTROLLI & PERSONALIZZAZIONE    -->
+        <!-- ========================================== -->
+        <!-- PANNELLO CONTROLLI & EDITING COMPLETO     -->
         <!-- ========================================== -->
         <div class="social-controls-pane">
             
@@ -4184,12 +4177,12 @@
                     <span style="font-size: 20px;">🎨</span>
                     <div>
                         <b style="font-size: 14px; color: #1e1b4b;">Personalizza Grafica</b>
-                        <small style="display: block; color: #64748b; font-size: 11px;">Tocca gli elementi sul canvas per spostarli o ridimensionarli</small>
+                        <small style="display: block; color: #64748b; font-size: 11px;">Scrivi i testi, modifica colori e grandezze</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 💾 1. GESTIONE BOZZE & CONFIGURAZIONI SALVATE -->
+            <!-- 1. GESTIONE BOZZE & CONFIGURAZIONI SALVATE -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Bozze & Post Salvati</label>
@@ -4221,7 +4214,7 @@
                 ↩ Ripristina Posizioni Predefinite Elementi
             </button>
 
-            <!-- 2. TEMPLATE GRAFICO STRATEGICO -->
+            <!-- 2. MODELLO GRAFICO STRATEGICO -->
             <div>
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico Strategico</label>
                 <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
@@ -4241,21 +4234,21 @@
                 <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px;">
                     <option value="current">Tutti i Servizi Attivi del Salone</option>
                 </select>
-                <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali dei tuoi trattamenti mostrare nella grafica (consigliati 3-5):</small>
+                <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali trattamenti mostrare nella grafica:</small>
 
                 <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
                     <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;"></div>
                 </div>
             </div>
 
-            <!-- 🌟 3. GALLERIA SFONDI D'AUTORE, FORME & FOTO PERSONALIZZATE -->
+            <!-- 3. GALLERIA SFONDI D'AUTORE, STAGIONI & FORME -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Stagionali</label>
                     <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
                 </div>
 
-                <!-- 🌟 TUTTI I PULSANTI CATEGORIA COMPLETAMENTE VISIBILI (WRAP NATURALE SU PC E MOBILE) -->
+                <!-- Categorie a capo naturale (visibili al 100% su PC) -->
                 <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
                     <button type="button" class="btn social-pill-btn active-pill" id="btn-bg-cat-all" onclick="filterSocialBgGallery('all')">Tutti</button>
                     <button type="button" class="btn social-pill-btn" id="btn-bg-cat-seasons" onclick="filterSocialBgGallery('seasons')">🍂 Stagioni</button>
@@ -4266,18 +4259,16 @@
                     <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon & Trend</button>
                 </div>
 
-                <!-- CAROUSEL MINIATURE CON TASTI SCROLL PER PC -->
+                <!-- Giostra miniature con frecce scroll -->
                 <div style="position: relative; width: 100%;">
                     <button type="button" onclick="scrollBgThumbnails(-180)" style="position: absolute; left: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a sinistra">◀</button>
                     
-                    <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px 18px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;">
-                        <!-- Generato dinamicamente con foto reali e gradienti -->
-                    </div>
+                    <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 18px 10px 18px; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;"></div>
 
                     <button type="button" onclick="scrollBgThumbnails(180)" style="position: absolute; right: -4px; top: 50%; transform: translateY(-50%); z-index: 5; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 50%; width: 24px; height: 24px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="Scorri a destra">▶</button>
                 </div>
 
-                <!-- Sezione Foto Personale del Salone -->
+                <!-- Caricamento Foto del Salone -->
                 <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
                     <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 6px;">— OPPURE CARICA LA TUA FOTO —</small>
                     
@@ -4316,7 +4307,7 @@
                 </div>
             </div>
 
-            <!-- GESTIONE & OTTIMIZZAZIONE LOGO SALONE -->
+            <!-- 4. GESTIONE & FORMA LOGO SALONE -->
             <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
@@ -4347,41 +4338,96 @@
                 </div>
             </div>
 
-
-
-                <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
-                <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-                    <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
-                        📷 Scegli o Scatta Foto Lavoro
-                    </button>
-                    <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
-                        ✕ Rimuovi
-                    </button>
-                </div>
-
-                <!-- Slider Contrasto / Oscuramento Sfondo -->
-                <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo Foto:</span>
-                        <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">65%</span>
+            <!-- ======================================================= -->
+            <!-- 5. TESTI SULLA GRAFICA: DIGITAZIONE, COLORI & FONT SIZE -->
+            <!-- ======================================================= -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <label style="margin: 0 0 2px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modifica Testi, Colori & Font Size</label>
+                
+                <!-- A. BADGE IN ALTO -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Badge in Alto (Tag)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Badge">
+                                <span>Box:</span>
+                                <input type="color" id="ss-color-badge-bg" value="#D4AF37" oninput="setSocialElemBgColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Badge">
+                                <span>Testo:</span>
+                                <input type="color" id="ss-color-badge-text" value="#0f172a" oninput="setSocialElemColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-badge" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('badge')" title="Ripristina stile tema">↺</button>
+                        </div>
                     </div>
-                    <input type="range" id="ss-bg-overlay-slider" min="0.15" max="0.95" step="0.05" value="0.65" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
+                    <input type="text" id="ss-input-badge" value="NOVITÀ SMART" oninput="onSocialTextInput('ss-input-badge', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Mostra Logo del Negozio</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Sticker Link "Prenota Online Senza App"</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
-                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
-                        <span>Includi QR Code Scansionabile sulla Grafica</span>
-                    </label>
+                <!-- B. TITOLO PRINCIPALE -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Titolo Principale (Headline)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Titolo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-title-text" value="#ffffff" oninput="setSocialElemColor('title', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-title" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('title')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-title" value="Prenota in 5 secondi senza scaricare nessuna app!" oninput="onSocialTextInput('ss-input-title', this.value)" style="margin: 0; padding: 7px 10px; font-size: 13px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
                 </div>
+
+                <!-- C. SOTTOTITOLO / DETTAGLI -->
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Sottotitolo / Dettagli</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Sottotitolo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-subtitle-text" value="#cbd5e1" oninput="setSocialElemColor('subtitle', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-subtitle" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('subtitle')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <textarea id="ss-input-subtitle" rows="2" oninput="onSocialTextInput('ss-input-subtitle', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.</textarea>
+                </div>
+
+                <!-- D. BOX IN EVIDENZA -->
+                <div id="ss-highlight-box" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                        <small style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo & Bordo">
+                                <span>Colore:</span>
+                                <input type="color" id="ss-color-highlight-text" value="#D4AF37" oninput="setSocialElemColor('highlight', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                            </label>
+                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)" title="Riduci font">A-</button>
+                                <span id="ss-scale-label-highlight" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
+                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)" title="Aumenta font">A+</button>
+                            </div>
+                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('highlight')" title="Ripristina stile tema">↺</button>
+                        </div>
+                    </div>
+                    <input type="text" id="ss-input-highlight" value="Zero App da Scaricare • 24/7" oninput="onSocialTextInput('ss-input-highlight', this.value)" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: 900; color: #047857; border: 1.5px solid #cbd5e1; border-radius: 8px; width: 100%;">
+                </div>
+
             </div>
 
         </div>
