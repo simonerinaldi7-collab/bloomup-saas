@@ -18,6 +18,56 @@
     contain: content;
 }
 
+
+
+/* ======================================================== */
+/* 🎨 MINIATURE GALLERIA SFONDI SOCIAL STUDIO               */
+/* ======================================================== */
+.ss-bg-thumb-card {
+    min-width: 72px;
+    width: 72px;
+    height: 104px;
+    border-radius: 12px;
+    border: 2px solid #cbd5e1;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+.ss-bg-thumb-card:hover {
+    transform: translateY(-2px);
+    border-color: #94a3b8;
+}
+
+.ss-bg-thumb-card.active-bg {
+    border-color: var(--p) !important;
+    transform: scale(1.05);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.4), 0 4px 12px rgba(0,0,0,0.2) !important;
+}
+
+.ss-bg-thumb-title {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    background: rgba(15, 23, 42, 0.7);
+    padding: 2px 4px;
+    border-radius: 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    backdrop-filter: blur(2px);
+}
+
 /* ======================================================== */
 /* 📱 VAIMUP SOCIAL STUDIO: LAYOUT DESKTOP & MOBILE-FIRST   */
 /* ======================================================== */
@@ -4108,7 +4158,10 @@
 
         </div>
 
-        <!-- ========================================== -->
+        social-controls-pane"> in index.html, inserisci il box delle Bozze in cima e la Galleria Sfondi sopra la foto personalizzata:
+code
+Html
+<!-- ========================================== -->
         <!-- PANNELLO CONTROLLI & PERSONALIZZAZIONE    -->
         <!-- ========================================== -->
         <div class="social-controls-pane">
@@ -4123,11 +4176,39 @@
                 </div>
             </div>
 
-            <button type="button" class="btn" style="width: 100%; margin-top: 4px; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
+            <!-- 💾 1. GESTIONE BOZZE & CONFIGURAZIONI SALVATE -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Bozze & Post Salvati</label>
+                    <span id="ss-saved-drafts-badge" style="font-size: 10px; font-weight: 800; background: white; padding: 2px 7px; border-radius: 6px; border: 1px solid #cbd5e1; color: #475569;">0 salvati</span>
+                </div>
+                
+                <div style="display: flex; gap: 6px;">
+                    <select id="ss-saved-drafts-dropdown" style="margin: 0; background: white; font-weight: 600; font-size: 12px; flex: 1;">
+                        <option value="">-- Seleziona una bozza salvata --</option>
+                    </select>
+                    <button type="button" class="btn btn-s" style="padding: 6px 12px; font-size: 11px; font-weight: bold; min-height: unset;" onclick="loadSelectedSocialDraft()" title="Ricarica questa bozza">
+                        📂 Carica
+                    </button>
+                    <button type="button" class="btn btn-d" style="padding: 6px 8px; font-size: 10.5px; min-height: unset;" onclick="deleteSelectedSocialDraft()" title="Elimina bozza selezionata">
+                        ✕
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="ss-draft-name-input" placeholder="Nome bozza (es. Promo Balayage, Story Lunedì)" style="margin: 0; padding: 6px 10px; font-size: 12px; background: white; flex: 1; border-radius: 8px;">
+                    <button type="button" class="btn btn-p" style="padding: 6px 14px; font-size: 11.5px; font-weight: 800; min-height: unset; white-space: nowrap;" onclick="saveCurrentSocialDraft()">
+                        💾 Salva Bozza
+                    </button>
+                </div>
+            </div>
+
+            <!-- TASTO RESET POSIZIONI -->
+            <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; justify-content: center;" onclick="resetSocialElementsPositions()">
                 ↩ Ripristina Posizioni Predefinite Elementi
             </button>
 
-            <!-- 1. TEMPLATE GRAFICO AD ALTA CONVERSIONE -->
+            <!-- 2. TEMPLATE GRAFICO STRATEGICO -->
             <div>
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Modello Grafico Strategico</label>
                 <select id="ss-template-select" onchange="onSocialTemplateChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 13px; border: 1.5px solid var(--p);">
@@ -4141,7 +4222,7 @@
                 </select>
             </div>
 
-            <!-- SELETTORE LISTINO DA PRINT STUDIO & TRATTAMENTI REALI -->
+            <!-- SELETTORE LISTINO DA PRINT STUDIO -->
             <div id="ss-pricelist-source-box" style="display: none; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px;">
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">Fonte Listino:</label>
                 <select id="ss-preset-source-select" onchange="onSocialPresetSourceChanged(this.value)" style="margin: 0 0 6px 0; background: white; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px;">
@@ -4150,148 +4231,103 @@
                 <small style="color: #7c3aed; font-size: 10.5px; display: block; margin-bottom: 8px;">Scegli quali dei tuoi trattamenti mostrare nella grafica (consigliati 3-5):</small>
 
                 <div style="border-top: 1px dashed #d8b4fe; padding-top: 8px;">
-                    <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;">
-                        <!-- Popolato dinamicamente da JS -->
-                    </div>
+                    <div id="ss-pricelist-items-picker" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px;"></div>
                 </div>
             </div>
 
-            <!-- 2. STILE E TEMA COLORI -->
-            <div>
-                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase;">Stile Visivo & Palette</label>
-                <select id="ss-theme-select" onchange="onSocialThemeChanged(this.value)" style="margin: 0; background: white; font-weight: bold; font-size: 12px;">
-                    <option value="luxury-gold" selected>👑 Luxury Gold & Obsidian</option>
-                    <option value="rose-glamour">🌸 Rose Gold & Glamour</option>
-                    <option value="barber-vintage">💈 Barber Vintage & Cuoio</option>
-                    <option value="botanical-minimal">🌿 Botanical Green & Minimal</option>
-                    <option value="neon-violet">⚡ Electric Violet & Cyber</option>
-                </select>
-            </div>
-
-            <!-- 3. TESTI SULLA GRAFICA CON COLOR PICKER & FONT SIZE INDIPENDENTI -->
+            <!-- 🌟 3. GALLERIA SFONDI D'AUTORE, FORME & FOTO PERSONALIZZATE -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
-                <label style="margin: 0 0 2px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Testi, Colori & Dimensioni Font</label>
-                
-                <!-- BLOCCO 1: BADGE IN ALTO -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Badge in Alto (Tag)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Sfondo Badge">
-                                <span>Box:</span>
-                                <input type="color" id="ss-color-badge-bg" value="#D4AF37" oninput="setSocialElemBgColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Badge">
-                                <span>Testo:</span>
-                                <input type="color" id="ss-color-badge-text" value="#0f172a" oninput="setSocialElemColor('badge', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-badge" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('badge', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('badge')" title="Ripristina colore e scala originali">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-badge" value="NOVITÀ SMART" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Sfondi Artistici & Forme</label>
+                    <button type="button" class="btn" style="padding: 2px 7px; font-size: 10px; background: white; border: 1px solid #cbd5e1;" onclick="resetToThemeDefaultBackground()">Reset Sfondo</button>
                 </div>
 
-                <!-- BLOCCO 2: TITOLO PRINCIPALE -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Titolo Principale (Headline)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Titolo">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-title-text" value="#ffffff" oninput="setSocialElemColor('title', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-title" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('title', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('title')" title="Ripristina colore e scala originali">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-title" value="Prenota in 5 secondi senza scaricare nessuna app!" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 10px; font-size: 13px; background: #f8fafc; font-weight: bold; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                <!-- Filtri Categorie Sfondi -->
+                <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
+                    <button type="button" class="btn social-pill-btn active-pill" id="btn-bg-cat-all" onclick="filterSocialBgGallery('all')">Tutti</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-luxury" onclick="filterSocialBgGallery('luxury')">👑 Luxury</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-beauty" onclick="filterSocialBgGallery('beauty')">🌸 Beauty</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-barber" onclick="filterSocialBgGallery('barber')">💈 Barber</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-minimal" onclick="filterSocialBgGallery('minimal')">🌿 Minimal</button>
+                    <button type="button" class="btn social-pill-btn" id="btn-bg-cat-neon" onclick="filterSocialBgGallery('neon')">⚡ Neon</button>
                 </div>
 
-                <!-- BLOCCO 3: SOTTOTITOLO / DETTAGLI -->
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Sottotitolo / Dettagli</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo Sottotitolo">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-subtitle-text" value="#cbd5e1" oninput="setSocialElemColor('subtitle', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-subtitle" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('subtitle', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('subtitle')" title="Ripristina colore e scala originali">↺</button>
-                        </div>
-                    </div>
-                    <textarea id="ss-input-subtitle" rows="2" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 10px; font-size: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;">Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.</textarea>
+                <!-- Slider Orizzontale Miniature Sfondi (18 Sfondi Unici) -->
+                <div id="ss-bg-thumbnails-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px 2px; -webkit-overflow-scrolling: touch;">
+                    <!-- Generato dinamicamente da JS -->
                 </div>
 
-                <!-- BLOCCO 4: BOX IN EVIDENZA -->
-                <div id="ss-highlight-box" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #047857; text-transform: uppercase;">Box in Evidenza (Prezzo o Orario)</small>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; cursor: pointer;" title="Colore Testo & Bordo Box">
-                                <span>Colore:</span>
-                                <input type="color" id="ss-color-highlight-text" value="#D4AF37" oninput="setSocialElemColor('highlight', this.value)" style="width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                            </label>
-                            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 1px 4px; border-radius: 6px;">
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', -0.1)" title="Riduci font">A-</button>
-                                <span id="ss-scale-label-highlight" style="font-size: 9.5px; font-weight: 800; min-width: 32px; text-align: center; color: var(--p);">100%</span>
-                                <button type="button" class="btn" style="padding: 1px 5px; font-size: 10.5px; font-weight: 900; background: white; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepScaleSocialElem('highlight', 0.1)" title="Aumenta font">A+</button>
-                            </div>
-                            <button type="button" class="btn" style="padding: 1px 4px; font-size: 9.5px; background: transparent; border: none; color: #94a3b8; min-height: unset;" onclick="resetSocialElemStyle('highlight')" title="Ripristina colore e scala originali">↺</button>
-                        </div>
-                    </div>
-                    <input type="text" id="ss-input-highlight" value="Zero App da Scaricare • 24/7" oninput="renderSocialCanvas()" style="margin: 0; padding: 7px 10px; font-size: 12.5px; background: #f8fafc; font-weight: 900; color: #047857; border: 1.5px solid #cbd5e1; border-radius: 8px;">
-                </div>
-
-            </div>
-
-            <!-- 4. FOTO, OVERLAY & ELEMENTI VISIVI -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Foto di Sfondo & Contrasto</label>
-                
-<!-- GESTIONE & OTTIMIZZAZIONE LOGO SALONE -->
-                <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
-                        <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
-                        <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
-                            📁 Carica / Cambia Logo
+                <!-- Sezione Foto Personale del Salone (Sempre attiva) -->
+                <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                    <small style="font-size: 10.5px; font-weight: 800; color: #475569; text-transform: uppercase; display: block; margin-bottom: 6px;">— OPPURE CARICA LA TUA FOTO —</small>
+                    
+                    <input type="file" id="ss-bg-file-input" accept="image/*" style="display: none;" onchange="handleSocialBgUpload(event)">
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <button type="button" class="btn" style="flex: 1; padding: 8px 10px; font-size: 12px; background: white; border: 1.5px solid #cbd5e1; font-weight: bold; justify-content: center;" onclick="document.getElementById('ss-bg-file-input').click()">
+                            📷 Scegli o Scatta Foto Lavoro
+                        </button>
+                        <button type="button" class="btn btn-d" id="btn-clear-social-bg" style="display: none; padding: 8px 10px; font-size: 12px;" onclick="clearSocialBgPhoto()">
+                            ✕ Rimuovi
                         </button>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <div>
-                            <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Forma Visualizzazione</label>
-                            <select id="ss-logo-shape-select" onchange="onSocialLogoShapeChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
-                                <option value="natural" selected>✨ Trasparente (Originale)</option>
-                                <option value="circle">⚪ Cerchio Protettivo</option>
-                                <option value="card">🏷️ Scheda Morbida</option>
-                            </select>
+                    <!-- Slider Contrasto / Oscuramento Sfondo (Funziona su qualsiasi sfondo) -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Oscuramento Sfondo (Leggibilità Testo):</span>
+                            <span id="ss-bg-overlay-label" style="font-size: 11px; font-weight: 800; color: var(--p);">65%</span>
                         </div>
-                        <div>
-                            <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
-                            <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
-                                <option value="none" selected>Originale (Colori reali)</option>
-                                <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
-                                <option value="gold">👑 Oro Luxury</option>
-                                <option value="dark">🌑 Nero Profondo</option>
-                            </select>
-                        </div>
+                        <input type="range" id="ss-bg-overlay-slider" min="0.10" max="0.95" step="0.05" value="0.65" oninput="onSocialBgOverlayChanged(this.value)" style="width: 100%; margin: 0; cursor: pointer; accent-color: var(--p);">
                     </div>
                 </div>
+
+                <!-- Toggle Logo, Sticker e QR Code -->
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-logo" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Mostra Logo del Negozio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-booking-badge" checked onchange="renderSocialCanvas()" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Sticker Link "Prenota Online Senza App"</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; text-transform: none;">
+                        <input type="checkbox" id="ss-toggle-qr" onchange="onSocialQrToggleChanged(this.checked)" style="width: 17px; height: 17px; accent-color: var(--p); margin: 0;">
+                        <span>Includi QR Code Scansionabile sulla Grafica</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- GESTIONE & OTTIMIZZAZIONE LOGO SALONE -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <small style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase;">Logo Salone (HD / Vettoriale)</small>
+                    <input type="file" id="ss-logo-direct-input" accept="image/png, image/svg+xml, image/webp, image/jpeg, application/pdf" style="display: none;" onchange="handleSalonLogoUpload(event)">
+                    <button type="button" class="btn" style="padding: 3px 8px; font-size: 10.5px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; font-weight: bold;" onclick="document.getElementById('ss-logo-direct-input').click()">
+                        📁 Carica / Cambia Logo
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Forma Visualizzazione</label>
+                        <select id="ss-logo-shape-select" onchange="onSocialLogoShapeChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                            <option value="natural" selected>✨ Trasparente (Originale)</option>
+                            <option value="circle">⚪ Cerchio Protettivo</option>
+                            <option value="card">🏷️ Scheda Morbida</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 2px 0; font-size: 9.5px; font-weight: 700; color: #64748b;">Filtro Colore (per contrasto)</label>
+                        <select id="ss-logo-filter-select" onchange="onSocialLogoFilterChanged(this.value)" style="margin: 0; padding: 5px; font-size: 11px; font-weight: bold; background: #f8fafc;">
+                            <option value="none" selected>Originale (Colori reali)</option>
+                            <option value="white">⚪ Bianco Titanio (per sfondi scuri)</option>
+                            <option value="gold">👑 Oro Luxury</option>
+                            <option value="dark">🌑 Nero Profondo</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
 
 
@@ -27940,23 +27976,60 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COLORI, FONT E TOUCH GESTURES)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE COMPLETO
 // =========================================================================
+
+// 1. LIBRERIA SFONDI D'AUTORE: 18 STILI CON FORME GEOMETRICHE E TEXTURE
+const SOCIAL_BG_PRESETS = [
+    // 👑 LUXURY
+    { id: 'lux_obsidian_gold', category: 'luxury', name: 'Noir & Oro Caldo', gradient: ['#12141a', '#06080b'], accent: '#D4AF37' },
+    { id: 'lux_marble_gold', category: 'luxury', name: 'Marmo & Venature', gradient: ['#1c1917', '#090807'], accent: '#F59E0B' },
+    { id: 'lux_champagne', category: 'luxury', name: 'Champagne Perlato', gradient: ['#231e28', '#0f0c13'], accent: '#FDE68A' },
+
+    // 🌸 BEAUTY & GLAMOUR
+    { id: 'beauty_rose_silk', category: 'beauty', name: 'Seta Rosa Cipria', gradient: ['#2e1c24', '#14080e'], accent: '#e8c4ca' },
+    { id: 'beauty_glamour_blush', category: 'beauty', name: 'Blush & Onde', gradient: ['#3b1e2e', '#190a13'], accent: '#f472b6' },
+    { id: 'beauty_lavender_spa', category: 'beauty', name: 'Lilla Etereo Spa', gradient: ['#241935', '#0d0718'], accent: '#c084fc' },
+
+    // 💈 BARBER & EXECUTIVE
+    { id: 'barber_dark_leather', category: 'barber', name: 'Cuoio & Pinstripe', gradient: ['#1c1917', '#080706'], accent: '#d97706' },
+    { id: 'barber_carbon_smoke', category: 'barber', name: 'Carbonio & Fumo', gradient: ['#1e293b', '#090d16'], accent: '#f59e0b' },
+    { id: 'barber_warm_wood', category: 'barber', name: 'Rovere Speakeasy', gradient: ['#291a10', '#100803'], accent: '#ea580c' },
+
+    // 🌿 MINIMAL & SPA
+    { id: 'minimal_ivory_arch', category: 'minimal', name: 'Arco Scultoreo Zen', gradient: ['#18232c', '#080d12'], accent: '#38bdf8' },
+    { id: 'minimal_emerald', category: 'minimal', name: 'Smeraldo Botanico', gradient: ['#062c21', '#01120d'], accent: '#34d399' },
+    { id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho', gradient: ['#2b1810', '#120703'], accent: '#fb923c' },
+    { id: 'minimal_sand_dune', category: 'minimal', name: 'Dune di Sabbia', gradient: ['#201c18', '#0c0a08'], accent: '#fde047' },
+
+    // ⚡ NEON & TREND
+    { id: 'neon_cyber_purple', category: 'neon', name: 'Cyber Violetto', gradient: ['#1e1035', '#07020d'], accent: '#a855f7' },
+    { id: 'neon_sunset_glow', category: 'neon', name: 'Sunset Elettrico', gradient: ['#31112c', '#0f0212'], accent: '#ec4899' },
+    { id: 'neon_cyan_matrix', category: 'neon', name: 'Matrice Ciano', gradient: ['#07272d', '#010d10'], accent: '#06b6d4' },
+
+    // 🎬 STUDIO & EDITORIAL
+    { id: 'studio_spotlight', category: 'luxury', name: 'Spotlight Backstage', gradient: ['#1a1a24', '#08080c'], accent: '#ffffff' },
+    { id: 'duotone_indigo', category: 'minimal', name: 'Duotone Editoriale', gradient: ['#131a3a', '#060917'], accent: '#818cf8' }
+];
 
 window._socialStudioState = {
     template: 'launch_no_app',
     format: 'story',
     theme: 'luxury-gold',
+    bgType: 'preset',            // 'preset' | 'upload' | 'default'
+    bgPresetId: 'lux_obsidian_gold',
+    uploadedBgImg: null,
+    bgOverlayOpacity: 0.65,
     badgeText: 'NOVITÀ SMART',
     title: 'Prenota in 5 secondi senza scaricare nessuna app!',
     subtitle: 'Scegli trattamenti, orari e operatore direttamente dal tuo browser su qualsiasi cellulare.',
     highlightText: 'Zero App da Scaricare • 24/7',
-    uploadedBgImg: null,
-    bgOverlayOpacity: 0.65,
     showLogo: true,
     showBookingBadge: true,
     showQrCode: false,
     showSafeZone: false,
+    logoShape: 'natural',
+    logoFilter: 'none',
     selectedPresetId: 'current',
     salonLogoImg: null,
     qrImage: null,
@@ -27979,21 +28052,444 @@ function getDefaultSocialElements(W, H, isStory) {
 window._socialElements = null;
 window._activeSocialElemId = null;
 
-let isTouchDragging = false;
-let touchDragStartX = 0;
-let touchDragStartY = 0;
-let initialElemX = 0;
-let initialElemY = 0;
-let initialPinchDistance = 0;
-let initialPinchScale = 1.0;
-
 function ensureSocialElementsInitialized(W, H, isStory) {
     if (!window._socialElements) {
         window._socialElements = getDefaultSocialElements(W, H, isStory);
     }
 }
 
+// =========================================================================
+// 💾 GESTIONE PERSISTENZA BOZZE (DRAFTS) LOCAL & CLOUD SUPABASE
+// =========================================================================
+
+async function saveCurrentSocialDraft() {
+    const nameInput = document.getElementById('ss-draft-name-input');
+    const draftName = (nameInput?.value || '').trim();
+
+    if (!draftName) {
+        return alert("Inserisci un nome per la bozza prima di salvare (es. Story Offerta Lunedì, Post Nuovi Trattamenti).");
+    }
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    const s = window._socialStudioState;
+
+    const draftData = {
+        id: 'draft_' + Date.now(),
+        name: draftName,
+        salon_id: currentSalon,
+        saved_at: new Date().toISOString(),
+        config: {
+            template: s.template,
+            format: s.format,
+            theme: s.theme,
+            bgType: s.bgType,
+            bgPresetId: s.bgPresetId,
+            bgOverlayOpacity: s.bgOverlayOpacity,
+            badgeText: s.badgeText,
+            title: s.title,
+            subtitle: s.subtitle,
+            highlightText: s.highlightText,
+            showLogo: s.showLogo,
+            showBookingBadge: s.showBookingBadge,
+            showQrCode: s.showQrCode,
+            logoShape: s.logoShape,
+            logoFilter: s.logoFilter,
+            selectedPresetId: s.selectedPresetId,
+            customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
+            elements: JSON.parse(JSON.stringify(window._socialElements || {}))
+        }
+    };
+
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+
+    // Se esiste già una bozza con lo stesso nome, chiedi conferma per sovrascrivere
+    const existingIdx = allDrafts.findIndex(d => d.name.toLowerCase() === draftName.toLowerCase());
+    if (existingIdx >= 0) {
+        if (!confirm(`Esiste già una bozza denominata "${draftName}". Vuoi sovrascriverla?`)) {
+            return;
+        }
+        allDrafts[existingIdx] = draftData;
+    } else {
+        allDrafts.unshift(draftData);
+    }
+
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+    renderSavedSocialDraftsDropdown(allDrafts, draftData.id);
+    alert(`✅ Bozza "${draftName}" salvata con successo! Potrai riaprirla e modificarla quando vuoi.`);
+}
+window.saveCurrentSocialDraft = saveCurrentSocialDraft;
+
+function loadAllSocialDraftsFromStorage(currentSalon) {
+    const raw = (typeof sysSettings !== 'undefined' && sysSettings['social_saved_drafts']) || localStorage.getItem(`vaimup_social_drafts_${currentSalon}`);
+    if (raw) {
+        try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+    return [];
+}
+
+async function persistAllSocialDrafts(draftsArray, currentSalon) {
+    const jsonStr = JSON.stringify(draftsArray);
+    localStorage.setItem(`vaimup_social_drafts_${currentSalon}`, jsonStr);
+    if (typeof sysSettings !== 'undefined') sysSettings['social_saved_drafts'] = jsonStr;
+
+    await window.universalQuery({
+        action: 'UPSERT_SETTING',
+        data: { key: 'social_saved_drafts', value: jsonStr }
+    });
+}
+
+function renderSavedSocialDraftsDropdown(draftsArray = null, selectedId = '') {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const badge = document.getElementById('ss-saved-drafts-badge');
+    if (!dropdown) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const drafts = draftsArray || loadAllSocialDraftsFromStorage(currentSalon);
+
+    if (badge) badge.innerText = `${drafts.length} salvat${drafts.length === 1 ? 'a' : 'e'}`;
+
+    if (drafts.length === 0) {
+        dropdown.innerHTML = `<option value="">-- Nessuna bozza salvata --</option>`;
+        return;
+    }
+
+    dropdown.innerHTML = `<option value="">-- Seleziona una bozza salvata --</option>` +
+        drafts.map(d => {
+            const dateStr = d.saved_at ? new Date(d.saved_at).toLocaleDateString('it-IT') : '';
+            return `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.name} (${dateStr})</option>`;
+        }).join('');
+}
+window.renderSavedSocialDraftsDropdown = renderSavedSocialDraftsDropdown;
+
+function loadSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima una bozza dalla tendina.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    const allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target || !target.config) return alert("Impossibile caricare la bozza selezionata.");
+
+    const c = target.config;
+    const s = window._socialStudioState;
+
+    // Ripristino parametri di stato
+    s.template = c.template || 'custom';
+    s.theme = c.theme || 'luxury-gold';
+    s.bgType = c.bgType || 'preset';
+    s.bgPresetId = c.bgPresetId || 'lux_obsidian_gold';
+    s.bgOverlayOpacity = c.bgOverlayOpacity !== undefined ? c.bgOverlayOpacity : 0.65;
+    s.badgeText = c.badgeText || '';
+    s.title = c.title || '';
+    s.subtitle = c.subtitle || '';
+    s.highlightText = c.highlightText || '';
+    s.showLogo = c.showLogo ?? true;
+    s.showBookingBadge = c.showBookingBadge ?? true;
+    s.showQrCode = c.showQrCode ?? false;
+    s.logoShape = c.logoShape || 'natural';
+    s.logoFilter = c.logoFilter || 'none';
+    s.selectedPresetId = c.selectedPresetId || 'current';
+    s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
+
+    // Ripristino formato canvas
+    if (c.format) {
+        setSocialFormat(c.format);
+    }
+
+    // Ripristino elementi, font, posizioni e colori individuali
+    if (c.elements) {
+        window._socialElements = JSON.parse(JSON.stringify(c.elements));
+    }
+
+    // Sincronizzazione campi UI
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = target.name;
+
+    const tplSelect = document.getElementById('ss-template-select');
+    if (tplSelect) tplSelect.value = s.template;
+
+    const thmSelect = document.getElementById('ss-theme-select');
+    if (thmSelect) thmSelect.value = s.theme;
+
+    const badgeInput = document.getElementById('ss-input-badge');
+    if (badgeInput) badgeInput.value = s.badgeText;
+
+    const titleInput = document.getElementById('ss-input-title');
+    if (titleInput) titleInput.value = s.title;
+
+    const subInput = document.getElementById('ss-input-subtitle');
+    if (subInput) subInput.value = s.subtitle;
+
+    const highInput = document.getElementById('ss-input-highlight');
+    if (highInput) highInput.value = s.highlightText;
+
+    const sliderOverlay = document.getElementById('ss-bg-overlay-slider');
+    const lblOverlay = document.getElementById('ss-bg-overlay-label');
+    if (sliderOverlay) sliderOverlay.value = s.bgOverlayOpacity;
+    if (lblOverlay) lblOverlay.innerText = `${Math.round(s.bgOverlayOpacity * 100)}%`;
+
+    const cbLogo = document.getElementById('ss-toggle-logo');
+    if (cbLogo) cbLogo.checked = s.showLogo;
+
+    const cbSticker = document.getElementById('ss-toggle-booking-badge');
+    if (cbSticker) cbSticker.checked = s.showBookingBadge;
+
+    const cbQr = document.getElementById('ss-toggle-qr');
+    if (cbQr) cbQr.checked = s.showQrCode;
+
+    const shapeSelect = document.getElementById('ss-logo-shape-select');
+    if (shapeSelect) shapeSelect.value = s.logoShape;
+
+    const filterSelect = document.getElementById('ss-logo-filter-select');
+    if (filterSelect) filterSelect.value = s.logoFilter;
+
+    // Sincronizza galleria sfondi e checklist
+    highlightActiveBgThumbnail();
+    renderSocialPricelistItemCheckboxes();
+    syncSideColorPickersToTheme();
+    updateCaptionPreview();
+    renderSocialCanvas();
+
+    alert(`📖 Bozza "${target.name}" caricata con successo!`);
+}
+window.loadSelectedSocialDraft = loadSelectedSocialDraft;
+
+async function deleteSelectedSocialDraft() {
+    const dropdown = document.getElementById('ss-saved-drafts-dropdown');
+    const selectedId = dropdown?.value;
+
+    if (!selectedId) return alert("Seleziona prima la bozza da eliminare.");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    let allDrafts = loadAllSocialDraftsFromStorage(currentSalon);
+    const target = allDrafts.find(d => d.id === selectedId);
+
+    if (!target) return;
+    if (!confirm(`Sei sicuro di voler eliminare definitivamente la bozza "${target.name}"?`)) return;
+
+    allDrafts = allDrafts.filter(d => d.id !== selectedId);
+    await persistAllSocialDrafts(allDrafts, currentSalon);
+
+    renderSavedSocialDraftsDropdown(allDrafts);
+    const nameInput = document.getElementById('ss-draft-name-input');
+    if (nameInput) nameInput.value = '';
+    alert("🗑️ Bozza eliminata.");
+}
+window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
+
+// =========================================================================
+// 🎨 GALLERIA SFONDI D'AUTORE: RENDER MINIATURE & APPLICAZIONE
+// =========================================================================
+
+let _activeBgGalleryCategory = 'all';
+
+function renderSocialBgGalleryThumbnails() {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (!container) return;
+
+    const activePresetId = window._socialStudioState.bgPresetId;
+    const cat = _activeBgGalleryCategory;
+
+    const filtered = (cat === 'all') 
+        ? SOCIAL_BG_PRESETS 
+        : SOCIAL_BG_PRESETS.filter(p => p.category === cat);
+
+    container.innerHTML = filtered.map(p => {
+        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
+        const gradStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
+
+        return `
+            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
+                 id="bg-thumb-${p.id}"
+                 style="${gradStyle}"
+                 onclick="selectSocialBgPreset('${p.id}')"
+                 title="${p.name}">
+                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
+                <div class="ss-bg-thumb-title">${p.name}</div>
+            </div>
+        `;
+    }).join('');
+}
+window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
+
+function filterSocialBgGallery(cat) {
+    _activeBgGalleryCategory = cat;
+    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
+    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+    renderSocialBgGalleryThumbnails();
+}
+window.filterSocialBgGallery = filterSocialBgGallery;
+
+function selectSocialBgPreset(presetId) {
+    const p = SOCIAL_BG_PRESETS.find(x => x.id === presetId);
+    if (!p) return;
+
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = presetId;
+    window._socialStudioState.uploadedBgImg = null; // Disattiva foto custom
+
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    highlightActiveBgThumbnail();
+    renderSocialCanvas();
+}
+window.selectSocialBgPreset = selectSocialBgPreset;
+
+function highlightActiveBgThumbnail() {
+    const s = window._socialStudioState;
+    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
+    if (s.bgType === 'preset') {
+        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
+        if (card) {
+            card.classList.add('active-bg');
+            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }
+}
+
+function resetToThemeDefaultBackground() {
+    window._socialStudioState.bgType = 'default';
+    window._socialStudioState.uploadedBgImg = null;
+    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
+    renderSocialCanvas();
+}
+window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
+
+// =========================================================================
+// 🖌️ MOTORE DI DISEGNO GENERATIVO SFONDI CANVAS (2D ULTRA-HD)
+// =========================================================================
+
+function drawSocialBackgroundPreset(ctx, W, H, presetId) {
+    const p = SOCIAL_BG_PRESETS.find(x => x.id === presetId) || SOCIAL_BG_PRESETS[0];
+
+    // 1. Gradiente base
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, p.gradient[0]);
+    grad.addColorStop(1, p.gradient[1]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+
+    // 2. Forme e Geometrie Vettoriali Specifiche per ogni Preset
+    if (p.id === 'lux_obsidian_gold') {
+        // Riflesso oro radiale e polvere dorata
+        const rad = ctx.createRadialGradient(W * 0.7, H * 0.2, 50, W * 0.7, H * 0.2, W * 0.6);
+        rad.addColorStop(0, 'rgba(212, 175, 55, 0.25)');
+        rad.addColorStop(1, 'transparent');
+        ctx.fillStyle = rad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = p.accent;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.25;
+        ctx.beginPath();
+        ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
+        ctx.stroke();
+    } 
+    else if (p.id === 'lux_marble_gold') {
+        // Venature dorate astratte
+        ctx.strokeStyle = p.accent;
+        ctx.globalAlpha = 0.22;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.3);
+        ctx.bezierCurveTo(W * 0.4, H * 0.25, W * 0.6, H * 0.45, W, H * 0.35);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.75);
+        ctx.bezierCurveTo(W * 0.35, H * 0.8, W * 0.7, H * 0.65, W, H * 0.7);
+        ctx.stroke();
+    }
+    else if (p.id === 'beauty_rose_silk' || p.id === 'beauty_glamour_blush') {
+        // Onde sinuose di seta e sfere morbide
+        const rad = ctx.createRadialGradient(W * 0.3, H * 0.4, 40, W * 0.3, H * 0.4, W * 0.7);
+        rad.addColorStop(0, 'rgba(244, 114, 182, 0.28)');
+        rad.addColorStop(1, 'transparent');
+        ctx.fillStyle = rad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = 'rgba(232, 196, 202, 0.08)';
+        ctx.beginPath();
+        ctx.arc(W * 0.1, H * 0.25, 320, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(W * 0.9, H * 0.75, 280, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    else if (p.id === 'barber_dark_leather' || p.id === 'barber_carbon_smoke') {
+        // Taglio a lama diagonale e pinstripe vintage
+        ctx.strokeStyle = p.accent;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.18);
+        ctx.lineTo(W, H * 0.12);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.82);
+        ctx.lineTo(W, H * 0.88);
+        ctx.stroke();
+
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.15;
+        for (let x = 60; x < W; x += 120) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+            ctx.stroke();
+        }
+    }
+    else if (p.id === 'minimal_ivory_arch' || p.id === 'minimal_emerald') {
+        // Grande arco architettonico scultoreo
+        ctx.strokeStyle = p.accent;
+        ctx.lineWidth = 2.5;
+        ctx.globalAlpha = 0.28;
+        ctx.beginPath();
+        ctx.arc(W / 2, H * 0.5, W * 0.42, Math.PI, 0, false);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.beginPath();
+        ctx.arc(W / 2, H * 0.5, W * 0.38, Math.PI, 0, false);
+        ctx.fill();
+    }
+    else if (p.id.startsWith('neon_')) {
+        // Bagliori neon luminosi contrapposti
+        const neonGrad1 = ctx.createRadialGradient(W * 0.2, H * 0.25, 40, W * 0.2, H * 0.25, W * 0.5);
+        neonGrad1.addColorStop(0, 'rgba(168, 85, 247, 0.35)');
+        neonGrad1.addColorStop(1, 'transparent');
+        ctx.fillStyle = neonGrad1;
+        ctx.fillRect(0, 0, W, H);
+
+        const neonGrad2 = ctx.createRadialGradient(W * 0.8, H * 0.75, 40, W * 0.8, H * 0.75, W * 0.5);
+        neonGrad2.addColorStop(0, 'rgba(6, 182, 212, 0.3)');
+        neonGrad2.addColorStop(1, 'transparent');
+        ctx.fillStyle = neonGrad2;
+        ctx.fillRect(0, 0, W, H);
+    }
+
+    ctx.restore();
+}
+
+// =========================================================================
 // 🔤 FUNZIONI REGOLAZIONE SCALA FONT / DIMENSIONE
+// =========================================================================
+
 function stepScaleSocialElem(elemId, step) {
     const canvas = document.getElementById('social-render-canvas');
     const isStory = (window._socialStudioState.format === 'story');
@@ -28276,6 +28772,8 @@ async function initSocialStudioView() {
         populatePrintStudioPresetsInSocialStudio(currentSalon);
     }
     renderSocialPricelistItemCheckboxes();
+    renderSocialBgGalleryThumbnails();
+    renderSavedSocialDraftsDropdown();
     updateCaptionPreview();
     renderSocialCanvas();
 }
@@ -28492,8 +28990,10 @@ function handleSocialBgUpload(e) {
         const img = new Image();
         img.onload = () => {
             window._socialStudioState.uploadedBgImg = img;
+            window._socialStudioState.bgType = 'upload'; // Imposta modalità foto custom
             const clearBtn = document.getElementById('btn-clear-social-bg');
             if (clearBtn) clearBtn.style.display = 'inline-flex';
+            document.querySelectorAll('.ss-bg-thumb-card').forEach(c => c.classList.remove('active-bg'));
             renderSocialCanvas();
         };
         img.src = event.target.result;
@@ -28504,10 +29004,12 @@ window.handleSocialBgUpload = handleSocialBgUpload;
 
 function clearSocialBgPhoto() {
     window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgType = 'preset';
     const input = document.getElementById('ss-bg-file-input');
     if (input) input.value = '';
     const clearBtn = document.getElementById('btn-clear-social-bg');
     if (clearBtn) clearBtn.style.display = 'none';
+    highlightActiveBgThumbnail();
     renderSocialCanvas();
 }
 window.clearSocialBgPhoto = clearSocialBgPhoto;
@@ -28660,6 +29162,10 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
+// =========================================================================
+// 🎨 DISEGNO PRINCIPALE CANVAS (CON INTEGRAZIONE SFONDI D'AUTORE)
+// =========================================================================
+
 function renderSocialCanvas() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -28686,34 +29192,29 @@ function renderSocialCanvas() {
         ? (currentUser.salon_id || 'SALON_001') 
         : 'SALON_001';
 
-    let bgColors = ['#11141a', '#080a0e'];
     let accentColor = '#D4AF37';
     let textMain = '#ffffff';
     let textSub = '#cbd5e1';
     let titleFontStack = "'Playfair Display', 'Cinzel', Didot, 'Times New Roman', serif";
 
     if (s.theme === 'rose-glamour') {
-        bgColors = ['#2e1c24', '#170b11'];
         accentColor = '#e8c4ca';
         titleFontStack = "'Playfair Display', 'Bodoni MT', Georgia, serif";
     } else if (s.theme === 'barber-vintage') {
-        bgColors = ['#1c1917', '#0c0a09'];
         accentColor = '#d97706';
         titleFontStack = "'Impact', 'Trebuchet MS', 'Arial Black', sans-serif";
     } else if (s.theme === 'botanical-minimal') {
-        bgColors = ['#062c21', '#021510'];
         accentColor = '#34d399';
         titleFontStack = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     } else if (s.theme === 'neon-violet') {
-        bgColors = ['#1e1035', '#0c0517'];
         accentColor = '#818cf8';
         titleFontStack = "'Inter', -apple-system, sans-serif";
     }
 
     ctx.clearRect(0, 0, W, H);
 
-    // SFONDO
-    if (s.uploadedBgImg) {
+    // A. SFONDO: FOTO CARICATA OPPURE SFONDO ARTISTICO DALLA GALLERIA
+    if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
         const shiftX = (W - img.width * ratio) / 2;
@@ -28727,23 +29228,25 @@ function renderSocialCanvas() {
         darkGrad.addColorStop(1, `rgba(10, 12, 18, ${Math.min(overlayAlpha + 0.2, 0.98)})`);
         ctx.fillStyle = darkGrad;
         ctx.fillRect(0, 0, W, H);
+    } else if (s.bgType === 'preset' && s.bgPresetId) {
+        drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
+
+        // Applica l'overlay di contrasto regolabile anche sullo sfondo artistico
+        const overlayAlpha = s.bgOverlayOpacity || 0.65;
+        if (overlayAlpha > 0.1) {
+            ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha * 0.75})`;
+            ctx.fillRect(0, 0, W, H);
+        }
     } else {
+        // Fallback predefinito del tema
         const radGrad = ctx.createRadialGradient(W / 2, H * 0.35, 100, W / 2, H / 2, W * 0.85);
-        radGrad.addColorStop(0, bgColors[0]);
-        radGrad.addColorStop(1, bgColors[1]);
+        radGrad.addColorStop(0, '#11141a');
+        radGrad.addColorStop(1, '#06080b');
         ctx.fillStyle = radGrad;
         ctx.fillRect(0, 0, W, H);
-
-        ctx.save();
-        ctx.fillStyle = accentColor;
-        ctx.globalAlpha = 0.12;
-        ctx.beginPath();
-        ctx.arc(W / 2, H * 0.4, W * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
     }
 
-    // CORNICE
+    // B. CORNICE PERIMETRALE SOTTILE
     ctx.save();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2.5;
@@ -28752,14 +29255,13 @@ function renderSocialCanvas() {
     ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
     ctx.restore();
 
-    // LOGO
-    // C. LOGO SALONE (HD, ASPECT-RATIO PERFETTO & FILTRO TINTA)
+    // C. LOGO SALONE (Con proporzioni perfette senza ritagli forzati)
     if (s.showLogo) {
         const el = elems.logo;
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // BADGE
+    // D. BADGE IN ALTO (Colore Sfondo e Testo Personalizzabili)
     if (s.badgeText) {
         const el = elems.badge;
         ctx.save();
@@ -28781,7 +29283,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // TITOLO
+    // E. TITOLO PRINCIPALE (Colore e Font Size Dinamici)
     if (s.title) {
         const el = elems.title;
         ctx.save();
@@ -28801,7 +29303,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // MENU OPPURE SOTTOTITOLO + HIGHLIGHT
+    // F. LISTINO MENU OPPURE SOTTOTITOLO + HIGHLIGHT
     if (s.template === 'pricelist') {
         const el = elems.menu;
         drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain);
@@ -28849,7 +29351,7 @@ function renderSocialCanvas() {
         }
     }
 
-    // QR CODE
+    // G. QR CODE SU GRAFICA
     if (s.showQrCode && s.qrImage) {
         const el = elems.qrcode;
         const qrScale = el.scale || 1.0;
@@ -28873,7 +29375,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // STICKER
+    // H. STICKER CALL-TO-ACTION PRENOTA ONLINE
     if (s.showBookingBadge) {
         const el = elems.sticker;
         ctx.save();
@@ -28897,7 +29399,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // SAFE ZONE INSTAGRAM
+    // I. GUIDE SAFE ZONE INSTAGRAM (SE ATTIVE)
     if (s.showSafeZone && isStory) {
         ctx.save();
         ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
@@ -28914,7 +29416,7 @@ function renderSocialCanvas() {
         ctx.restore();
     }
 
-    // BORDO SELEZIONE ELEMENTO ATTIVO
+    // L. BORDO SELEZIONE TOUCH STILE INSTAGRAM
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         const active = elems[window._activeSocialElemId];
         ctx.save();
