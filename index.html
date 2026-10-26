@@ -28385,7 +28385,8 @@ function getDefaultSocialElements(W, H, isStory) {
         logo: { id: 'logo', name: 'Logo', icon: '🖼️', x: W / 2, y: isStory ? 230 : 160, scale: 1.0, w: 150, h: 150, color: null, bgColor: null },
         badge: { id: 'badge', name: 'Badge', icon: '🏷️', x: W / 2, y: isStory ? 410 : 270, scale: 1.0, w: 280, h: 50, color: null, bgColor: null },
         title: { id: 'title', name: 'Titolo', icon: '✨', x: W / 2, y: isStory ? 590 : 420, scale: 1.0, w: 860, h: 160, color: null, bgColor: null },
-        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 810 : 590, scale: 1.0, w: 820, h: 100, color: null, bgColor: null },
+        subtitle: { id: 'subtitle', name: 'Sottotitolo', icon: '📝', x: W / 2, y: isStory ? 530 : 380, scale: 1.0, w: 820, h: 100, color: null, bgColor: null },
+highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1340 : 960, scale: 1.0, w: 540, h: 80, color: null, bgColor: null },
         highlight: { id: 'highlight', name: 'Box Evidenza', icon: '💎', x: W / 2, y: isStory ? 1040 : 770, scale: 1.0, w: 540, h: 80, color: null, bgColor: null },
         menu: { id: 'menu', name: 'Listino Prezzi', icon: '📑', x: W / 2, y: isStory ? 920 : 680, scale: 1.0, w: 860, h: 360, color: null, bgColor: null },
         qrcode: { id: 'qrcode', name: 'QR Code', icon: '📲', x: W / 2, y: isStory ? 1320 : 920, scale: 1.0, w: 230, h: 230, color: null, bgColor: null },
@@ -28686,7 +28687,13 @@ function onSocialTemplateChanged(tpl) {
         if (titleInput) titleInput.value = 'Luce, Armonia & Nuova Forma';
         if (subInput) subInput.value = 'Tecnica Balayage Biondo Sabbia & Trattamento Botox Capillare.';
         if (highInput) highInput.value = 'Richiedi la tua consulenza personalizzata';
-    } else if (tpl === 'quote') {
+    } else if (tpl === 'pricelist') {
+    window._socialElements.badge.y = isStory ? 330 : 220;
+    window._socialElements.title.y = isStory ? 430 : 300;
+    window._socialElements.subtitle.y = isStory ? 530 : 380;     // ✅ Sopra il listino
+    window._socialElements.menu.y = isStory ? 920 : 680;         // Al centro
+    window._socialElements.highlight.y = isStory ? 1340 : 960;   // ✅ Sotto il listino
+} else if (tpl === 'quote') {
         if (badgeInput) badgeInput.value = 'PAROLA DI CLIENTE';
         if (titleInput) titleInput.value = '«Il miglior salone in assoluto!»';
         if (subInput) subInput.value = 'Professionalità impeccabile, puntualità e un ambiente rilassante. Non potrei chiedere di meglio.';
@@ -30093,16 +30100,15 @@ function attachCanvasTouchGestures() {
         const s = window._socialStudioState;
         if (!elems || !s) return null;
 
-        const candidates = ['sticker', 'qrcode', 'highlight', 'menu', 'subtitle', 'title', 'badge', 'logo'];
-        for (let key of candidates) {
-            if (key === 'logo' && !s.showLogo) continue;
-            if (key === 'sticker' && !s.showBookingBadge) continue;
-            if (key === 'qrcode' && !s.showQrCode) continue;
-            if (key === 'menu' && s.template !== 'pricelist') continue;
-            if (key === 'subtitle' && (s.template === 'pricelist' || !s.subtitle)) continue;
-            if (key === 'highlight' && (s.template === 'pricelist' || !s.highlightText)) continue;
-            if (key === 'badge' && !s.badgeText) continue;
-
+        // Spostiamo 'subtitle' e 'highlight' prima di 'menu' e togliamo il blocco s.template === 'pricelist'
+            const candidates = ['sticker', 'qrcode', 'highlight', 'subtitle', 'title', 'badge', 'menu', 'logo'];
+            for (let key of candidates) {
+                if (key === 'logo' && !s.showLogo) continue;
+                if (key === 'sticker' && !s.showBookingBadge) continue;
+                if (key === 'qrcode' && !s.showQrCode) continue;
+                if (key === 'menu' && s.template !== 'pricelist') continue;
+                if (key === 'subtitle' && !s.subtitle) continue; // ✅ MODIFICATO: ora è cliccabile e trascinabile
+                if (key === 'highlight' && !s.highlightText) continue; // ✅ MODIFICATO: ora è cliccabile e trascinabile
             const el = elems[key];
             if (!el || !Number.isFinite(el.x) || !Number.isFinite(el.y)) continue;
 
