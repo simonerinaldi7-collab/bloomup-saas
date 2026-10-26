@@ -28072,7 +28072,7 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COLORI TOTALI & PRIMA/DOPO HD)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO & INTEGRALE)
 // =========================================================================
 
 // 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING GEOMETRICO E TESTUALE
@@ -28176,8 +28176,9 @@ function onQuickTextEdit(value) {
 }
 window.onQuickTextEdit = onQuickTextEdit;
 
-// 🎨 3. LIBRERIA SFONDI (18 PRESET CON FOTO HD E FORME)
+// 🎨 3. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
 window.SOCIAL_BG_PRESETS = [
+    // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
         id: 'season_autumn', category: 'seasons', name: 'Autunno & Foglie Oro', isLight: false,
         imgUrl: 'https://images.unsplash.com/photo-1507371341162-763b5e419408?auto=format&fit=crop&w=1080&q=80',
@@ -28198,6 +28199,8 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=1080&q=80',
         gradient: ['#0F172A', '#020617'], accent: '#38BDF8', textMain: '#FFFFFF', textSub: '#BAE6FD' 
     },
+
+    // 🌸 BEAUTY, SPA & GLAMOUR
     { 
         id: 'beauty_skincare_glow', category: 'beauty', name: 'Rituale Glow Skincare', isLight: true,
         imgUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1080&q=80',
@@ -28218,6 +28221,8 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#F5F3FF', '#EDE9FE'], accent: '#7C3AED', textMain: '#1E1B4B', textSub: '#4C1D95' 
     },
+
+    // ✂️ HAIR & BARBER
     { 
         id: 'hair_balayage_salon', category: 'hair', name: 'Onde Balayage Salone', isLight: false,
         imgUrl: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=1080&q=80',
@@ -28233,6 +28238,8 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#3E1E0F', '#140803'], accent: '#F59E0B', textMain: '#FFFFFF', textSub: '#FDE68A' 
     },
+
+    // 👑 LUXURY & ORO
     { 
         id: 'lux_carrara_marble', category: 'luxury', name: 'Marmo Bianco & Venature', isLight: true,
         imgUrl: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1080&q=80',
@@ -28248,6 +28255,8 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#2E2318', '#120D08'], accent: '#FDE68A', textMain: '#FFFFFF', textSub: '#FDE047' 
     },
+
+    // 🌿 MINIMAL & BOHO
     { 
         id: 'minimal_terracotta', category: 'minimal', name: 'Terracotta Boho Arch', isLight: true,
         imgUrl: null,
@@ -28258,6 +28267,8 @@ window.SOCIAL_BG_PRESETS = [
         imgUrl: null,
         gradient: ['#064E3B', '#022C22'], accent: '#34D399', textMain: '#FFFFFF', textSub: '#A7F3D0' 
     },
+
+    // ⚡ NEON & TREND
     { 
         id: 'neon_sunset_glow', category: 'neon', name: 'Sunset Magenta & Arancio', isLight: false,
         imgUrl: null,
@@ -28279,8 +28290,8 @@ window._socialStudioState = {
     bgType: 'preset',
     bgPresetId: 'season_autumn',
     uploadedBgImg: null,
-    beforeImg: null,             // 📸 Foto Prima caricata dal dispositivo
-    afterImg: null,              // 📸 Foto Dopo caricata dal dispositivo
+    beforeImg: null,
+    afterImg: null,
     bgOverlayOpacity: 0.15,
     badgeText: 'NOVITÀ SMART',
     title: 'Prenota in 5 secondi senza scaricare nessuna app!',
@@ -28314,16 +28325,21 @@ function getDefaultSocialElements(W, H, isStory) {
 window._socialElements = null;
 window._activeSocialElemId = null;
 
+let isTouchDragging = false;
+let touchDragStartX = 0;
+let touchDragStartY = 0;
+let initialElemX = 0;
+let initialElemY = 0;
+let initialPinchDistance = 0;
+let initialPinchScale = 1.0;
+
 function ensureSocialElementsInitialized(W, H, isStory) {
     if (!window._socialElements) {
         window._socialElements = getDefaultSocialElements(W, H, isStory);
     }
 }
 
-// =========================================================================
-// 📸 GESTIONE FOTO PRIMA E DOPO
-// =========================================================================
-
+// 📸 4. CARICAMENTO FOTO PRIMA E DOPO
 function handleBeforePhotoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -28380,10 +28396,184 @@ function clearAfterPhoto() {
 }
 window.clearAfterPhoto = clearAfterPhoto;
 
-// =========================================================================
-// 🚀 CAMBIO MODELLO STRATEGICO
-// =========================================================================
+// 🖼️ 5. GALLERIA SFONDI: MINIATURE, SCROLL PC, FILTRI & DISEGNO (RIPRISTINATE INTEGRALMENTE)
+let _activeBgGalleryCategory = 'all';
 
+function renderSocialBgGalleryThumbnails() {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (!container) return;
+
+    if (!container._wheelAttached) {
+        container._wheelAttached = true;
+        container.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                container.scrollLeft += e.deltaY * 1.4;
+            }
+        }, { passive: false });
+    }
+
+    const activePresetId = window._socialStudioState.bgPresetId;
+    const cat = _activeBgGalleryCategory;
+
+    const filtered = (cat === 'all') 
+        ? window.SOCIAL_BG_PRESETS 
+        : window.SOCIAL_BG_PRESETS.filter(p => p.category === cat);
+
+    container.innerHTML = filtered.map(p => {
+        const isActive = (window._socialStudioState.bgType === 'preset' && activePresetId === p.id);
+        
+        let thumbStyle = '';
+        if (p.imgUrl) {
+            thumbStyle = `background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.65)), url('${p.imgUrl}');`;
+        } else {
+            thumbStyle = `background: linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%);`;
+        }
+
+        return `
+            <div class="ss-bg-thumb-card ${isActive ? 'active-bg' : ''}" 
+                 id="bg-thumb-${p.id}"
+                 style="${thumbStyle}"
+                 onclick="selectSocialBgPreset('${p.id}')"
+                 title="${p.name}">
+                <div style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: ${p.accent}; box-shadow: 0 0 6px ${p.accent};"></div>
+                <div class="ss-bg-thumb-title" style="color: ${p.isLight ? '#0F172A' : '#FFFFFF'}; background: ${p.isLight ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)'};">${p.name}</div>
+            </div>
+        `;
+    }).join('');
+}
+window.renderSocialBgGalleryThumbnails = renderSocialBgGalleryThumbnails;
+
+function scrollBgThumbnails(px) {
+    const container = document.getElementById('ss-bg-thumbnails-scroll');
+    if (container) {
+        container.scrollBy({ left: px, behavior: 'smooth' });
+    }
+}
+window.scrollBgThumbnails = scrollBgThumbnails;
+
+function filterSocialBgGallery(cat) {
+    _activeBgGalleryCategory = cat;
+    document.querySelectorAll('[id^="btn-bg-cat-"]').forEach(btn => btn.classList.remove('active-pill'));
+    const activeBtn = document.getElementById(`btn-bg-cat-${cat}`);
+    if (activeBtn) activeBtn.classList.add('active-pill');
+    renderSocialBgGalleryThumbnails();
+}
+window.filterSocialBgGallery = filterSocialBgGallery;
+
+function selectSocialBgPreset(presetId) {
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId);
+    if (!p) return;
+
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = presetId;
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = p.imgUrl ? 0.35 : 0.05;
+
+    const clearBtn = document.getElementById('btn-clear-social-bg');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    const overlaySlider = document.getElementById('ss-bg-overlay-slider');
+    const overlayLabel = document.getElementById('ss-bg-overlay-label');
+    if (overlaySlider) overlaySlider.value = window._socialStudioState.bgOverlayOpacity;
+    if (overlayLabel) overlayLabel.innerText = `${Math.round(window._socialStudioState.bgOverlayOpacity * 100)}%`;
+
+    if (p.imgUrl && !window._socialBgImageCache.has(p.imgUrl)) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            window._socialBgImageCache.set(p.imgUrl, img);
+            renderSocialCanvas();
+        };
+        img.src = p.imgUrl;
+    }
+
+    if (window._socialElements) {
+        if (!window._socialElements.title.color) {
+            window._socialElements.title.color = p.isLight ? '#1C1917' : '#FFFFFF';
+        }
+        if (!window._socialElements.subtitle.color) {
+            window._socialElements.subtitle.color = p.isLight ? '#57534E' : '#CBD5E1';
+        }
+    }
+
+    highlightActiveBgThumbnail();
+    syncSideColorPickersToTheme();
+    renderSocialCanvas();
+}
+window.selectSocialBgPreset = selectSocialBgPreset;
+
+function highlightActiveBgThumbnail() {
+    const s = window._socialStudioState;
+    document.querySelectorAll('.ss-bg-thumb-card').forEach(card => card.classList.remove('active-bg'));
+    if (s.bgType === 'preset') {
+        const card = document.getElementById(`bg-thumb-${s.bgPresetId}`);
+        if (card) {
+            card.classList.add('active-bg');
+            card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }
+}
+window.highlightActiveBgThumbnail = highlightActiveBgThumbnail;
+
+function resetToThemeDefaultBackground() {
+    window._socialStudioState.bgType = 'preset';
+    window._socialStudioState.bgPresetId = 'season_autumn';
+    window._socialStudioState.uploadedBgImg = null;
+    window._socialStudioState.bgOverlayOpacity = 0.15;
+    highlightActiveBgThumbnail();
+    renderSocialCanvas();
+}
+window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
+
+function drawSocialBackgroundPreset(ctx, W, H, presetId) {
+    const p = window.SOCIAL_BG_PRESETS.find(x => x.id === presetId) || window.SOCIAL_BG_PRESETS[0];
+
+    let imageDrawn = false;
+    if (p.imgUrl && window._socialBgImageCache.has(p.imgUrl)) {
+        const img = window._socialBgImageCache.get(p.imgUrl);
+        if (img && img.complete && img.naturalWidth > 0) {
+            const ratio = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+            const shiftX = (W - img.naturalWidth * ratio) / 2;
+            const shiftY = (H - img.naturalHeight * ratio) / 2;
+            ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
+            imageDrawn = true;
+        }
+    }
+
+    if (!imageDrawn) {
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, p.gradient[0]);
+        grad.addColorStop(1, p.gradient[1]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.save();
+        if (p.id === 'season_autumn') {
+            const rad = ctx.createRadialGradient(W * 0.7, H * 0.3, 50, W * 0.7, H * 0.3, W * 0.7);
+            rad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
+            rad.addColorStop(1, 'transparent');
+            ctx.fillStyle = rad;
+            ctx.fillRect(0, 0, W, H);
+        } else if (p.id === 'lux_obsidian_gold' || p.id === 'lux_carrara_marble') {
+            ctx.strokeStyle = p.accent;
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = 0.45;
+            ctx.beginPath();
+            ctx.arc(W * 0.85, H * 0.15, 260, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (p.id === 'beauty_rose_silk') {
+            ctx.fillStyle = 'rgba(219, 39, 119, 0.12)';
+            ctx.beginPath();
+            ctx.arc(W * 0.1, H * 0.85, 380, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+window.drawSocialBackgroundPreset = drawSocialBackgroundPreset;
+
+// 🚀 6. CAMBIO MODELLO STRATEGICO
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
@@ -28394,7 +28584,6 @@ function onSocialTemplateChanged(tpl) {
     const subInput = document.getElementById('ss-input-subtitle');
     const highInput = document.getElementById('ss-input-highlight');
 
-    // Visualizza box condizionali
     if (sourceBox) sourceBox.style.display = (tpl === 'pricelist') ? 'block' : 'none';
     if (beforeAfterBox) beforeAfterBox.style.display = (tpl === 'transformation') ? 'block' : 'none';
 
@@ -28478,10 +28667,7 @@ function onSocialTemplateChanged(tpl) {
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
-// =========================================================================
-// 🎨 RENDERING CANVAS PRINCIPALE
-// =========================================================================
-
+// 🎨 7. RENDERING CANVAS PRINCIPALE
 function renderSocialCanvas() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas) return;
@@ -28497,7 +28683,6 @@ function renderSocialCanvas() {
 
     const elems = window._socialElements;
 
-    // Lettura sicura dagli input preservando gli spazi
     const bIn = document.getElementById('ss-input-badge');
     if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
 
@@ -28531,7 +28716,7 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // 1. SFONDO (FOTO O PRESET)
+    // SFONDO (FOTO O PRESET)
     if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28551,7 +28736,7 @@ function renderSocialCanvas() {
         }
     }
 
-    // 2. CORNICE PERIMETRALE
+    // CORNICE PERIMETRALE
     ctx.save();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 2.5;
@@ -28560,18 +28745,14 @@ function renderSocialCanvas() {
     ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
     ctx.restore();
 
-    // 3. LOGO SALONE
+    // LOGO SALONE
     if (s.showLogo) {
         const el = elems.logo;
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // =========================================================================
-    // 🌟 4. RENDERING STRUTTURALE SPECIALIZZATO (TUTTI I TESTI VISIBILI)
-    // =========================================================================
-
+    // RENDERING STRUTTURALE DIFFERENZIATO
     if (s.template === 'pricelist') {
-        // --- 1. LISTINO TRATTAMENTI: BADGE, TITOLO, SOTTOTITOLO, MENU & HIGHLIGHT TUTTI VISIBILI! ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
@@ -28579,7 +28760,6 @@ function renderSocialCanvas() {
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     } 
     else if (s.template === 'launch_no_app') {
-        // --- 2. LANCIO SENZA APP: BADGE, TITOLO, SOTTOTITOLO, 3 CARD E BOX EVIDENZA VISIBILI! ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
@@ -28587,77 +28767,61 @@ function renderSocialCanvas() {
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
     else if (s.template === 'lastminute') {
-        // --- 3. LAST MINUTE / BUCO AGENDA: TICKET DINAMICO E COLORABILE ---
         drawUrgencyBadge(ctx, s, elems.badge, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'promo') {
-        // --- 4. OFFERTA FLASH: TAGLIO PREZZO COLORABILE ---
         drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
     }
     else if (s.template === 'transformation') {
-        // --- 5. NUOVO PRIMA & DOPO: CONFRONTO SLIDER REALE CON FOTO DA DISPOSITIVO ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-        
-        // 🌟 DISEGNO SLIDER CONFRONTO PRIMA & DOPO CON MANIGLIA CENTRALE
         drawBeforeAfterComparisonHero(ctx, s, W, isStory ? 580 : 420, isStory ? 520 : 380, accentColor, activePreset);
-        
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
     else if (s.template === 'quote') {
-        // --- 6. RECENSIONE: 5 STELLE ORO E VIRGOLETTE ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
     }
     else {
-        // --- 7. GRAFICA LIBERA ---
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
         drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
         drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
     }
 
-    // 5. QR CODE (SE ATTIVO)
     if (s.showQrCode && s.qrImage) {
         drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
     }
 
-    // 6. STICKER CALL TO ACTION (SE ATTIVO)
     if (s.showBookingBadge) {
         drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
     }
 
-    // 7. BORDO TOUCH SELEZIONE
     if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
         drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
     }
 }
 window.renderSocialCanvas = renderSocialCanvas;
 
-// =========================================================================
-// 📸 NUOVO MOTORE PRIMA & DOPO: CONFRONTO FOTOGRAFICO REALE
-// =========================================================================
-
+// 📸 8. COMPONENTI GRAFICI SPECIALIZZATI
 function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentColor, activePreset) {
     const frameW = Math.min(W - 140, 920);
     const frameH = blockHeight;
     const startX = W / 2 - frameW / 2;
-    const splitX = startX + frameW / 2; // Linea di divisione esatta al 50%
+    const splitX = startX + frameW / 2;
 
     ctx.save();
-
-    // 1. Maschera perimetrale arrotondata per l'intero blocco del confronto
     drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
     ctx.clip();
 
-    // 2. FOTO PRIMA (LATO SINISTRO)
+    // Foto PRIMA (SX)
     ctx.save();
     ctx.beginPath();
     ctx.rect(startX, startY, frameW / 2, frameH);
@@ -28670,7 +28834,6 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
         const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
         ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
     } else {
-        // Placeholder estetico prima del caricamento
         ctx.fillStyle = activePreset.isLight ? '#F1F5F9' : '#1E293B';
         ctx.fillRect(startX, startY, frameW / 2, frameH);
         ctx.fillStyle = activePreset.isLight ? '#94A3B8' : '#64748B';
@@ -28681,7 +28844,7 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
     }
     ctx.restore();
 
-    // 3. FOTO DOPO (LATO DESTRO)
+    // Foto DOPO (DX)
     ctx.save();
     ctx.beginPath();
     ctx.rect(splitX, startY, frameW / 2, frameH);
@@ -28694,7 +28857,6 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
         const shiftY = startY + (frameH - img.naturalHeight * ratio) / 2;
         ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, shiftX, shiftY, img.naturalWidth * ratio, img.naturalHeight * ratio);
     } else {
-        // Placeholder estetico prima del caricamento
         ctx.fillStyle = activePreset.isLight ? '#E2E8F0' : '#0F172A';
         ctx.fillRect(splitX, startY, frameW / 2, frameH);
         ctx.fillStyle = activePreset.isLight ? '#64748B' : '#94A3B8';
@@ -28705,16 +28867,15 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
     }
     ctx.restore();
 
-    ctx.restore(); // Fine clip generale
+    ctx.restore();
 
-    // 4. BORDO PERIMETRALE ELEGANTE
+    // Bordo e Cursore Divisorio
     ctx.save();
     ctx.strokeStyle = activePreset.isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)';
     ctx.lineWidth = 2;
     drawRoundedRect(ctx, startX, startY, frameW, frameH, 20);
     ctx.stroke();
 
-    // 5. LINEA DI SEPARAZIONE VERTICALE CON MANIGLIA CENTRALE (COME NELLE MIGLIORI APP)
     ctx.beginPath();
     ctx.moveTo(splitX, startY);
     ctx.lineTo(splitX, startY + frameH);
@@ -28724,7 +28885,6 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
     ctx.shadowBlur = 8;
     ctx.stroke();
 
-    // Maniglia circolare centrale con frecce
     const handleY = startY + frameH / 2;
     ctx.beginPath();
     ctx.arc(splitX, handleY, 26, 0, Math.PI * 2);
@@ -28743,18 +28903,15 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
     ctx.textBaseline = 'middle';
     ctx.fillText('◀ ✦ ▶', splitX, handleY);
 
-    // 6. BADGE GLASSMORPHIC "PRIMA" E "DOPO" SOPRA LE FOTO
-    // Badge PRIMA (Sinistra)
+    // Badge PRIMA
     ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
     drawRoundedRect(ctx, startX + 16, startY + 16, 95, 34, 17);
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     ctx.fillText('PRIMA', startX + 16 + 95 / 2, startY + 16 + 17);
 
-    // Badge DOPO (Destra)
+    // Badge DOPO
     ctx.fillStyle = accentColor;
     drawRoundedRect(ctx, startX + frameW - 16 - 110, startY + 16, 110, 34, 17);
     ctx.fill();
@@ -28764,10 +28921,6 @@ function drawBeforeAfterComparisonHero(ctx, s, W, startY, blockHeight, accentCol
 
     ctx.restore();
 }
-
-// =========================================================================
-// 🌟 COMPONENTI GRAFICI SPECIALIZZATI (REATTIVI AI COLORI)
-// =========================================================================
 
 function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     const perks = [
@@ -28807,7 +28960,6 @@ function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
     ctx.restore();
 }
 
-// 🎫 TICKET LAST MINUTE CON COLORI COMPLETAMENTE REATTIVI
 function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
@@ -28818,16 +28970,13 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     el.w = boxW;
     el.h = boxH;
 
-    // Colore primario del ticket (prende el.bgColor scelto dall'utente o l'accento)
     const ticketColor = el.bgColor || accentColor || '#F59E0B';
 
     ctx.save();
-    // Sfondo Ticket
     ctx.fillStyle = el.bgColor ? `${el.bgColor}26` : (activePreset.isLight ? '#FFFFFF' : 'rgba(245, 158, 11, 0.15)');
     drawRoundedRect(ctx, x, y, boxW, boxH, 20 * scale);
     ctx.fill();
 
-    // Bordo Tratteggiato da Coupon
     ctx.strokeStyle = ticketColor;
     ctx.lineWidth = 3 * scale;
     ctx.setLineDash([12 * scale, 8 * scale]);
@@ -28835,14 +28984,12 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Dicitura in alto
     ctx.fillStyle = ticketColor;
     ctx.font = `900 ${Math.round(18 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('⚡ POSTO UNICO DISPONIBILE ADESSO ⚡', x + boxW / 2, y + 16 * scale);
 
-    // Orario Gigante
     ctx.fillStyle = el.color || (activePreset.isLight ? '#1C1917' : '#FFFFFF');
     ctx.font = `900 ${Math.round(52 * scale)}px serif`;
     ctx.textBaseline = 'middle';
@@ -28851,7 +28998,6 @@ function drawLastMinuteTicketBox(ctx, s, el, W, accentColor, activePreset) {
     ctx.restore();
 }
 
-// 🏷️ PROMO PRICE SLASH CON COLORI REATTIVI
 function drawPromoPriceSlashBox(ctx, s, el, W, accentColor, activePreset) {
     const scale = (Number.isFinite(el.scale) && el.scale > 0.1) ? el.scale : 1.0;
     const boxW = Math.min(W - 160, 840) * scale;
@@ -29022,7 +29168,6 @@ function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     ctx.restore();
 }
 
-// 🚨 BADGE URGENZA CON SUPPORTO COLORE E SFONDO REATTIVI
 function drawUrgencyBadge(ctx, s, el, isStory) {
     if (!s.badgeText) return;
     ctx.save();
@@ -29036,11 +29181,11 @@ function drawUrgencyBadge(ctx, s, el, isStory) {
     el.w = w;
     el.h = h;
 
-    ctx.fillStyle = el.bgColor || '#EF4444'; // Prende il colore scelto nel box o rosso vivo
+    ctx.fillStyle = el.bgColor || '#EF4444';
     drawRoundedRect(ctx, x - (w / 2), y - (h / 2), w, h, 24 * scale);
     ctx.fill();
 
-    ctx.fillStyle = el.color || '#FFFFFF'; // Prende il colore testo scelto nel picker
+    ctx.fillStyle = el.color || '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(s.badgeText, x, y);
@@ -29295,10 +29440,7 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// =========================================================================
-// 🔤 CONTROLLI FORMATO, FONT, COLORI & LOGHI
-// =========================================================================
-
+// 🔤 9. CONTROLLI FORMATO, FONT, COLORI & LOGHI
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
@@ -29645,7 +29787,7 @@ function resetSocialElementsPositions() {
 }
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
-// 💾 PERSISTENZA BOZZE (DRAFTS)
+// 💾 10. PERSISTENZA BOZZE (DRAFTS)
 async function saveCurrentSocialDraft() {
     const nameInput = document.getElementById('ss-draft-name-input');
     const draftName = (nameInput?.value || '').trim();
@@ -29858,7 +30000,7 @@ async function deleteSelectedSocialDraft() {
 }
 window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
 
-// 👆 GESTI TOUCH & MOUSE IMMUNI DA NaN
+// 👆 11. GESTI TOUCH & MOUSE IMMUNI DA NaN
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas || canvas._touchAttached) return;
@@ -30013,7 +30155,7 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-// 🚀 INIZIALIZZAZIONE & CATALOGO PREZZI REALI
+// 🚀 12. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
 async function initSocialStudioView() {
     console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
     const s = window._socialStudioState;
@@ -30154,6 +30296,24 @@ function onSocialPresetSourceChanged(val) {
     renderSocialCanvas();
 }
 window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
+
+function populatePrintStudioPresetsInSocialStudio(currentSalon) {
+    const select = document.getElementById('ss-preset-source-select');
+    if (!select) return;
+
+    let allPresets = [];
+    if (typeof loadAllPresetsFromStorage === 'function') {
+        allPresets = loadAllPresetsFromStorage(currentSalon);
+    }
+
+    let html = `<option value="current">Tutti i Servizi Attivi del Salone</option>`;
+    allPresets.forEach(p => {
+        html += `<option value="${p.id}">📑 ${p.name}</option>`;
+    });
+
+    select.innerHTML = html;
+}
+window.populatePrintStudioPresetsInSocialStudio = populatePrintStudioPresetsInSocialStudio;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
