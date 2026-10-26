@@ -4227,13 +4227,16 @@
                 </select>
             </div>
 
-            <!-- 📸 GESTIONE FOTO PRIMA & DOPO (ATTIVO SU MODELLO TRASFORMAZIONE) -->
+            <!-- 📸 GESTIONE FOTO PRIMA & DOPO CON ZOOM E PAN -->
             <div id="ss-before-after-upload-box" style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto Schermo Intero</label>
-                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #d8b4fe; color: #6b21a8; font-weight: bold;" onclick="resetPhotoPans()">↺ Centra Foto</button>
+                    <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #d8b4fe; color: #6b21a8; font-weight: bold;" onclick="resetPhotoPans()">↺ Centra & Reset Zoom</button>
                 </div>
-                <small style="color: #7c3aed; font-size: 11px; line-height: 1.35;">Trascina con il dito o il mouse direttamente sopra ogni foto nell'anteprima per inquadrarla e centrarla al millimetro:</small>
+                <small style="color: #7c3aed; font-size: 11px; line-height: 1.35;">
+                    💡 <b>Smartphone:</b> usa 2 dita per zoomare e 1 dito per spostare l'inquadratura.<br>
+                    💡 <b>PC:</b> usa la rotellina del mouse sopra la foto oppure i tasti +/- sottostanti.
+                </small>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <!-- Carica Foto PRIMA -->
@@ -4243,6 +4246,11 @@
                         <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-before-file-input').click()">
                             📁 Scegli Prima
                         </button>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px;">
+                            <button type="button" class="btn" style="padding: 2px 7px; font-size: 11px; font-weight: 900; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepPhotoZoom('before', -0.1)" title="Riduci">-</button>
+                            <span id="ss-zoom-label-before" style="font-size: 10.5px; font-weight: bold; min-width: 36px; text-align: center; color: var(--p);">100%</span>
+                            <button type="button" class="btn" style="padding: 2px 7px; font-size: 11px; font-weight: 900; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepPhotoZoom('before', 0.1)" title="Ingrandisci">+</button>
+                        </div>
                         <button type="button" class="btn btn-d" id="btn-clear-before-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearBeforePhoto()">
                             ✕ Rimuovi
                         </button>
@@ -4255,6 +4263,11 @@
                         <button type="button" class="btn" style="width: 100%; padding: 6px; font-size: 11px; font-weight: bold; background: #f8fafc; border: 1px solid #cbd5e1; justify-content: center;" onclick="document.getElementById('ss-after-file-input').click()">
                             📁 Scegli Dopo
                         </button>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px;">
+                            <button type="button" class="btn" style="padding: 2px 7px; font-size: 11px; font-weight: 900; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepPhotoZoom('after', -0.1)" title="Riduci">-</button>
+                            <span id="ss-zoom-label-after" style="font-size: 10.5px; font-weight: bold; min-width: 36px; text-align: center; color: var(--p);">100%</span>
+                            <button type="button" class="btn" style="padding: 2px 7px; font-size: 11px; font-weight: 900; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; min-height: unset;" onclick="stepPhotoZoom('after', 0.1)" title="Ingrandisci">+</button>
+                        </div>
                         <button type="button" class="btn btn-d" id="btn-clear-after-photo" style="display: none; width: 100%; margin-top: 4px; padding: 4px; font-size: 10px; justify-content: center;" onclick="clearAfterPhoto()">
                             ✕ Rimuovi
                         </button>
@@ -28087,7 +28100,7 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COMPLETO, UNIFICATO & REATTIVO)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (ZOOM, PAN & MULTI-TEMPLATE)
 // =========================================================================
 
 // 1. STATO GLOBALE E MEMORIA DI CONFIGURAZIONE
@@ -28102,8 +28115,10 @@ window._socialStudioState = {
     afterImg: null,
     beforePanX: 0,
     beforePanY: 0,
+    beforeZoom: 1.0,            // Zoom foto Prima (0.4x - 4.0x)
     afterPanX: 0,
     afterPanY: 0,
+    afterZoom: 1.0,             // Zoom foto Dopo (0.4x - 4.0x)
     bgOverlayOpacity: 0.15,
     treatmentText: 'Balayage Biondo Vaniglia + Trattamento Rigenerante',
     badgeText: '',
@@ -28111,7 +28126,7 @@ window._socialStudioState = {
     subtitle: '',
     highlightText: 'DOPO ✨',
     showLogo: true,
-    showBookingBadge: false, // Default pulito per le trasformazioni
+    showBookingBadge: false,    // Default disattivato su Prima & Dopo
     showQrCode: false,
     showSafeZone: false,
     logoShape: 'natural',
@@ -28249,7 +28264,6 @@ function getDefaultSocialElements(W, H, isStory) {
         };
     }
 
-    // Configurazione standard per gli altri modelli (flusso coerente top-to-bottom)
     return {
         logo: { id: 'logo', name: 'Logo Salone', icon: '🖼️', x: W / 2, y: isStory ? 150 : 110, scale: 1.0, w: 150, h: 100, color: null, bgColor: null },
         badge: { id: 'badge', name: 'Badge Tag', icon: '🏷️', x: W / 2, y: isStory ? 290 : 200, scale: 1.0, w: 280, h: 48, color: null, bgColor: null },
@@ -28314,7 +28328,7 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
 }
 window.wrapCanvasText = wrapCanvasText;
 
-// 5. GESTIONE FOTO PRIMA E DOPO & CENTRATURA/PAN
+// 5. GESTIONE FOTO PRIMA E DOPO & ZOOM/PAN
 function handleBeforePhotoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -28325,6 +28339,8 @@ function handleBeforePhotoUpload(e) {
             window._socialStudioState.beforeImg = img;
             window._socialStudioState.beforePanX = 0;
             window._socialStudioState.beforePanY = 0;
+            window._socialStudioState.beforeZoom = 1.0;
+            updatePhotoZoomUI('before');
             const btnClear = document.getElementById('btn-clear-before-photo');
             if (btnClear) btnClear.style.display = 'block';
             renderSocialCanvas();
@@ -28339,6 +28355,8 @@ function clearBeforePhoto() {
     window._socialStudioState.beforeImg = null;
     window._socialStudioState.beforePanX = 0;
     window._socialStudioState.beforePanY = 0;
+    window._socialStudioState.beforeZoom = 1.0;
+    updatePhotoZoomUI('before');
     const input = document.getElementById('ss-before-file-input');
     if (input) input.value = '';
     const btnClear = document.getElementById('btn-clear-before-photo');
@@ -28357,6 +28375,8 @@ function handleAfterPhotoUpload(e) {
             window._socialStudioState.afterImg = img;
             window._socialStudioState.afterPanX = 0;
             window._socialStudioState.afterPanY = 0;
+            window._socialStudioState.afterZoom = 1.0;
+            updatePhotoZoomUI('after');
             const btnClear = document.getElementById('btn-clear-after-photo');
             if (btnClear) btnClear.style.display = 'block';
             renderSocialCanvas();
@@ -28371,6 +28391,8 @@ function clearAfterPhoto() {
     window._socialStudioState.afterImg = null;
     window._socialStudioState.afterPanX = 0;
     window._socialStudioState.afterPanY = 0;
+    window._socialStudioState.afterZoom = 1.0;
+    updatePhotoZoomUI('after');
     const input = document.getElementById('ss-after-file-input');
     if (input) input.value = '';
     const btnClear = document.getElementById('btn-clear-after-photo');
@@ -28382,13 +28404,38 @@ window.clearAfterPhoto = clearAfterPhoto;
 function resetPhotoPans() {
     window._socialStudioState.beforePanX = 0;
     window._socialStudioState.beforePanY = 0;
+    window._socialStudioState.beforeZoom = 1.0;
     window._socialStudioState.afterPanX = 0;
     window._socialStudioState.afterPanY = 0;
+    window._socialStudioState.afterZoom = 1.0;
+    updatePhotoZoomUI('before');
+    updatePhotoZoomUI('after');
     renderSocialCanvas();
 }
 window.resetPhotoPans = resetPhotoPans;
 
-// 6. DISEGNO FOTO TRASFORMAZIONE SCHERMO INTERO CON PAN ATTIVO
+function stepPhotoZoom(which, step) {
+    const s = window._socialStudioState;
+    if (which === 'before') {
+        s.beforeZoom = Math.min(Math.max((s.beforeZoom || 1.0) + step, 0.4), 4.0);
+        updatePhotoZoomUI('before');
+    } else {
+        s.afterZoom = Math.min(Math.max((s.afterZoom || 1.0) + step, 0.4), 4.0);
+        updatePhotoZoomUI('after');
+    }
+    renderSocialCanvas();
+}
+window.stepPhotoZoom = stepPhotoZoom;
+
+function updatePhotoZoomUI(which) {
+    const s = window._socialStudioState;
+    const val = which === 'before' ? (s.beforeZoom || 1.0) : (s.afterZoom || 1.0);
+    const label = document.getElementById(`ss-zoom-label-${which}`);
+    if (label) label.innerText = `${Math.round(val * 100)}%`;
+}
+window.updatePhotoZoomUI = updatePhotoZoomUI;
+
+// 6. DISEGNO FOTO TRASFORMAZIONE SCHERMO INTERO CON ZOOM & PAN
 function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
     const splitX = W / 2;
 
@@ -28400,7 +28447,8 @@ function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accen
 
     if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
         const img = s.beforeImg;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const zoom = s.beforeZoom || 1.0;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
         const drawW = img.naturalWidth * ratio;
         const drawH = img.naturalHeight * ratio;
         const baseX = (splitX - drawW) / 2 + (s.beforePanX || 0);
@@ -28429,7 +28477,7 @@ function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accen
         ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
         ctx.font = '16px sans-serif';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Trascina qui per centrare l\'inquadratura)', splitX / 2, H / 2 + 20);
+        ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX / 2, H / 2 + 20);
     }
     ctx.restore();
 
@@ -28441,7 +28489,8 @@ function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accen
 
     if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
         const img = s.afterImg;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight);
+        const zoom = s.afterZoom || 1.0;
+        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
         const drawW = img.naturalWidth * ratio;
         const drawH = img.naturalHeight * ratio;
         const baseX = splitX + (splitX - drawW) / 2 + (s.afterPanX || 0);
@@ -28470,7 +28519,7 @@ function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accen
         ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
         ctx.font = '16px sans-serif';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Trascina qui per centrare l\'inquadratura)', splitX + splitX / 2, H / 2 + 20);
+        ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX + splitX / 2, H / 2 + 20);
     }
     ctx.restore();
 
@@ -28605,7 +28654,7 @@ function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
     }
 }
 
-// 8. DISEGNO ELEMENTI GENERALI
+// 8. DISEGNO ELEMENTI MODELLI STANDARD
 function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     if (!s.badgeText) return;
     ctx.save();
@@ -29115,191 +29164,10 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// 9. CICLO DI RENDERING PRINCIPALE
-function renderSocialCanvas() {
-    const canvas = document.getElementById('social-render-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const s = window._socialStudioState;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const isStory = (s.format === 'story');
-
-    ensureSocialElementsInitialized(W, H, isStory);
-    attachCanvasTouchGestures();
-
-    const elems = window._socialElements;
-
-    // Sincronizzazione atomica con i campi HTML
-    const bIn = document.getElementById('ss-input-badge');
-    if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
-
-    const tIn = document.getElementById('ss-input-title');
-    if (tIn && tIn.value !== undefined) s.title = tIn.value;
-
-    const sIn = document.getElementById('ss-input-subtitle');
-    if (sIn && sIn.value !== undefined) s.subtitle = sIn.value;
-
-    const hIn = document.getElementById('ss-input-highlight');
-    if (hIn && hIn.value !== undefined) s.highlightText = hIn.value;
-
-    const trIn = document.getElementById('ss-input-treatment');
-    if (trIn && trIn.value !== undefined) s.treatmentText = trIn.value;
-
-    const cbLogo = document.getElementById('ss-toggle-logo');
-    if (cbLogo) s.showLogo = cbLogo.checked;
-
-    const cbSticker = document.getElementById('ss-toggle-booking-badge');
-    if (cbSticker) s.showBookingBadge = cbSticker.checked;
-
-    const cbQr = document.getElementById('ss-toggle-qr');
-    if (cbQr) s.showQrCode = cbQr.checked;
-
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? (currentUser.salon_id || 'SALON_001') 
-        : 'SALON_001';
-
-    const activePreset = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
-
-    const defaultTextMain = activePreset.isLight ? '#1C1917' : '#FFFFFF';
-    const defaultTextSub = activePreset.isLight ? '#57534E' : '#CBD5E1';
-    const accentColor = activePreset.accent || '#D4AF37';
-    const titleFontStack = activePreset.isLight 
-        ? "'Playfair Display', 'Cinzel', Didot, serif"
-        : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-
-    ctx.clearRect(0, 0, W, H);
-
-    // =========================================================================
-    // 🌟 SELEZIONE DEL LAYOUT IN BASE AL TEMPLATE
-    // =========================================================================
-    if (s.template === 'transformation') {
-        // 📸 MODELLO TRASFORMAZIONE LOOK (FOTO SCHERMO INTERO CON PAN ATTIVO)
-        drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor);
-
-        // Logo del Salone
-        if (s.showLogo) {
-            const el = elems.logo;
-            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
-        }
-
-        // Sovrimpressioni: Banner Trattamento, Etichetta Prima ed Etichetta Dopo
-        drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor);
-    } else {
-        // --- MODELLI GRAFICI STANDARD ---
-        if (s.bgType === 'upload' && s.uploadedBgImg) {
-            const img = s.uploadedBgImg;
-            const ratio = Math.max(W / img.width, H / img.height);
-            const shiftX = (W - img.width * ratio) / 2;
-            const shiftY = (H - img.height * ratio) / 2;
-            ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
-
-            const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
-            ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
-            ctx.fillRect(0, 0, W, H);
-        } else {
-            drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
-
-            if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
-                ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
-                ctx.fillRect(0, 0, W, H);
-            }
-        }
-
-        // Filetto perimetrale
-        ctx.save();
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 2.5;
-        ctx.globalAlpha = 0.4;
-        const margin = isStory ? 60 : 45;
-        ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
-        ctx.restore();
-
-        // Logo
-        if (s.showLogo) {
-            const el = elems.logo;
-            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
-        }
-
-        // Struttura specifica per template
-        if (s.template === 'pricelist') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        } 
-        else if (s.template === 'launch_no_app') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawLaunchFeatureCards(ctx, W, isStory ? 840 : 640, activePreset, accentColor);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        }
-        else if (s.template === 'lastminute') {
-            drawUrgencyBadge(ctx, s, elems.badge, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        }
-        else if (s.template === 'promo') {
-            drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-        }
-        else if (s.template === 'quote') {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
-        }
-        else {
-            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
-            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
-            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
-            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
-        }
-    }
-
-    // QR Code (Condizionale e disattivabile al 100%)
-    if (s.showQrCode && s.qrImage) {
-        drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
-    }
-
-    // Sticker Prenotazione (Condizionale e disattivabile al 100%)
-    if (s.showBookingBadge) {
-        drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
-    }
-
-    // Guida Safe-Zone di Instagram (se attivata dal tasto dedicato)
-    if (s.showSafeZone) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 10]);
-        // Safe Zone Top (250px) e Bottom (320px) per Instagram Stories
-        ctx.strokeRect(40, isStory ? 250 : 80, W - 80, isStory ? (H - 570) : (H - 160));
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🛡️ SAFE ZONE INSTAGRAM (Area Protetta da Interfacce)', W / 2, isStory ? 275 : 105);
-        ctx.restore();
-    }
-
-    // Evidenziazione visiva dell'elemento attualmente selezionato
-    if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
-        drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
-    }
-}
-window.renderSocialCanvas = renderSocialCanvas;
-
-// 10. GESTORI GESTI INTERATTIVI CANVAS & TOOLBAR
-let isTouchDragging = false;
-let touchDragStartX = 0;
-let touchDragStartY = 0;
-let initialElemX = 0;
-let initialElemY = 0;
-let activePanTarget = null; // 'before' | 'after' | 'element'
+// 9. GESTIONE GESTI PINCH (2 DITA MOBILE) & WHEEL (PC)
+let initialPinchDistance = 0;
+let initialPinchScale = 1.0;
+let pinchTarget = null; // 'before' | 'after' | 'element'
 
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
@@ -29348,10 +29216,10 @@ function attachCanvasTouchGestures() {
 
     // Touch Event Handlers
     canvas.addEventListener('touchstart', (e) => {
-        const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
         const s = window._socialStudioState;
 
         if (e.touches.length === 1) {
+            const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
             const hitId = hitTestElement(coords.x, coords.y);
             if (hitId) {
                 e.preventDefault();
@@ -29374,10 +29242,36 @@ function attachCanvasTouchGestures() {
             } else {
                 deselectActiveElement();
             }
+        } else if (e.touches.length === 2) {
+            e.preventDefault();
+            isTouchDragging = false;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+            if (s.template === 'transformation' && !window._activeSocialElemId) {
+                // Rileva se le due dita stanno toccando la foto Prima (SX) o Dopo (DX)
+                const c1 = getCanvasCoords(t1.clientX, t1.clientY);
+                const c2 = getCanvasCoords(t2.clientX, t2.clientY);
+                const midX = (c1.x + c2.x) / 2;
+
+                if (midX < canvas.width / 2) {
+                    pinchTarget = 'before';
+                    initialPinchScale = s.beforeZoom || 1.0;
+                } else {
+                    pinchTarget = 'after';
+                    initialPinchScale = s.afterZoom || 1.0;
+                }
+            } else if (window._activeSocialElemId) {
+                pinchTarget = 'element';
+                initialPinchScale = window._socialElements[window._activeSocialElemId]?.scale || 1.0;
+            }
         }
     }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
+        const s = window._socialStudioState;
+
         if (e.touches.length === 1 && isTouchDragging) {
             e.preventDefault();
             const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
@@ -29392,13 +29286,36 @@ function attachCanvasTouchGestures() {
                     renderSocialCanvas();
                 }
             } else if (activePanTarget === 'before') {
-                window._socialStudioState.beforePanX = initialElemX + dx;
-                window._socialStudioState.beforePanY = initialElemY + dy;
+                s.beforePanX = initialElemX + dx;
+                s.beforePanY = initialElemY + dy;
                 renderSocialCanvas();
             } else if (activePanTarget === 'after') {
-                window._socialStudioState.afterPanX = initialElemX + dx;
-                window._socialStudioState.afterPanY = initialElemY + dy;
+                s.afterPanX = initialElemX + dx;
+                s.afterPanY = initialElemY + dy;
                 renderSocialCanvas();
+            }
+        } else if (e.touches.length === 2 && initialPinchDistance > 0) {
+            e.preventDefault();
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const factor = currentDist / initialPinchDistance;
+
+            if (pinchTarget === 'before') {
+                s.beforeZoom = Math.min(Math.max(initialPinchScale * factor, 0.4), 4.0);
+                updatePhotoZoomUI('before');
+                renderSocialCanvas();
+            } else if (pinchTarget === 'after') {
+                s.afterZoom = Math.min(Math.max(initialPinchScale * factor, 0.4), 4.0);
+                updatePhotoZoomUI('after');
+                renderSocialCanvas();
+            } else if (pinchTarget === 'element' && window._activeSocialElemId) {
+                const el = window._socialElements[window._activeSocialElemId];
+                if (el && Number.isFinite(factor)) {
+                    el.scale = Math.min(Math.max(initialPinchScale * factor, 0.4), 2.5);
+                    updateTransformBarValues();
+                    renderSocialCanvas();
+                }
             }
         }
     }, { passive: false });
@@ -29406,6 +29323,8 @@ function attachCanvasTouchGestures() {
     canvas.addEventListener('touchend', () => {
         isTouchDragging = false;
         activePanTarget = null;
+        pinchTarget = null;
+        initialPinchDistance = 0;
     });
 
     // Mouse Event Handlers (Desktop)
@@ -29466,8 +29385,44 @@ function attachCanvasTouchGestures() {
         isMouseDown = false;
         activePanTarget = null;
     });
+
+    // 🖱️ ROTELLINA DEL MOUSE SUL CANVAS (ZOOM IN / OUT)
+    canvas.addEventListener('wheel', (e) => {
+        const s = window._socialStudioState;
+
+        // Su modello Trasformazione, la rotellina zooma la foto corrispondente
+        if (s.template === 'transformation' && !window._activeSocialElemId) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e.clientX, e.clientY);
+            const isLeft = coords.x < (canvas.width / 2);
+            const delta = e.deltaY < 0 ? 0.08 : -0.08;
+
+            if (isLeft) {
+                s.beforeZoom = Math.min(Math.max((s.beforeZoom || 1.0) + delta, 0.4), 4.0);
+                updatePhotoZoomUI('before');
+            } else {
+                s.afterZoom = Math.min(Math.max((s.afterZoom || 1.0) + delta, 0.4), 4.0);
+                updatePhotoZoomUI('after');
+            }
+            renderSocialCanvas();
+            return;
+        }
+
+        // Se è selezionato un testo, la rotellina con Ctrl zooma il testo
+        if (window._activeSocialElemId && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const el = window._socialElements[window._activeSocialElemId];
+            if (el) {
+                const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                el.scale = Math.min(Math.max((el.scale || 1.0) + delta, 0.4), 2.5);
+                updateTransformBarValues();
+                renderSocialCanvas();
+            }
+        }
+    }, { passive: false });
 }
 
+// 10. GESTIONE CONTROLLI TRASFORMAZIONE ELEMENTI
 function setActiveSocialElement(elemId) {
     window._activeSocialElemId = elemId;
     const bar = document.getElementById('ss-quick-transform-bar');
@@ -30037,7 +29992,7 @@ function syncSideColorPickersToTheme() {
     setPicker('ss-color-highlight-text', elems.highlight?.color || p.accent);
 }
 
-// 14. CAMBIO TEMPLATE E SINCRONIZZAZIONE COMANDI
+// 14. CAMBIO TEMPLATE E ALLINEAMENTO COMANDI
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
@@ -30125,6 +30080,9 @@ function onSocialTemplateChanged(tpl) {
     if (subInput) s.subtitle = subInput.value;
     if (highInput) s.highlightText = highInput.value;
 
+    updatePhotoZoomUI('before');
+    updatePhotoZoomUI('after');
+
     if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
     renderSocialCanvas();
 }
@@ -30170,8 +30128,10 @@ async function saveCurrentSocialDraft() {
             selectedPresetId: s.selectedPresetId,
             beforePanX: s.beforePanX,
             beforePanY: s.beforePanY,
+            beforeZoom: s.beforeZoom,
             afterPanX: s.afterPanX,
             afterPanY: s.afterPanY,
+            afterZoom: s.afterZoom,
             customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
             elements: JSON.parse(JSON.stringify(window._socialElements || {}))
         }
@@ -30273,8 +30233,10 @@ function loadSelectedSocialDraft() {
     s.selectedPresetId = c.selectedPresetId || 'current';
     s.beforePanX = c.beforePanX || 0;
     s.beforePanY = c.beforePanY || 0;
+    s.beforeZoom = c.beforeZoom || 1.0;
     s.afterPanX = c.afterPanX || 0;
     s.afterPanY = c.afterPanY || 0;
+    s.afterZoom = c.afterZoom || 1.0;
     s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
 
     if (c.format) {
@@ -30320,6 +30282,8 @@ function loadSelectedSocialDraft() {
     const cbQr = document.getElementById('ss-toggle-qr');
     if (cbQr) cbQr.checked = s.showQrCode;
 
+    updatePhotoZoomUI('before');
+    updatePhotoZoomUI('after');
     highlightActiveBgThumbnail();
     renderSocialPricelistItemCheckboxes();
     syncSideColorPickersToTheme();
@@ -30597,6 +30561,9 @@ async function initSocialStudioView() {
     if (cbSticker) cbSticker.checked = s.showBookingBadge;
     const cbQr = document.getElementById('ss-toggle-qr');
     if (cbQr) cbQr.checked = s.showQrCode;
+
+    updatePhotoZoomUI('before');
+    updatePhotoZoomUI('after');
 
     onSocialTemplateChanged(s.template);
 }
