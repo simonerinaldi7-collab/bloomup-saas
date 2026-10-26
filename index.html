@@ -28100,13 +28100,13 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (ZOOM, PAN & MULTI-TEMPLATE)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (COMPLETO, UNIFICATO & REATTIVO)
 // =========================================================================
 
 // 1. STATO GLOBALE E MEMORIA DI CONFIGURAZIONE
 window._socialStudioState = {
-    template: 'transformation', // Default allineato al select HTML
-    format: 'story',            // 'story' (9:16) | 'portrait' (4:5) | 'square' (1:1)
+    template: 'transformation',
+    format: 'story',
     theme: 'luxury-gold',
     bgType: 'preset',
     bgPresetId: 'season_autumn',
@@ -28115,10 +28115,10 @@ window._socialStudioState = {
     afterImg: null,
     beforePanX: 0,
     beforePanY: 0,
-    beforeZoom: 1.0,            // Zoom foto Prima (0.4x - 4.0x)
+    beforeZoom: 1.0,            // 👈 AGGIUNGERE
     afterPanX: 0,
     afterPanY: 0,
-    afterZoom: 1.0,             // Zoom foto Dopo (0.4x - 4.0x)
+    afterZoom: 1.0,             // 👈 AGGIUNGERE
     bgOverlayOpacity: 0.15,
     treatmentText: 'Balayage Biondo Vaniglia + Trattamento Rigenerante',
     badgeText: '',
@@ -28126,7 +28126,7 @@ window._socialStudioState = {
     subtitle: '',
     highlightText: 'DOPO ✨',
     showLogo: true,
-    showBookingBadge: false,    // Default disattivato su Prima & Dopo
+    showBookingBadge: false,
     showQrCode: false,
     showSafeZone: false,
     logoShape: 'natural',
@@ -28264,6 +28264,7 @@ function getDefaultSocialElements(W, H, isStory) {
         };
     }
 
+    // Configurazione standard per gli altri modelli (flusso coerente top-to-bottom)
     return {
         logo: { id: 'logo', name: 'Logo Salone', icon: '🖼️', x: W / 2, y: isStory ? 150 : 110, scale: 1.0, w: 150, h: 100, color: null, bgColor: null },
         badge: { id: 'badge', name: 'Badge Tag', icon: '🏷️', x: W / 2, y: isStory ? 290 : 200, scale: 1.0, w: 280, h: 48, color: null, bgColor: null },
@@ -28328,7 +28329,7 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
 }
 window.wrapCanvasText = wrapCanvasText;
 
-// 5. GESTIONE FOTO PRIMA E DOPO & ZOOM/PAN
+// 5. GESTIONE FOTO PRIMA E DOPO & CENTRATURA/PAN
 function handleBeforePhotoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -28339,8 +28340,6 @@ function handleBeforePhotoUpload(e) {
             window._socialStudioState.beforeImg = img;
             window._socialStudioState.beforePanX = 0;
             window._socialStudioState.beforePanY = 0;
-            window._socialStudioState.beforeZoom = 1.0;
-            updatePhotoZoomUI('before');
             const btnClear = document.getElementById('btn-clear-before-photo');
             if (btnClear) btnClear.style.display = 'block';
             renderSocialCanvas();
@@ -28355,8 +28354,6 @@ function clearBeforePhoto() {
     window._socialStudioState.beforeImg = null;
     window._socialStudioState.beforePanX = 0;
     window._socialStudioState.beforePanY = 0;
-    window._socialStudioState.beforeZoom = 1.0;
-    updatePhotoZoomUI('before');
     const input = document.getElementById('ss-before-file-input');
     if (input) input.value = '';
     const btnClear = document.getElementById('btn-clear-before-photo');
@@ -28375,8 +28372,6 @@ function handleAfterPhotoUpload(e) {
             window._socialStudioState.afterImg = img;
             window._socialStudioState.afterPanX = 0;
             window._socialStudioState.afterPanY = 0;
-            window._socialStudioState.afterZoom = 1.0;
-            updatePhotoZoomUI('after');
             const btnClear = document.getElementById('btn-clear-after-photo');
             if (btnClear) btnClear.style.display = 'block';
             renderSocialCanvas();
@@ -28391,8 +28386,6 @@ function clearAfterPhoto() {
     window._socialStudioState.afterImg = null;
     window._socialStudioState.afterPanX = 0;
     window._socialStudioState.afterPanY = 0;
-    window._socialStudioState.afterZoom = 1.0;
-    updatePhotoZoomUI('after');
     const input = document.getElementById('ss-after-file-input');
     if (input) input.value = '';
     const btnClear = document.getElementById('btn-clear-after-photo');
@@ -28435,7 +28428,7 @@ function updatePhotoZoomUI(which) {
 }
 window.updatePhotoZoomUI = updatePhotoZoomUI;
 
-// 6. DISEGNO FOTO TRASFORMAZIONE SCHERMO INTERO CON ZOOM & PAN
+// 6. DISEGNO FOTO TRASFORMAZIONE SCHERMO INTERO CON PAN ATTIVO
 function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
     const splitX = W / 2;
 
@@ -28654,7 +28647,7 @@ function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
     }
 }
 
-// 8. DISEGNO ELEMENTI MODELLI STANDARD
+// 8. DISEGNO ELEMENTI GENERALI
 function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     if (!s.badgeText) return;
     ctx.save();
@@ -29164,7 +29157,192 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// 9. GESTIONE GESTI PINCH (2 DITA MOBILE) & WHEEL (PC)
+// 9. CICLO DI RENDERING PRINCIPALE
+function renderSocialCanvas() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const s = window._socialStudioState;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const isStory = (s.format === 'story');
+
+    ensureSocialElementsInitialized(W, H, isStory);
+    attachCanvasTouchGestures();
+
+    const elems = window._socialElements;
+
+    // Sincronizzazione atomica con i campi HTML
+    const bIn = document.getElementById('ss-input-badge');
+    if (bIn && bIn.value !== undefined) s.badgeText = bIn.value;
+
+    const tIn = document.getElementById('ss-input-title');
+    if (tIn && tIn.value !== undefined) s.title = tIn.value;
+
+    const sIn = document.getElementById('ss-input-subtitle');
+    if (sIn && sIn.value !== undefined) s.subtitle = sIn.value;
+
+    const hIn = document.getElementById('ss-input-highlight');
+    if (hIn && hIn.value !== undefined) s.highlightText = hIn.value;
+
+    const trIn = document.getElementById('ss-input-treatment');
+    if (trIn && trIn.value !== undefined) s.treatmentText = trIn.value;
+
+    const cbLogo = document.getElementById('ss-toggle-logo');
+    if (cbLogo) s.showLogo = cbLogo.checked;
+
+    const cbSticker = document.getElementById('ss-toggle-booking-badge');
+    if (cbSticker) s.showBookingBadge = cbSticker.checked;
+
+    const cbQr = document.getElementById('ss-toggle-qr');
+    if (cbQr) s.showQrCode = cbQr.checked;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? (currentUser.salon_id || 'SALON_001') 
+        : 'SALON_001';
+
+    const activePreset = window.SOCIAL_BG_PRESETS.find(x => x.id === s.bgPresetId) || window.SOCIAL_BG_PRESETS[0];
+
+    const defaultTextMain = activePreset.isLight ? '#1C1917' : '#FFFFFF';
+    const defaultTextSub = activePreset.isLight ? '#57534E' : '#CBD5E1';
+    const accentColor = activePreset.accent || '#D4AF37';
+    const titleFontStack = activePreset.isLight 
+        ? "'Playfair Display', 'Cinzel', Didot, serif"
+        : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+    ctx.clearRect(0, 0, W, H);
+
+    // =========================================================================
+    // 🌟 SELEZIONE DEL LAYOUT IN BASE AL TEMPLATE
+    // =========================================================================
+    if (s.template === 'transformation') {
+        // 📸 MODELLO TRASFORMAZIONE LOOK (FOTO SCHERMO INTERO CON PAN ATTIVO)
+        drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor);
+
+        // Logo del Salone
+        if (s.showLogo) {
+            const el = elems.logo;
+            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
+        }
+
+        // Sovrimpressioni: Banner Trattamento, Etichetta Prima ed Etichetta Dopo
+        drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor);
+    } else {
+        // --- MODELLI GRAFICI STANDARD ---
+        if (s.bgType === 'upload' && s.uploadedBgImg) {
+            const img = s.uploadedBgImg;
+            const ratio = Math.max(W / img.width, H / img.height);
+            const shiftX = (W - img.width * ratio) / 2;
+            const shiftY = (H - img.height * ratio) / 2;
+            ctx.drawImage(img, 0, 0, img.width, img.height, shiftX, shiftY, img.width * ratio, img.height * ratio);
+
+            const overlayAlpha = s.bgOverlayOpacity !== undefined ? s.bgOverlayOpacity : 0.55;
+            ctx.fillStyle = `rgba(10, 12, 18, ${overlayAlpha})`;
+            ctx.fillRect(0, 0, W, H);
+        } else {
+            drawSocialBackgroundPreset(ctx, W, H, s.bgPresetId);
+
+            if (s.bgOverlayOpacity && s.bgOverlayOpacity > 0.05) {
+                ctx.fillStyle = `rgba(10, 12, 18, ${s.bgOverlayOpacity})`;
+                ctx.fillRect(0, 0, W, H);
+            }
+        }
+
+        // Filetto perimetrale
+        ctx.save();
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2.5;
+        ctx.globalAlpha = 0.4;
+        const margin = isStory ? 60 : 45;
+        ctx.strokeRect(margin, margin, W - (margin * 2), H - (margin * 2));
+        ctx.restore();
+
+        // Logo
+        if (s.showLogo) {
+            const el = elems.logo;
+            drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
+        }
+
+        // Struttura specifica per template
+        if (s.template === 'pricelist') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawPriceListMenuOnCanvas(ctx, s, W, elems.menu, accentColor, defaultTextMain, activePreset);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+        } 
+        else if (s.template === 'launch_no_app') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawLaunchFeatureCards(ctx, W, isStory ? 840 : 640, activePreset, accentColor);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+        }
+        else if (s.template === 'lastminute') {
+            drawUrgencyBadge(ctx, s, elems.badge, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawLastMinuteTicketBox(ctx, s, elems.highlight, W, accentColor, activePreset);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+        }
+        else if (s.template === 'promo') {
+            drawDefaultBadge(ctx, s, elems.badge, '#EF4444', isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawPromoPriceSlashBox(ctx, s, elems.highlight, W, accentColor, activePreset);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+        }
+        else if (s.template === 'quote') {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawQuoteReviewStructure(ctx, s, elems.title, elems.subtitle, elems.highlight, W, defaultTextMain, accentColor, activePreset, isStory);
+        }
+        else {
+            drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
+            drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
+            drawDefaultSubtitle(ctx, s, elems.subtitle, defaultTextSub, W, margin, isStory);
+            drawDefaultHighlight(ctx, s, elems.highlight, accentColor, activePreset);
+        }
+    }
+
+    // QR Code (Condizionale e disattivabile al 100%)
+    if (s.showQrCode && s.qrImage) {
+        drawQrCodeOnCanvas(ctx, s, elems.qrcode, W, H, isStory, activePreset);
+    }
+
+    // Sticker Prenotazione (Condizionale e disattivabile al 100%)
+    if (s.showBookingBadge) {
+        drawBookingSticker(ctx, s, elems.sticker, W, H, isStory, activePreset);
+    }
+
+    // Guida Safe-Zone di Instagram (se attivata dal tasto dedicato)
+    if (s.showSafeZone) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 10]);
+        // Safe Zone Top (250px) e Bottom (320px) per Instagram Stories
+        ctx.strokeRect(40, isStory ? 250 : 80, W - 80, isStory ? (H - 570) : (H - 160));
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🛡️ SAFE ZONE INSTAGRAM (Area Protetta da Interfacce)', W / 2, isStory ? 275 : 105);
+        ctx.restore();
+    }
+
+    // Evidenziazione visiva dell'elemento attualmente selezionato
+    if (window._activeSocialElemId && elems[window._activeSocialElemId]) {
+        drawActiveElementTouchBorder(ctx, elems[window._activeSocialElemId], W, H);
+    }
+}
+window.renderSocialCanvas = renderSocialCanvas;
+
+// 10. GESTORI GESTI INTERATTIVI CANVAS & TOOLBAR
+let isTouchDragging = false;
+let touchDragStartX = 0;
+let touchDragStartY = 0;
+let initialElemX = 0;
+let initialElemY = 0;
+let activePanTarget = null; // 'before' | 'after' | 'element'
+
 let initialPinchDistance = 0;
 let initialPinchScale = 1.0;
 let pinchTarget = null; // 'before' | 'after' | 'element'
@@ -29214,7 +29392,7 @@ function attachCanvasTouchGestures() {
         return null;
     }
 
-    // Touch Event Handlers
+    // Touch Event Handlers (Smartphone)
     canvas.addEventListener('touchstart', (e) => {
         const s = window._socialStudioState;
 
@@ -29250,7 +29428,6 @@ function attachCanvasTouchGestures() {
             initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
             if (s.template === 'transformation' && !window._activeSocialElemId) {
-                // Rileva se le due dita stanno toccando la foto Prima (SX) o Dopo (DX)
                 const c1 = getCanvasCoords(t1.clientX, t1.clientY);
                 const c2 = getCanvasCoords(t2.clientX, t2.clientY);
                 const midX = (c1.x + c2.x) / 2;
@@ -29386,11 +29563,10 @@ function attachCanvasTouchGestures() {
         activePanTarget = null;
     });
 
-    // 🖱️ ROTELLINA DEL MOUSE SUL CANVAS (ZOOM IN / OUT)
+    // 🖱️ ROTELLINA DEL MOUSE (ZOOM FOTO SUL DESKTOP)
     canvas.addEventListener('wheel', (e) => {
         const s = window._socialStudioState;
 
-        // Su modello Trasformazione, la rotellina zooma la foto corrispondente
         if (s.template === 'transformation' && !window._activeSocialElemId) {
             e.preventDefault();
             const coords = getCanvasCoords(e.clientX, e.clientY);
@@ -29408,7 +29584,6 @@ function attachCanvasTouchGestures() {
             return;
         }
 
-        // Se è selezionato un testo, la rotellina con Ctrl zooma il testo
         if (window._activeSocialElemId && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             const el = window._socialElements[window._activeSocialElemId];
@@ -29422,7 +29597,6 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-// 10. GESTIONE CONTROLLI TRASFORMAZIONE ELEMENTI
 function setActiveSocialElement(elemId) {
     window._activeSocialElemId = elemId;
     const bar = document.getElementById('ss-quick-transform-bar');
@@ -29992,7 +30166,7 @@ function syncSideColorPickersToTheme() {
     setPicker('ss-color-highlight-text', elems.highlight?.color || p.accent);
 }
 
-// 14. CAMBIO TEMPLATE E ALLINEAMENTO COMANDI
+// 14. CAMBIO TEMPLATE E SINCRONIZZAZIONE COMANDI
 function onSocialTemplateChanged(tpl) {
     window._socialStudioState.template = tpl;
     const sourceBox = document.getElementById('ss-pricelist-source-box');
@@ -30080,11 +30254,10 @@ function onSocialTemplateChanged(tpl) {
     if (subInput) s.subtitle = subInput.value;
     if (highInput) s.highlightText = highInput.value;
 
-    updatePhotoZoomUI('before');
-    updatePhotoZoomUI('after');
-
     if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
     renderSocialCanvas();
+    updatePhotoZoomUI('before');
+updatePhotoZoomUI('after');
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
@@ -30128,10 +30301,8 @@ async function saveCurrentSocialDraft() {
             selectedPresetId: s.selectedPresetId,
             beforePanX: s.beforePanX,
             beforePanY: s.beforePanY,
-            beforeZoom: s.beforeZoom,
             afterPanX: s.afterPanX,
             afterPanY: s.afterPanY,
-            afterZoom: s.afterZoom,
             customCheckedServiceIds: Array.from(s.customCheckedServiceIds || []),
             elements: JSON.parse(JSON.stringify(window._socialElements || {}))
         }
@@ -30233,10 +30404,8 @@ function loadSelectedSocialDraft() {
     s.selectedPresetId = c.selectedPresetId || 'current';
     s.beforePanX = c.beforePanX || 0;
     s.beforePanY = c.beforePanY || 0;
-    s.beforeZoom = c.beforeZoom || 1.0;
     s.afterPanX = c.afterPanX || 0;
     s.afterPanY = c.afterPanY || 0;
-    s.afterZoom = c.afterZoom || 1.0;
     s.customCheckedServiceIds = new Set(c.customCheckedServiceIds || []);
 
     if (c.format) {
@@ -30282,8 +30451,6 @@ function loadSelectedSocialDraft() {
     const cbQr = document.getElementById('ss-toggle-qr');
     if (cbQr) cbQr.checked = s.showQrCode;
 
-    updatePhotoZoomUI('before');
-    updatePhotoZoomUI('after');
     highlightActiveBgThumbnail();
     renderSocialPricelistItemCheckboxes();
     syncSideColorPickersToTheme();
@@ -30553,6 +30720,9 @@ async function initSocialStudioView() {
     highlightActiveBgThumbnail();
     syncSideColorPickersToTheme();
     updateCaptionPreview();
+    updatePhotoZoomUI('before');
+updatePhotoZoomUI('after');
+    
 
     // Sincronizzazione controlli checkbox con lo stato iniziale
     const cbLogo = document.getElementById('ss-toggle-logo');
@@ -30561,9 +30731,6 @@ async function initSocialStudioView() {
     if (cbSticker) cbSticker.checked = s.showBookingBadge;
     const cbQr = document.getElementById('ss-toggle-qr');
     if (cbQr) cbQr.checked = s.showQrCode;
-
-    updatePhotoZoomUI('before');
-    updatePhotoZoomUI('after');
 
     onSocialTemplateChanged(s.template);
 }
