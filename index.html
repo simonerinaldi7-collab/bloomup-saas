@@ -28072,7 +28072,7 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO & INTEGRALE)
+// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO DEFINITIVO)
 // =========================================================================
 
 // 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING GEOMETRICO E TESTUALE
@@ -28121,7 +28121,78 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 window.drawRoundedRect = drawRoundedRect;
 
-// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE
+// 📝 2. ASCOLTATORI DIGITAZIONE TESTI LIVE & DIDASCALIE (IN CIMA)
+function generateSocialCaptionText(salonId, link) {
+    const s = window._socialStudioState || {};
+    return `✨ ${s.title || ''}\n${s.subtitle || ''}\n\n👉 ${s.highlightText || ''}\n\n📲 Prenota comodamente online senza scaricare nessuna app cliccando qui:\n${link}\n\n#${String(salonId || '').replace(/[^a-zA-Z0-9]/g, '')} #beauty #hair #wellness #vaimup`;
+}
+window.generateSocialCaptionText = generateSocialCaptionText;
+
+function updateCaptionPreview() {
+    const previewEl = document.getElementById('ss-caption-preview');
+    if (!previewEl) return;
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    previewEl.innerText = generateSocialCaptionText(currentSalon, bookingUrl);
+}
+window.updateCaptionPreview = updateCaptionPreview;
+
+function copySocialCaption() {
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const caption = generateSocialCaptionText(currentSalon, bookingUrl);
+
+    navigator.clipboard.writeText(caption).then(() => {
+        alert("✅ Didascalia e link copiati negli appunti!\nIncollala su Instagram, Facebook o WhatsApp.");
+    });
+}
+window.copySocialCaption = copySocialCaption;
+
+async function shareSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const caption = generateSocialCaptionText(currentSalon, `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`);
+
+    try {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], `story_${currentSalon}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: `Novità ${currentSalon}`,
+                text: caption,
+                files: [file]
+            });
+        } else {
+            downloadSocialGraphic();
+            copySocialCaption();
+            alert("📥 Immagine scaricata nella galleria!\n\n📋 Didascalia e link copiati negli appunti.");
+        }
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error("Errore condivisione:", err);
+            downloadSocialGraphic();
+        }
+    }
+}
+window.shareSocialGraphic = shareSocialGraphic;
+
+function downloadSocialGraphic() {
+    const canvas = document.getElementById('social-render-canvas');
+    if (!canvas) return;
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.salon_id || 'SALON_001') : 'SALON_001';
+    const link = document.createElement('a');
+    link.download = `vaimup_${window._socialStudioState.format}_${currentSalon}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+window.downloadSocialGraphic = downloadSocialGraphic;
+
 function onSocialTextInput(inputId, value) {
     const s = window._socialStudioState;
     if (inputId === 'ss-input-badge') s.badgeText = value;
@@ -28396,7 +28467,7 @@ function clearAfterPhoto() {
 }
 window.clearAfterPhoto = clearAfterPhoto;
 
-// 🖼️ 5. GALLERIA SFONDI: MINIATURE, SCROLL PC, FILTRI & DISEGNO (RIPRISTINATE INTEGRALMENTE)
+// 🖼️ 5. GALLERIA SFONDI: MINIATURE, SCROLL PC, FILTRI & DISEGNO
 let _activeBgGalleryCategory = 'all';
 
 function renderSocialBgGalleryThumbnails() {
@@ -28662,7 +28733,7 @@ function onSocialTemplateChanged(tpl) {
         }
     }
 
-    updateCaptionPreview();
+    if (typeof updateCaptionPreview === 'function') updateCaptionPreview();
     renderSocialCanvas();
 }
 window.onSocialTemplateChanged = onSocialTemplateChanged;
@@ -28716,7 +28787,7 @@ function renderSocialCanvas() {
 
     ctx.clearRect(0, 0, W, H);
 
-    // SFONDO (FOTO O PRESET)
+    // SFONDO
     if (s.bgType === 'upload' && s.uploadedBgImg) {
         const img = s.uploadedBgImg;
         const ratio = Math.max(W / img.width, H / img.height);
@@ -28751,7 +28822,7 @@ function renderSocialCanvas() {
         drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon);
     }
 
-    // RENDERING STRUTTURALE DIFFERENZIATO
+    // RENDERING STRUTTURALE SPECIALIZZATO
     if (s.template === 'pricelist') {
         drawDefaultBadge(ctx, s, elems.badge, accentColor, isStory);
         drawDefaultTitle(ctx, s, elems.title, defaultTextMain, titleFontStack, W, margin, isStory);
@@ -29440,7 +29511,7 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 }
 window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
-// 🔤 9. CONTROLLI FORMATO, FONT, COLORI & LOGHI
+// 🔤 10. CONTROLLI FORMATO, FONT, COLORI & LOGHI
 function setSocialFormat(fmt) {
     window._socialStudioState.format = fmt;
     document.querySelectorAll('.social-pill-btn').forEach(b => b.classList.remove('active-pill'));
@@ -29787,7 +29858,7 @@ function resetSocialElementsPositions() {
 }
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
-// 💾 10. PERSISTENZA BOZZE (DRAFTS)
+// 💾 11. PERSISTENZA BOZZE (DRAFTS)
 async function saveCurrentSocialDraft() {
     const nameInput = document.getElementById('ss-draft-name-input');
     const draftName = (nameInput?.value || '').trim();
@@ -30000,7 +30071,7 @@ async function deleteSelectedSocialDraft() {
 }
 window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
 
-// 👆 11. GESTI TOUCH & MOUSE IMMUNI DA NaN
+// 👆 12. GESTI TOUCH & MOUSE IMMUNI DA NaN
 function attachCanvasTouchGestures() {
     const canvas = document.getElementById('social-render-canvas');
     if (!canvas || canvas._touchAttached) return;
@@ -30155,7 +30226,7 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
-// 🚀 12. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
+// 🚀 13. INIZIALIZZAZIONE & CATALOGO PREZZI REALI
 async function initSocialStudioView() {
     console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
     const s = window._socialStudioState;
