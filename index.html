@@ -27994,10 +27994,58 @@ function openSocialLaunchStoryFromOnboarding() {
 window.openSocialLaunchStoryFromOnboarding = openSocialLaunchStoryFromOnboarding;
 
 // =========================================================================
-// 📱 VAIMUP SOCIAL CONTENT STUDIO ENGINE (MOTORE UNIFICATO & COMPLETO)
+// 🔤 1. FUNZIONI FONDAMENTALI DI RENDERING TESTUALE & GEOMETRICO (IN CIMA)
 // =========================================================================
 
-// 1. LIBRERIA SFONDI: 18 PRESET CON FOTO REALI HD (CORS ANONYMOUS) & FORME
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+    if (!text) return 0;
+    const words = String(text).split(' ');
+    let line = '';
+    let lines = [];
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+            lines.push(line.trim());
+            line = words[n] + ' ';
+        } else {
+            line = testLine;
+        }
+    }
+    lines.push(line.trim());
+
+    const totalBlockH = lines.length * lineHeight;
+    let startY = y - (totalBlockH / 2) + (lineHeight / 2);
+
+    for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], x, startY + (i * lineHeight));
+    }
+    return totalBlockH;
+}
+window.wrapCanvasText = wrapCanvasText;
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
+    const r = Math.min(radius || 10, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+window.drawRoundedRect = drawRoundedRect;
+
+// =========================================================================
+// 🎨 2. GALLERIA SFONDI: 18 PRESET CON FOTO REALI HD & FORME
+// =========================================================================
+
 window.SOCIAL_BG_PRESETS = [
     // 🍂 STAGIONI (FOTOGRAFIE REALI & FORME)
     { 
@@ -28159,7 +28207,7 @@ function ensureSocialElementsInitialized(W, H, isStory) {
 }
 
 // =========================================================================
-// 📝 DIDASCALIE & CONDIVISIONE (DICHIARATE PRIMA PER EVITARE REFERENCE ERROR)
+// 📝 3. DIDASCALIE, CONDIVISIONE & CAPTION
 // =========================================================================
 
 function generateSocialCaptionText(salonId, link) {
@@ -28235,7 +28283,7 @@ function downloadSocialGraphic() {
 window.downloadSocialGraphic = downloadSocialGraphic;
 
 // =========================================================================
-// 🚀 CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
+// 🚀 4. CAMBIO MODELLO STRATEGICO CON STRUTTURE DIVERSIFICATE
 // =========================================================================
 
 function onSocialTemplateChanged(tpl) {
@@ -28328,7 +28376,7 @@ function onSocialTemplateChanged(tpl) {
 window.onSocialTemplateChanged = onSocialTemplateChanged;
 
 // =========================================================================
-// 🎨 GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
+// 🎨 5. GALLERIA SFONDI: MINIATURE, SCROLL PC & FILTRI CATEGORIA
 // =========================================================================
 
 let _activeBgGalleryCategory = 'all';
@@ -28461,7 +28509,7 @@ function resetToThemeDefaultBackground() {
 window.resetToThemeDefaultBackground = resetToThemeDefaultBackground;
 
 // =========================================================================
-// 🖌️ MOTORE DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
+// 🖌️ 6. DISEGNO SFONDI CANVAS (FOTO UNSPLASH HD + FORME VETTORIALI)
 // =========================================================================
 
 function drawSocialBackgroundPreset(ctx, W, H, presetId) {
@@ -28509,9 +28557,10 @@ function drawSocialBackgroundPreset(ctx, W, H, presetId) {
         ctx.restore();
     }
 }
+window.drawSocialBackgroundPreset = drawSocialBackgroundPreset;
 
 // =========================================================================
-// 🎨 MOTORE PRINCIPALE DI RENDERING CANVAS
+// 🎨 7. RENDERING CANVAS PRINCIPALE
 // =========================================================================
 
 function renderSocialCanvas() {
@@ -28657,7 +28706,7 @@ function renderSocialCanvas() {
 window.renderSocialCanvas = renderSocialCanvas;
 
 // =========================================================================
-// 🌟 COMPONENTI GRAFICI SPECIALIZZATI (ZERO REFERENCE ERROR)
+// 🌟 8. COMPONENTI GRAFICI SPECIALIZZATI
 // =========================================================================
 
 function drawLaunchFeatureCards(ctx, W, startY, activePreset, accentColor) {
@@ -28821,18 +28870,20 @@ function drawQuoteReviewStructure(ctx, s, elTitle, elSub, elHigh, W, defaultText
     ctx.fillText('★ ★ ★ ★ ★', W / 2, starsY);
     ctx.shadowBlur = 0;
 
+    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
+
     const quoteScale = elTitle.scale || 1.0;
     const fontSize = Math.round((isStory ? 58 : 48) * quoteScale);
     ctx.font = `italic 900 ${fontSize}px Georgia, serif`;
     ctx.fillStyle = elTitle.color || defaultTextMain;
     const maxW = W - 220;
     const lineHeight = Math.round(fontSize * 1.3);
-    wrapCanvasText(ctx, s.title, W / 2, isStory ? 710 : 530, maxW, lineHeight);
+    wrapFn(ctx, s.title, W / 2, isStory ? 710 : 530, maxW, lineHeight);
 
     const subFont = Math.round(28 * (elSub.scale || 1.0));
     ctx.font = `500 ${subFont}px sans-serif`;
     ctx.fillStyle = elSub.color || (activePreset.isLight ? '#57534E' : '#CBD5E1');
-    wrapCanvasText(ctx, s.subtitle, W / 2, isStory ? 940 : 720, maxW, Math.round(subFont * 1.35));
+    wrapFn(ctx, s.subtitle, W / 2, isStory ? 940 : 720, maxW, Math.round(subFont * 1.35));
 
     const authText = s.highlightText || 'Maria R. • Recensione Verificata';
     ctx.font = 'bold 20px sans-serif';
@@ -28916,6 +28967,7 @@ function drawPriceListMenuOnCanvas(ctx, s, W, el, accentColor, textMain, activeP
         curY += lineHeight;
     });
 }
+window.drawPriceListMenuOnCanvas = drawPriceListMenuOnCanvas;
 
 function drawDefaultBadge(ctx, s, el, accentColor, isStory) {
     if (!s.badgeText) return;
@@ -28982,7 +29034,8 @@ function drawDefaultTitle(ctx, s, el, defaultTextMain, titleFontStack, W, margin
     const maxW = Math.max((W - (margin * 3)) * scale, 200);
     const lineHeight = Math.round(fontSize * 1.25);
     el.w = maxW;
-    el.h = wrapCanvasText(ctx, s.title, x, y, maxW, lineHeight);
+    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
+    el.h = wrapFn(ctx, s.title, x, y, maxW, lineHeight);
     ctx.restore();
 }
 
@@ -29002,7 +29055,8 @@ function drawDefaultSubtitle(ctx, s, el, defaultTextSub, W, margin, isStory) {
 
     const maxW = Math.max((W - (margin * 3.5)) * scale, 200);
     el.w = maxW;
-    el.h = wrapCanvasText(ctx, s.subtitle, x, y, maxW, Math.round(subFont * 1.35));
+    const wrapFn = typeof wrapCanvasText === 'function' ? wrapCanvasText : window.wrapCanvasText;
+    el.h = wrapFn(ctx, s.subtitle, x, y, maxW, Math.round(subFont * 1.35));
     ctx.restore();
 }
 
@@ -29209,25 +29263,10 @@ function drawSmartLogoOnCanvas(ctx, s, el, accentColor, currentSalon) {
 
     ctx.restore();
 }
-
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
-    const r = Math.min(radius || 10, width / 2, height / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + width - r, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-    ctx.lineTo(x + width, y + height - r);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-}
+window.drawSmartLogoOnCanvas = drawSmartLogoOnCanvas;
 
 // =========================================================================
-// 🔤 CONTROLLI FORMATO, FONT, COLORI & LOGHI
+// 🔤 9. CONTROLLI FORMATO, FONT, COLORI & LOGHI
 // =========================================================================
 
 function setSocialFormat(fmt) {
@@ -29557,7 +29596,7 @@ function resetSocialElementsPositions() {
 window.resetSocialElementsPositions = resetSocialElementsPositions;
 
 // =========================================================================
-// 💾 GESTIONE PERSISTENZA BOZZE (DRAFTS)
+// 💾 10. PERSISTENZA BOZZE (DRAFTS)
 // =========================================================================
 
 async function saveCurrentSocialDraft() {
@@ -29773,7 +29812,7 @@ async function deleteSelectedSocialDraft() {
 window.deleteSelectedSocialDraft = deleteSelectedSocialDraft;
 
 // =========================================================================
-// 👆 GESTI TOUCH & MOUSE IMMUNI DA NaN
+// 👆 11. GESTI TOUCH & MOUSE IMMUNI DA NaN
 // =========================================================================
 
 function attachCanvasTouchGestures() {
@@ -29930,6 +29969,150 @@ function attachCanvasTouchGestures() {
     }, { passive: false });
 }
 
+// =========================================================================
+// 🚀 12. INIZIALIZZAZIONE & CARICAMENTO LISTINI
+// =========================================================================
+
+async function initSocialStudioView() {
+    console.log("📱 [SOCIAL STUDIO] Inizializzazione motore...");
+    const s = window._socialStudioState;
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    let inventory = [];
+    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
+        inventory = allInventory;
+    } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
+        inventory = window.allInventory;
+    } else {
+        inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+    }
+    window.allInventory = inventory;
+    if (typeof allInventory !== 'undefined') allInventory = inventory;
+
+    await resolveRealPricesForSocialInventory(inventory);
+
+    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
+    if (savedLogo) {
+        const img = new Image();
+        img.onload = () => {
+            s.salonLogoImg = img;
+            renderSocialCanvas();
+        };
+        img.src = savedLogo;
+    }
+
+    const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
+    const qrImg = new Image();
+    qrImg.onload = () => {
+        s.qrImage = qrImg;
+        renderSocialCanvas();
+    };
+    qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(bookingUrl)}&size=600&dark=1e1b4b&ecLevel=H`;
+
+    if (typeof populatePrintStudioPresetsInSocialStudio === 'function') {
+        populatePrintStudioPresetsInSocialStudio(currentSalon);
+    }
+
+    renderSocialPricelistItemCheckboxes();
+    renderSocialBgGalleryThumbnails();
+    renderSavedSocialDraftsDropdown();
+    highlightActiveBgThumbnail();
+    syncSideColorPickersToTheme();
+    updateCaptionPreview();
+    renderSocialCanvas();
+}
+window.initSocialStudioView = initSocialStudioView;
+
+async function resolveRealPricesForSocialInventory(inventory) {
+    if (!Array.isArray(inventory) || inventory.length === 0) return;
+    const priceHistory = await window.universalQuery({ action: 'GET_ALL', table: 'price_history' }) || [];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    inventory.forEach(item => {
+        let resolvedPrice = null;
+        const pIdStr = String(item.id).trim();
+
+        const itemHistory = priceHistory.filter(ph => String(ph.product_id).trim() === pIdStr);
+        if (itemHistory.length > 0) {
+            const activeRow = itemHistory.find(ph => {
+                const fromStr = (ph.date_from || '1900-01-01').substring(0, 10);
+                const toStr = ph.date_to ? ph.date_to.substring(0, 10) : '9999-12-31';
+                return todayStr >= fromStr && todayStr <= toStr;
+            });
+            if (activeRow && activeRow.price !== undefined && activeRow.price !== null && parseFloat(activeRow.price) > 0) {
+                resolvedPrice = parseFloat(activeRow.price);
+            } else {
+                const sortedHistory = [...itemHistory].sort((a, b) => (b.date_from || '').localeCompare(a.date_from || ''));
+                const latestValid = sortedHistory.find(ph => ph.price !== undefined && ph.price !== null && parseFloat(ph.price) > 0);
+                if (latestValid) resolvedPrice = parseFloat(latestValid.price);
+            }
+        }
+
+        if (resolvedPrice === null || isNaN(resolvedPrice) || resolvedPrice <= 0) {
+            const basePrice = parseFloat(item.price);
+            if (!isNaN(basePrice) && basePrice > 0) resolvedPrice = basePrice;
+            else {
+                const listingP = parseFloat(item.listing_price);
+                resolvedPrice = (!isNaN(listingP) && listingP > 0) ? listingP : 0.00;
+            }
+        }
+        item.price = resolvedPrice;
+    });
+}
+
+function renderSocialPricelistItemCheckboxes() {
+    const container = document.getElementById('ss-pricelist-items-picker');
+    if (!container) return;
+
+    const s = window._socialStudioState;
+    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
+
+    let inventory = (typeof allInventory !== 'undefined' && allInventory) ? allInventory : (window.allInventory || []);
+    let services = inventory.filter(i => i.type === 'servizio');
+
+    if (services.length === 0) {
+        container.innerHTML = `<span style="font-size:11px; color:#888; padding:6px;">Nessun servizio registrato nel listino.</span>`;
+        return;
+    }
+
+    if (s.customCheckedServiceIds.size === 0) {
+        services.slice(0, 4).forEach(srv => s.customCheckedServiceIds.add(String(srv.id)));
+    }
+
+    container.innerHTML = services.map(srv => {
+        const isChecked = s.customCheckedServiceIds.has(String(srv.id));
+        const priceFmt = parseFloat(srv.price || 0).toFixed(2);
+        return `
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; padding: 4px 6px; border-radius: 6px; background: ${isChecked ? '#f5f3ff' : 'transparent'}; cursor: pointer; margin: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                    <input type="checkbox" value="${srv.id}" ${isChecked ? 'checked' : ''} onchange="toggleSocialPricelistItem('${srv.id}', this.checked)" style="width: 15px; height: 15px; accent-color: var(--p); margin: 0; cursor: pointer;">
+                    <span style="font-weight: 600; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${srv.name}</span>
+                </div>
+                <b style="font-size: 11px; color: var(--p); margin-left: 6px;">€ ${priceFmt}</b>
+            </label>
+        `;
+    }).join('');
+}
+window.renderSocialPricelistItemCheckboxes = renderSocialPricelistItemCheckboxes;
+
+function toggleSocialPricelistItem(serviceId, isChecked) {
+    const s = window._socialStudioState;
+    s.customCheckedServiceIds = s.customCheckedServiceIds || new Set();
+    if (isChecked) s.customCheckedServiceIds.add(String(serviceId));
+    else s.customCheckedServiceIds.delete(String(serviceId));
+    renderSocialCanvas();
+}
+window.toggleSocialPricelistItem = toggleSocialPricelistItem;
+
+function onSocialPresetSourceChanged(val) {
+    window._socialStudioState.selectedPresetId = val;
+    window._socialStudioState.customCheckedServiceIds = new Set();
+    renderSocialPricelistItemCheckboxes();
+    renderSocialCanvas();
+}
+window.onSocialPresetSourceChanged = onSocialPresetSourceChanged;
 
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
