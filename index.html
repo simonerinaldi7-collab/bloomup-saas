@@ -31579,6 +31579,108 @@ window.changePage = function(page, force = false) {
     renderActiveView();
 };
 
+// =========================================================================
+// 🧭 CONTROLLO ACCORDION E RICERCA SIDEBAR (RISOLVE: toggleNavGroup is not defined)
+// =========================================================================
+
+// 1. ESPANSIONE E CHIUSURA GRUPPI ACCORDION CON PERSISTENZA LOCALSTORAGE
+function toggleNavGroup(groupId) {
+    if (!groupId) return;
+    const grp = document.getElementById(groupId);
+    if (!grp) return;
+
+    const isExpanded = grp.classList.contains('expanded');
+    grp.classList.toggle('expanded', !isExpanded);
+
+    // Salva lo stato nel browser così l'utente ritrova le cartelle come le ha lasciate
+    try {
+        const savedStates = JSON.parse(localStorage.getItem('VaiMUp_sidebar_groups') || '{}');
+        savedStates[groupId] = !isExpanded;
+        localStorage.setItem('VaiMUp_sidebar_groups', JSON.stringify(savedStates));
+    } catch (e) {}
+}
+window.toggleNavGroup = toggleNavGroup;
+
+// 2. RIPRISTINO AUTOMATICO DELLO STATO DEI GRUPPI ALL'AVVIO
+function initSidebarGroupsState() {
+    try {
+        const savedStates = JSON.parse(localStorage.getItem('VaiMUp_sidebar_groups') || '{}');
+        Object.keys(savedStates).forEach(groupId => {
+            const grp = document.getElementById(groupId);
+            if (grp && savedStates[groupId] !== undefined) {
+                grp.classList.toggle('expanded', Boolean(savedStates[groupId]));
+            }
+        });
+    } catch (e) {}
+}
+window.initSidebarGroupsState = initSidebarGroupsState;
+
+// 3. PULIZIA RAPIDA DEL CAMPO DI RICERCA SIDEBAR
+function clearSidebarNavSearch() {
+    const input = document.getElementById('sidebar-nav-search');
+    if (input) input.value = '';
+    filterSidebarNav('');
+}
+window.clearSidebarNavSearch = clearSidebarNavSearch;
+
+// 4. FILTRO LIVE ISTANTANEO TRA LE VOCI DELLA SIDEBAR
+function filterSidebarNav(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('sidebar-nav-search-clear');
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'master_admin');
+    const groups = document.querySelectorAll('.nav-group');
+    const items = document.querySelectorAll('.sidebar-nav-container .nav-item');
+
+    if (!q) {
+        // Ripristina la visualizzazione predefinita rispettando i ruoli
+        if (typeof window.updateSidebarRoleAccess === 'function') {
+            window.updateSidebarRoleAccess();
+        }
+        window.initSidebarGroupsState();
+        return;
+    }
+
+    groups.forEach(grp => {
+        let hasVisibleChild = false;
+        const grpItems = grp.querySelectorAll('.nav-item');
+
+        grpItems.forEach(item => {
+            // Se la voce è riservata al titolare e l'utente è un operatore, nascondila
+            if (typeof window.ADMIN_ONLY_NAV_IDS !== 'undefined' && window.ADMIN_ONLY_NAV_IDS.includes(item.id) && !isAdmin) {
+                item.style.setProperty('display', 'none', 'important');
+                return;
+            }
+
+            const title = (item.innerText || '').toLowerCase();
+            const keywords = (item.getAttribute('data-keywords') || '').toLowerCase();
+
+            if (title.includes(q) || keywords.includes(q)) {
+                item.style.setProperty('display', 'flex', 'important');
+                hasVisibleChild = true;
+            } else {
+                item.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // Se il gruppo contiene almeno un risultato della ricerca, espandilo
+        if (hasVisibleChild) {
+            grp.style.removeProperty('display');
+            grp.classList.add('expanded');
+        } else {
+            grp.style.setProperty('display', 'none', 'important');
+        }
+    });
+}
+window.filterSidebarNav = filterSidebarNav;
+
+// 5. ASCOLTATORE DI AVVIO PER IL RIPRISTINO DELLE CARTELLE DELLA SIDEBAR
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        window.initSidebarGroupsState();
+    }, 200);
+});
 
 // Ripristino all'avvio dello stato delle cartelle memorizzato
 window.initSidebarGroupsState = function() {
@@ -32656,6 +32758,9 @@ window.changePage = function(page, force = false) {
         _prevChangePageForSuperAdmin(page, force);
     }
 };
+
+
+
 
 
     document.addEventListener('DOMContentLoaded', () => {
