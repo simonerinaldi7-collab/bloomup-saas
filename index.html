@@ -13297,17 +13297,29 @@ async function registerOperatorPushNotifications() {
 }
 
     function resetGlobalState() {
-        allCustomers = [];
-        allInventory = [];
-        allAppointments = [];
-        allSales = [];
-        allLogs = [];
-        sysSettings = {};
-        allUsers = [];
-        cart = [];
-        currentCheckoutCustomer = null;
-        currentViewApp = null;
+    allCustomers = [];
+    allInventory = [];
+    allAppointments = [];
+    allSales = [];
+    allLogs = [];
+    sysSettings = {};
+    allUsers = [];
+    cart = [];
+    currentCheckoutCustomer = null;
+    currentViewApp = null;
+
+    // 🛑 AZZERAMENTO DELLA MEMORIA DEI LOGHI IN RAM
+    if (window._printStudioState) {
+        window._printStudioState.salonLogoBase64 = null;
     }
+    if (window._socialStudioState) {
+        window._socialStudioState.salonLogoImg = null;
+    }
+
+    // Rimuove chiavi globali obsolete
+    localStorage.removeItem('vaimup_salon_logo');
+}
+window.resetGlobalState = resetGlobalState;
 
     function getDateString(baseDate, offsetDays) {
         const d = new Date(baseDate);
@@ -25224,7 +25236,11 @@ window._printStudioState = {
 
 // 1. Inizializzazione della vista Stampa con Risoluzione Prezzi Reali
 async function initPrintStudioView() {
-    console.log("🖨️ [PRINT STUDIO] Inizializzazione protetta con controlli drag & drop...");
+    console.log("🖨️ [PRINT STUDIO] Inizializzazione isolata multi-tenant...");
+
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+        ? String(currentUser.salon_id).trim().toLowerCase() 
+        : 'salon_001';
 
     if (!window._printStudioState || typeof window._printStudioState !== 'object') {
         window._printStudioState = {
@@ -25247,22 +25263,27 @@ async function initPrintStudioView() {
             customItems: []
         };
     }
-    if (!window._printStudioState.selectedItemIds) window._printStudioState.selectedItemIds = new Set();
-    if (!Array.isArray(window._printStudioState.categories)) window._printStudioState.categories = [];
-    if (!Array.isArray(window._printStudioState.customItems)) window._printStudioState.customItems = [];
-    
-    // Recupero logo salone
-    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
-    if (savedLogo) {
+
+    // 🌟 RECUPERO LOGO ISOLATO RIGOROSAMENTE PER IL SALONE CORRENTE
+    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || 
+                      localStorage.getItem(`vaimup_salon_logo_${currentSalon}`);
+
+    const previewEl = document.getElementById('ps-salon-logo-preview');
+
+    if (savedLogo && savedLogo.trim().length > 10) {
         window._printStudioState.salonLogoBase64 = savedLogo;
-        const previewEl = document.getElementById('ps-salon-logo-preview');
         if (previewEl) {
-            previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
+            previewEl.innerHTML = `<img src="${savedLogo}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+    } else {
+        // 🛑 SE QUESTO SALONE NON HA UN LOGO, AZZERA TOTALMENTE QUELLO DEL NEGOZIO PRECEDENTE!
+        window._printStudioState.salonLogoBase64 = null;
+        if (previewEl) {
+            previewEl.innerHTML = `<span style="font-size: 20px;">🖼️</span>`;
         }
     }
 
-    // Risoluzione prezzi reali da price_history
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser.salon_id || '').trim().toLowerCase() : 'salon_001';
+    // Recupero inventario e listino
     let inventory = (window.allInventory && window.allInventory.length > 0) 
         ? window.allInventory 
         : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
@@ -25283,39 +25304,28 @@ async function initPrintStudioView() {
             activeRow = itemHistory[0];
         }
 
-        if (activeRow && activeRow.price !== undefined && activeRow.price !== null) {
-            item.price = parseFloat(activeRow.price);
-        } else if (item.price === undefined || item.price === null || isNaN(parseFloat(item.price))) {
-            item.price = 0;
-        } else {
-            item.price = parseFloat(item.price);
-        }
+        item.price = (activeRow && activeRow.price !== undefined) ? parseFloat(activeRow.price) : (parseFloat(item.price) || 0);
     });
 
     window.allInventory = inventory;
 
-    // Preselezione di tutti gli articoli
     window._printStudioState.selectedItemIds.clear();
     inventory.forEach(i => window._printStudioState.selectedItemIds.add(String(i.id)));
 
-    // Caricamento categorie
     loadPrintCategoriesFromStorage(inventory, currentSalon);
 
-    // Sincronizzazione controlli UI
     applyPrintPaperClasses();
     updateDynamicPrintPageCss();
     renderPrintCategoriesManager();
     renderPrintItemsChecklist();
     renderLivePrintSheet();
 
-// In coda a initPrintStudioView():
     const savedPresets = loadAllPresetsFromStorage(currentSalon);
     renderSavedPresetsDropdown(savedPresets);
 
-    // Auto-fit immediato per mostrare tutto il foglio senza scroll
     setTimeout(autoFitPrintPreviewToScreen, 200);
-
 }
+window.initPrintStudioView = initPrintStudioView;
 
 // =========================================================================
 // 🔍 CONTROLLO SCALA DEL CARATTERE (FONT SIZE ZOOM)
@@ -25651,6 +25661,11 @@ async function handleSalonLogoUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+        ? String(currentUser.salon_id).trim() 
+        : 'SALON_001';
+    const currentSalonKey = currentSalon.toLowerCase();
+
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
 
@@ -25658,7 +25673,6 @@ async function handleSalonLogoUpload(event) {
         let processedDataUrl = null;
 
         if (isPdf) {
-            // Conversione PDF Vettoriale in Ultra-HD 4K (scala 4x per dettagli chirurgici)
             if (typeof pdfjsLib === 'undefined') {
                 return alert("Libreria PDF in caricamento. Riprova tra un istante.");
             }
@@ -25677,16 +25691,13 @@ async function handleSalonLogoUpload(event) {
             ctx.imageSmoothingQuality = 'high';
 
             await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-            // Rimuove automaticamente eventuali ampi bordi bianchi o vuoti
             processedDataUrl = trimTransparentCanvasBorders(canvas);
 
         } else if (isSvg) {
-            // Per gli SVG leggiamo il sorgente e lo convertiamo in un canvas HD 1600px
             const svgText = await file.text();
             processedDataUrl = await rasterizeSvgToHdDataUrl(svgText);
 
         } else {
-            // Per PNG, WebP o JPG: lettura, rimozione margini vuoti e conservazione massima nitidezza
             const base64Raw = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
@@ -25697,7 +25708,7 @@ async function handleSalonLogoUpload(event) {
             processedDataUrl = await autoTrimAndOptimizeRasterLogo(base64Raw);
         }
 
-        // Salvataggio nello stato globale di Print Studio e Social Studio
+        // 🌟 1. Salvataggio isolato in RAM solo per questo salone
         if (window._printStudioState) {
             window._printStudioState.salonLogoBase64 = processedDataUrl;
         }
@@ -25711,25 +25722,35 @@ async function handleSalonLogoUpload(event) {
             img.src = processedDataUrl;
         }
 
-        // Aggiorna l'anteprima nel Print Studio se presente
-        const previewEl = document.getElementById('ps-salon-logo-preview');
-        if (previewEl) {
-            previewEl.innerHTML = `<img src="${processedDataUrl}" alt="Logo" style="width:100%; height:100%; object-fit:contain;">`;
+        // 🌟 2. Salvataggio in localStorage CON IL SALON_ID NEL NOME DELLA CHIAVE!
+        localStorage.setItem(`vaimup_salon_logo_${currentSalonKey}`, processedDataUrl);
+        // Rimuoviamo la vecchia chiave globale che causava la contaminazione
+        localStorage.removeItem('vaimup_salon_logo');
+
+        if (typeof sysSettings !== 'undefined') {
+            sysSettings['salon_logo'] = processedDataUrl;
         }
 
-        // Persistenza locale e su Cloud Supabase per tutti i dispositivi
-        localStorage.setItem('vaimup_salon_logo', processedDataUrl);
-        if (typeof sysSettings !== 'undefined') sysSettings['salon_logo'] = processedDataUrl;
-
+        // 🌟 3. Salvataggio su Supabase Cloud con salon_id ESPLICITO
         await window.universalQuery({
             action: 'UPSERT_SETTING',
-            data: { key: 'salon_logo', value: processedDataUrl }
+            data: { 
+                key: 'salon_logo', 
+                value: processedDataUrl,
+                salon_id: currentSalon 
+            }
         });
+
+        // Aggiorna l'anteprima visiva nel Print Studio
+        const previewEl = document.getElementById('ps-salon-logo-preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<img src="${processedDataUrl}" alt="Logo Salone" style="width:100%; height:100%; object-fit:contain;">`;
+        }
 
         if (typeof renderLivePrintSheet === 'function') renderLivePrintSheet();
         if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
 
-        alert("✅ Logo caricato e ottimizzato in Ultra-HD con rimozione automatica dei margini!");
+        alert(`✅ Logo per il salone "${currentSalon}" caricato e salvato con successo!`);
 
     } catch (err) {
         console.error("Errore elaborazione logo HD:", err);
@@ -25737,6 +25758,45 @@ async function handleSalonLogoUpload(event) {
     }
 }
 window.handleSalonLogoUpload = handleSalonLogoUpload;
+
+// 2. FUNZIONE PER ELIMINARE IL LOGO ESCLUSIVAMENTE PER IL SALONE CORRENTE
+async function deleteSalonLogo() {
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+        ? String(currentUser.salon_id).trim() 
+        : 'SALON_001';
+    const currentSalonKey = currentSalon.toLowerCase();
+
+    if (!confirm(`Sei sicuro di voler rimuovere il logo per il salone "${currentSalon}"?`)) return;
+
+    // 1. Pulizia RAM
+    if (window._printStudioState) window._printStudioState.salonLogoBase64 = null;
+    if (window._socialStudioState) window._socialStudioState.salonLogoImg = null;
+    if (typeof sysSettings !== 'undefined') delete sysSettings['salon_logo'];
+
+    // 2. Pulizia LocalStorage isolata
+    localStorage.removeItem(`vaimup_salon_logo_${currentSalonKey}`);
+    localStorage.removeItem('vaimup_salon_logo');
+
+    // 3. Pulizia Database locale e Cloud Supabase
+    try {
+        await window.universalQuery({
+            action: 'UPSERT_SETTING',
+            data: { key: 'salon_logo', value: '', salon_id: currentSalon }
+        });
+    } catch (e) {}
+
+    const previewEl = document.getElementById('ps-salon-logo-preview');
+    if (previewEl) {
+        previewEl.innerHTML = `<span style="font-size: 20px;">🖼️</span>`;
+    }
+
+    if (typeof renderLivePrintSheet === 'function') renderLivePrintSheet();
+    if (typeof renderSocialCanvas === 'function') renderSocialCanvas();
+
+    alert(`🗑️ Logo del salone "${currentSalon}" rimosso.`);
+}
+window.deleteSalonLogo = deleteSalonLogo;
+
 
 // 2. RIMOZIONE AUTOMATICA DEI MARGINI TRASPARENTI VUOTI (AUTOTRIM)
 function trimTransparentCanvasBorders(canvas) {
@@ -31028,33 +31088,34 @@ async function resolveRealPricesForSocialInventory(inventory) {
 
 // 19. INIZIALIZZAZIONE DELLA VISTA SOCIAL STUDIO
 async function initSocialStudioView() {
-    console.log("📱 [SOCIAL STUDIO] Inizializzazione ordinata...");
+    console.log("📱 [SOCIAL STUDIO] Inizializzazione isolata multi-tenant...");
     const s = window._socialStudioState;
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+        ? String(currentUser.salon_id).trim().toLowerCase() 
         : 'salon_001';
 
-    let inventory = [];
-    if (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0) {
-        inventory = allInventory;
-    } else if (window.allInventory && Array.isArray(window.allInventory) && window.allInventory.length > 0) {
-        inventory = window.allInventory;
-    } else {
-        inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-    }
+    let inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory) && allInventory.length > 0)
+        ? allInventory 
+        : (await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || []);
+    
     window.allInventory = inventory;
-    if (typeof allInventory !== 'undefined') allInventory = inventory;
-
     await resolveRealPricesForSocialInventory(inventory);
 
-    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || localStorage.getItem('vaimup_salon_logo');
-    if (savedLogo) {
+    // 🌟 RECUPERO LOGO ISOLATO: se non esiste per questo salone, AZZERA salonLogoImg
+    const savedLogo = (typeof sysSettings !== 'undefined' && sysSettings['salon_logo']) || 
+                      localStorage.getItem(`vaimup_salon_logo_${currentSalon}`);
+
+    if (savedLogo && savedLogo.trim().length > 10) {
         const img = new Image();
         img.onload = () => {
             s.salonLogoImg = img;
             renderSocialCanvas();
         };
         img.src = savedLogo;
+    } else {
+        // 🛑 NESSUN LOGO PER QUESTO SALONE: azzera la variabile in memoria!
+        s.salonLogoImg = null;
+        renderSocialCanvas();
     }
 
     const bookingUrl = `${window.location.origin}/?book=${encodeURIComponent(currentSalon)}`;
@@ -31080,17 +31141,16 @@ async function initSocialStudioView() {
     highlightActiveBgThumbnail();
     syncSideColorPickersToTheme();
     updateCaptionPreview();
-    updatePhotoZoomUI('before');
-updatePhotoZoomUI('after');
-    
 
-    // Sincronizzazione controlli checkbox con lo stato iniziale
     const cbLogo = document.getElementById('ss-toggle-logo');
     if (cbLogo) cbLogo.checked = s.showLogo;
     const cbSticker = document.getElementById('ss-toggle-booking-badge');
     if (cbSticker) cbSticker.checked = s.showBookingBadge;
     const cbQr = document.getElementById('ss-toggle-qr');
     if (cbQr) cbQr.checked = s.showQrCode;
+
+    updatePhotoZoomUI('before');
+    updatePhotoZoomUI('after');
 
     onSocialTemplateChanged(s.template);
 }
