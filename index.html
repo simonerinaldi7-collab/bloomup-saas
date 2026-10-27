@@ -2688,11 +2688,11 @@
                 </a>
                 <a href="#" class="nav-item" id="n-payouts" data-module="supplier_payouts" data-tier="enterprise" data-keywords="liquidazione fornitori conto vendita saldo quote split" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">
                     <span>💶 Liquidazione CV</span>
-                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
                 </a>
                 <a href="#" class="nav-item" id="n-workstations" data-module="workstations" data-tier="enterprise" data-keywords="spazi postazioni cabine coworking poltrone stanze condivise" onclick="changePageMobileWrapper('workstations')">
                     <span>🏢 Spazi & Coworking</span>
-                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
                 </a>
             </div>
         </div>
@@ -2706,10 +2706,11 @@
             <div class="nav-group-items">
                 <a href="#" class="nav-item" id="n-social" data-module="social" data-tier="pro" data-keywords="social studio stories instagram prima dopo post grafica foto share" onclick="changePageMobileWrapper('social')">
                     <span>📱 Social Content Studio</span>
-                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
+                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
                 </a>
                 <a href="#" class="nav-item" id="n-print" data-module="print" data-tier="base" data-keywords="stampa listini cartello qr vetrina pdf barcode foglio a4" onclick="changePageMobileWrapper('print')">
                     <span>🖨️ Stampa & Listini</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
                 </a>
                 <a href="#" class="nav-item" id="n-logs" data-module="logs" data-tier="pro" data-keywords="comunicazioni whatsapp promemoria reminder sms messaggi storico" onclick="changePageMobileWrapper('logs')">
                     <span>📜 WhatsApp & Notifiche</span>
@@ -2732,7 +2733,7 @@
                 </a>
                 <a href="#" class="nav-item" id="n-ai" data-module="ai_assistant" data-tier="pro" data-keywords="ia intelligenza artificiale assistente coach voce consigli business" onclick="changePageMobileWrapper('ai-assistant')">
                     <span>🤖 Assistente IA</span>
-                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
+                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
                 </a>
                 <a href="#" class="nav-item" id="n-users" data-module="users" data-tier="pro" data-keywords="utenti operatori collaboratori password staff ruoli permessi" onclick="changePageMobileWrapper('users')" style="display:none;">
                     <span>🔑 Gestione Utenti</span>
@@ -4855,6 +4856,9 @@
 </section>
 
 
+    <!-- ======================================================== -->
+    <!-- ⚙️ VISTA CONFIGURAZIONE GESTIONALE (CON SCHEDA ABBONAMENTO) -->
+    <!-- ======================================================== -->
     <section id="v-settings" class="view" style="padding: 15px !important;">
         <div class="card settings-main-card">
             
@@ -4864,7 +4868,7 @@
                     <span style="font-size: 26px;">⚙️</span>
                     <div>
                         <h3 style="margin: 0; color: #1e1b4b; font-size: 18px; font-weight: 800;">Configurazione Gestionale</h3>
-                        <small style="color: #64748b; font-size: 11.5px;">Personalizza tema, orari, automazioni WhatsApp e booking</small>
+                        <small style="color: #64748b; font-size: 11.5px;">Personalizza tema, orari, automazioni WhatsApp, booking e licenze</small>
                     </div>
                 </div>
                 <button type="button" class="btn btn-p" style="padding: 9px 22px; font-size: 13px; font-weight: 800; border-radius: 10px;" onclick="saveSystemSettings()">
@@ -4872,7 +4876,7 @@
                 </button>
             </div>
 
-            <!-- BARRA DELLE SCHEDE (NON TAGLIA PIÙ SU PC E SCORRE SU MOBILE) -->
+            <!-- BARRA DELLE SCHEDE (CON AGGIUNTA SCHEDA 💳 ABBONAMENTO) -->
             <div class="settings-tabs-bar">
                 <button type="button" class="btn settings-tab-btn active-tab" id="set-tab-btn-appearance" onclick="switchSettingsTab('appearance')">🎨 Aspetto</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-messages" onclick="switchSettingsTab('messages')">💬 WhatsApp</button>
@@ -4880,6 +4884,7 @@
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-packages" onclick="switchSettingsTab('packages')">🎁 Pacchetti</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-staff" onclick="switchSettingsTab('staff')">⏰ Notifiche Staff</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-data-export" onclick="switchSettingsTab('data-export')">🛡️ Portabilità Dati</button>
+                <button type="button" class="btn settings-tab-btn" id="set-tab-btn-subscription" onclick="switchSettingsTab('subscription')">💳 Abbonamento</button>
             </div>
 
             <!-- ========================================== -->
@@ -4976,23 +4981,26 @@
             </div>
 
             <!-- ========================================== -->
-            <!-- 🌐 SETTORE 3: BOOKING ONLINE & BROADCAST   -->
+            <!-- 🌐 SETTORE 3: BOOKING ONLINE (ENTERPRISE)  -->
             <!-- ========================================== -->
             <div id="set-sec-booking" class="settings-section-card">
                 
-                <!-- Toggle Principale Attivazione con Feedback Visivo EVIDENTE -->
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 220px;">
-                        <h4 style="margin: 0 0 2px 0; font-size: 14.5px; color: var(--p); font-weight: 800;">🌐 Prenotazione Autonoma Online Clienti</h4>
-                        <small style="color: #64748b; font-size: 11.5px; line-height: 1.4; display: block;">Abilita o disabilita il portale web self-service tramite link o QR Code.</small>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h4 style="margin: 0; font-size: 14.5px; color: var(--p); font-weight: 800;">🌐 Prenotazione Autonoma Online Clienti (Self-Booking)</h4>
+                            <span class="nav-tier-badge badge-tier-enterprise" style="font-size: 10px;">ESCLUSIVA ENTERPRISE</span>
+                        </div>
+                        <small style="color: #64748b; font-size: 11.5px; line-height: 1.4; display: block; margin-top: 2px;">
+                            Consenti ai clienti di prenotare via link o QR code 24/7. Disponibile con piano Enterprise.
+                        </small>
                     </div>
 
-                    <!-- INTERRUTTORE CON BADGE TESTUALE VISIBILISSIMO -->
                     <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-                        <span id="set-booking-toggle-status-label" style="font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: #f1f5f9; color: #64748b; letter-spacing: 0.5px; transition: all 0.2s ease;">
+                        <span id="set-booking-toggle-status-label" style="font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: #f1f5f9; color: #64748b; letter-spacing: 0.5px;">
                             ⚪ DISATTIVATO
                         </span>
-                        <label class="switch-toggle-custom" title="Attiva o disattiva il booking online">
+                        <label class="switch-toggle-custom" title="Attiva o disattiva il booking online (Richiede Enterprise)">
                             <input type="checkbox" id="set-online-booking-toggle" onchange="onToggleOnlineBooking(this.checked)">
                             <span class="switch-slider" id="slider-booking-toggle"></span>
                         </label>
@@ -5002,7 +5010,6 @@
                 <!-- PANNELLO ATTIVO (VISIBILE SOLO SE IL BOOKING È ACCESO) -->
                 <div id="online-booking-active-pane" style="display: none; display: flex; flex-direction: column; gap: 12px;">
                     
-                    <!-- Approvazione Profilo GDPR -->
                     <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" id="set-booking-approval" checked style="width: 18px; height: 18px; accent-color: var(--p); margin: 2px 0 0 0; flex-shrink: 0; cursor: pointer;">
                         <label for="set-booking-approval" style="margin: 0; font-size: 12px; font-weight: 700; color: #1e1b4b; text-transform: none; line-height: 1.4; cursor: pointer;">
@@ -5010,7 +5017,6 @@
                         </label>
                     </div>
 
-                    <!-- Preavviso Minimo Disdetta -->
                     <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 200px;">
                             <b style="font-size: 12.5px; color: #1e1b4b; display: block;">⏱️ Preavviso Minimo Disdetta / Spostamento</b>
@@ -5024,7 +5030,6 @@
                         </select>
                     </div>
 
-                    <!-- Bottoni di Configurazione Avanzata & Offerte -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <button type="button" class="btn" style="padding: 10px 12px; font-size: 12px; font-weight: 800; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; justify-content: center;" onclick="openBookingAdvancedConfigModal()">
                             ⚙️ Regole Cabine & Chiusure
@@ -5034,7 +5039,6 @@
                         </button>
                     </div>
 
-                    <!-- Condivisione Link & QR Code -->
                     <div class="booking-qr-responsive-card" style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; display: flex; gap: 14px; align-items: center;">
                         <div style="width: 90px; height: 90px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin: 0 auto;">
                             <img id="booking-qr-code-img" src="" alt="QR Code Booking" style="width: 100%; height: 100%; object-fit: contain;">
@@ -5049,7 +5053,6 @@
                         </div>
                     </div>
 
-                    <!-- 📢 CARD DIFFUSIONE & INVIO MASSIVO WHATSAPP -->
                     <div style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 220px;">
                             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
@@ -5149,6 +5152,116 @@
                     <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('sales')">📈 Vendite (.CSV)</button>
                     <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('services')">✂️ Listino (.CSV)</button>
                     <button type="button" class="btn" style="background: white; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 700; padding: 9px; justify-content: center;" onclick="exportTableToCsv('products')">📦 Magazzino (.CSV)</button>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 💳 SETTORE 7: PIANO SAAS & MODULI LICENZA  -->
+            <!-- ========================================== -->
+            <div id="set-sec-subscription" class="settings-section-card">
+                <div style="border-left: 6px solid #6C5CE7; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 24px;">💳</span>
+                                <h4 style="margin: 0; font-size: 16px; color: #581c87; font-weight: 800;">Piano di Abbonamento Attivo</h4>
+                            </div>
+                            <small style="color: #7e22ce; font-size: 12px; display: block; margin-top: 2px;">
+                                Seleziona il livello di licenza per questo negozio. I moduli protetti verranno abilitati o bloccati all'istante.
+                            </small>
+                        </div>
+                        <span id="current-tier-display-badge" class="nav-tier-badge badge-tier-pro" style="font-size: 12px; padding: 5px 12px;">PRO ATTIVO</span>
+                    </div>
+                </div>
+
+                <!-- SELETTORE A 3 CARD DEI PIANI SAAS -->
+                <label style="margin: 0 0 8px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p); display: block;">Scegli il Livello di Licenza:</label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    
+                    <!-- CARD PIANO BASE -->
+                    <div class="tier-select-card" id="card-tier-base" onclick="selectTierInSettings('base')" style="border: 2px solid #cbd5e1; border-radius: 14px; padding: 14px; background: white; cursor: pointer; transition: all 0.2s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <b style="font-size: 15px; color: #1e1b4b;">Piano START</b>
+                            <span style="font-size: 11px; font-weight: 800; color: #64748b;">Base</span>
+                        </div>
+                        <p style="font-size: 11.5px; color: #64748b; line-height: 1.4; margin: 0 0 10px 0;">Gestione essenziale da banco e cassa.</p>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 11px; color: #334155; line-height: 1.5;">
+                            <li>Cassa POS & Scontrini</li>
+                            <li>Agenda Appuntamenti & Turni base</li>
+                            <li>Anagrafica Clienti & Rubrica</li>
+                            <li>Listino Servizi & Magazzino base</li>
+                            <li>Fornitori</li>
+                        </ul>
+                    </div>
+
+                    <!-- CARD PIANO PRO -->
+                    <div class="tier-select-card" id="card-tier-pro" onclick="selectTierInSettings('pro')" style="border: 2px solid #f59e0b; border-radius: 14px; padding: 14px; background: #fffbeb; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <b style="font-size: 15px; color: #b45309;">Piano PRO</b>
+                            <span class="nav-tier-badge badge-tier-pro">COWORKING & RETAIL</span>
+                        </div>
+                        <p style="font-size: 11.5px; color: #92400e; line-height: 1.4; margin: 0 0 10px 0;">Tutto il piano Start più gli strumenti professionali avanzati.</p>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 11px; color: #78350f; line-height: 1.5;">
+                            <li><b>🎁 Pacchetti & Carnet Sedute</b></li>
+                            <li><b>💶 Liquidazione Fornitori Conto Vendita</b></li>
+                            <li><b>🏢 Spazi & Coworking (Cabine/Postazioni)</b></li>
+                            <li><b>🖨️ Stampa Listini, Vetrine & Barcode</b></li>
+                        </ul>
+                    </div>
+
+                    <!-- CARD PIANO ENTERPRISE -->
+                    <div class="tier-select-card" id="card-tier-enterprise" onclick="selectTierInSettings('enterprise')" style="border: 2px solid #cbd5e1; border-radius: 14px; padding: 14px; background: white; cursor: pointer; transition: all 0.2s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <b style="font-size: 15px; color: #6d28d9;">ENTERPRISE</b>
+                            <span class="nav-tier-badge badge-tier-enterprise">SUITE COMPLETA</span>
+                        </div>
+                        <p style="font-size: 11.5px; color: #64748b; line-height: 1.4; margin: 0 0 10px 0;">Tutto il piano Pro con l'automazione digitale completa.</p>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 11px; color: #334155; line-height: 1.5;">
+                            <li>Tutte le funzionalità PRO incluse</li>
+                            <li><b>🌐 Prenotazione Autonoma Clienti (Self-Booking 24/7)</b></li>
+                            <li><b>📱 Social Content Studio & Stories</b></li>
+                            <li><b>🤖 Assistente IA & Business Coach</b></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- ABILITAZIONE MODULI ADD-ON SU MISURA -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                    <label style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569; display: block;">Moduli Opzionali Add-on (Sblocco Singolo):</label>
+                    <small style="color: #64748b; font-size: 11px; display: block; margin-bottom: 10px;">
+                        Puoi sbloccare specifici moduli anche se il salone ha un piano inferiore:
+                    </small>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-booking" value="booking" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>🌐 Self-Booking Online</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-social" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>📱 Social Studio</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-ai-assistant" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>🤖 Assistente IA & Coach</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-packages" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>🎁 Pacchetti & Carnet</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-workstations" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>🏢 Spazi & Coworking</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-supplier-payouts" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>💶 Liquidazione Fornitori CV</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" id="addon-mod-print" value="print" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                            <span>🖨️ Stampa & Listini</span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -11398,6 +11511,14 @@ async function onToggleOnlineBooking(isChecked) {
         return;
     }
 
+    // 🛑 BLOCCO RIGIDO: Il Self-Booking può essere attivato SOLO se il salone ha il piano ENTERPRISE o l'addon 'booking'
+    if (!window.hasModuleAccess('booking')) {
+        syncBookingToggleUiState(false);
+        alert("🔒 La Prenotazione Autonoma Online (Self-Booking) è una funzionalità riservata esclusivamente al Piano ENTERPRISE.\n\nEffettua l'upgrade o richiedi l'attivazione del modulo per abilitarla.");
+        window.openFeatureUpgradeModal('booking');
+        return;
+    }
+
     // Controllo preventivo durate servizi
     if (!allInventory || allInventory.length === 0) {
         allInventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
@@ -11415,6 +11536,44 @@ async function onToggleOnlineBooking(isChecked) {
     syncBookingToggleUiState(true);
     if (typeof renderCust === 'function') renderCust();
 }
+window.onToggleOnlineBooking = onToggleOnlineBooking;
+
+// 🔒 2. VERIFICA LICENZA ALL'INGRESSO DEL CLIENTE ONLINE (?book=ID_SALONE)
+const originalInitPublicBookingPortal = window.initPublicBookingPortal;
+window.initPublicBookingPortal = async function(salonId) {
+    // Scarica le impostazioni del salone per verificare la licenza prima di mostrare il portale
+    const settingsRows = await fetchPublicTenantTable('settings', `salon_id=ilike.${encodeURIComponent(salonId)}&select=key,value`);
+    let salonTier = 'base';
+    let salonAddons = [];
+
+    settingsRows.forEach(s => {
+        if (s.key === 'subscription_tier' && s.value) salonTier = s.value.toLowerCase();
+        if (s.key === 'enabled_modules' && s.value) {
+            try { salonAddons = typeof s.value === 'string' ? JSON.parse(s.value) : s.value; } catch(e) {}
+        }
+    });
+
+    const isEnterpriseOrHasBooking = (salonTier === 'enterprise') || (Array.isArray(salonAddons) && salonAddons.includes('booking'));
+
+    if (!isEnterpriseOrHasBooking) {
+        const portal = document.getElementById('public-booking-portal');
+        if (portal) {
+            portal.style.setProperty('display', 'block', 'important');
+            portal.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:30px; background:#0c0527; color:#f8fafc; font-family:'Inter', sans-serif;">
+                    <div style="width:70px; height:70px; border-radius:50%; background:rgba(239,68,68,0.2); color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:32px; margin-bottom:16px;">🔒</div>
+                    <h2 style="font-size:22px; font-weight:800; margin:0 0 8px 0;">Prenotazione Online Non Disponibile</h2>
+                    <p style="max-width:440px; color:#94a3b8; font-size:14px; line-height:1.5;">Il servizio di prenotazione autonoma online per il salone <b>${salonId}</b> non è attivo o richiede il piano Enterprise.<br>Ti invitiamo a contattare telefonicamente il negozio.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    if (typeof originalInitPublicBookingPortal === 'function') {
+        await originalInitPublicBookingPortal(salonId);
+    }
+};
 window.onToggleOnlineBooking = onToggleOnlineBooking;
 
 // Funzione di conferma attivazione (sincronizza anche il badge testuale)
@@ -31164,25 +31323,32 @@ window.initSocialStudioView = initSocialStudioView;
 // Configurazione standard Piani SaaS e Moduli Inclusi
 window.VAIMUP_TIER_CONFIG = {
     base: {
-        label: 'BASE',
-        badgeClass: 'badge-tier-pro',
-        modules: ['sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings']
+        label: 'START',
+        badgeClass: 'badge-tier-locked',
+        modules: [
+            'sales', 'calendar', 'customers', 'services', 'products', 'suppliers', 
+            'dashboard', 'onboarding', 'settings', 'users', 'schedules', 'sales_report', 'logs'
+        ]
     },
     pro: {
         label: 'PRO',
         badgeClass: 'badge-tier-pro',
         modules: [
-            'sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings',
-            'packages', 'suppliers', 'social', 'logs', 'sales_report', 'ai_assistant', 'users', 'schedules'
+            'sales', 'calendar', 'customers', 'services', 'products', 'suppliers', 
+            'dashboard', 'onboarding', 'settings', 'users', 'schedules', 'sales_report', 'logs',
+            // 🌟 MODULI PRO AGGIUNTI:
+            'packages', 'supplier_payouts', 'workstations', 'print'
         ]
     },
     enterprise: {
         label: 'ENTERPRISE',
         badgeClass: 'badge-tier-enterprise',
         modules: [
-            'sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings',
-            'packages', 'suppliers', 'social', 'logs', 'sales_report', 'ai_assistant', 'users', 'schedules',
-            'supplier_payouts', 'workstations'
+            'sales', 'calendar', 'customers', 'services', 'products', 'suppliers', 
+            'dashboard', 'onboarding', 'settings', 'users', 'schedules', 'sales_report', 'logs',
+            'packages', 'supplier_payouts', 'workstations', 'print',
+            // 🌟 ESCLUSIVA ENTERPRISE:
+            'social', 'ai_assistant', 'booking'
         ]
     }
 };
@@ -31514,70 +31680,70 @@ window.openFeatureUpgradeModal = function(moduleKey) {
     window._pendingUpgradeModule = moduleKey;
 
     const moduleMeta = {
-        packages: {
-            title: '🎁 Gestione Pacchetti & Carnet',
-            tier: 'PRO',
-            desc: 'Fidelizza i clienti vendendo pacchetti di sedute prepagate, carnet a scalare e piani rateali.',
+        booking: {
+            title: '🌐 Prenotazione Autonoma Online (Self-Booking)',
+            tier: 'ENTERPRISE',
+            desc: 'Consenti ai tuoi clienti di prenotare in totale autonomia 24/7 da qualsiasi smartphone senza scaricare app.',
             perks: [
-                'Tracciamento automatico delle sedute residue',
-                'Promemoria e alert di scadenza via WhatsApp',
-                'Integrazione con la cassa per riscatto seduta a €0.00'
+                'Link e QR Code esclusivo del salone per vetrina e social',
+                'Calcolo automatico slot liberi e cabine autonome',
+                'Zero percentuali o commissioni per appuntamento'
             ]
         },
         social: {
             title: '📱 Social Content Studio & Stories',
-            tier: 'PRO',
-            desc: 'Crea e pubblica stories Instagram e post prima & dopo professionali con il tuo logo in un click.',
+            tier: 'ENTERPRISE',
+            desc: 'Crea e pubblica stories Instagram prima & dopo con zoom e pan touch direttamente dal gestionale.',
             perks: [
                 '18 template artistici stagionali per beauty e barber',
-                'Pinch-to-zoom e confronto prima & dopo istantaneo',
-                'Sticker link diretto per prenotare senza installare app'
-            ]
-        },
-        logs: {
-            title: '📜 WhatsApp Automatico & Reminder',
-            tier: 'PRO',
-            desc: 'Riduci del 70% gli appuntamenti mancati (No-Show) con notifiche di conferma e promemoria automatici.',
-            perks: [
-                'Template preimpostati e personalizzabili con tag dinamici',
-                'Invio massivo per lancio offerte o cambi orario',
-                'Storico completo e tracciato delle comunicazioni inviate'
-            ]
-        },
-        sales_report: {
-            title: '📈 Report Vendite & Analisi Margini Reali',
-            tier: 'PRO',
-            desc: 'Tieni sotto controllo il fatturato, la marginalità al centesimo per operatore e i costi di gestione.',
-            perks: [
-                'Visualizzazione a foglio elettronico ad alto contrasto',
-                'Calcolo automatico netto detratte le quote fornitore',
-                'Esportazione contabile conforme per commercialisti'
+                'Pinch-to-zoom touch su smartphone e rotellina mouse su PC',
+                'Inquadratura delle foto con drag & drop istantaneo'
             ]
         },
         ai_assistant: {
             title: '🤖 Assistente IA & Business Coach',
-            tier: 'PRO',
-            desc: 'Un intelligenza artificiale addestrata sui dati del tuo salone per darti consigli operativi e trend.',
+            tier: 'ENTERPRISE',
+            desc: 'Analisi predittive, gestione vocale e report intelligenti addestrati sui dati della tua attività.',
             perks: [
-                'Analisi vocale o testuale in linguaggio naturale',
-                'Previsione carichi di magazzino e prodotti sotto scorta',
-                'Suggerimenti strategici di upselling sui clienti dormienti'
+                'Riconoscimento vocale naturale su appuntamenti e magazzino',
+                'Forecast stagionale scorte e suggerimenti upselling',
+                'Automazione spostamento e inserimento appuntamenti'
+            ]
+        },
+        packages: {
+            title: '🎁 Gestione Pacchetti & Carnet Sedute',
+            tier: 'PRO',
+            desc: 'Fidelizza i clienti vendendo pacchetti di trattamenti prepagati a scalare con piani rateali.',
+            perks: [
+                'Tracciamento automatico sedute residue per cliente',
+                'Alert di rinnovo e scadenza inviati via WhatsApp',
+                'Riscatto seduta a €0.00 integrato in cassa'
+            ]
+        },
+        print: {
+            title: '🖨️ Stampa & Listini da Banco e Vetrine',
+            tier: 'PRO',
+            desc: 'Stampa listini professionali multipagina e cartelli QR adattivi per la reception e le vetrine.',
+            perks: [
+                'Formati supportati A4, A5, A3 e Poster Maxi 50x70',
+                'Generazione automatica codici a barre e QR Code HD',
+                'Personalizzazione grafica con temi di alta gamma'
             ]
         },
         workstations: {
-            title: '🏢 Spazi & Postazioni Condivise (Coworking)',
-            tier: 'ENTERPRISE',
-            desc: 'Ottimizza gli spazi fisici del salone consentendo a più professionisti o saloni partner di condividere poltrone o cabine.',
+            title: '🏢 Spazi & Coworking (Postazioni Condivise)',
+            tier: 'PRO',
+            desc: 'Condividi poltrone, cabine o macchinari tra più professionisti o saloni esterni senza sovrapposizioni.',
             perks: [
-                'Blocco atomico delle prenotazioni senza rischi di overbooking',
-                'Visualizzazione per postazione, giorno e settimana',
-                'Protezione privacy multi-tenant conforme al GDPR'
+                'Blocco atomico delle prenotazioni contro l\'overbooking',
+                'Visualizzazione dedicata per risorsa fisica e orario',
+                'Isolamento privacy multi-tenant certificato GDPR'
             ]
         },
         supplier_payouts: {
             title: '💶 Liquidazione Fornitori Conto Vendita',
-            tier: 'ENTERPRISE',
-            desc: 'Gestisci trattamenti e prodotti in conto vendita con ripartizione automatica delle percentuali fornitore.',
+            tier: 'PRO',
+            desc: 'Gestisci trattamenti e prodotti in conto vendita con calcolo automatico delle quote spettanti al fornitore.',
             perks: [
                 'Calcolo automatico saldo dare/avere per fornitore',
                 'Saldo multiplo (batch) delle righe vendute con 1 click',
@@ -31609,6 +31775,125 @@ window.openFeatureUpgradeModal = function(moduleKey) {
     }
 
     modal.classList.add('active');
+};
+
+
+const _origChangePageMobileWrapper = window.changePageMobileWrapper;
+window.changePageMobileWrapper = function(page, force = false) {
+    const pageToModuleMap = {
+        // Moduli PRO:
+        'packages': 'packages',
+        'print': 'print',
+        'workstations': 'workstations',
+        'supplier-payouts': 'supplier_payouts',
+        // Moduli ENTERPRISE:
+        'social': 'social',
+        'ai-assistant': 'ai_assistant'
+    };
+
+    const targetModule = pageToModuleMap[page];
+
+    if (targetModule && !window.hasModuleAccess(targetModule) && !force) {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+
+        window.openFeatureUpgradeModal(targetModule);
+        return;
+    }
+
+    if (typeof _origChangePageMobileWrapper === 'function') {
+        _origChangePageMobileWrapper(page, force);
+    } else if (typeof changePage === 'function') {
+        changePage(page, force);
+    }
+};
+
+const _origLoadSettingsFields = window.loadSettingsFields;
+window.loadSettingsFields = async function() {
+    if (typeof _origLoadSettingsFields === 'function') {
+        await _origLoadSettingsFields();
+    }
+
+    let enabledList = [];
+    if (typeof sysSettings !== 'undefined' && sysSettings['enabled_modules']) {
+        try {
+            enabledList = typeof sysSettings['enabled_modules'] === 'string'
+                ? JSON.parse(sysSettings['enabled_modules'])
+                : sysSettings['enabled_modules'];
+        } catch (e) {}
+    }
+
+    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
+        const cbId = `addon-mod-${modKey.replace('_', '-')}`;
+        const cb = document.getElementById(cbId);
+        if (cb) {
+            cb.checked = Array.isArray(enabledList) && enabledList.includes(modKey);
+        }
+    });
+};
+
+
+const _origSaveSystemSettings = window.saveSystemSettings;
+window.saveSystemSettings = async function() {
+    const selectedAddons = [];
+    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
+        const cbId = `addon-mod-${modKey.replace('_', '-')}`;
+        const cb = document.getElementById(cbId);
+        if (cb && cb.checked) {
+            selectedAddons.push(modKey);
+        }
+    });
+
+    await window.setSalonSubscriptionPlan(window._selectedSettingsTier, selectedAddons);
+
+    if (typeof _origSaveSystemSettings === 'function') {
+        await _origSaveSystemSettings();
+    }
+};
+
+
+const _origOpenSuperAdminLicenseModal = window.openSuperAdminLicenseModal;
+window.openSuperAdminLicenseModal = function(salonId) {
+    if (typeof _origOpenSuperAdminLicenseModal === 'function') {
+        _origOpenSuperAdminLicenseModal(salonId);
+    }
+
+    const s = (window._superAdminState?.allSalons || []).find(x => x.salon_id.toLowerCase() === salonId.toLowerCase());
+    const currentAddons = new Set(s?.addons || []);
+
+    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
+        const cb = document.getElementById(`sa-addon-${modKey}`);
+        if (cb) cb.checked = currentAddons.has(modKey);
+    });
+};
+
+const _origSaveSuperAdminLicenseChanges = window.saveSuperAdminLicenseChanges;
+window.saveSuperAdminLicenseChanges = async function() {
+    const selectedAddons = [];
+    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
+        const cb = document.getElementById(`sa-addon-${modKey}`);
+        if (cb && cb.checked) selectedAddons.push(modKey);
+    });
+
+    // Salva con la lista aggiornata di add-on
+    const targetSalonId = document.getElementById('sa-edit-target-salon-id')?.value;
+    const selectedTier = (window._superAdminState?.selectedTier || 'pro').toLowerCase();
+    const supUrl = window.SUPABASE_CONFIG.url;
+    const supKey = window.SUPABASE_CONFIG.key;
+
+    if (targetSalonId) {
+        await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
+            method: 'POST',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: 'enabled_modules', value: JSON.stringify(selectedAddons), salon_id: targetSalonId })
+        });
+    }
+
+    if (typeof _origSaveSuperAdminLicenseChanges === 'function') {
+        await _origSaveSuperAdminLicenseChanges();
+    }
 };
 
 window.closeFeatureUpgradeModal = function() {
@@ -32961,31 +33246,35 @@ window.changePage = function(page, force = false) {
                 </small>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-packages" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>🎁 Pacchetti & Carnet</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-social" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>📱 Social Content Studio</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-workstations" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>🏢 Spazi & Coworking</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-supplier_payouts" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>💶 Liquidazione Fornitori CV</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-ai_assistant" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>🤖 Assistente IA & Coach</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" id="sa-addon-sales_report" value="sales_report" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-                        <span>📈 Report Vendite & Margini</span>
-                    </label>
-                </div>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-booking" value="booking" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>🌐 Self-Booking Online</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-social" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>📱 Social Content Studio</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-ai_assistant" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>🤖 Assistente IA & Coach</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-packages" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>🎁 Pacchetti & Carnet</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-workstations" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>🏢 Spazi & Coworking</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-supplier_payouts" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>💶 Liquidazione Fornitori CV</span>
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <input type="checkbox" id="sa-addon-print" value="print" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+        <span>🖨️ Stampa & Listini</span>
+    </label>
+</div>
             </div>
 
             <!-- STATO ATTIVITÀ NEGOZIO -->
