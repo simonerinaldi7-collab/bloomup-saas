@@ -14392,49 +14392,81 @@ window.sendAppointmentCancellationWhatsApp = sendAppointmentCancellationWhatsApp
 // --- SISTEMA: CONFIGURAZIONE, TEMPLATE & RUBRICA NATIVA SMARTPHONE ---
 // =========================================================================
 
+// =========================================================================
+// ⚙️ SALVATAGGIO CONFIGURAZIONE GESTIONALE (PROTETTA & MULTI-TENANT)
+// =========================================================================
+
 async function saveSystemSettings() {
-    const fields = [
-        { key: 'reminder_hours', id: 'set-rem-hours' },
-        { key: 'template_confirm', id: 'set-msg-confirm' },
-        { key: 'template_reminder', id: 'set-msg-reminder' },
-        { key: 'duplicate_check_days', id: 'set-duplicate-days' }, // 👈 IL TUO CONTROLLO DUPLICATI ORIGINALE PRESERVATO
-        { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
-        // 🎁 CHIAVI SCADENZA PACCHETTI:
-        { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
-        { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
-        { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
-        { key: 'template_cancel', id: 'set-msg-cancel' },
-        // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
-        { key: 'app_theme', id: 'set-app-theme' },
-        { key: 'header_style', id: 'set-header-style' }
-    ];
-    
-    for (let f of fields) {
-        const el = document.getElementById(f.id);
-        if (el) {
-            await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: f.key, value: el.value } });
-            // Aggiorna lo stato in memoria all'istante
-            sysSettings[f.key] = el.value;
+    try {
+        const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+            ? String(currentUser.salon_id).trim() 
+            : 'SALON_001';
+
+        if (typeof sysSettings === 'undefined') {
+            window.sysSettings = {};
         }
-    }
 
-    // Salvataggio checkbox approvazione booking online (se presente a video)
-    const approvalCb = document.getElementById('set-booking-approval');
-    if (approvalCb) {
-        const approvalVal = approvalCb.checked ? '1' : '0';
-        await window.universalQuery({ action: 'UPSERT_SETTING', data: { key: 'booking_require_approval', value: approvalVal } });
-        sysSettings['booking_require_approval'] = approvalVal;
-    }
+        const fields = [
+            { key: 'reminder_hours', id: 'set-rem-hours' },
+            { key: 'template_confirm', id: 'set-msg-confirm' },
+            { key: 'template_reminder', id: 'set-msg-reminder' },
+            { key: 'duplicate_check_days', id: 'set-duplicate-days' }, // 👈 IL TUO CONTROLLO DUPLICATI ORIGINALE PRESERVATO
+            { key: 'imminent_lead_minutes', id: 'set-imminent-lead' },
+            // 🎁 CHIAVI SCADENZA PACCHETTI:
+            { key: 'package_expiry_days', id: 'set-pkg-expiry-days' },
+            { key: 'booking_cancel_lead_hours', id: 'set-booking-cancel-hours' },
+            { key: 'template_package_expiry', id: 'set-msg-pkg-expiry' },
+            { key: 'template_cancel', id: 'set-msg-cancel' },
+            // 🎨 TEMA GRAFICO SALONE SINCRONIZZATO SU CLOUD:
+            { key: 'app_theme', id: 'set-app-theme' },
+            { key: 'header_style', id: 'set-header-style' }
+        ];
+        
+        for (let f of fields) {
+            const el = document.getElementById(f.id);
+            if (el) {
+                await window.universalQuery({ 
+                    action: 'UPSERT_SETTING', 
+                    data: { 
+                        key: f.key, 
+                        value: el.value, 
+                        salon_id: currentSalon 
+                    } 
+                });
+                // Aggiorna lo stato in memoria all'istante
+                sysSettings[f.key] = el.value;
+            }
+        }
 
-    // Persistenza di sicurezza in localStorage del template di cancellazione
-    const cancelMsgEl = document.getElementById('set-msg-cancel');
-    if (cancelMsgEl && cancelMsgEl.value.trim() !== '') {
-        localStorage.setItem('vaimup_template_cancel', cancelMsgEl.value.trim());
-        sysSettings['template_cancel'] = cancelMsgEl.value.trim();
-    }
+        // Salvataggio checkbox approvazione booking online (se presente a video)
+        const approvalCb = document.getElementById('set-booking-approval');
+        if (approvalCb) {
+            const approvalVal = approvalCb.checked ? '1' : '0';
+            await window.universalQuery({ 
+                action: 'UPSERT_SETTING', 
+                data: { 
+                    key: 'booking_require_approval', 
+                    value: approvalVal, 
+                    salon_id: currentSalon 
+                } 
+            });
+            sysSettings['booking_require_approval'] = approvalVal;
+        }
 
-    alert("✅ Configurazione salvata con successo!"); 
-    refreshAllData();
+        // Persistenza di sicurezza in localStorage del template di cancellazione
+        const cancelMsgEl = document.getElementById('set-msg-cancel');
+        if (cancelMsgEl && cancelMsgEl.value.trim() !== '') {
+            localStorage.setItem('vaimup_template_cancel', cancelMsgEl.value.trim());
+            sysSettings['template_cancel'] = cancelMsgEl.value.trim();
+        }
+
+        alert("✅ Configurazione salvata con successo!"); 
+        await refreshAllData();
+
+    } catch (err) {
+        console.error("Errore durante il salvataggio della configurazione:", err);
+        alert("Errore durante il salvataggio: " + (err.message || "Verifica la connessione."));
+    }
 }
 window.saveSystemSettings = saveSystemSettings;
 
