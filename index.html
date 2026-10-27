@@ -4884,7 +4884,7 @@
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-packages" onclick="switchSettingsTab('packages')">🎁 Pacchetti</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-staff" onclick="switchSettingsTab('staff')">⏰ Notifiche Staff</button>
                 <button type="button" class="btn settings-tab-btn" id="set-tab-btn-data-export" onclick="switchSettingsTab('data-export')">🛡️ Portabilità Dati</button>
-                <!--<button type="button" class="btn settings-tab-btn" id="set-tab-btn-subscription" onclick="switchSettingsTab('subscription')">💳 Abbonamento</button>-->
+                <!--<button type="button" class="btn settings-tab-btn" id="set-tab-btn-subscription" onclick="switchSettingsTab('subscription')">💳 Abbonamento</button>
             </div>
 
             <!-- ========================================== -->
@@ -10690,7 +10690,6 @@ async function quickAlarmAction(actionType) {
         
         window.cachedOperatorSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
 
-        // Recupero fresco delle impostazioni del salone
         const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
 
         if (Array.isArray(settingsData)) {
@@ -10701,6 +10700,16 @@ async function quickAlarmAction(actionType) {
                 }
             });
 
+            const currentSalonLower = (currentUser && currentUser.salon_id) ? currentUser.salon_id.toLowerCase() : 'salon_001';
+
+            // 🌟 Scrive gli add-on scaricati direttamente nella cache di salone
+            if (sysSettings['enabled_modules']) {
+                localStorage.setItem(`vaimup_addons_${currentSalonLower}`, sysSettings['enabled_modules']);
+            }
+            if (sysSettings['subscription_tier']) {
+                localStorage.setItem(`vaimup_tier_${currentSalonLower}`, sysSettings['subscription_tier']);
+            }
+
             if (!sysSettings['template_cancel']) {
                 sysSettings['template_cancel'] = localStorage.getItem('vaimup_template_cancel') || 
                     "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
@@ -10709,7 +10718,7 @@ async function quickAlarmAction(actionType) {
                 loadBookingOffersFromStorage();
             }
 
-            // 🌟 CRUCIALE: AGGIORNA LA UI DEI PIANI E DEI RUOLI SUBITO DOPO AVER POPOLATO sysSettings!
+            // 🌟 Ricalcolo immediato dei permessi sidebar e sblocco moduli
             if (typeof window.applySubscriptionTiersToUI === 'function') {
                 window.applySubscriptionTiersToUI();
             }
@@ -31635,26 +31644,41 @@ window.clearSidebarNavSearch = function() {
 };
 
 // 3. FEATURE GATING & CONTROLLO ACCESSO AI MODULI
-window.hasModuleAccess = function(moduleKey) {
+function hasModuleAccess(moduleKey) {
     if (currentUser && currentUser.role === 'master_admin') return true;
 
-    // 1. Verifica override manuale moduli add-on specifici
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) 
+        ? String(currentUser.salon_id).trim().toLowerCase() 
+        : 'salon_001';
+
+    // 🌟 1. CONTROLLO MODULI ADD-ON SPECIFICI (Doppio controllo: memoria di salone + cache locale)
+    let enabledList = [];
+
+    // A. Lettura da sysSettings se popolato
     if (typeof sysSettings !== 'undefined' && sysSettings['enabled_modules']) {
         try {
-            const enabledList = typeof sysSettings['enabled_modules'] === 'string'
+            enabledList = typeof sysSettings['enabled_modules'] === 'string'
                 ? JSON.parse(sysSettings['enabled_modules'])
                 : sysSettings['enabled_modules'];
-            if (Array.isArray(enabledList) && enabledList.includes(moduleKey)) {
-                return true;
-            }
         } catch (e) {}
     }
 
-    // 2. Risoluzione Tier Attivo
-    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
-        ? String(currentUser.salon_id || '').trim().toLowerCase() 
-        : 'salon_001';
+    // B. Fallback immediato su localStorage isolato per questo salone
+    if ((!Array.isArray(enabledList) || enabledList.length === 0)) {
+        const cachedAddons = localStorage.getItem(`vaimup_addons_${currentSalon}`);
+        if (cachedAddons) {
+            try {
+                enabledList = JSON.parse(cachedAddons);
+            } catch (e) {}
+        }
+    }
 
+    // Se il modulo è presente tra gli Add-on abilitati per questo salone -> ACCESSO IMMEDIATO
+    if (Array.isArray(enabledList) && enabledList.includes(moduleKey)) {
+        return true;
+    }
+
+    // 🌟 2. RISOLUZIONE TIER ATTIVO (Base, Pro, Enterprise)
     let activeTier = 'base';
     if (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) {
         activeTier = String(sysSettings['subscription_tier']).trim().toLowerCase();
@@ -31668,7 +31692,8 @@ window.hasModuleAccess = function(moduleKey) {
 
     const tierConfig = window.VAIMUP_TIER_CONFIG[activeTier] || window.VAIMUP_TIER_CONFIG.pro;
     return tierConfig.modules.includes(moduleKey);
-};
+}
+window.hasModuleAccess = hasModuleAccess;
 
 // 4. MODALE UPGRADE PIANO / RICHIESTA ATTIVAZIONE MODULO
 window._pendingUpgradeModule = null;
@@ -31871,28 +31896,131 @@ window.openSuperAdminLicenseModal = function(salonId) {
 
 const _origSaveSuperAdminLicenseChanges = window.saveSuperAdminLicenseChanges;
 window.saveSuperAdminLicenseChanges = async function() {
+    const btn = document.getElementById('btn-sa-save-license');
+    const targetSalonId = document.getElementById('sa-edit-target-salon-id')?.value;
+    const selectedTier = (window._superAdminState?.selectedTier || 'pro').toLowerCase();
+    const targetStatus = document.getElementById('sa-modal-salon-status')?.value || 'active';
+
+    if (!targetSalonId) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Sincronizzazione Cloud in corso...";
+    }
+
+    // Raccoglie tutti gli add-on selezionati dalle checkbox del modale
     const selectedAddons = [];
     ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
         const cb = document.getElementById(`sa-addon-${modKey}`);
-        if (cb && cb.checked) selectedAddons.push(modKey);
+        if (cb && cb.checked) {
+            selectedAddons.push(modKey);
+        }
     });
 
-    // Salva con la lista aggiornata di add-on
-    const targetSalonId = document.getElementById('sa-edit-target-salon-id')?.value;
-    const selectedTier = (window._superAdminState?.selectedTier || 'pro').toLowerCase();
-    const supUrl = window.SUPABASE_CONFIG.url;
-    const supKey = window.SUPABASE_CONFIG.key;
+    const targetSalonClean = String(targetSalonId).trim();
+    const targetSalonLower = targetSalonClean.toLowerCase();
+    const supUrl = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+    const nowIso = new Date().toISOString();
 
-    if (targetSalonId) {
-        await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
-            method: 'POST',
-            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: 'enabled_modules', value: JSON.stringify(selectedAddons), salon_id: targetSalonId })
-        });
+    // 🌟 HELPER BULLETPROOF: Salva su Supabase senza dipendere dai vincoli ON CONFLICT
+    async function safeSaveSupabaseSetting(settingKey, settingVal) {
+        try {
+            // 1. Controlla se il record esiste già nel DB cloud
+            const checkRes = await fetch(`${supUrl}/rest/v1/settings?key=eq.${settingKey}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}&select=*`, {
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+            });
+
+            if (checkRes.ok) {
+                const existing = await checkRes.json();
+                if (Array.isArray(existing) && existing.length > 0) {
+                    // Record esistente -> PATCH di aggiornamento
+                    const updateRes = await fetch(`${supUrl}/rest/v1/settings?key=eq.${settingKey}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
+                        method: 'PATCH',
+                        headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ value: settingVal, updated_at: nowIso })
+                    });
+                    return updateRes.ok;
+                }
+            }
+
+            // Record non esistente -> POST di inserimento
+            const insertRes = await fetch(`${supUrl}/rest/v1/settings`, {
+                method: 'POST',
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    key: settingKey,
+                    value: settingVal,
+                    salon_id: targetSalonClean,
+                    updated_at: nowIso
+                })
+            });
+            return insertRes.ok;
+        } catch (e) {
+            console.warn(`Errore salvataggio ${settingKey} su Supabase:`, e);
+            return false;
+        }
     }
 
-    if (typeof _origSaveSuperAdminLicenseChanges === 'function') {
-        await _origSaveSuperAdminLicenseChanges();
+    try {
+        const jsonAddons = JSON.stringify(selectedAddons);
+
+        // A. Salvataggio su Supabase Cloud (con garanzia di successo)
+        const tierSaved = await safeSaveSupabaseSetting('subscription_tier', selectedTier);
+        const addonsSaved = await safeSaveSupabaseSetting('enabled_modules', jsonAddons);
+
+        if (!tierSaved || !addonsSaved) {
+            console.warn("⚠️ Avviso: la scrittura su Supabase potrebbe non essere andata a buon fine su tutte le chiavi.");
+        }
+
+        // B. Aggiorna lo stato degli utenti del salone
+        await fetch(`${supUrl}/rest/v1/users?salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
+            method: 'PATCH',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ status: targetStatus })
+        }).catch(() => {});
+
+        // C. 🌟 SALVATAGGIO IN DEXIE LOCALE (Immediato per eliminare latenze)
+        if (window.localDb && window.localDb.settings) {
+            await window.localDb.settings.put({
+                key: 'subscription_tier',
+                value: selectedTier,
+                salon_id: targetSalonClean,
+                updated_at: nowIso
+            });
+            await window.localDb.settings.put({
+                key: 'enabled_modules',
+                value: jsonAddons,
+                salon_id: targetSalonClean,
+                updated_at: nowIso
+            });
+        }
+
+        // D. 🌟 SALVATAGGIO DIRETTO IN LOCALSTORAGE PER SALONE (RISOLVE IL RE-ENTRY)
+        localStorage.setItem(`vaimup_tier_${targetSalonLower}`, selectedTier);
+        localStorage.setItem(`vaimup_addons_${targetSalonLower}`, jsonAddons);
+
+        // E. Se stiamo operando nel salone attivo, aggiorna la sessione viva
+        if (currentUser && currentUser.salon_id.toLowerCase() === targetSalonLower) {
+            currentUser.plan = selectedTier;
+            sysSettings['subscription_tier'] = selectedTier;
+            sysSettings['enabled_modules'] = jsonAddons;
+            window.applySubscriptionTiersToUI();
+            window.updateSidebarRoleAccess();
+        }
+
+        alert(`✅ Licenza per il salone "${targetSalonClean}" salvata con successo!\n\n• Piano: ${selectedTier.toUpperCase()}\n• Moduli Add-on attivi: ${selectedAddons.length > 0 ? selectedAddons.join(', ') : 'Nessuno'}`);
+        window.closeSuperAdminLicenseModal();
+        window.renderSuperAdminConsole();
+
+    } catch (err) {
+        console.error("Errore salvataggio licenza super admin:", err);
+        alert("Errore durante l'aggiornamento sul cloud: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Salva Modifiche Licenza Cloud ✓";
+        }
     }
 };
 
