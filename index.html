@@ -31880,18 +31880,67 @@ window.saveSystemSettings = async function() {
 
 
 const _origOpenSuperAdminLicenseModal = window.openSuperAdminLicenseModal;
-window.openSuperAdminLicenseModal = function(salonId) {
-    if (typeof _origOpenSuperAdminLicenseModal === 'function') {
-        _origOpenSuperAdminLicenseModal(salonId);
+window.openSuperAdminLicenseModal = async function(salonId) {
+    if (!salonId) return;
+
+    const modal = document.getElementById('mod-superadmin-edit-license');
+    if (!modal) return;
+
+    const targetSalonClean = String(salonId).trim();
+    document.getElementById('sa-edit-target-salon-id').value = targetSalonClean;
+    document.getElementById('sa-modal-target-salon-label').innerText = `Salone Selezionato: ${targetSalonClean}`;
+
+    // Reset visivo immediato di tutti i checkbox
+    document.querySelectorAll('#mod-superadmin-edit-license .sa-addon-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+
+    const supUrl = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+
+    let currentTier = 'pro';
+    let activeAddons = [];
+
+    // Interroga direttamente Supabase per avere la situazione certa al 100%
+    try {
+        const res = await fetch(`${supUrl}/rest/v1/settings?salon_id=ilike.${encodeURIComponent(targetSalonClean)}&select=key,value`, {
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+        });
+
+        if (res.ok) {
+            const rows = await res.json();
+            const tierRow = rows.find(r => r.key === 'subscription_tier');
+            if (tierRow && tierRow.value) currentTier = tierRow.value.toLowerCase();
+
+            const addonRow = rows.find(r => r.key === 'enabled_modules');
+            if (addonRow && addonRow.value) {
+                try {
+                    activeAddons = typeof addonRow.value === 'string' ? JSON.parse(addonRow.value) : addonRow.value;
+                } catch (e) {}
+            }
+        }
+    } catch (netErr) {
+        // Fallback da memoria locale se offline
+        const s = (window._superAdminState?.allSalons || []).find(x => x.salon_id.toLowerCase() === targetSalonClean.toLowerCase());
+        if (s) {
+            currentTier = s.tier || 'pro';
+            activeAddons = s.addons || [];
+        }
     }
 
-    const s = (window._superAdminState?.allSalons || []).find(x => x.salon_id.toLowerCase() === salonId.toLowerCase());
-    const currentAddons = new Set(s?.addons || []);
+    if (!Array.isArray(activeAddons)) activeAddons = [];
+    console.log(`🔍 [SUPERADMIN] Salone ${targetSalonClean} -> Piano: ${currentTier}, Addons attivi:`, activeAddons);
 
-    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
-        const cb = document.getElementById(`sa-addon-${modKey}`);
-        if (cb) cb.checked = currentAddons.has(modKey);
+    // Imposta il piano nelle card grafiche
+    window.setSaModalTier(currentTier);
+
+    // Spunta le caselle degli add-on attivi
+    const addonsSet = new Set(activeAddons.map(a => String(a).trim()));
+    document.querySelectorAll('#mod-superadmin-edit-license .sa-addon-checkbox').forEach(cb => {
+        cb.checked = addonsSet.has(cb.value);
     });
+
+    modal.classList.add('active');
 };
 
 const _origSaveSuperAdminLicenseChanges = window.saveSuperAdminLicenseChanges;
@@ -31901,20 +31950,22 @@ window.saveSuperAdminLicenseChanges = async function() {
     const selectedTier = (window._superAdminState?.selectedTier || 'pro').toLowerCase();
     const targetStatus = document.getElementById('sa-modal-salon-status')?.value || 'active';
 
-    if (!targetSalonId) return;
+    if (!targetSalonId) {
+        return alert("Errore: nessun salone selezionato.");
+    }
 
     if (btn) {
         btn.disabled = true;
-        btn.innerText = "⏳ Sincronizzazione Cloud in corso...";
+        btn.innerText = "⏳ Scrittura su Supabase Cloud...";
     }
 
-    // Raccoglie tutti gli add-on selezionati dalle checkbox del modale
-    const selectedAddons = [];
-    ['booking', 'social', 'ai_assistant', 'packages', 'workstations', 'supplier_payouts', 'print'].forEach(modKey => {
-        const cb = document.getElementById(`sa-addon-${modKey}`);
-        if (cb && cb.checked) {
-            selectedAddons.push(modKey);
-        }
+    // 🌟 RACCOLTA DIRETTA E SICURA: Legge tutte le caselle spuntate con la classe sa-addon-checkbox
+    const checkedBoxes = document.querySelectorAll('#mod-superadmin-edit-license .sa-addon-checkbox:checked');
+    const selectedAddons = Array.from(checkedBoxes).map(cb => cb.value).filter(Boolean);
+
+    console.log(`📤 [SUPERADMIN SAVE] Invio a Supabase per ${targetSalonId}:`, {
+        tier: selectedTier,
+        addons: selectedAddons
     });
 
     const targetSalonClean = String(targetSalonId).trim();
@@ -31923,64 +31974,64 @@ window.saveSuperAdminLicenseChanges = async function() {
     const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
     const nowIso = new Date().toISOString();
 
-    // 🌟 HELPER BULLETPROOF: Salva su Supabase senza dipendere dai vincoli ON CONFLICT
-    async function safeSaveSupabaseSetting(settingKey, settingVal) {
+    // Funzione sicura di Upsert Supabase (Select -> Update/Insert) compatibile con qualsiasi schema
+    async function directUpsertSetting(keyName, valString) {
         try {
-            // 1. Controlla se il record esiste già nel DB cloud
-            const checkRes = await fetch(`${supUrl}/rest/v1/settings?key=eq.${settingKey}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}&select=*`, {
+            // Controlla se la riga esiste già
+            const check = await fetch(`${supUrl}/rest/v1/settings?key=eq.${keyName}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}&select=id`, {
                 headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
             });
 
-            if (checkRes.ok) {
-                const existing = await checkRes.json();
+            if (check.ok) {
+                const existing = await check.json();
                 if (Array.isArray(existing) && existing.length > 0) {
-                    // Record esistente -> PATCH di aggiornamento
-                    const updateRes = await fetch(`${supUrl}/rest/v1/settings?key=eq.${settingKey}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
+                    // Update su record esistente
+                    const updateRes = await fetch(`${supUrl}/rest/v1/settings?key=eq.${keyName}&salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
                         method: 'PATCH',
                         headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ value: settingVal, updated_at: nowIso })
+                        body: JSON.stringify({ value: valString, updated_at: nowIso })
                     });
                     return updateRes.ok;
                 }
             }
 
-            // Record non esistente -> POST di inserimento
+            // Insert su nuovo record
             const insertRes = await fetch(`${supUrl}/rest/v1/settings`, {
                 method: 'POST',
                 headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({
-                    key: settingKey,
-                    value: settingVal,
+                    key: keyName,
+                    value: valString,
                     salon_id: targetSalonClean,
                     updated_at: nowIso
                 })
             });
             return insertRes.ok;
-        } catch (e) {
-            console.warn(`Errore salvataggio ${settingKey} su Supabase:`, e);
+        } catch (err) {
+            console.error(`Errore scrittura setting ${keyName}:`, err);
             return false;
         }
     }
 
     try {
-        const jsonAddons = JSON.stringify(selectedAddons);
+        const jsonAddonsString = JSON.stringify(selectedAddons);
 
-        // A. Salvataggio su Supabase Cloud (con garanzia di successo)
-        const tierSaved = await safeSaveSupabaseSetting('subscription_tier', selectedTier);
-        const addonsSaved = await safeSaveSupabaseSetting('enabled_modules', jsonAddons);
+        // 1. Scrittura piano e moduli su Supabase Cloud
+        const tierOk = await directUpsertSetting('subscription_tier', selectedTier);
+        const addonsOk = await directUpsertSetting('enabled_modules', jsonAddonsString);
 
-        if (!tierSaved || !addonsSaved) {
-            console.warn("⚠️ Avviso: la scrittura su Supabase potrebbe non essere andata a buon fine su tutte le chiavi.");
+        if (!tierOk || !addonsOk) {
+            throw new Error("Supabase ha rifiutato l'aggiornamento. Verifica i permessi della tabella settings.");
         }
 
-        // B. Aggiorna lo stato degli utenti del salone
+        // 2. Aggiorna eventuale stato utenti salone
         await fetch(`${supUrl}/rest/v1/users?salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
             method: 'PATCH',
             headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ status: targetStatus })
         }).catch(() => {});
 
-        // C. 🌟 SALVATAGGIO IN DEXIE LOCALE (Immediato per eliminare latenze)
+        // 3. Salvataggio locale in Dexie
         if (window.localDb && window.localDb.settings) {
             await window.localDb.settings.put({
                 key: 'subscription_tier',
@@ -31990,32 +32041,32 @@ window.saveSuperAdminLicenseChanges = async function() {
             });
             await window.localDb.settings.put({
                 key: 'enabled_modules',
-                value: jsonAddons,
+                value: jsonAddonsString,
                 salon_id: targetSalonClean,
                 updated_at: nowIso
             });
         }
 
-        // D. 🌟 SALVATAGGIO DIRETTO IN LOCALSTORAGE PER SALONE (RISOLVE IL RE-ENTRY)
+        // 4. Cache persistente specifica per questo salone
         localStorage.setItem(`vaimup_tier_${targetSalonLower}`, selectedTier);
-        localStorage.setItem(`vaimup_addons_${targetSalonLower}`, jsonAddons);
+        localStorage.setItem(`vaimup_addons_${targetSalonLower}`, jsonAddonsString);
 
-        // E. Se stiamo operando nel salone attivo, aggiorna la sessione viva
+        // 5. Se stiamo operando come sessione attiva su questo salone, aggiorna l'interfaccia viva
         if (currentUser && currentUser.salon_id.toLowerCase() === targetSalonLower) {
             currentUser.plan = selectedTier;
             sysSettings['subscription_tier'] = selectedTier;
-            sysSettings['enabled_modules'] = jsonAddons;
+            sysSettings['enabled_modules'] = jsonAddonsString;
             window.applySubscriptionTiersToUI();
             window.updateSidebarRoleAccess();
         }
 
-        alert(`✅ Licenza per il salone "${targetSalonClean}" salvata con successo!\n\n• Piano: ${selectedTier.toUpperCase()}\n• Moduli Add-on attivi: ${selectedAddons.length > 0 ? selectedAddons.join(', ') : 'Nessuno'}`);
+        alert(`✅ Licenza aggiornata con successo su Supabase!\n\n• Salone: ${targetSalonClean}\n• Piano: ${selectedTier.toUpperCase()}\n• Moduli Add-on attivi: ${selectedAddons.length > 0 ? selectedAddons.join(', ') : 'Nessuno'}`);
         window.closeSuperAdminLicenseModal();
         window.renderSuperAdminConsole();
 
     } catch (err) {
-        console.error("Errore salvataggio licenza super admin:", err);
-        alert("Errore durante l'aggiornamento sul cloud: " + err.message);
+        console.error("Errore salvataggio licenza:", err);
+        alert("Errore durante il salvataggio su Supabase: " + err.message);
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -33365,44 +33416,45 @@ window.changePage = function(page, force = false) {
             </div>
 
             <!-- MODULI ADD-ON SBLOCCABILI SINGOLARMENTE -->
+            <!-- MODULI ADD-ON SBLOCCABILI SINGOLARMENTE -->
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
                 <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #334155; display: block;">
                     Moduli Add-on Opzionali (Attivazione Singola):
                 </label>
                 <small style="color: #64748b; font-size: 11px; display: block; margin-bottom: 10px;">
-                    Se spunti questi moduli, il salone potrà usarli anche se si trova su un piano Start o Pro:
+                    Spunta i moduli aggiuntivi concessi a questo salone (anche su piano Start o Pro):
                 </small>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-booking" value="booking" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>🌐 Self-Booking Online</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-social" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>📱 Social Content Studio</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-ai_assistant" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>🤖 Assistente IA & Coach</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-packages" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>🎁 Pacchetti & Carnet</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-workstations" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>🏢 Spazi & Coworking</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-supplier_payouts" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>💶 Liquidazione Fornitori CV</span>
-    </label>
-    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <input type="checkbox" id="sa-addon-print" value="print" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
-        <span>🖨️ Stampa & Listini</span>
-    </label>
-</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" id="sa-addons-checkbox-container">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="booking" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🌐 Self-Booking Online</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>📱 Social Content Studio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🤖 Assistente IA & Coach</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🎁 Pacchetti & Carnet</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🏢 Spazi & Coworking</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>💶 Liquidazione Fornitori CV</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" class="sa-addon-checkbox" value="print" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🖨️ Stampa & Listini</span>
+                    </label>
+                </div>
             </div>
 
             <!-- STATO ATTIVITÀ NEGOZIO -->
