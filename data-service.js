@@ -386,6 +386,19 @@ window.appDataService = async function(action, table, data = null, id = null) {
             return await localDb.workstation_bookings.toArray() || [];
         }
 
+        // Risoluzione immediata da IndexedDB
+        if (table === 'settings') {
+            const salonIdLower = String(salonId).trim().toLowerCase();
+            const allSettings = await localDb.settings.toArray() || [];
+            return allSettings.filter(s => String(s.salon_id || '').trim().toLowerCase() === salonIdLower);
+        }
+        if (table === 'customers') {
+            return await getVisibleCustomersForSalon(salonId);
+        }
+        if (table === 'appointments') {
+            return await getVisibleAppointmentsForSalon(salonId);
+        }
+
         return await localDb.table(table).where('salon_id').equals(salonId).toArray();
     }
 
@@ -393,7 +406,6 @@ window.appDataService = async function(action, table, data = null, id = null) {
     return await handleWriteOperation(action, table, data, id, isOnline);
 };
 
-// Sincronizzazione atomica Cloud ➔ IndexedDB con cancellazione sicura e gestione lotti
 async function backgroundPullFromSupabase(table, salonId) {
     if (!salonId) return;
     
@@ -402,11 +414,14 @@ async function backgroundPullFromSupabase(table, salonId) {
     let hasMore = true;
     let allCloudRecords = [];
 
+    const salonIdClean = String(salonId).trim();
+
     while (hasMore) {
-        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=eq.${salonId}&limit=${limit}&offset=${offset}`;
+        // 🌟 Per settings e users usiamo ilike per evitare incompatibilità tra maiuscole e minuscole
+        let url = `${SUPABASE_URL}/rest/v1/${table}?salon_id=ilike.${encodeURIComponent(salonIdClean)}&limit=${limit}&offset=${offset}`;
         
         if (table === 'users') {
-            url = `${SUPABASE_URL}/rest/v1/users?salon_id=eq.${salonId}`;
+            url = `${SUPABASE_URL}/rest/v1/users?salon_id=ilike.${encodeURIComponent(salonIdClean)}`;
             hasMore = false;
         }
 
@@ -447,18 +462,21 @@ async function backgroundPullFromSupabase(table, salonId) {
 
     // 🧹 CANCELLAZIONE SICURA E ALLINEAMENTO RECORD LOCALI
     if (allCloudRecords.length > 0 || offset === 0) {
-        const cloudIdsSet = new Set(allCloudRecords.map(r => r.id));
-        const localRecords = await localDb.table(table).where('salon_id').equals(salonId).toArray();
+        const cloudIdsSet = new Set(allCloudRecords.map(r => r.id || r.key));
+        const salonIdLower = salonIdClean.toLowerCase();
+        const localRecords = await localDb.table(table).toArray();
+        const salonLocalRecords = localRecords.filter(r => String(r.salon_id || '').trim().toLowerCase() === salonIdLower);
 
-        for (let localRec of localRecords) {
+        for (let localRec of salonLocalRecords) {
+            const recordKey = localRec.id || localRec.key;
             if (table === 'appointments') {
                 const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                if (localRec.date >= yesterdayStr && !cloudIdsSet.has(localRec.id)) {
-                    await localDb.table(table).delete(localRec.id);
+                if (localRec.date >= yesterdayStr && !cloudIdsSet.has(recordKey)) {
+                    await localDb.table(table).delete(recordKey);
                 }
-            } else if (['customers', 'inventory', 'sales', 'stock_lots'].includes(table)) {
-                if (!cloudIdsSet.has(localRec.id)) {
-                    await localDb.table(table).delete(localRec.id);
+            } else if (['customers', 'inventory', 'sales', 'stock_lots', 'settings'].includes(table)) {
+                if (!cloudIdsSet.has(recordKey)) {
+                    await localDb.table(table).delete(recordKey);
                 }
             }
         }

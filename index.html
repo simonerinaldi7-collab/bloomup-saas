@@ -10564,55 +10564,62 @@ async function quickAlarmAction(actionType) {
         location.reload(); 
     }
         async function refreshAllData() {
-        try {
-            console.log("Caricamento dati in corso...");
-            
-            allUsers = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
-            allCustomers = await window.api.query({ action: 'GET_ALL', table: 'customers' }) || [];
-            allInventory = await window.api.query({ action: 'GET_ALL', table: 'inventory' }) || [];
-            allAppointments = await window.api.query({ action: 'GET_ALL', table: 'appointments' }) || [];
-            allSales = await window.api.query({ action: 'GET_ALL', table: 'sales' }) || [];
-            allLogs = await window.api.query({ action: 'GET_ALL', table: 'message_logs' }) || [];
-            allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
-            
-            // Caricamento in sicurezza dei turni operatore per la vista agenda
-            window.cachedOperatorSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+    try {
+        console.log("Caricamento dati in corso...");
+        
+        allUsers = await window.api.query({ action: 'GET_ALL', table: 'users' }) || [];
+        allCustomers = await window.api.query({ action: 'GET_ALL', table: 'customers' }) || [];
+        allInventory = await window.api.query({ action: 'GET_ALL', table: 'inventory' }) || [];
+        allAppointments = await window.api.query({ action: 'GET_ALL', table: 'appointments' }) || [];
+        allSales = await window.api.query({ action: 'GET_ALL', table: 'sales' }) || [];
+        allLogs = await window.api.query({ action: 'GET_ALL', table: 'message_logs' }) || [];
+        allSuppliers = await window.universalQuery({ action: 'GET_ALL', table: 'suppliers' }) || [];
+        
+        window.cachedOperatorSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
 
-            const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
+        // Recupero fresco delle impostazioni del salone
+        const settingsData = await window.api.query({ action: 'GET_ALL', table: 'settings' });
 
-            if (Array.isArray(settingsData)) {
-                sysSettings = {};
-                settingsData.forEach(s => {
-                    if (s && s.key) {
-                        sysSettings[s.key] = s.value;
-                    }
-                });
-// Garantisce che il template di annullamento sia sempre presente in memoria fin dal primo avvio
-    if (!sysSettings['template_cancel']) {
-        sysSettings['template_cancel'] = localStorage.getItem('vaimup_template_cancel') || 
-            "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
-    }
-                // 🌟 Pre-idrata la memoria offerte e aggiorna il badge
-                if (typeof loadBookingOffersFromStorage === 'function') {
-                    loadBookingOffersFromStorage();
+        if (Array.isArray(settingsData)) {
+            sysSettings = {};
+            settingsData.forEach(s => {
+                if (s && s.key) {
+                    sysSettings[s.key] = s.value;
                 }
-            } else {
-                console.warn("Nessuna impostazione trovata o errore nel caricamento.");
-            }
-            // In coda a updateStats() o refreshAllData():
-if (typeof checkExpiringCustomerPackages === 'function') {
-    await checkExpiringCustomerPackages();
-}
-            updateStats(); 
-            renderActiveView();
-            if (document.getElementById('user-filter')) updateCalendarUI();
-            await updateReminderBadgeCount();
-            checkPendingCustomersAlert();
+            });
 
-        } catch(e) { 
-            console.error("Errore nel refresh:", e); 
+            if (!sysSettings['template_cancel']) {
+                sysSettings['template_cancel'] = localStorage.getItem('vaimup_template_cancel') || 
+                    "Gentile {{NOME}}, ti confermiamo che il tuo appuntamento del {{DATA}} alle {{ORA}} per {{SERVIZIO}} è stato annullato. Per fissare una nuova data o per qualsiasi esigenza, restiamo a tua completa disposizione! ✨";
+            }
+            if (typeof loadBookingOffersFromStorage === 'function') {
+                loadBookingOffersFromStorage();
+            }
+
+            // 🌟 CRUCIALE: AGGIORNA LA UI DEI PIANI E DEI RUOLI SUBITO DOPO AVER POPOLATO sysSettings!
+            if (typeof window.applySubscriptionTiersToUI === 'function') {
+                window.applySubscriptionTiersToUI();
+            }
+            if (typeof window.updateSidebarRoleAccess === 'function') {
+                window.updateSidebarRoleAccess();
+            }
         }
+
+        if (typeof checkExpiringCustomerPackages === 'function') {
+            await checkExpiringCustomerPackages();
+        }
+
+        updateStats(); 
+        renderActiveView();
+        if (document.getElementById('user-filter')) updateCalendarUI();
+        await updateReminderBadgeCount();
+        checkPendingCustomersAlert();
+
+    } catch(e) { 
+        console.error("Errore nel refreshAllData:", e); 
     }
+}
+window.refreshAllData = refreshAllData;
 
     async function renderSalesList(f = "") {
     const grid = document.getElementById('sales-items-grid');
@@ -31403,10 +31410,9 @@ window.clearSidebarNavSearch = function() {
 
 // 3. FEATURE GATING & CONTROLLO ACCESSO AI MODULI
 window.hasModuleAccess = function(moduleKey) {
-    // Il master admin o ruoli di supporto hanno accesso totale
     if (currentUser && currentUser.role === 'master_admin') return true;
 
-    // 1. Verifica override manuale nei settings del salone (es. moduli attivati come add-on)
+    // 1. Verifica override manuale moduli add-on specifici
     if (typeof sysSettings !== 'undefined' && sysSettings['enabled_modules']) {
         try {
             const enabledList = typeof sysSettings['enabled_modules'] === 'string'
@@ -31418,10 +31424,21 @@ window.hasModuleAccess = function(moduleKey) {
         } catch (e) {}
     }
 
-    // 2. Risoluzione Piano Attivo del Salone (default: 'pro')
-    const activeTier = (currentUser && currentUser.plan) || 
-                       (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) || 
-                       'pro';
+    // 2. Risoluzione Tier Attivo
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
+
+    let activeTier = 'base';
+    if (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) {
+        activeTier = String(sysSettings['subscription_tier']).trim().toLowerCase();
+    } else if (localStorage.getItem(`vaimup_tier_${currentSalon}`)) {
+        activeTier = localStorage.getItem(`vaimup_tier_${currentSalon}`).trim().toLowerCase();
+    } else if (currentUser && currentUser.plan) {
+        activeTier = String(currentUser.plan).trim().toLowerCase();
+    } else {
+        activeTier = 'pro';
+    }
 
     const tierConfig = window.VAIMUP_TIER_CONFIG[activeTier] || window.VAIMUP_TIER_CONFIG.pro;
     return tierConfig.modules.includes(moduleKey);
@@ -31556,11 +31573,36 @@ window.requestFeatureActivationViaWhatsApp = function() {
 
 // 5. APPLICAZIONE AUTOMATICA DEI BADGE E BLOCCHI AI NAV-ITEMS
 window.applySubscriptionTiersToUI = function() {
-    const activeTier = (currentUser && currentUser.plan) || 
-                       (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) || 
-                       'pro';
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser) 
+        ? String(currentUser.salon_id || '').trim().toLowerCase() 
+        : 'salon_001';
 
-    // Aggiorna etichetta piano e salone nella sidebar
+    // 🌟 RISOLUZIONE AUTOREVOLE DEL PIANO:
+    // 1. sysSettings['subscription_tier'] (Database Cloud/Locale del salone)
+    // 2. localStorage specifico per questo salone
+    // 3. currentUser.plan
+    // 4. Default di sicurezza 'base'
+    let activeTier = 'base';
+
+    if (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) {
+        activeTier = String(sysSettings['subscription_tier']).trim().toLowerCase();
+    } else if (localStorage.getItem(`vaimup_tier_${currentSalon}`)) {
+        activeTier = localStorage.getItem(`vaimup_tier_${currentSalon}`).trim().toLowerCase();
+    } else if (currentUser && currentUser.plan) {
+        activeTier = String(currentUser.plan).trim().toLowerCase();
+    } else {
+        activeTier = 'pro'; // Default commerciale
+    }
+
+    // Salva nella memoria di sessione per coerenza
+    if (currentUser) {
+        currentUser.plan = activeTier;
+    }
+    localStorage.setItem(`vaimup_tier_${currentSalon}`, activeTier);
+
+    console.log(`🧭 [PIANO SAAS ATTIVO] Salone: ${currentSalon} ➔ Livello: ${activeTier.toUpperCase()}`);
+
+    // Aggiornamento etichetta e badge nella Sidebar
     const planPill = document.getElementById('sidebar-plan-pill');
     const salonTag = document.getElementById('sidebar-salon-tag');
     const userNameEl = document.getElementById('sidebar-user-name');
@@ -31572,9 +31614,11 @@ window.applySubscriptionTiersToUI = function() {
     }
     if (salonTag && currentUser) salonTag.innerText = currentUser.salon_id || 'Salone';
     if (userNameEl && currentUser) userNameEl.innerText = currentUser.username || 'Admin';
-    if (userRoleEl && currentUser) userRoleEl.innerText = currentUser.role === 'admin' ? 'Titolare' : 'Operatore';
+    if (userRoleEl && currentUser) {
+        userRoleEl.innerText = (currentUser.role === 'master_admin') ? 'Super Admin' : (currentUser.role === 'admin' ? 'Titolare' : 'Operatore');
+    }
 
-    // Cicla tutte le voci della sidebar
+    // Aggiornamento delle singole voci di menu della sidebar
     document.querySelectorAll('.sidebar-nav-container .nav-item').forEach(item => {
         const modKey = item.getAttribute('data-module');
         if (!modKey) return;
@@ -31583,16 +31627,15 @@ window.applySubscriptionTiersToUI = function() {
         let badge = item.querySelector('.nav-tier-badge');
 
         if (!hasAccess) {
-            // Se bloccato, mostra il badge lucchetto
             if (!badge) {
                 badge = document.createElement('span');
                 item.appendChild(badge);
             }
             badge.className = 'nav-tier-badge badge-tier-locked';
             badge.innerText = '🔒 LOCK';
-            item.style.opacity = '0.75';
+            item.style.opacity = '0.7';
         } else {
-            // Se accessibile e aveva il lucchetto, ripristina o togli
+            // Se accessibile, ripristina la visualizzazione pulita
             if (badge && badge.innerText === '🔒 LOCK') {
                 const tierReq = item.getAttribute('data-tier') || 'base';
                 if (tierReq === 'base') {
@@ -31897,7 +31940,7 @@ window.closeSuperAdminLicenseModal = function() {
 window.saveSuperAdminLicenseChanges = async function() {
     const btn = document.getElementById('btn-sa-save-license');
     const targetSalonId = document.getElementById('sa-edit-target-salon-id')?.value;
-    const selectedTier = window._superAdminState.selectedTier || 'pro';
+    const selectedTier = (window._superAdminState.selectedTier || 'pro').toLowerCase();
     const targetStatus = document.getElementById('sa-modal-salon-status')?.value || 'active';
 
     if (!targetSalonId) return;
@@ -31907,7 +31950,6 @@ window.saveSuperAdminLicenseChanges = async function() {
         btn.innerText = "⏳ Sincronizzazione Cloud...";
     }
 
-    // Raccoglie gli add-on spuntati
     const selectedAddons = [];
     ['packages', 'social', 'workstations', 'supplier_payouts', 'ai_assistant', 'sales_report'].forEach(modKey => {
         const cb = document.getElementById(`sa-addon-${modKey}`);
@@ -31916,39 +31958,75 @@ window.saveSuperAdminLicenseChanges = async function() {
 
     const supUrl = window.SUPABASE_CONFIG.url;
     const supKey = window.SUPABASE_CONFIG.key;
+    const targetSalonClean = String(targetSalonId).trim();
+    const targetSalonLower = targetSalonClean.toLowerCase();
 
     try {
-        // A. Upsert Subscription Tier su Supabase Cloud
+        // 1. Upsert Subscription Tier su Supabase Cloud
         await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
             method: 'POST',
-            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: 'subscription_tier', value: selectedTier, salon_id: targetSalonId })
+            headers: { 
+                'apikey': supKey, 
+                'Authorization': 'Bearer ' + supKey, 
+                'Content-Type': 'application/json', 
+                'Prefer': 'resolution=merge-duplicates' 
+            },
+            body: JSON.stringify({ key: 'subscription_tier', value: selectedTier, salon_id: targetSalonClean })
         });
 
-        // B. Upsert Enabled Modules Add-on su Supabase Cloud
+        // 2. Upsert Enabled Modules Add-on su Supabase Cloud
         await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
             method: 'POST',
-            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: 'enabled_modules', value: JSON.stringify(selectedAddons), salon_id: targetSalonId })
+            headers: { 
+                'apikey': supKey, 
+                'Authorization': 'Bearer ' + supKey, 
+                'Content-Type': 'application/json', 
+                'Prefer': 'resolution=merge-duplicates' 
+            },
+            body: JSON.stringify({ key: 'enabled_modules', value: JSON.stringify(selectedAddons), salon_id: targetSalonClean })
         });
 
-        // C. Aggiornamento stato utenti del salone (attivo / sospeso)
-        await fetch(`${supUrl}/rest/v1/users?salon_id=eq.${targetSalonId}`, {
+        // 3. Aggiorna lo stato degli utenti del salone
+        await fetch(`${supUrl}/rest/v1/users?salon_id=ilike.${encodeURIComponent(targetSalonClean)}`, {
             method: 'PATCH',
-            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 
+                'apikey': supKey, 
+                'Authorization': 'Bearer ' + supKey, 
+                'Content-Type': 'application/json', 
+                'Prefer': 'return=minimal' 
+            },
             body: JSON.stringify({ status: targetStatus })
         });
 
-        // Se il salone modificato è quello in cui siamo attualmente collegati, aggiorna la sessione viva
-        if (currentUser && currentUser.salon_id.toLowerCase() === targetSalonId.toLowerCase()) {
+        // 4. Salvataggio locale immediato in Dexie per eliminare ogni ritardo di rete
+        if (window.localDb && window.localDb.settings) {
+            await window.localDb.settings.put({
+                key: 'subscription_tier',
+                value: selectedTier,
+                salon_id: targetSalonClean,
+                updated_at: new Date().toISOString()
+            });
+            await window.localDb.settings.put({
+                key: 'enabled_modules',
+                value: JSON.stringify(selectedAddons),
+                salon_id: targetSalonClean,
+                updated_at: new Date().toISOString()
+            });
+        }
+
+        // 5. Cache di salone in localStorage
+        localStorage.setItem(`vaimup_tier_${targetSalonLower}`, selectedTier);
+
+        // Se stiamo operando nel salone attivo, aggiorna la sessione viva
+        if (currentUser && currentUser.salon_id.toLowerCase() === targetSalonLower) {
             currentUser.plan = selectedTier;
             sysSettings['subscription_tier'] = selectedTier;
             sysSettings['enabled_modules'] = JSON.stringify(selectedAddons);
-            if (typeof window.applySubscriptionTiersToUI === 'function') window.applySubscriptionTiersToUI();
-            if (typeof window.updateSidebarRoleAccess === 'function') window.updateSidebarRoleAccess();
+            window.applySubscriptionTiersToUI();
+            window.updateSidebarRoleAccess();
         }
 
-        alert(`✅ Licenza per il salone "${targetSalonId}" aggiornata a [${selectedTier.toUpperCase()}] con ${selectedAddons.length} moduli add-on!`);
+        alert(`✅ Salone "${targetSalonClean}" aggiornato con successo a [${selectedTier.toUpperCase()}]!`);
         window.closeSuperAdminLicenseModal();
         window.renderSuperAdminConsole();
 
@@ -31962,6 +32040,7 @@ window.saveSuperAdminLicenseChanges = async function() {
         }
     }
 };
+window.saveSuperAdminLicenseChanges = saveSuperAdminLicenseChanges;
 
 // 7. FUNZIONE IMPERSONATION (ENTRA NEL SALONE PER ASSISTENZA)
 window.impersonateSalon = async function(targetSalonId) {
