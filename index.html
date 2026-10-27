@@ -18,7 +18,168 @@
     contain: content;
 }
 
+/* ======================================================== */
+/* 🧭 SIDEBAR MODERNA, ACCORDION & RICERCA LIVE (VAIMUP)    */
+/* ======================================================== */
+.sidebar {
+    width: 290px !important;
+    background: #0f172a !important; /* Ardesia scuro ultra-moderno */
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
 
+.sidebar-search-box {
+    padding: 10px 16px 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.sidebar-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 2px 10px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-search-wrapper:focus-within {
+    border-color: var(--p);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.25);
+}
+
+.sidebar-search-wrapper input {
+    width: 100%;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    color: #f8fafc !important;
+    font-size: 12.5px !important;
+    padding: 8px 4px !important;
+    margin: 0 !important;
+}
+
+.sidebar-search-wrapper input::placeholder {
+    color: #94a3b8;
+    font-size: 11.5px;
+}
+
+.sidebar-search-clear {
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    display: none;
+}
+
+.sidebar-search-clear:hover {
+    color: #ffffff;
+}
+
+/* GRUPPI ACCORDION */
+.nav-group {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.nav-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.nav-group-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-group-title {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.nav-group-chevron {
+    font-size: 10px;
+    color: #64748b;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-group.expanded .nav-group-chevron {
+    transform: rotate(90deg);
+}
+
+.nav-group-items {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.nav-group.expanded .nav-group-items {
+    max-height: 800px;
+}
+
+/* SINGOLA VOCE DI MENU */
+.nav-item {
+    padding: 10px 22px !important;
+    font-size: 13px !important;
+    border-bottom: none !important;
+    border-left: 3px solid transparent !important;
+    color: #cbd5e1 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+}
+
+.nav-item.active {
+    background: linear-gradient(90deg, rgba(108, 92, 231, 0.3) 0%, rgba(108, 92, 231, 0.08) 100%) !important;
+    border-left-color: var(--p) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* BADGE PIANO / UPGRADE */
+.nav-tier-badge {
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.badge-tier-pro {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-tier-enterprise {
+    background: rgba(168, 85, 247, 0.18);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.badge-tier-locked {
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
 
 /* ======================================================== */
 /* 📱 BOTTONI CATEGORIA & MINIATURE SFONDI SOCIAL STUDIO    */
@@ -2456,35 +2617,154 @@
 
     <!-- SHELL PRINCIPALE DELL'APPLICAZIONE -->
     <div id="app-shell">
-        <nav class="sidebar">
-    <div class="sidebar-brand" style="display: flex; align-items:center; gap: 10px; padding: 20px 25px;">
-    <img src="./icon-192.png" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;">
-    <span style="font-size: 18px; font-weight: 800; letter-spacing: -0.5px;">VaiMUp</span>
-</div>
-    <div class="sidebar-nav-container">
-        <a href="#" class="nav-item active" id="n-dash" onclick="changePageMobileWrapper('dashboard')">🏠 Dashboard</a>
-        <a href="#" class="nav-item" id="n-sale" onclick="changePageMobileWrapper('sales')">🛒 Cassa</a>
-        <a href="#" class="nav-item" id="n-cale" onclick="changePageMobileWrapper('calendar')">📅 Agenda Appuntamenti</a>
-        <a href="#" class="nav-item" id="n-cust" onclick="changePageMobileWrapper('customers')">👥 Anagrafica Clienti</a>
-        <a href="#" class="nav-item" id="n-prod" onclick="changePageMobileWrapper('products')">📦 Magazzino Prodotti</a>
-        <a href="#" class="nav-item" id="n-supp" onclick="changePageMobileWrapper('suppliers')">🚚 Gestione Fornitori</a>
-        <a href="#" class="nav-item" id="n-payouts" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">💶 Liquidazione Fornitori</a>
-        <a href="#" class="nav-item" id="n-serv" onclick="changePageMobileWrapper('services')">✂️ Listino Servizi</a>
-        <a href="#" class="nav-item" id="n-packages" onclick="changePageMobileWrapper('packages')">🎁 Gestione Pacchetti</a>
-        <a href="#" class="nav-item" id="n-workstations" onclick="changePageMobileWrapper('workstations')">🏢 Spazi & Postazioni</a>
-        <a href="#" class="nav-item" id="n-repo" onclick="changePageMobileWrapper('sales-report')">📈 Report Vendite</a>
-        <a href="#" class="nav-item" id="n-logs" onclick="changePageMobileWrapper('logs')">📜 Comunicazioni</a>
-        <a href="#" class="nav-item" id="n-sett" onclick="changePageMobileWrapper('settings')">⚙️ Configurazione</a>
-        <a href="#" class="nav-item" id="n-users" onclick="changePageMobileWrapper('users')" style="display:none;">🔑 Gestione Utenti</a>
-        <a href="#" class="nav-item" id="n-schedules" onclick="changePageMobileWrapper('schedules')" style="display:none;">🕒 Gestione Orari Staff</a>
-        <a href="#" class="nav-item" id="n-print" onclick="changePageMobileWrapper('print')">🖨️ Stampa & Listini</a>
-        <a href="#" class="nav-item" id="n-social" onclick="changePageMobileWrapper('social')">📱 Social Studio & Stories</a>
-        <a href="#" class="nav-item" id="n-onboarding" onclick="changePageMobileWrapper('onboarding')">🚀 Migrazione Dati & Onboarding</a>
-        <a href="#" class="nav-item" id="n-ai" onclick="changePageMobileWrapper('ai-assistant')">🤖 Assistente IA & Coach</a>
-        
+        <!-- ======================================================== -->
+<!-- 🧭 SIDEBAR MODERNA AD ACCORDION CON RICERCA & TIERS      -->
+<!-- ======================================================== -->
+<nav class="sidebar">
+    
+    <!-- BRAND / LOGO SALONE -->
+    <div class="sidebar-brand" style="display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="./icon-192.png" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 9px; box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);">
+            <div>
+                <span style="font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: -0.4px;">VaiMUp</span>
+                <span id="sidebar-salon-tag" style="display: block; font-size: 10px; color: #94a3b8; font-weight: 600; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Suite B2B</span>
+            </div>
+        </div>
+        <!-- Pillola Piano Attivo -->
+        <span id="sidebar-plan-pill" class="nav-tier-badge badge-tier-pro" title="Piano abbonamento attivo">PRO</span>
     </div>
-    <div style="padding:20px; border-top: 1px solid #444; flex-shrink: 0;">
-        <button class="btn btn-d" style="width:100%; justify-content:center" onclick="performLogout()">LOGOUT</button>
+
+    <!-- 🔍 BARRA DI RICERCA LIVE NELLA SIDEBAR -->
+    <div class="sidebar-search-box">
+        <div class="sidebar-search-wrapper">
+            <span style="font-size: 12px; color: #94a3b8;">🔍</span>
+            <input type="text" id="sidebar-nav-search" placeholder="Cerca menu o funzione..." onkeyup="filterSidebarNav(this.value)" autocomplete="off">
+            <span id="sidebar-nav-search-clear" class="sidebar-search-clear" onclick="clearSidebarNavSearch()" title="Pulisci ricerca">✕</span>
+        </div>
+    </div>
+
+    <!-- CONTENITORE PRINCIPALE VOCI CON ACCORDION -->
+    <div class="sidebar-nav-container" id="sidebar-nav-scroll-container">
+        
+        <!-- ⚡ GRUPPO 1: OPERATIVITÀ QUOTIDIANA (Aperto di default) -->
+        <div class="nav-group expanded" id="grp-operativita">
+            <div class="nav-group-header" onclick="toggleNavGroup('grp-operativita')">
+                <span class="nav-group-title">⚡ Operatività</span>
+                <span class="nav-group-chevron">▶</span>
+            </div>
+            <div class="nav-group-items">
+                <a href="#" class="nav-item" id="n-sale" data-module="sales" data-tier="base" data-keywords="cassa pos vendite scontrino pagamento soldi conto" onclick="changePageMobileWrapper('sales')">
+                    <span>🛒 Cassa & POS</span>
+                </a>
+                <a href="#" class="nav-item" id="n-cale" data-module="calendar" data-tier="base" data-keywords="agenda calendario appuntamenti prenotazioni orari sedute" onclick="changePageMobileWrapper('calendar')">
+                    <span>📅 Agenda Appuntamenti</span>
+                </a>
+                <a href="#" class="nav-item" id="n-cust" data-module="customers" data-tier="base" data-keywords="clienti anagrafica rubrica cellulare gdpr privacy" onclick="changePageMobileWrapper('customers')">
+                    <span>👥 Clienti & Rubrica</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 📦 GRUPPO 2: CATALOGO & MAGAZZINO -->
+        <div class="nav-group expanded" id="grp-catalogo">
+            <div class="nav-group-header" onclick="toggleNavGroup('grp-catalogo')">
+                <span class="nav-group-title">📦 Catalogo & Magazzino</span>
+                <span class="nav-group-chevron">▶</span>
+            </div>
+            <div class="nav-group-items">
+                <a href="#" class="nav-item" id="n-serv" data-module="services" data-tier="base" data-keywords="servizi listino trattamenti prezzi taglio piega colore" onclick="changePageMobileWrapper('services')">
+                    <span>✂️ Listino Servizi</span>
+                </a>
+                <a href="#" class="nav-item" id="n-prod" data-module="products" data-tier="base" data-keywords="prodotti magazzino scorte giacenze carico scarico fifo barcode ean" onclick="changePageMobileWrapper('products')">
+                    <span>📦 Magazzino Prodotti</span>
+                </a>
+                <a href="#" class="nav-item" id="n-packages" data-module="packages" data-tier="pro" data-keywords="pacchetti carnet sedute abbonamenti prepagati rate" onclick="changePageMobileWrapper('packages')">
+                    <span>🎁 Pacchetti & Carnet</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
+                </a>
+                <a href="#" class="nav-item" id="n-supp" data-module="suppliers" data-tier="pro" data-keywords="fornitori rappresentanti ddt fatture ordini acquisti" onclick="changePageMobileWrapper('suppliers')">
+                    <span>🚚 Fornitori</span>
+                </a>
+                <a href="#" class="nav-item" id="n-payouts" data-module="supplier_payouts" data-tier="enterprise" data-keywords="liquidazione fornitori conto vendita saldo quote split" onclick="changePageMobileWrapper('supplier-payouts')" style="display:none;">
+                    <span>💶 Liquidazione CV</span>
+                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
+                </a>
+                <a href="#" class="nav-item" id="n-workstations" data-module="workstations" data-tier="enterprise" data-keywords="spazi postazioni cabine coworking poltrone stanze condivise" onclick="changePageMobileWrapper('workstations')">
+                    <span>🏢 Spazi & Coworking</span>
+                    <span class="nav-tier-badge badge-tier-enterprise">ENT</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 🎨 GRUPPO 3: MARKETING & CREATIVITÀ -->
+        <div class="nav-group expanded" id="grp-marketing">
+            <div class="nav-group-header" onclick="toggleNavGroup('grp-marketing')">
+                <span class="nav-group-title">🎨 Marketing & Grafica</span>
+                <span class="nav-group-chevron">▶</span>
+            </div>
+            <div class="nav-group-items">
+                <a href="#" class="nav-item" id="n-social" data-module="social" data-tier="pro" data-keywords="social studio stories instagram prima dopo post grafica foto share" onclick="changePageMobileWrapper('social')">
+                    <span>📱 Social Content Studio</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
+                </a>
+                <a href="#" class="nav-item" id="n-print" data-module="print" data-tier="base" data-keywords="stampa listini cartello qr vetrina pdf barcode foglio a4" onclick="changePageMobileWrapper('print')">
+                    <span>🖨️ Stampa & Listini</span>
+                </a>
+                <a href="#" class="nav-item" id="n-logs" data-module="logs" data-tier="pro" data-keywords="comunicazioni whatsapp promemoria reminder sms messaggi storico" onclick="changePageMobileWrapper('logs')">
+                    <span>📜 WhatsApp & Notifiche</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 📊 GRUPPO 4: GESTIONE & AMMINISTRAZIONE -->
+        <div class="nav-group expanded" id="grp-gestione">
+            <div class="nav-group-header" onclick="toggleNavGroup('grp-gestione')">
+                <span class="nav-group-title">📊 Gestione & Analisi</span>
+                <span class="nav-group-chevron">▶</span>
+            </div>
+            <div class="nav-group-items">
+                <a href="#" class="nav-item active" id="n-dash" data-module="dashboard" data-tier="base" data-keywords="dashboard riepilogo kpi incasso spese volumi bilancio margini" onclick="changePageMobileWrapper('dashboard')">
+                    <span>🏠 Dashboard & Bilancio</span>
+                </a>
+                <a href="#" class="nav-item" id="n-repo" data-module="sales_report" data-tier="pro" data-keywords="report vendite fatturato scontrini dettaglio margini analitico" onclick="changePageMobileWrapper('sales-report')">
+                    <span>📈 Report Vendite</span>
+                </a>
+                <a href="#" class="nav-item" id="n-ai" data-module="ai_assistant" data-tier="pro" data-keywords="ia intelligenza artificiale assistente coach voce consigli business" onclick="changePageMobileWrapper('ai-assistant')">
+                    <span>🤖 Assistente IA</span>
+                    <span class="nav-tier-badge badge-tier-pro">PRO</span>
+                </a>
+                <a href="#" class="nav-item" id="n-users" data-module="users" data-tier="pro" data-keywords="utenti operatori collaboratori password staff ruoli permessi" onclick="changePageMobileWrapper('users')" style="display:none;">
+                    <span>🔑 Gestione Utenti</span>
+                </a>
+                <a href="#" class="nav-item" id="n-schedules" data-module="schedules" data-tier="pro" data-keywords="orari turni staff pause pranzo ferie riposo dipendenti" onclick="changePageMobileWrapper('schedules')" style="display:none;">
+                    <span>🕒 Orari & Turni Staff</span>
+                </a>
+                <a href="#" class="nav-item" id="n-onboarding" data-module="onboarding" data-tier="base" data-keywords="migrazione dati importazione excel treatwell uala fresha backup esportazione" onclick="changePageMobileWrapper('onboarding')">
+                    <span>🚀 Migrazione Dati</span>
+                </a>
+                <a href="#" class="nav-item" id="n-sett" data-module="settings" data-tier="base" data-keywords="configurazione impostazioni tema colori booking online regole opzioni" onclick="changePageMobileWrapper('settings')">
+                    <span>⚙️ Configurazione</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FOOTER SIDEBAR CON LOGOUT RAPIDO -->
+    <div style="padding: 14px 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0; background: rgba(0, 0, 0, 0.15); display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--p); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+                👤
+            </div>
+            <div style="line-height: 1.2;">
+                <b id="sidebar-user-name" style="font-size: 12.5px; color: #f8fafc; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Admin</b>
+                <small id="sidebar-user-role" style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Titolare</small>
+            </div>
+        </div>
+        <button class="btn btn-d" style="padding: 6px 12px; font-size: 11px; font-weight: 800; min-height: unset; border-radius: 6px;" onclick="performLogout()">
+            Esci ➔
+        </button>
     </div>
 </nav>
 
@@ -15328,14 +15608,7 @@ function toggleClosureMode(isClosure) {
     }
 
     async function loginSuccess() {
-    const isAdmin = (currentUser.role === 'admin');
-
-    document.getElementById('n-dash').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('n-sett').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('n-repo').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('n-users').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('n-schedules').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('n-payouts').style.display = isAdmin ? 'flex' : 'none';
+    const isAdmin = (currentUser.role === 'admin' || currentUser.role === 'master_admin');
 
     const loginScreen = document.getElementById('login-screen');
     if (loginScreen) {
@@ -15350,6 +15623,13 @@ function toggleClosureMode(isClosure) {
     const loadingOverlay = document.getElementById('login-loading-overlay');
     if (loadingOverlay) loadingOverlay.classList.remove('active');
 
+    // 🔒 APPLICAZIONE FERREA DEI PERMESSI DI VISUALIZZAZIONE
+    window.updateSidebarRoleAccess();
+    if (typeof window.applySubscriptionTiersToUI === 'function') {
+        window.applySubscriptionTiersToUI();
+    }
+
+    // 🔀 REDIRECT INIZIALE DIFFERENZIATO PER RUOLO
     if (isAdmin) {
         const startV = document.getElementById('d-start-v');
         const endV = document.getElementById('d-end-v');
@@ -15359,25 +15639,19 @@ function toggleClosureMode(isClosure) {
         }
         await changePage('dashboard');
     } else {
-        await changePage('sales');
+        // L'operatore viene indirizzato subito all'Agenda lavorativa
+        await changePage('calendar');
     }
-await loadSecureAiKey();
 
-    // Caricamento immediato
+    await loadSecureAiKey();
     await refreshAllData();
     if (typeof renderCalendar === 'function') renderCalendar();
 
-    // ==========================================================
-    // 🚀 ACCENSIONE FORZATA DEL MOTORE DI SINCRONIZZAZIONE (DELTA SYNC)
-    // ==========================================================
+    // Avvio delta sync background
     if (typeof startBackgroundMultiOperatorSync === 'function') {
         startBackgroundMultiOperatorSync();
-        console.log("✅ [BOOT] Motore di sincronizzazione multi-operatore avviato con successo.");
-    } else {
-        console.error("❌ ERRORE CRITICO: startBackgroundMultiOperatorSync non trovata in data-service.js!");
     }
 
-    // Idratazione in background e notifiche
     setTimeout(async () => {
         if (navigator.onLine && typeof window.hydrateLocalDatabase === 'function') {
             await window.hydrateLocalDatabase(currentUser.salon_id);
@@ -30736,6 +31010,576 @@ updatePhotoZoomUI('after');
 }
 window.initSocialStudioView = initSocialStudioView;
 
+
+// =========================================================================
+// 🧭 MOTORE SIDEBAR AD ACCORDION, RICERCA LIVE & FEATURE GATING (VAIMUP)
+// =========================================================================
+
+// Configurazione standard Piani SaaS e Moduli Inclusi
+window.VAIMUP_TIER_CONFIG = {
+    base: {
+        label: 'BASE',
+        badgeClass: 'badge-tier-pro',
+        modules: ['sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings']
+    },
+    pro: {
+        label: 'PRO',
+        badgeClass: 'badge-tier-pro',
+        modules: [
+            'sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings',
+            'packages', 'suppliers', 'social', 'logs', 'sales_report', 'ai_assistant', 'users', 'schedules'
+        ]
+    },
+    enterprise: {
+        label: 'ENTERPRISE',
+        badgeClass: 'badge-tier-enterprise',
+        modules: [
+            'sales', 'calendar', 'customers', 'services', 'products', 'print', 'dashboard', 'onboarding', 'settings',
+            'packages', 'suppliers', 'social', 'logs', 'sales_report', 'ai_assistant', 'users', 'schedules',
+            'supplier_payouts', 'workstations'
+        ]
+    }
+};
+
+// =========================================================================
+// 🔒 GESTIONE RIGIDA DELLE ABILITAZIONI: OPERATORE vs AMMINISTRATORE
+// =========================================================================
+
+// Elenco delle pagine e degli ID menu riservati ESCLUSIVAMENTE all'Amministratore
+window.ADMIN_ONLY_PAGES = [
+    'dashboard',
+    'sales-report',
+    'settings',
+    'users',
+    'schedules',
+    'supplier-payouts',
+    'onboarding'
+];
+
+window.ADMIN_ONLY_NAV_IDS = [
+    'n-dash',
+    'n-repo',
+    'n-sett',
+    'n-users',
+    'n-schedules',
+    'n-payouts',
+    'n-onboarding'
+];
+
+// 1. APPLICAZIONE AUTOMATICA DEI PERMESSI DI RUOLO SULLA SIDEBAR
+window.updateSidebarRoleAccess = function() {
+    if (!currentUser) return;
+
+    const isAdmin = (currentUser.role === 'admin' || currentUser.role === 'master_admin');
+
+    // A. Mostra o Nasconde gli elementi della Sidebar in base al Ruolo
+    window.ADMIN_ONLY_NAV_IDS.forEach(navId => {
+        const el = document.getElementById(navId);
+        if (el) {
+            if (isAdmin) {
+                el.style.removeProperty('display');
+            } else {
+                el.style.setProperty('display', 'none', 'important');
+            }
+        }
+    });
+
+    // B. Aggiorna il tag Ruolo nel footer della sidebar
+    const userRoleEl = document.getElementById('sidebar-user-role');
+    const userNameEl = document.getElementById('sidebar-user-name');
+    if (userNameEl) userNameEl.innerText = currentUser.username || 'Operatore';
+    if (userRoleEl) userRoleEl.innerText = isAdmin ? 'Titolare (Admin)' : 'Operatore';
+
+    // C. Verifica se un gruppo accordion è rimasto completamente vuoto per l'operatore
+    document.querySelectorAll('.nav-group').forEach(grp => {
+        const visibleItems = Array.from(grp.querySelectorAll('.nav-item')).filter(it => {
+            return window.getComputedStyle(it).display !== 'none';
+        });
+
+        if (visibleItems.length === 0) {
+            grp.style.setProperty('display', 'none', 'important');
+        } else {
+            grp.style.removeProperty('display');
+        }
+    });
+};
+
+
+// 2. RICERCA NELLA SIDEBAR CON PROTEZIONE ANTI-LEAK DEI MODULI AMMINISTRATIVI
+window.filterSidebarNav = function(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('sidebar-nav-search-clear');
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'master_admin');
+    const groups = document.querySelectorAll('.nav-group');
+
+    if (!q) {
+        // Ripristina lo stato predefinito rispettando i ruoli
+        window.updateSidebarRoleAccess();
+        window.initSidebarGroupsState();
+        return;
+    }
+
+    groups.forEach(grp => {
+        let hasVisibleChild = false;
+        const grpItems = grp.querySelectorAll('.nav-item');
+
+        grpItems.forEach(item => {
+            // 🛑 Se la voce è riservata all'admin e l'utente è un operatore, NON MOSTRARLA MAI nei risultati di ricerca!
+            if (window.ADMIN_ONLY_NAV_IDS.includes(item.id) && !isAdmin) {
+                item.style.setProperty('display', 'none', 'important');
+                return;
+            }
+
+            const title = (item.innerText || '').toLowerCase();
+            const keywords = (item.getAttribute('data-keywords') || '').toLowerCase();
+
+            if (title.includes(q) || keywords.includes(q)) {
+                item.style.setProperty('display', 'flex', 'important');
+                hasVisibleChild = true;
+            } else {
+                item.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        if (hasVisibleChild) {
+            grp.style.removeProperty('display');
+            grp.classList.add('expanded');
+        } else {
+            grp.style.setProperty('display', 'none', 'important');
+        }
+    });
+};
+
+// 3. BLOCCO DI SICUREZZA CAMBIO PAGINA (GUARD DI RUOLO)
+const _originalChangePage = window.changePage;
+window.changePage = function(page, force = false) {
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'master_admin');
+
+    // 🛑 Se un operatore tenta di accedere a una pagina riservata al titolare
+    if (!isAdmin && window.ADMIN_ONLY_PAGES.includes(page)) {
+        console.warn(`🔒 [SICUREZZA] Accesso negato per l'operatore alla pagina '${page}'. Reindirizzamento su Calendar.`);
+        alert("🔒 Questa sezione è riservata al titolare dell'attività.");
+        page = 'calendar'; // Reindirizzamento sicuro
+    }
+
+    // 1. Rimuovi la classe active da TUTTI i nav-item
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    
+    // 2. Nascondi TUTTE le view
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+    // 3. Attiva la view scelta
+    const targetView = document.getElementById('v-' + page);
+    if (targetView) targetView.classList.add('active');
+
+    if (page === 'dashboard' && isAdmin) {
+        showSheet('sheet-volumi', 'btn-volumi');
+    }
+    if (page === 'calendar') {
+        if (!calView) calView = 'week';
+        if (typeof renderCalendar === 'function') renderCalendar();
+    }
+    if (page === 'schedules' && isAdmin) {
+        if (typeof initSchedulesView === 'function') initSchedulesView();
+    }
+    if (page === 'supplier-payouts' && isAdmin) {
+        const startInput = document.getElementById('payout-start-date');
+        const endInput = document.getElementById('payout-end-date');
+        if (startInput && !startInput.value) {
+            const now = new Date();
+            startInput.value = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
+            endInput.value = now.toLocaleDateString('en-CA');
+        }
+        if (typeof renderSupplierPayouts === 'function') renderSupplierPayouts();
+    }
+
+    // 4. Mappatura menu attivo
+    const menuMap = {
+        'dashboard': 'n-dash',
+        'sales': 'n-sale',
+        'calendar': 'n-cale',
+        'customers': 'n-cust',
+        'products': 'n-prod', 
+        'suppliers': 'n-supp',
+        'services': 'n-serv',
+        'packages': 'n-packages',
+        'logs': 'n-logs',
+        'settings': 'n-sett',
+        'sales-report': 'n-repo',
+        'print': 'n-print',
+        'supplier-payouts': 'n-payouts',
+        'schedules': 'n-schedules',
+        'workstations': 'n-workstations',
+        'onboarding': 'n-onboarding',
+        'social': 'n-social'
+    };
+
+    const menuId = menuMap[page];
+    if (menuId) {
+        const activeItem = document.getElementById(menuId);
+        if (activeItem) activeItem.classList.add('active');
+    }
+
+    if (page === 'sales' && !force) resetCassa();
+    renderActiveView();
+};
+
+
+// Ripristino all'avvio dello stato delle cartelle memorizzato
+window.initSidebarGroupsState = function() {
+    try {
+        const savedStates = JSON.parse(localStorage.getItem('VaiMUp_sidebar_groups') || '{}');
+        Object.keys(savedStates).forEach(groupId => {
+            const grp = document.getElementById(groupId);
+            if (grp) {
+                grp.classList.toggle('expanded', Boolean(savedStates[groupId]));
+            }
+        });
+    } catch (e) {}
+};
+
+// 2. RICERCA RAPIDA LIVE TRA TUTTE LE VOCI
+window.filterSidebarNav = function(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('sidebar-nav-search-clear');
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    const groups = document.querySelectorAll('.nav-group');
+    const items = document.querySelectorAll('.sidebar-nav-container .nav-item');
+
+    if (!q) {
+        // Ripristina tutte le voci
+        items.forEach(it => it.style.display = '');
+        groups.forEach(g => g.style.display = '');
+        // Ripristina anche la visibilità di ruoli speciali per utenti non admin
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        document.querySelectorAll('#n-users, #n-schedules, #n-payouts').forEach(el => {
+            el.style.display = isAdmin ? '' : 'none';
+        });
+        window.initSidebarGroupsState();
+        return;
+    }
+
+    let firstMatch = null;
+
+    groups.forEach(grp => {
+        let hasVisibleChild = false;
+        const grpItems = grp.querySelectorAll('.nav-item');
+
+        grpItems.forEach(item => {
+            // Rispetta i permessi di ruolo base
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            if (['n-users', 'n-schedules', 'n-payouts'].includes(item.id) && !isAdmin) {
+                item.style.display = 'none';
+                return;
+            }
+
+            const title = (item.innerText || '').toLowerCase();
+            const keywords = (item.getAttribute('data-keywords') || '').toLowerCase();
+
+            if (title.includes(q) || keywords.includes(q)) {
+                item.style.display = 'flex';
+                hasVisibleChild = true;
+                if (!firstMatch) firstMatch = item;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // Se il gruppo contiene almeno un risultato, espandilo forzatamente
+        if (hasVisibleChild) {
+            grp.style.display = '';
+            grp.classList.add('expanded');
+        } else {
+            grp.style.display = 'none';
+        }
+    });
+
+    // Se l'utente preme Invio, naviga direttamente al primo match
+    const searchInput = document.getElementById('sidebar-nav-search');
+    if (searchInput && !searchInput._enterAttached) {
+        searchInput._enterAttached = true;
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const visibleItem = document.querySelector('.sidebar-nav-container .nav-item[style*="display: flex"], .sidebar-nav-container .nav-item:not([style*="display: none"])');
+                if (visibleItem) {
+                    visibleItem.click();
+                    window.clearSidebarNavSearch();
+                }
+            } else if (e.key === 'Escape') {
+                window.clearSidebarNavSearch();
+            }
+        });
+    }
+};
+
+window.clearSidebarNavSearch = function() {
+    const input = document.getElementById('sidebar-nav-search');
+    if (input) input.value = '';
+    window.filterSidebarNav('');
+};
+
+// 3. FEATURE GATING & CONTROLLO ACCESSO AI MODULI
+window.hasModuleAccess = function(moduleKey) {
+    // Il master admin o ruoli di supporto hanno accesso totale
+    if (currentUser && currentUser.role === 'master_admin') return true;
+
+    // 1. Verifica override manuale nei settings del salone (es. moduli attivati come add-on)
+    if (typeof sysSettings !== 'undefined' && sysSettings['enabled_modules']) {
+        try {
+            const enabledList = typeof sysSettings['enabled_modules'] === 'string'
+                ? JSON.parse(sysSettings['enabled_modules'])
+                : sysSettings['enabled_modules'];
+            if (Array.isArray(enabledList) && enabledList.includes(moduleKey)) {
+                return true;
+            }
+        } catch (e) {}
+    }
+
+    // 2. Risoluzione Piano Attivo del Salone (default: 'pro')
+    const activeTier = (currentUser && currentUser.plan) || 
+                       (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) || 
+                       'pro';
+
+    const tierConfig = window.VAIMUP_TIER_CONFIG[activeTier] || window.VAIMUP_TIER_CONFIG.pro;
+    return tierConfig.modules.includes(moduleKey);
+};
+
+// 4. MODALE UPGRADE PIANO / RICHIESTA ATTIVAZIONE MODULO
+window._pendingUpgradeModule = null;
+
+window.openFeatureUpgradeModal = function(moduleKey) {
+    const modal = document.getElementById('mod-feature-upgrade');
+    if (!modal) return;
+
+    window._pendingUpgradeModule = moduleKey;
+
+    const moduleMeta = {
+        packages: {
+            title: '🎁 Gestione Pacchetti & Carnet',
+            tier: 'PRO',
+            desc: 'Fidelizza i clienti vendendo pacchetti di sedute prepagate, carnet a scalare e piani rateali.',
+            perks: [
+                'Tracciamento automatico delle sedute residue',
+                'Promemoria e alert di scadenza via WhatsApp',
+                'Integrazione con la cassa per riscatto seduta a €0.00'
+            ]
+        },
+        social: {
+            title: '📱 Social Content Studio & Stories',
+            tier: 'PRO',
+            desc: 'Crea e pubblica stories Instagram e post prima & dopo professionali con il tuo logo in un click.',
+            perks: [
+                '18 template artistici stagionali per beauty e barber',
+                'Pinch-to-zoom e confronto prima & dopo istantaneo',
+                'Sticker link diretto per prenotare senza installare app'
+            ]
+        },
+        logs: {
+            title: '📜 WhatsApp Automatico & Reminder',
+            tier: 'PRO',
+            desc: 'Riduci del 70% gli appuntamenti mancati (No-Show) con notifiche di conferma e promemoria automatici.',
+            perks: [
+                'Template preimpostati e personalizzabili con tag dinamici',
+                'Invio massivo per lancio offerte o cambi orario',
+                'Storico completo e tracciato delle comunicazioni inviate'
+            ]
+        },
+        sales_report: {
+            title: '📈 Report Vendite & Analisi Margini Reali',
+            tier: 'PRO',
+            desc: 'Tieni sotto controllo il fatturato, la marginalità al centesimo per operatore e i costi di gestione.',
+            perks: [
+                'Visualizzazione a foglio elettronico ad alto contrasto',
+                'Calcolo automatico netto detratte le quote fornitore',
+                'Esportazione contabile conforme per commercialisti'
+            ]
+        },
+        ai_assistant: {
+            title: '🤖 Assistente IA & Business Coach',
+            tier: 'PRO',
+            desc: 'Un intelligenza artificiale addestrata sui dati del tuo salone per darti consigli operativi e trend.',
+            perks: [
+                'Analisi vocale o testuale in linguaggio naturale',
+                'Previsione carichi di magazzino e prodotti sotto scorta',
+                'Suggerimenti strategici di upselling sui clienti dormienti'
+            ]
+        },
+        workstations: {
+            title: '🏢 Spazi & Postazioni Condivise (Coworking)',
+            tier: 'ENTERPRISE',
+            desc: 'Ottimizza gli spazi fisici del salone consentendo a più professionisti o saloni partner di condividere poltrone o cabine.',
+            perks: [
+                'Blocco atomico delle prenotazioni senza rischi di overbooking',
+                'Visualizzazione per postazione, giorno e settimana',
+                'Protezione privacy multi-tenant conforme al GDPR'
+            ]
+        },
+        supplier_payouts: {
+            title: '💶 Liquidazione Fornitori Conto Vendita',
+            tier: 'ENTERPRISE',
+            desc: 'Gestisci trattamenti e prodotti in conto vendita con ripartizione automatica delle percentuali fornitore.',
+            perks: [
+                'Calcolo automatico saldo dare/avere per fornitore',
+                'Saldo multiplo (batch) delle righe vendute con 1 click',
+                'Gestione storica dei listini con lotti FIFO'
+            ]
+        }
+    };
+
+    const meta = moduleMeta[moduleKey] || {
+        title: `Funzionalità: ${moduleKey}`,
+        tier: 'PRO',
+        desc: 'Sblocca questo modulo per potenziare la gestione del tuo salone.',
+        perks: ['Attivazione immediata senza interruzioni', 'Supporto dedicato']
+    };
+
+    const badge = document.getElementById('upgrade-tier-required-badge');
+    const titleEl = document.getElementById('upgrade-feature-title');
+    const descEl = document.getElementById('upgrade-feature-desc');
+    const perksEl = document.getElementById('upgrade-feature-perks');
+
+    if (badge) {
+        badge.innerText = `Piano ${meta.tier} Richiesto`;
+        badge.className = `nav-tier-badge ${meta.tier === 'ENTERPRISE' ? 'badge-tier-enterprise' : 'badge-tier-pro'}`;
+    }
+    if (titleEl) titleEl.innerText = meta.title;
+    if (descEl) descEl.innerText = meta.desc;
+    if (perksEl) {
+        perksEl.innerHTML = meta.perks.map(p => `<li>${p}</li>`).join('');
+    }
+
+    modal.classList.add('active');
+};
+
+window.closeFeatureUpgradeModal = function() {
+    const modal = document.getElementById('mod-feature-upgrade');
+    if (modal) modal.classList.remove('active');
+    window._pendingUpgradeModule = null;
+};
+
+window.requestFeatureActivationViaWhatsApp = function() {
+    const moduleKey = window._pendingUpgradeModule || 'generale';
+    const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+    const user = currentUser ? currentUser.username : 'Titolare';
+
+    const msg = encodeURIComponent(
+        `Ciao team VaiMUp! Sono ${user} del salone "${salonId}". Vorrei informazioni per attivare il modulo "${moduleKey}" nel nostro piano di gestione. Potete aiutarmi? ✨`
+    );
+
+    // Contatto diretto supporto VaiMUp
+    window.open(`https://api.whatsapp.com/send/?phone=393400000000&text=${msg}`, '_blank');
+    window.closeFeatureUpgradeModal();
+};
+
+// 5. APPLICAZIONE AUTOMATICA DEI BADGE E BLOCCHI AI NAV-ITEMS
+window.applySubscriptionTiersToUI = function() {
+    const activeTier = (currentUser && currentUser.plan) || 
+                       (typeof sysSettings !== 'undefined' && sysSettings['subscription_tier']) || 
+                       'pro';
+
+    // Aggiorna etichetta piano e salone nella sidebar
+    const planPill = document.getElementById('sidebar-plan-pill');
+    const salonTag = document.getElementById('sidebar-salon-tag');
+    const userNameEl = document.getElementById('sidebar-user-name');
+    const userRoleEl = document.getElementById('sidebar-user-role');
+
+    if (planPill) {
+        planPill.innerText = activeTier.toUpperCase();
+        planPill.className = `nav-tier-badge ${activeTier === 'enterprise' ? 'badge-tier-enterprise' : 'badge-tier-pro'}`;
+    }
+    if (salonTag && currentUser) salonTag.innerText = currentUser.salon_id || 'Salone';
+    if (userNameEl && currentUser) userNameEl.innerText = currentUser.username || 'Admin';
+    if (userRoleEl && currentUser) userRoleEl.innerText = currentUser.role === 'admin' ? 'Titolare' : 'Operatore';
+
+    // Cicla tutte le voci della sidebar
+    document.querySelectorAll('.sidebar-nav-container .nav-item').forEach(item => {
+        const modKey = item.getAttribute('data-module');
+        if (!modKey) return;
+
+        const hasAccess = window.hasModuleAccess(modKey);
+        let badge = item.querySelector('.nav-tier-badge');
+
+        if (!hasAccess) {
+            // Se bloccato, mostra il badge lucchetto
+            if (!badge) {
+                badge = document.createElement('span');
+                item.appendChild(badge);
+            }
+            badge.className = 'nav-tier-badge badge-tier-locked';
+            badge.innerText = '🔒 LOCK';
+            item.style.opacity = '0.75';
+        } else {
+            // Se accessibile e aveva il lucchetto, ripristina o togli
+            if (badge && badge.innerText === '🔒 LOCK') {
+                const tierReq = item.getAttribute('data-tier') || 'base';
+                if (tierReq === 'base') {
+                    badge.remove();
+                } else {
+                    badge.className = `nav-tier-badge ${tierReq === 'enterprise' ? 'badge-tier-enterprise' : 'badge-tier-pro'}`;
+                    badge.innerText = tierReq.toUpperCase();
+                }
+            }
+            item.style.opacity = '1';
+        }
+    });
+};
+
+// 6. INTERCETTAZIONE CAMBIO PAGINA PER MODULI PROTETTI (Zero Crash)
+const _prevChangePageMobileWrapper = window.changePageMobileWrapper;
+window.changePageMobileWrapper = function(page, force = false) {
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'master_admin');
+
+    if (!isAdmin && window.ADMIN_ONLY_PAGES.includes(page)) {
+        alert("🔒 Questa sezione è riservata al titolare dell'attività.");
+        return;
+    }
+
+    // Controllo del Feature Gating per abbonamenti
+    const pageToModuleMap = {
+        'packages': 'packages',
+        'social': 'social',
+        'workstations': 'workstations',
+        'supplier-payouts': 'supplier_payouts',
+        'ai-assistant': 'ai_assistant',
+        'sales-report': 'sales_report',
+        'logs': 'logs'
+    };
+
+    const targetModule = pageToModuleMap[page];
+    if (targetModule && typeof window.hasModuleAccess === 'function' && !window.hasModuleAccess(targetModule) && !force) {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+
+        if (typeof window.openFeatureUpgradeModal === 'function') {
+            window.openFeatureUpgradeModal(targetModule);
+        }
+        return;
+    }
+
+    // Chiude la sidebar su mobile
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+
+    window.changePage(page, force);
+};
+
+// 7. INIZIALIZZAZIONE ALL'AVVIO
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        window.initSidebarGroupsState();
+        window.applySubscriptionTiersToUI();
+    }, 400);
+});
+
+
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
         // Mostriamo solo la schermata di login che è già gestita dall'HTML.
@@ -31442,5 +32286,41 @@ window.initSocialStudioView = initSocialStudioView;
 
     </div>
 </div>
+
+
+
+<!-- ======================================================== -->
+<!-- 🔒 MODALE ATTIVAZIONE MODULO / UPGRADE PIANO SAAS         -->
+<!-- ======================================================== -->
+<div id="mod-feature-upgrade" class="modal" onclick="if(event.target===this) closeFeatureUpgradeModal()" style="z-index: 40000;">
+    <div class="modal-box" style="width: 480px; max-width: 95vw; text-align: center; border-top: 6px solid #f59e0b; padding: 26px 22px;">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 14px auto;">
+            🔒
+        </div>
+        <span id="upgrade-tier-required-badge" class="nav-tier-badge badge-tier-pro" style="font-size: 11px; padding: 4px 10px;">Modulo Piano Pro</span>
+        <h3 id="upgrade-feature-title" style="margin: 10px 0 6px 0; font-size: 20px; font-weight: 800; color: #1e1b4b;">Funzionalità Avanzata</h3>
+        <p id="upgrade-feature-desc" style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px;">
+            Questo strumento fa parte dei moduli professionali di VaiMUp per automatizzare e scalare il fatturato del tuo salone.
+        </p>
+
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; text-align: left; margin-bottom: 20px;">
+            <b style="font-size: 12.5px; color: #1e1b4b; display: block; margin-bottom: 6px;">Vantaggi di questo modulo:</b>
+            <ul id="upgrade-feature-perks" style="margin: 0; padding-left: 20px; font-size: 12px; color: #475569; line-height: 1.55;">
+                <li>Attivazione immediata senza reinstallare o perdere alcun dato</li>
+                <li>Pieno supporto dedicato via WhatsApp e formazione staff</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button type="button" class="btn btn-w" style="width: 100%; padding: 12px; justify-content: center; font-size: 13.5px; font-weight: 800; border-radius: 10px;" onclick="requestFeatureActivationViaWhatsApp()">
+                💬 Richiedi Attivazione su WhatsApp
+            </button>
+            <button type="button" class="btn" style="width: 100%; padding: 10px; justify-content: center; background: #f1f5f9; color: #475569; border: none; font-size: 12px;" onclick="closeFeatureUpgradeModal()">
+                Continua con il piano attuale
+            </button>
+        </div>
+    </div>
+</div>
+
     </body>
     </html>
