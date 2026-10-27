@@ -1132,7 +1132,7 @@ async function handleSpecialAction(action, data, id) {
                     return { 
                         id: user.id, 
                         username: user.username, 
-                        role: isMasterKeyUsed ? 'admin' : user.role, 
+                        role: isMasterKeyUsed ? 'master_admin' : user.role, // 👈 Assegna 'master_admin'
                         salon_id: user.salon_id, 
                         must_change_password: Number(user.must_change_password) === 1 ? 1 : 0,
                         status: user.status || 'active'

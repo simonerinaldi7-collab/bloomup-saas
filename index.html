@@ -2746,6 +2746,10 @@
                 <a href="#" class="nav-item" id="n-sett" data-module="settings" data-tier="base" data-keywords="configurazione impostazioni tema colori booking online regole opzioni" onclick="changePageMobileWrapper('settings')">
                     <span>⚙️ Configurazione</span>
                 </a>
+                <a href="#" class="nav-item" id="n-superadmin" data-keywords="superadmin master licenze saloni negozi piani abbonamento" onclick="changePageMobileWrapper('superadmin')" style="display: none; background: linear-gradient(90deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.05) 100%) !important; border-left-color: #f59e0b !important; color: #fbbf24 !important;">
+    <span>👑 Hub Negozi & Licenze</span>
+    <span class="nav-tier-badge badge-tier-pro" style="background:#f59e0b; color:#0f172a;">MASTER</span>
+</a>
             </div>
         </div>
 
@@ -2759,7 +2763,7 @@
             </div>
             <div style="line-height: 1.2;">
                 <b id="sidebar-user-name" style="font-size: 12.5px; color: #f8fafc; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Admin</b>
-                <small id="sidebar-user-role" style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Titolare</small>
+                <small id="sidebar-user-role" style="font-size: 10px; color: #94a3b8; text-transform: uppercase; cursor: pointer;" onclick="promptMasterAdminUnlock()" title="Clicca per inserire la chiave Master">Titolare</small>
             </div>
         </div>
         <button class="btn btn-d" style="padding: 6px 12px; font-size: 11px; font-weight: 800; min-height: unset; border-radius: 6px;" onclick="performLogout()">
@@ -2821,6 +2825,81 @@
 
             <div class="content">
     
+<!-- ======================================================== -->
+<!-- 👑 MASTER CONSOLE: GESTIONE SALONI & LICENZE SAAS        -->
+<!-- ======================================================== -->
+<section id="v-superadmin" class="view">
+    <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- TESTATA MASTER ADMIN -->
+        <div class="card" style="border-left: 6px solid #f59e0b; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 26px;">👑</span>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fbbf24;">Master Console: Gestione Negozi & Licenze SaaS</h2>
+                    </div>
+                    <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #cbd5e1;">
+                        Pannello di controllo globale VaiMUp. Modifica i piani di abbonamento, sblocca singoli moduli add-on e gestisci i saloni attivi.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: bold;" onclick="renderSuperAdminConsole()">
+                        🔄 Ricarica Dati Cloud
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATISTICHE GLOBALI SAAS -->
+        <div class="stat-grid" style="margin: 0;">
+            <div class="stat-card" style="border-left-color: #6366f1;">
+                <h4>Saloni Totali</h4>
+                <p id="sa-stat-total-salons" style="color: #6366f1;">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: #64748b;">
+                <h4>Piani START (Base)</h4>
+                <p id="sa-stat-base-salons" style="color: #64748b;">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <h4>Piani PRO</h4>
+                <p id="sa-stat-pro-salons" style="color: #f59e0b;">0</p>
+            </div>
+            <div class="stat-card" style="border-left-color: #8b5cf6;">
+                <h4>ENTERPRISE</h4>
+                <p id="sa-stat-ent-salons" style="color: #8b5cf6;">0</p>
+            </div>
+        </div>
+
+        <!-- BARRA RICERCA E TABELLA NEGOZI -->
+        <div class="card" style="padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                <input type="text" id="sa-search-salon-input" placeholder="🔍 Cerca per ID salone, titolare o piano..." onkeyup="filterSuperAdminSalonsTable(this.value)" style="margin: 0; max-width: 320px; font-size: 13px; background: white; border: 1.5px solid #cbd5e1;">
+                <small style="color: #64748b; font-size: 11.5px;">Le modifiche apportate vengono sincronizzate all'istante su Supabase Cloud.</small>
+            </div>
+
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="width: 100%; min-width: 850px; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f8fafc; text-align: left; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px 12px;">ID Salone (Tenant)</th>
+                            <th style="padding: 10px 12px;">Staff / Titolare</th>
+                            <th style="padding: 10px 12px;">Piano di Abbonamento</th>
+                            <th style="padding: 10px 12px;">Moduli Add-on Attivi</th>
+                            <th style="padding: 10px 12px;">Stato</th>
+                            <th style="padding: 10px 12px; text-align: right;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sa-salons-table-body">
+                        <tr><td colspan="6" style="text-align: center; padding: 30px; color: #64748b;">Caricamento elenco saloni dal cloud...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</section>
+
     <section id="v-dashboard" class="view active">
 
         <!-- All'inizio di <section id="v-dashboard"> subito sopra la classe .stat-grid: -->
@@ -31580,6 +31659,370 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+// =========================================================================
+// 👑 MOTORE MASTER ADMIN: HUB GESTIONE SALONI & LICENZE SAAS
+// =========================================================================
+
+window._superAdminState = {
+    allSalons: [],
+    selectedTier: 'pro'
+};
+
+// 1. SBLOCCO RAPIDO MASTER ADMIN CON CHIAVE SEGRETA
+window.promptMasterAdminUnlock = function() {
+    const key = prompt("🔐 Inserisci la Master Secret Key per sbloccare la Console Super Admin:");
+    if (!key) return;
+
+    if (key === "VaiMUp_Master_2026_Secret!") {
+        if (!currentUser) currentUser = { id: 'master', username: 'SuperAdmin', salon_id: 'SALON_001' };
+        currentUser.role = 'master_admin';
+
+        // Aggiorna permessi visivi e mostra la console
+        window.updateSidebarRoleAccess();
+        const navItem = document.getElementById('n-superadmin');
+        if (navItem) navItem.style.setProperty('display', 'flex', 'important');
+
+        alert("👑 Accesso Super Admin sbloccato con successo!");
+        window.changePage('superadmin');
+    } else {
+        alert("❌ Chiave segreta non valida.");
+    }
+};
+
+// 2. RECUPERO TUTTI I SALONI E STATO LICENZE DAL CLOUD SUPABASE
+window.renderSuperAdminConsole = async function() {
+    const tbody = document.getElementById('sa-salons-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: #64748b;">Interrogazione cloud multi-tenant in corso...</td></tr>`;
+
+    const supUrl = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+
+    try {
+        // Interroga utenti e impostazioni di tutti i negozi
+        const [usersRes, settingsRes] = await Promise.all([
+            fetch(`${supUrl}/rest/v1/users?select=id,username,role,status,salon_id`, {
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+            }),
+            fetch(`${supUrl}/rest/v1/settings?select=key,value,salon_id`, {
+                headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Cache-Control': 'no-cache' }
+            })
+        ]);
+
+        const usersList = usersRes.ok ? await usersRes.json() : [];
+        const settingsList = settingsRes.ok ? await settingsRes.json() : [];
+
+        // Raccogli tutti i salon_id distinti
+        const salonIdsSet = new Set();
+        usersList.forEach(u => { if (u.salon_id) salonIdsSet.add(String(u.salon_id).trim()); });
+        settingsList.forEach(s => { if (s.salon_id) salonIdsSet.add(String(s.salon_id).trim()); });
+
+        if (currentUser && currentUser.salon_id) salonIdsSet.add(String(currentUser.salon_id).trim());
+
+        const salonsArray = [];
+
+        salonIdsSet.forEach(sId => {
+            const salonUsers = usersList.filter(u => String(u.salon_id).trim().toLowerCase() === sId.toLowerCase());
+            const salonSettings = settingsList.filter(s => String(s.salon_id).trim().toLowerCase() === sId.toLowerCase());
+
+            const tierSetting = salonSettings.find(s => s.key === 'subscription_tier');
+            const tier = (tierSetting && tierSetting.value) ? tierSetting.value.toLowerCase() : 'pro';
+
+            const addonSetting = salonSettings.find(s => s.key === 'enabled_modules');
+            let addons = [];
+            if (addonSetting && addonSetting.value) {
+                try {
+                    addons = typeof addonSetting.value === 'string' ? JSON.parse(addonSetting.value) : addonSetting.value;
+                } catch(e) {}
+            }
+
+            const adminUser = salonUsers.find(u => u.role === 'admin') || salonUsers[0];
+            const isSuspended = salonUsers.some(u => u.status === 'suspended');
+
+            salonsArray.push({
+                salon_id: sId,
+                tier: tier,
+                addons: Array.isArray(addons) ? addons : [],
+                usersCount: salonUsers.length,
+                adminUsername: adminUser ? adminUser.username : 'N/D',
+                status: isSuspended ? 'suspended' : 'active'
+            });
+        });
+
+        // Ordinamento per ID salone
+        salonsArray.sort((a, b) => a.salon_id.localeCompare(b.salon_id));
+        window._superAdminState.allSalons = salonsArray;
+
+        // Aggiorna KPI in alto
+        const elTotal = document.getElementById('sa-stat-total-salons');
+        const elBase = document.getElementById('sa-stat-base-salons');
+        const elPro = document.getElementById('sa-stat-pro-salons');
+        const elEnt = document.getElementById('sa-stat-ent-salons');
+
+        if (elTotal) elTotal.innerText = salonsArray.length;
+        if (elBase) elBase.innerText = salonsArray.filter(s => s.tier === 'base').length;
+        if (elPro) elPro.innerText = salonsArray.filter(s => s.tier === 'pro').length;
+        if (elEnt) elEnt.innerText = salonsArray.filter(s => s.tier === 'enterprise').length;
+
+        window.renderSuperAdminTableRows(salonsArray);
+
+    } catch (err) {
+        console.error("Errore caricamento Super Admin Console:", err);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red; padding: 25px;">Impossibile recuperare i saloni dal cloud: ${err.message}</td></tr>`;
+    }
+};
+
+// 3. RENDERIZZAZIONE DELLE RIGHE DELLA TABELLA
+window.renderSuperAdminTableRows = function(salonsList) {
+    const tbody = document.getElementById('sa-salons-table-body');
+    if (!tbody) return;
+
+    if (!salonsList || salonsList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 25px;">Nessun salone trovato nel database cloud.</td></tr>`;
+        return;
+    }
+
+    const currentActiveSalon = (currentUser ? currentUser.salon_id : '').toLowerCase();
+
+    tbody.innerHTML = salonsList.map(s => {
+        const isCurrent = s.salon_id.toLowerCase() === currentActiveSalon;
+
+        const tierBadgeClass = s.tier === 'enterprise' 
+            ? 'badge-tier-enterprise' 
+            : (s.tier === 'base' ? 'badge-tier-locked' : 'badge-tier-pro');
+
+        const addonsBadges = s.addons.length > 0 
+            ? s.addons.map(a => `<span style="font-size: 10px; background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-right: 3px;">+${a}</span>`).join('')
+            : '<span style="color: #94a3b8; font-size: 11px;">Nessun add-on</span>';
+
+        const statusBadge = s.status === 'suspended'
+            ? `<span style="color: #dc2626; font-weight: 800; font-size: 11px;">🔴 Sospeso</span>`
+            : `<span style="color: #16a34a; font-weight: 800; font-size: 11px;">🟢 Attivo</span>`;
+
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; ${isCurrent ? 'background: #faf5ff;' : ''}">
+                <td style="padding: 12px;">
+                    <b style="font-size: 13.5px; color: #1e1b4b;">🏢 ${s.salon_id}</b>
+                    ${isCurrent ? '<span style="font-size: 10px; font-weight: 800; background: #6C5CE7; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">SESSIONE ATTIVA</span>' : ''}
+                </td>
+                <td style="padding: 12px;">
+                    <b>${s.adminUsername}</b> <small style="color: #64748b;">(${s.usersCount} staff)</small>
+                </td>
+                <td style="padding: 12px;">
+                    <span class="nav-tier-badge ${tierBadgeClass}" style="font-size: 11px; padding: 3px 8px;">
+                        ${s.tier.toUpperCase()}
+                    </span>
+                </td>
+                <td style="padding: 12px;">${addonsBadges}</td>
+                <td style="padding: 12px;">${statusBadge}</td>
+                <td style="padding: 12px; text-align: right;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center;">
+                        <button type="button" class="btn btn-p" style="padding: 5px 10px; font-size: 11.5px; font-weight: 800;" onclick="openSuperAdminLicenseModal('${s.salon_id}')" title="Modifica piano o add-on">
+                            ⚙️ Gestisci Licenza
+                        </button>
+                        <button type="button" class="btn" style="padding: 5px 10px; font-size: 11px; background: #f8fafc; border: 1.5px solid #cbd5e1; font-weight: bold;" onclick="impersonateSalon('${s.salon_id}')" title="Entra e opera in questo salone">
+                            👁️ Entra
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+// 4. FILTRO RICERCA TABELLA
+window.filterSuperAdminSalonsTable = function(query) {
+    const q = (query || '').toLowerCase().trim();
+    const all = window._superAdminState.allSalons || [];
+    if (!q) {
+        window.renderSuperAdminTableRows(all);
+        return;
+    }
+
+    const filtered = all.filter(s => 
+        s.salon_id.toLowerCase().includes(q) ||
+        s.adminUsername.toLowerCase().includes(q) ||
+        s.tier.toLowerCase().includes(q)
+    );
+    window.renderSuperAdminTableRows(filtered);
+};
+
+// 5. APERTURA MODALE MODIFICA LICENZA SALONE
+window.openSuperAdminLicenseModal = function(salonId) {
+    const s = (window._superAdminState.allSalons || []).find(x => x.salon_id.toLowerCase() === salonId.toLowerCase());
+    if (!s) return;
+
+    document.getElementById('sa-edit-target-salon-id').value = s.salon_id;
+    document.getElementById('sa-modal-target-salon-label').innerText = `Salone Selezionato: ${s.salon_id} (${s.adminUsername})`;
+    document.getElementById('sa-modal-salon-status').value = s.status || 'active';
+
+    window.setSaModalTier(s.tier || 'pro');
+
+    // Popola checkbox moduli
+    const currentAddons = new Set(s.addons || []);
+    ['packages', 'social', 'workstations', 'supplier_payouts', 'ai_assistant', 'sales_report'].forEach(modKey => {
+        const cb = document.getElementById(`sa-addon-${modKey}`);
+        if (cb) cb.checked = currentAddons.has(modKey);
+    });
+
+    document.getElementById('mod-superadmin-edit-license').classList.add('active');
+};
+
+window.setSaModalTier = function(tierName) {
+    window._superAdminState.selectedTier = tierName;
+
+    ['base', 'pro', 'enterprise'].forEach(t => {
+        const card = document.getElementById(`sa-card-plan-${t}`);
+        if (!card) return;
+        if (t === tierName) {
+            card.style.border = '2px solid #6C5CE7';
+            card.style.background = '#faf5ff';
+            card.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.25)';
+        } else {
+            card.style.border = '2px solid #cbd5e1';
+            card.style.background = '#ffffff';
+            card.style.boxShadow = 'none';
+        }
+    });
+};
+
+window.closeSuperAdminLicenseModal = function() {
+    const modal = document.getElementById('mod-superadmin-edit-license');
+    if (modal) modal.classList.remove('active');
+};
+
+// 6. SALVATAGGIO MODIFICHE LICENZA SU SUPABASE CLOUD
+window.saveSuperAdminLicenseChanges = async function() {
+    const btn = document.getElementById('btn-sa-save-license');
+    const targetSalonId = document.getElementById('sa-edit-target-salon-id')?.value;
+    const selectedTier = window._superAdminState.selectedTier || 'pro';
+    const targetStatus = document.getElementById('sa-modal-salon-status')?.value || 'active';
+
+    if (!targetSalonId) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Sincronizzazione Cloud...";
+    }
+
+    // Raccoglie gli add-on spuntati
+    const selectedAddons = [];
+    ['packages', 'social', 'workstations', 'supplier_payouts', 'ai_assistant', 'sales_report'].forEach(modKey => {
+        const cb = document.getElementById(`sa-addon-${modKey}`);
+        if (cb && cb.checked) selectedAddons.push(modKey);
+    });
+
+    const supUrl = window.SUPABASE_CONFIG.url;
+    const supKey = window.SUPABASE_CONFIG.key;
+
+    try {
+        // A. Upsert Subscription Tier su Supabase Cloud
+        await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
+            method: 'POST',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: 'subscription_tier', value: selectedTier, salon_id: targetSalonId })
+        });
+
+        // B. Upsert Enabled Modules Add-on su Supabase Cloud
+        await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
+            method: 'POST',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: 'enabled_modules', value: JSON.stringify(selectedAddons), salon_id: targetSalonId })
+        });
+
+        // C. Aggiornamento stato utenti del salone (attivo / sospeso)
+        await fetch(`${supUrl}/rest/v1/users?salon_id=eq.${targetSalonId}`, {
+            method: 'PATCH',
+            headers: { 'apikey': supKey, 'Authorization': 'Bearer ' + supKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ status: targetStatus })
+        });
+
+        // Se il salone modificato è quello in cui siamo attualmente collegati, aggiorna la sessione viva
+        if (currentUser && currentUser.salon_id.toLowerCase() === targetSalonId.toLowerCase()) {
+            currentUser.plan = selectedTier;
+            sysSettings['subscription_tier'] = selectedTier;
+            sysSettings['enabled_modules'] = JSON.stringify(selectedAddons);
+            if (typeof window.applySubscriptionTiersToUI === 'function') window.applySubscriptionTiersToUI();
+            if (typeof window.updateSidebarRoleAccess === 'function') window.updateSidebarRoleAccess();
+        }
+
+        alert(`✅ Licenza per il salone "${targetSalonId}" aggiornata a [${selectedTier.toUpperCase()}] con ${selectedAddons.length} moduli add-on!`);
+        window.closeSuperAdminLicenseModal();
+        window.renderSuperAdminConsole();
+
+    } catch (err) {
+        console.error("Errore salvataggio licenza super admin:", err);
+        alert("Errore durante l'aggiornamento sul cloud: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Salva Modifiche Licenza Cloud ✓";
+        }
+    }
+};
+
+// 7. FUNZIONE IMPERSONATION (ENTRA NEL SALONE PER ASSISTENZA)
+window.impersonateSalon = async function(targetSalonId) {
+    if (!confirm(`Vuoi accedere temporaneamente al salone "${targetSalonId}" per visualizzare i suoi dati e fornire supporto tecnico?`)) return;
+
+    if (!currentUser) currentUser = { id: 'master', username: 'SuperAdmin' };
+    currentUser.salon_id = targetSalonId;
+    currentUser.role = 'master_admin'; // Mantiene i privilegi di super admin
+
+    // Pulizia e reidratazione istantanea dei dati del nuovo salone
+    if (typeof resetGlobalState === 'function') resetGlobalState();
+    await window.universalQuery({ action: 'FORCE_SYNC' }).catch(() => {});
+    await refreshAllData();
+
+    alert(`👑 Ora stai operando come supporto nel salone: ${targetSalonId}`);
+    window.changePage('dashboard');
+};
+
+// 8. INTEGRAZIONE DEI PERMESSI SUPER ADMIN IN SIDEBAR E ROUTING
+const _prevUpdateSidebarRoleAccess = window.updateSidebarRoleAccess;
+window.updateSidebarRoleAccess = function() {
+    if (typeof _prevUpdateSidebarRoleAccess === 'function') {
+        _prevUpdateSidebarRoleAccess();
+    }
+
+    const isMaster = currentUser && currentUser.role === 'master_admin';
+    const saNav = document.getElementById('n-superadmin');
+
+    if (saNav) {
+        if (isMaster) {
+            saNav.style.setProperty('display', 'flex', 'important');
+        } else {
+            saNav.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    if (isMaster) {
+        const userRoleEl = document.getElementById('sidebar-user-role');
+        if (userRoleEl) userRoleEl.innerText = "Super Admin (Master)";
+    }
+};
+
+// Aggiorna changePage per gestire la visualizzazione della console
+const _prevChangePageForSuperAdmin = window.changePage;
+window.changePage = function(page, force = false) {
+    if (page === 'superadmin') {
+        const isMaster = currentUser && currentUser.role === 'master_admin';
+        if (!isMaster) {
+            alert("🔒 Accesso riservato al Master Admin.");
+            page = 'calendar';
+        } else {
+            window.renderSuperAdminConsole();
+        }
+    }
+
+    if (typeof _prevChangePageForSuperAdmin === 'function') {
+        _prevChangePageForSuperAdmin(page, force);
+    }
+};
+
+
     document.addEventListener('DOMContentLoaded', () => {
         // NON caricare nulla finché non c'è il login. 
         // Mostriamo solo la schermata di login che è già gestita dall'HTML.
@@ -32322,5 +32765,115 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
+
+
+<!-- ======================================================== -->
+<!-- ⚙️ MODALE SUPER ADMIN: MODIFICA PIANO & ADD-ON SALONE    -->
+<!-- ======================================================== -->
+<div id="mod-superadmin-edit-license" class="modal" onclick="if(event.target===this) closeSuperAdminLicenseModal()" style="z-index: 50000;">
+    <div class="modal-box" style="width: 620px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; padding: 24px; border-top: 6px solid #f59e0b;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">👑</span>
+                <div>
+                    <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #1e1b4b;">Gestione Licenza & Moduli</h3>
+                    <small id="sa-modal-target-salon-label" style="color: #64748b; font-size: 12px; font-weight: bold;">Salone: -</small>
+                </div>
+            </div>
+            <button type="button" onclick="closeSuperAdminLicenseModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <input type="hidden" id="sa-edit-target-salon-id">
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px;">
+            
+            <!-- SELEZIONE PIANO PRINCIPALE (3 OPZIONI) -->
+            <label style="margin: 0 0 8px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p); display: block;">
+                Piano di Abbonamento Principale:
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+                
+                <div class="sa-plan-card" id="sa-card-plan-base" onclick="setSaModalTier('base')" style="border: 2px solid #cbd5e1; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; background: white;">
+                    <b style="font-size: 13px; color: #1e1b4b; display: block;">START</b>
+                    <small style="color: #64748b; font-size: 10.5px;">Cassa, Agenda, Clienti</small>
+                </div>
+
+                <div class="sa-plan-card" id="sa-card-plan-pro" onclick="setSaModalTier('pro')" style="border: 2px solid #f59e0b; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; background: #fffbeb;">
+                    <b style="font-size: 13px; color: #b45309; display: block;">PRO</b>
+                    <small style="color: #92400e; font-size: 10.5px;">+ Social, Pacchetti, IA</small>
+                </div>
+
+                <div class="sa-plan-card" id="sa-card-plan-enterprise" onclick="setSaModalTier('enterprise')" style="border: 2px solid #cbd5e1; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; background: white;">
+                    <b style="font-size: 13px; color: #6d28d9; display: block;">ENTERPRISE</b>
+                    <small style="color: #581c87; font-size: 10.5px;">+ Coworking, Conto Vendita</small>
+                </div>
+
+            </div>
+
+            <!-- MODULI ADD-ON SBLOCCABILI SINGOLARMENTE -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                <label style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #334155; display: block;">
+                    Moduli Add-on Opzionali (Attivazione Singola):
+                </label>
+                <small style="color: #64748b; font-size: 11px; display: block; margin-bottom: 10px;">
+                    Se spunti questi moduli, il salone potrà usarli anche se si trova su un piano Start o Pro:
+                </small>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-packages" value="packages" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🎁 Pacchetti & Carnet</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-social" value="social" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>📱 Social Content Studio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-workstations" value="workstations" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🏢 Spazi & Coworking</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-supplier_payouts" value="supplier_payouts" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>💶 Liquidazione Fornitori CV</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-ai_assistant" value="ai_assistant" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>🤖 Assistente IA & Coach</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; margin: 0; cursor: pointer; text-transform: none; background: white; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" id="sa-addon-sales_report" value="sales_report" style="width: 16px; height: 16px; margin: 0; accent-color: var(--p);">
+                        <span>📈 Report Vendite & Margini</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- STATO ATTIVITÀ NEGOZIO -->
+            <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <b style="font-size: 13px; color: #1e1b4b; display: block;">Stato Abbonamento Negozio</b>
+                    <small style="color: #64748b; font-size: 11px;">Se sospeso, l'accesso degli operatori del salone viene temporaneamente bloccato.</small>
+                </div>
+                <select id="sa-modal-salon-status" style="width: 130px; margin: 0; font-weight: bold; background: #f8fafc; font-size: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                    <option value="active">🟢 Attivo</option>
+                    <option value="suspended">🔴 Sospeso</option>
+                </select>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0;">
+            <button type="button" id="btn-sa-save-license" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px; font-size: 13.5px; font-weight: 800;" onclick="saveSuperAdminLicenseChanges()">
+                Salva Modifiche Licenza Cloud ✓
+            </button>
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 12px;" onclick="closeSuperAdminLicenseModal()">
+                Annulla
+            </button>
+        </div>
+
+    </div>
+</div>
     </body>
     </html>
