@@ -5290,13 +5290,21 @@
 
    <!-- MODALE GESTIONE SPESE MENSILI -->
 <!-- MODALE GESTIONE SPESE MENSILI (STRATEGICO) -->
-<div id="mod-monthly-expense-reminder" class="modal">
-    <div class="modal-box" style="width: 550px;">
-        <h3 style="color: var(--p); margin-top: 0; display: flex; align-items: center; gap: 8px;">
-            <span>📊</span> Controllo Strategico Spese Ricorrenti
-        </h3>
+<!-- ======================================================== -->
+<!-- 📊 MODALE GESTIONE SPESE MENSILI (CON CHIUSURA RAPIDA ✕) -->
+<!-- ======================================================== -->
+<div id="mod-monthly-expense-reminder" class="modal" onclick="if(event.target===this) closeExpenseReminderModal()">
+    <div class="modal-box" style="width: 550px; max-width: 95vw;">
         
-        <!-- 💡 Messaggio strategico in evidenza che cattura l'attenzione -->
+        <!-- HEADER CON TITOLO E PULSANTE X DI CHIUSURA RAPIDA -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="color: var(--p); margin: 0; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800;">
+                <span>📊</span> Controllo Strategico Spese Ricorrenti
+            </h3>
+            <button type="button" onclick="closeExpenseReminderModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b; line-height: 1; padding: 4px;" title="Chiudi per ora">✕</button>
+        </div>
+        
+        <!-- Messaggio informativo per il titolare -->
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
             <b>💡 Attenzione Titolare:</b> Il sistema ha rilevato dallo storico le spese periodiche in scadenza. 
             Controlla con attenzione l'elenco sottostante e <b>seleziona solo quelle effettivamente ricorrenti e previste per il mese corrente</b>. 
@@ -5305,9 +5313,9 @@
 
         <div id="suggested-expenses-list" style="max-height: 280px; overflow-y: auto; margin-bottom: 15px; padding-right: 4px;"></div>
         
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px; border-top: 1px solid var(--border); padding-top: 15px;">
-            <button type="button" id="btn-confirm-suggested" class="btn btn-p" style="flex:1; justify-content:center; padding: 12px;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
-            <button type="button" class="btn" style="flex:1; justify-content:center; background:#f1f5f9; color:#475569; border:none; padding: 12px;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Vai alla Sezione Spese</button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
+            <button type="button" id="btn-confirm-suggested" class="btn btn-p" style="flex: 1; justify-content: center; padding: 12px;" onclick="confirmSuggestedExpenses()">✨ Conferma e Inserisci Selezionate</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #f1f5f9; color: #475569; border: none; padding: 12px;" onclick="dismissExpenseReminderAndGoToExpenses()">📁 Vai alla Sezione Spese</button>
         </div>
     </div>
 </div>
@@ -7042,6 +7050,19 @@ async function forceOpenAlarmModalById(appId) {
         console.error("Errore durante l'apertura rapida dell'allarme:", err);
     }
 }
+
+
+// =========================================================================
+// ✕ CHIUSURA MODALE SPESE RICORRENTI (SENZA PERDERE IL REMINDER FUTURO)
+// =========================================================================
+
+function closeExpenseReminderModal() {
+    const modal = document.getElementById('mod-monthly-expense-reminder');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+window.closeExpenseReminderModal = closeExpenseReminderModal;
 
 // 2. Gestione unificata e priva di duplicati per il Conto Vendita (Prodotti vs Servizi)
 async function toggleConsignmentFields() {
