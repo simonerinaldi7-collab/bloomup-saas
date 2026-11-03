@@ -17880,16 +17880,25 @@ function closeFastScanModal() {
     if (modal) modal.classList.remove('active');
 }
 
-// 3. ASCOLTATORE PISTOLE BARCODE LASER FISICHE (Buffer Tastiera Rapido Globale)
+// 3. ASCOLTATORE PISTOLE LASER HARDWARE (INTERCETTAZIONE DIRETTA E ZERO-CLICK)
 let barcodeBuffer = "";
 let lastKeyTime = Date.now();
 
 document.addEventListener('keydown', (e) => {
-    const activeModal = document.getElementById('mod-fast-scan-load');
+    const fastScanModal = document.getElementById('mod-fast-scan-load');
+    const invModal = document.getElementById('mod-inv');
+    const posUnknownModal = document.getElementById('mod-pos-unknown-barcode');
+    const activeView = document.querySelector('.view.active')?.id;
     const targetTag = e.target.tagName;
-    
-    // Se l'utente sta già scrivendo in una normale textarea o input e il modale scanner NON è aperto, non interferire
-    if (!activeModal?.classList.contains('active') && (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT')) {
+
+    // Se un modale specifico è aperto, lascia gestire a quel modale
+    if (fastScanModal?.classList.contains('active') || invModal?.classList.contains('active') || posUnknownModal?.classList.contains('active')) {
+        return;
+    }
+
+    // Se l'utente sta scrivendo in un'area di testo normale che non sia il campo cerca
+    if (targetTag === 'TEXTAREA' || targetTag === 'SELECT') return;
+    if (targetTag === 'INPUT' && e.target.id !== 'src-prod' && e.target.id !== 'sales-search-input') {
         return;
     }
 
@@ -17897,17 +17906,40 @@ document.addEventListener('keydown', (e) => {
     const timeDiff = currentTime - lastKeyTime;
     lastKeyTime = currentTime;
 
-    // Se l'intervallo tra i tasti è tipico di un lettore laser (< 45ms) o se siamo nel campo barcode
     if (e.key === 'Enter') {
-        if (barcodeBuffer.length >= 6) {
-            console.log("⚡ [HARDWARE SCANNER DETECTED]:", barcodeBuffer);
-            processScannedBarcode(barcodeBuffer.trim());
+        // Recupera il codice accumulato nel buffer o digitato nel campo cerca
+        let scannedCode = barcodeBuffer.trim();
+        if (!scannedCode && e.target && e.target.id === 'sales-search-input') {
+            scannedCode = e.target.value.trim();
+        }
+
+        if (scannedCode.length >= 3) {
             barcodeBuffer = "";
-            e.preventDefault();
+
+            // 🛒 CASSA ATTIVA -> AGGIUNTA IMMEDIATA AL CARRELLO
+            if (activeView === 'v-sales') {
+                e.preventDefault();
+                const searchInput = document.getElementById('sales-search-input');
+                if (searchInput) searchInput.value = '';
+                
+                window.handlePosBarcodeScan(scannedCode, 'laser');
+                return;
+            }
+
+            // 📦 MAGAZZINO ATTIVO -> FILTRO TABELLA
+            if (activeView === 'v-products') {
+                e.preventDefault();
+                applyBarcodeFilterToProductsTable(scannedCode);
+                if (typeof playWarehouseAudioFeedback === 'function') {
+                    playWarehouseAudioFeedback('success');
+                }
+                return;
+            }
         }
     } else if (e.key.length === 1) {
-        if (timeDiff > 100) {
-            barcodeBuffer = ""; // Resetta se è digitazione umana lenta
+        // Reset se è digitazione umana lenta (> 130ms tra i caratteri)
+        if (timeDiff > 130) {
+            barcodeBuffer = "";
         }
         barcodeBuffer += e.key;
     }
@@ -33076,24 +33108,30 @@ window._posCameraTimer = null;
 window._posBarcodeDetector = null;
 window._lastPosScannedCode = '';
 window._lastPosScanTimestamp = 0;
+window._lastPosCameraCode = '';
+window._lastPosCameraTimestamp = 0;
 
 // 1. GESTORE CENTRALE DELLA SCANSIONE BARCODE IN CASSA
-window.handlePosBarcodeScan = async function(rawCode) {
+// 1. GESTORE SCANSIONE BARCODE IN CASSA (AGGIUNTA CONTINUA CONSECUTIVA GARANTITA)
+window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
     if (!rawCode) return;
     const cleanCode = String(rawCode).trim();
     if (cleanCode.length < 3) return;
 
-    // Cooldown per evitare doppie scansioni a raffica dello stesso flacone sotto la fotocamera (< 1400ms)
-    const now = Date.now();
-    if (cleanCode === window._lastPosScannedCode && (now - window._lastPosScanTimestamp < 1400)) {
-        return;
+    // Cooldown intelligente: attivo SOLO per la fotocamera per evitare raffiche accidentali a 60 FPS
+    // Per pistole laser hardware e digitazione manuale: ZERO blocchi temporali!
+    if (source === 'camera') {
+        const now = Date.now();
+        if (cleanCode === window._lastPosCameraCode && (now - window._lastPosCameraTimestamp < 850)) {
+            return;
+        }
+        window._lastPosCameraCode = cleanCode;
+        window._lastPosCameraTimestamp = now;
     }
-    window._lastPosScannedCode = cleanCode;
-    window._lastPosScanTimestamp = now;
 
-    console.log(`⚡ [POS BARCODE DETECTED]: ${cleanCode}`);
+    console.log(`⚡ [POS BARCODE]: ${cleanCode} (Source: ${source})`);
 
-    // A. Ricerca nell'inventario locale del negozio corrente
+    // Ricerca nell'inventario locale del negozio corrente
     const inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) 
         ? allInventory 
         : (window.allInventory || []);
@@ -33101,7 +33139,7 @@ window.handlePosBarcodeScan = async function(rawCode) {
     const product = inventory.find(p => p.barcode && String(p.barcode).trim() === cleanCode);
 
     if (product) {
-        // 🌟 SCENARIO A: PRODOTTO TROVATO -> AGGIUNTA A CARRELLO A ZERO CLICK!
+        // 🌟 SCENARIO A: PRODOTTO TROVATO -> AGGIUNTA CONTINUA A OGNI SCANSIONE
         let price = parseFloat(product.price || 0);
 
         try {
@@ -33109,35 +33147,29 @@ window.handlePosBarcodeScan = async function(rawCode) {
             if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
         } catch (e) {}
 
-        // Feedback Audio & Tattile
+        // Feedback Audio & Vibrazione Aptica
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('success');
         }
         if (navigator.vibrate) {
-            navigator.vibrate(70);
+            navigator.vibrate(60);
         }
 
-        // Verifica se è già presente nel carrello per incrementare la quantità (+1)
-        const existingCartItem = (cart || []).find(item => item.id === product.id && !item.isPackage && !item.isManual);
+        // Inserisce una nuova riga nel carrello per ogni scansione consecutiva
+        cart.push({
+            id: product.id,
+            name: product.name,
+            price: price,
+            qty: 1,
+            discountVal: 0,
+            discountType: 'euro'
+        });
 
-        if (existingCartItem) {
-            existingCartItem.qty = (existingCartItem.qty || 1) + 1;
-        } else {
-            cart.push({
-                id: product.id,
-                name: product.name,
-                price: price,
-                qty: 1,
-                discountVal: 0,
-                discountType: 'euro'
-            });
-        }
-
-        // Segnala allerta scorta bassa senza bloccare la vendita
         const currentStock = parseFloat(product.stock || 0);
+        const countInCart = cart.filter(item => item.id === product.id).length;
         const isOutOfStock = currentStock <= 0;
 
-        let toastMsg = `✓ ${product.name} aggiunto (+1)`;
+        let toastMsg = `✓ ${product.name} (+1) • Totale: ${countInCart} a carrello`;
         if (isOutOfStock) {
             toastMsg = `⚠️ ${product.name} (+1) • [Giacenza Esaurita]`;
         }
@@ -33146,7 +33178,7 @@ window.handlePosBarcodeScan = async function(rawCode) {
         renderCart();
 
     } else {
-        // 🌟 SCENARIO B: BARCODE SCONOSCIUTO -> APRE IL FOGLIO RAPIDO A 1-CLICK
+        // 🌟 SCENARIO B: CODICE SCONOSCIUTO -> APRE IL MODALE DI CREAZIONE / ASSOCIAZIONE
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('new_product');
         }
@@ -33399,29 +33431,34 @@ window.quickCreateProductAndAddToCart = async function() {
     const nowIso = new Date().toISOString();
     const newId = crypto.randomUUID();
 
-    const newProductPayload = {
+    // 🛑 PAYLOAD RIGOROSO: ESCLUDE "price" (NON presente nella tabella inventory di Supabase)
+    const inventoryPayload = {
         id: newId,
         salon_id: salonId,
         name: name,
         type: 'prodotto',
-        price: price,
         stock: stock,
         min_stock: 1,
         barcode: barcode || null,
+        model: null,
+        size: null,
         unit: 'Pezzi',
+        location: null,
+        supplier_id: null,
         is_consignment: false,
         consignment_split_pct: 0,
-        discount_absorption: 'salon',
-        requires_operator: false,
-        required_workstations: [],
         updated_at: nowIso
     };
 
     try {
-        // Inserimento prodotto
-        await window.universalQuery({ action: 'INSERT', table: 'inventory', data: newProductPayload });
+        // A. Inserimento record in inventory (senza colonna price -> HTTP 201 OK)
+        await window.universalQuery({ 
+            action: 'INSERT', 
+            table: 'inventory', 
+            data: inventoryPayload 
+        });
 
-        // Inserimento storico prezzo
+        // B. Inserimento del prezzo di listino nella tabella relazionale price_history
         await window.universalQuery({
             action: 'INSERT',
             table: 'price_history',
@@ -33436,7 +33473,7 @@ window.quickCreateProductAndAddToCart = async function() {
             }
         });
 
-        // Creazione lotto iniziale
+        // C. Creazione del lotto iniziale FIFO per tracciare la giacenza
         if (stock > 0) {
             await window.universalQuery({
                 action: 'INSERT',
@@ -33453,19 +33490,47 @@ window.quickCreateProductAndAddToCart = async function() {
             });
         }
 
-        // Aggiungi alla cache in memoria
+        // D. Aggiornamento istantaneo dell'inventario in memoria (con proprietà price valorizzata)
+        const memoryProduct = {
+            ...inventoryPayload,
+            price: price
+        };
+
         if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) {
-            allInventory.push(newProductPayload);
+            allInventory.push(memoryProduct);
+        }
+        if (window.allInventory && Array.isArray(window.allInventory) && !window.allInventory.some(p => p.id === newId)) {
+            window.allInventory.push(memoryProduct);
         }
 
+        // Chiude il modale di creazione
         closePosUnknownBarcodeModal();
 
-        // Metti subito a carrello!
-        window.handlePosBarcodeScan(barcode);
+        // E. Inserisce subito il nuovo prodotto appena creato nel carrello
+        cart.push({
+            id: newId,
+            name: name,
+            price: price,
+            qty: 1,
+            discountVal: 0,
+            discountType: 'euro'
+        });
+
+        if (typeof playWarehouseAudioFeedback === 'function') {
+            playWarehouseAudioFeedback('success');
+        }
+
+        showPosScanToast(`✓ ${name} registrato in magazzino e aggiunto al carrello!`);
+        renderCart();
+
+        // Se la vista magazzino è aperta o deve essere aggiornata
+        if (typeof renderProducts === 'function') {
+            renderProducts();
+        }
 
     } catch (err) {
-        console.error("Errore creazione rapida:", err);
-        alert("Errore durante la creazione del prodotto: " + err.message);
+        console.error("Errore creazione rapida prodotto da cassa:", err);
+        alert("Errore durante la registrazione del prodotto in magazzino: " + err.message);
     }
 };
 
