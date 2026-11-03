@@ -21107,6 +21107,12 @@ resetAppointmentModal();
             }
         }
 
+if (product && product.type === 'prodotto' && parseFloat(product.stock || 0) <= 0) {
+        window.openPosZeroStockModal(product);
+        return;
+    }
+
+
         cart.push({ 
             name: n, 
             price: cleanPrice, 
@@ -33115,6 +33121,15 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
     const cleanCode = String(rawCode).trim();
     if (cleanCode.length < 3) return;
 
+    if (source === 'camera') {
+        const now = Date.now();
+        if (cleanCode === window._lastPosCameraCode && (now - window._lastPosCameraTimestamp < 850)) {
+            return;
+        }
+        window._lastPosCameraCode = cleanCode;
+        window._lastPosCameraTimestamp = now;
+    }
+
     console.log(`⚡ [POS SCAN]: ${cleanCode} (Origine: ${source})`);
 
     const inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) 
@@ -33124,14 +33139,21 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
     const product = inventory.find(p => p.barcode && String(p.barcode).trim() === cleanCode);
 
     if (product) {
-        let price = parseFloat(product.price || 0);
+        const currentStock = parseFloat(product.stock || 0);
 
+        // 🚨 SE IL PRODOTTO È ESISTENTE E LA GIACENZA È <= 0 -> APRI POPUP CARICO/PROSEGUI
+        if (product.type === 'prodotto' && currentStock <= 0) {
+            window.openPosZeroStockModal(product);
+            return;
+        }
+
+        // Se ha ancora pezzi disponibili (> 0)
+        let price = parseFloat(product.price || 0);
         try {
             const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
             if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
         } catch (e) {}
 
-        // 🎶 Bip di avvenuta lettura e vibrazione
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('success');
         }
@@ -33139,7 +33161,6 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
             navigator.vibrate(60);
         }
 
-        // Aggiunge ESATTAMENTE 1 pezzo nel carrello
         cart.push({
             id: product.id,
             name: product.name,
@@ -33149,29 +33170,25 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
             discountType: 'euro'
         });
 
-        const currentStock = parseFloat(product.stock || 0);
+        const isLowStock = currentStock <= (product.min_stock || 0);
         const countInCart = cart.filter(item => item.id === product.id).length;
-        const isOutOfStock = currentStock <= 0;
 
-        let toastMsg = `✓ ${product.name} (+1) • ${countInCart} a carrello`;
-        if (isOutOfStock) {
-            toastMsg = `⚠️ ${product.name} (+1) • [Giacenza Esaurita]`;
+        if (isLowStock) {
+            showPosScanToast(`⚠️ ${product.name} (+1) • [Sottosoglia: rimasti ${currentStock} Pz]`, false);
+        } else {
+            showPosScanToast(`✓ ${product.name} (+1) • ${countInCart} a carrello`, true);
         }
 
-        showPosScanToast(toastMsg, !isOutOfStock);
         renderCart();
 
     } else {
-        // Se il barcode è sconosciuto, blocca la fotocamera finché il modale è aperto
         window._posCameraPaused = true;
-
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('new_product');
         }
         if (navigator.vibrate) {
             navigator.vibrate([100, 50, 100]);
         }
-
         openPosUnknownBarcodeModal(cleanCode);
     }
 };
@@ -33550,6 +33567,189 @@ window.quickCreateProductAndAddToCart = async function() {
         alert("Errore durante la registrazione del prodotto in magazzino: " + err.message);
     }
 };
+
+
+window._pendingZeroStockProduct = null;
+
+// 1. APRE IL MODALE DI GESTIONE GIACENZA ZERO
+window.openPosZeroStockModal = function(product) {
+    if (!product) return;
+    window._pendingZeroStockProduct = product;
+
+    // Sospende la fotocamera se attiva durante il modale
+    window._posCameraPaused = true;
+
+    const modal = document.getElementById('mod-pos-zero-stock');
+    const nameEl = document.getElementById('pos-zero-stock-prod-name');
+    const badgeEl = document.getElementById('pos-zero-stock-badge');
+    const subtextEl = document.getElementById('pos-zero-stock-subtext');
+    const idInput = document.getElementById('pos-zero-stock-prod-id');
+    const qtyInput = document.getElementById('pos-zero-load-qty');
+    const costInput = document.getElementById('pos-zero-load-cost');
+
+    if (!modal) return;
+
+    if (idInput) idInput.value = product.id;
+    if (nameEl) nameEl.innerText = `${product.name} ${product.model ? '(' + product.model + ')' : ''}`;
+    
+    const curStock = parseFloat(product.stock || 0);
+    const minStock = parseFloat(product.min_stock || 0);
+
+    if (badgeEl) badgeEl.innerText = `${curStock} ${product.unit || 'Pz'}`;
+    if (subtextEl) {
+        subtextEl.innerText = curStock <= 0 
+            ? `Il prodotto risulta esaurito a magazzino (Giacenza: ${curStock}). Vuoi effettuare un carico merci prima di vendere?` 
+            : `Giacenza sottosoglia: rimasti solo ${curStock} Pz (Scorta minima impostata: ${minStock} Pz).`;
+    }
+
+    if (qtyInput) qtyInput.value = '6';
+    if (costInput) costInput.value = '';
+
+    modal.classList.add('active');
+};
+
+window.closePosZeroStockModal = function() {
+    const modal = document.getElementById('mod-pos-zero-stock');
+    if (modal) modal.classList.remove('active');
+    window._pendingZeroStockProduct = null;
+
+    // Riattiva la fotocamera dopo la chiusura
+    setTimeout(() => {
+        window._posCameraPaused = false;
+    }, 600);
+};
+
+// 2. OPZIONE A: EFFETTUA IL CARICO MERCI RAPIDO E AGGIUNGE AL CARRELLO
+window.executePosZeroStockIntake = async function() {
+    const prod = window._pendingZeroStockProduct;
+    if (!prod) return;
+
+    const qty = parseInt(document.getElementById('pos-zero-load-qty')?.value) || 0;
+    const totalCost = parseFloat(document.getElementById('pos-zero-load-cost')?.value) || 0;
+
+    if (qty <= 0) {
+        return alert("Inserisci una quantità da caricare valida maggiore di zero.");
+    }
+
+    const currentStock = parseFloat(prod.stock || 0);
+    const newStock = currentStock + qty;
+    const unitCost = qty > 0 ? (totalCost / qty) : 0;
+    const salonId = (currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
+
+    try {
+        // 1. Aggiorna giacenza in inventory
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { stock: newStock, updated_at: nowIso },
+            id: prod.id
+        });
+
+        // 2. Registra il lotto di carico FIFO
+        await window.universalQuery({
+            action: 'INSERT',
+            table: 'stock_lots',
+            data: {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                product_id: prod.id,
+                initial_qty: qty,
+                qty_remaining: qty,
+                unit_cost: unitCost,
+                created_at: nowIso
+            }
+        });
+
+        // 3. Registra la spesa a bilancio se prodotto di proprietà con costo > 0
+        if (!prod.is_consignment && totalCost > 0) {
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'expenses',
+                data: {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    date: todayStr,
+                    description: `Carico Cassa: ${prod.name} (x${qty})`,
+                    amount: totalCost
+                }
+            });
+        }
+
+        // Aggiorna lo stato in memoria
+        prod.stock = newStock;
+
+        // Recupera il prezzo di vendita
+        let price = parseFloat(prod.price || 0);
+        try {
+            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
+            if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
+        } catch(e) {}
+
+        // Inserisce 1 pezzo nel carrello
+        cart.push({
+            id: prod.id,
+            name: prod.name,
+            price: price,
+            qty: 1,
+            discountVal: 0,
+            discountType: 'euro'
+        });
+
+        if (typeof playWarehouseAudioFeedback === 'function') {
+            playWarehouseAudioFeedback('success');
+        }
+
+        window.closePosZeroStockModal();
+        showPosScanToast(`✓ Caricati +${qty} Pz a magazzino e aggiunto al carrello!`, true);
+        renderCart();
+
+        // Allinea i dati in background
+        if (typeof refreshAllData === 'function') {
+            refreshAllData();
+        }
+
+    } catch (err) {
+        console.error("Errore durante il carico merci rapido:", err);
+        alert("Errore durante la registrazione del carico: " + err.message);
+    }
+};
+
+// 3. OPZIONE B: PROSEGUI SENZA CARICO MERCI (CON AVVISO GIACENZA 0 O SOTTOSOGLIA)
+window.proceedPosZeroStockWithoutLoad = async function() {
+    const prod = window._pendingZeroStockProduct;
+    if (!prod) return;
+
+    const curStock = parseFloat(prod.stock || 0);
+
+    // 🔔 MESSAGGIO FORMALE RICHIESTO ALL'OPERATORE
+    alert(`⚠️ ATTENZIONE: La giacenza di "${prod.name}" è pari a ${curStock} Pz (esaurita o sottosoglia)!\n\nL'articolo viene comunque inserito nel carrello per consentire la vendita, ma comporterà uno scarico sotto scorta a magazzino.`);
+
+    // Recupera il prezzo di vendita
+    let price = parseFloat(prod.price || 0);
+    try {
+        const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: prod.id });
+        if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
+    } catch(e) {}
+
+    // Aggiunge al carrello
+    cart.push({
+        id: prod.id,
+        name: prod.name,
+        price: price,
+        qty: 1,
+        discountVal: 0,
+        discountType: 'euro'
+    });
+
+    window.closePosZeroStockModal();
+    showPosScanToast(`⚠️ ${prod.name} aggiunto (+1) • [Giacenza 0 / Sottosoglia]`, false);
+    renderCart();
+};
+
+
+
 
 window.openIntakeFromPosUnknownModal = function() {
     closePosUnknownBarcodeModal();
@@ -34504,6 +34704,71 @@ window.openIntakeFromPosUnknownModal = function() {
 
     </div>
 </div>
+
+<!-- ======================================================== -->
+<!-- ⚠️ MODALE CASSA: GESTIONE GIACENZA 0 & CARICO MERCI RAPIDO -->
+<!-- ======================================================== -->
+<div id="mod-pos-zero-stock" class="modal" onclick="if(event.target===this) closePosZeroStockModal()" style="z-index: 46000;">
+    <div class="modal-box" style="width: 500px; max-width: 95vw; padding: 22px; border-top: 6px solid #e17055;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">⚠️</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Prodotto Esaurito a Magazzino</h3>
+                    <small id="pos-zero-stock-prod-name" style="color: #64748b; font-size: 12px; font-weight: bold;">Nome Prodotto</small>
+                </div>
+            </div>
+            <button type="button" onclick="closePosZeroStockModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <input type="hidden" id="pos-zero-stock-prod-id">
+
+        <!-- Box Informativo Giacenza Attuale -->
+        <div style="background: #fff1f0; border: 1.5px solid #ffa39e; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; font-weight: 700; color: #cf1322;">Giacenza Registrata:</span>
+                <span id="pos-zero-stock-badge" style="font-size: 14px; font-weight: 900; color: #cf1322;">0 Pezzi</span>
+            </div>
+            <small id="pos-zero-stock-subtext" style="color: #8c0a15; font-size: 11px; display: block; margin-top: 4px;">
+                Il prodotto risulta esaurito o sottosoglia. Vuoi effettuare un carico merci prima di vendere?
+            </small>
+        </div>
+
+        <!-- SEZIONE 1: CARICO MERCI RAPIDO -->
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+            <b style="font-size: 12.5px; color: #1e1b4b; display: block; margin-bottom: 8px;">📦 Opzione 1: Aumenta il Carico Merci Subito</b>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div>
+                    <label style="margin: 0 0 2px 0; font-size: 10.5px; font-weight: 800;">Quantità in Arrivo (+)</label>
+                    <input type="number" id="pos-zero-load-qty" value="6" min="1" style="margin: 0; padding: 8px; font-size: 15px; font-weight: 900; text-align: center; background: white;">
+                </div>
+                <div>
+                    <label style="margin: 0 0 2px 0; font-size: 10.5px; font-weight: 800;">Costo Totale (€)</label>
+                    <input type="number" id="pos-zero-load-cost" step="0.01" min="0" placeholder="0.00" style="margin: 0; padding: 8px; font-size: 14px; font-weight: bold; background: white;">
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-p" style="width: 100%; justify-content: center; padding: 10px; font-size: 12.5px; font-weight: 800;" onclick="executePosZeroStockIntake()">
+                ✓ Registra Carico e Aggiungi a Carrello ➔
+            </button>
+        </div>
+
+        <!-- SEZIONE 2: PROSEGUI SENZA CARICO (CON AVVISO SOTTOSOGLIA) -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 11px; font-size: 12.5px; font-weight: 800; background: #fff7ed; color: #c2410c; border: 1.5px solid #fed7aa; border-radius: 10px;" onclick="proceedPosZeroStockWithoutLoad()">
+                🛒 Prosegui Senza Carico (Vendi Comunque)
+            </button>
+            <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; background: #f1f5f9; color: #475569; border: none; border-radius: 8px;" onclick="closePosZeroStockModal()">
+                Annulla Vendita
+            </button>
+        </div>
+
+    </div>
+</div>
+
 
     </body>
     </html>
