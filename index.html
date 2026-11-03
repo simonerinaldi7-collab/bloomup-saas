@@ -33106,10 +33106,7 @@ window.changePage = function(page, force = false) {
 window._posCameraStream = null;
 window._posCameraTimer = null;
 window._posBarcodeDetector = null;
-window._lastPosScannedCode = '';
-window._lastPosScanTimestamp = 0;
-window._lastPosCameraCode = '';
-window._lastPosCameraTimestamp = 0;
+window._posCameraPaused = false; // Flag per congelare la scansione per 1.5s
 
 // 1. GESTORE CENTRALE DELLA SCANSIONE BARCODE IN CASSA
 // 1. GESTORE SCANSIONE BARCODE IN CASSA (AGGIUNTA CONTINUA CONSECUTIVA GARANTITA)
@@ -33118,20 +33115,8 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
     const cleanCode = String(rawCode).trim();
     if (cleanCode.length < 3) return;
 
-    // Cooldown intelligente: attivo SOLO per la fotocamera per evitare raffiche accidentali a 60 FPS
-    // Per pistole laser hardware e digitazione manuale: ZERO blocchi temporali!
-    if (source === 'camera') {
-        const now = Date.now();
-        if (cleanCode === window._lastPosCameraCode && (now - window._lastPosCameraTimestamp < 850)) {
-            return;
-        }
-        window._lastPosCameraCode = cleanCode;
-        window._lastPosCameraTimestamp = now;
-    }
+    console.log(`⚡ [POS SCAN]: ${cleanCode} (Origine: ${source})`);
 
-    console.log(`⚡ [POS BARCODE]: ${cleanCode} (Source: ${source})`);
-
-    // Ricerca nell'inventario locale del negozio corrente
     const inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) 
         ? allInventory 
         : (window.allInventory || []);
@@ -33139,7 +33124,6 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
     const product = inventory.find(p => p.barcode && String(p.barcode).trim() === cleanCode);
 
     if (product) {
-        // 🌟 SCENARIO A: PRODOTTO TROVATO -> AGGIUNTA CONTINUA A OGNI SCANSIONE
         let price = parseFloat(product.price || 0);
 
         try {
@@ -33147,7 +33131,7 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
             if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
         } catch (e) {}
 
-        // Feedback Audio & Vibrazione Aptica
+        // 🎶 Bip di avvenuta lettura e vibrazione
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('success');
         }
@@ -33155,7 +33139,7 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
             navigator.vibrate(60);
         }
 
-        // Inserisce una nuova riga nel carrello per ogni scansione consecutiva
+        // Aggiunge ESATTAMENTE 1 pezzo nel carrello
         cart.push({
             id: product.id,
             name: product.name,
@@ -33169,7 +33153,7 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
         const countInCart = cart.filter(item => item.id === product.id).length;
         const isOutOfStock = currentStock <= 0;
 
-        let toastMsg = `✓ ${product.name} (+1) • Totale: ${countInCart} a carrello`;
+        let toastMsg = `✓ ${product.name} (+1) • ${countInCart} a carrello`;
         if (isOutOfStock) {
             toastMsg = `⚠️ ${product.name} (+1) • [Giacenza Esaurita]`;
         }
@@ -33178,7 +33162,9 @@ window.handlePosBarcodeScan = async function(rawCode, source = 'laser') {
         renderCart();
 
     } else {
-        // 🌟 SCENARIO B: CODICE SCONOSCIUTO -> APRE IL MODALE DI CREAZIONE / ASSOCIAZIONE
+        // Se il barcode è sconosciuto, blocca la fotocamera finché il modale è aperto
+        window._posCameraPaused = true;
+
         if (typeof playWarehouseAudioFeedback === 'function') {
             playWarehouseAudioFeedback('new_product');
         }
@@ -33222,7 +33208,7 @@ window.togglePosCameraScanner = async function() {
 
     try {
         if (!('BarcodeDetector' in window)) {
-            return alert("La scansione con fotocamera richiede Chrome Android o Safari iOS 17+. Puoi comunque usare qualsiasi lettore laser USB o Bluetooth senza alcuna configurazione!");
+            return alert("La scansione con fotocamera richiede Chrome su Android o Safari su iOS 17+. Puoi comunque usare qualsiasi lettore laser USB/Bluetooth senza alcuna configurazione.");
         }
 
         window._posBarcodeDetector = new BarcodeDetector({ 
@@ -33236,6 +33222,8 @@ window.togglePosCameraScanner = async function() {
         video.srcObject = window._posCameraStream;
         await video.play();
 
+        window._posCameraPaused = false;
+
         if (wrapper) wrapper.style.display = 'block';
         if (btn) {
             btn.innerText = "🛑 Chiudi Scanner";
@@ -33244,14 +33232,38 @@ window.togglePosCameraScanner = async function() {
             btn.style.borderColor = '#fca5a5';
         }
 
-        // Loop di rilevamento fotogrammi ad alta velocità
+        // Timer di lettura a fotogrammi
         window._posCameraTimer = setInterval(async () => {
+            // Se la fotocamera è in pausa dopo una lettura, NON scansionare
+            if (window._posCameraPaused) return;
+
             if (video.readyState === video.HAVE_ENOUGH_DATA && window._posBarcodeDetector) {
                 try {
                     const barcodes = await window._posBarcodeDetector.detect(video);
                     if (barcodes && barcodes.length > 0) {
                         const code = barcodes[0].rawValue;
-                        window.handlePosBarcodeScan(code);
+
+                        // 🛑 1. CONGELA SUBITO LA FOTOCAMERA (evita letture a raffica)
+                        window._posCameraPaused = true;
+
+                        // 🟢 2. FEEDBACK VISIVO: la linea laser diventa verde brillante
+                        const laserLine = document.querySelector('#pos-camera-scanner-wrapper div[style*="height: 2px"]');
+                        if (laserLine) {
+                            laserLine.style.background = '#10b981';
+                            laserLine.style.boxShadow = '0 0 14px #10b981';
+                        }
+
+                        // 🛒 3. AGGIUNGE UN SOLO ELEMENTO AL CARRELLO (con BIP acuto)
+                        await window.handlePosBarcodeScan(code, 'camera');
+
+                        // ⏳ 4. RIABILITA LA FOTOCAMERA DOPO ESATTAMENTE 1,5 SECONDI (1500ms)
+                        setTimeout(() => {
+                            window._posCameraPaused = false;
+                            if (laserLine) {
+                                laserLine.style.background = '#ef4444';
+                                laserLine.style.boxShadow = '0 0 10px #ef4444';
+                            }
+                        }, 1500);
                     }
                 } catch (e) {}
             }
@@ -33259,12 +33271,13 @@ window.togglePosCameraScanner = async function() {
 
     } catch (err) {
         console.error("Accesso fotocamera negato:", err);
-        alert("Impossibile accedere alla fotocamera. Verifica i permessi del browser.");
+        alert("Impossibile accedere alla fotocamera. Verifica i permessi nelle impostazioni del browser.");
         window.stopPosCameraScanner();
     }
 };
 
 window.stopPosCameraScanner = function() {
+    window._posCameraPaused = false;
     if (window._posCameraTimer) {
         clearInterval(window._posCameraTimer);
         window._posCameraTimer = null;
@@ -33300,6 +33313,8 @@ window.handlePosManualSearchKey = function(e) {
 
 // 5. APERTURA MODALE RISOLUZIONE BARCODE SCONOSCIUTO
 window.openPosUnknownBarcodeModal = async function(barcode) {
+    window._posCameraPaused = true; // Sospende la fotocamera mentre si compila il form
+
     const modal = document.getElementById('mod-pos-unknown-barcode');
     const label = document.getElementById('pos-unknown-barcode-label');
     const hiddenCode = document.getElementById('pos-unknown-scanned-code');
@@ -33317,12 +33332,9 @@ window.openPosUnknownBarcodeModal = async function(barcode) {
     if (createStock) createStock.value = '1';
     if (lookupBadge) lookupBadge.style.display = 'none';
 
-    // Popola la tendina dei prodotti esistenti
     populatePosExistingProductSelect();
-
     modal.classList.add('active');
 
-    // Ricerca background gratuita su Open Products / Beauty Facts per precompilare il nome
     if (navigator.onLine) {
         try {
             const res = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${barcode}.json`);
@@ -33346,6 +33358,11 @@ window.openPosUnknownBarcodeModal = async function(barcode) {
 window.closePosUnknownBarcodeModal = function() {
     const modal = document.getElementById('mod-pos-unknown-barcode');
     if (modal) modal.classList.remove('active');
+    
+    // Ripristina la scansione con la fotocamera dopo la chiusura
+    setTimeout(() => {
+        window._posCameraPaused = false;
+    }, 500);
 };
 
 function populatePosExistingProductSelect(filterQuery = '') {
