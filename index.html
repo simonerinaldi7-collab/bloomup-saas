@@ -3367,13 +3367,58 @@
         <!-- Contenitore principale POS Responsive -->
         <div id="pos-container" class="pos-desktop-layout">
             
-            <!-- COLONNA SINISTRA: CATALOGO PRODOTTI -->
+            <!-- COLONNA SINISTRA: CATALOGO PRODOTTI CON SCANNER INTEGRATO -->
             <div class="card pos-catalog-pane">
-                <label style="margin-top:0;">Cerca Prodotto o Servizio nel Listino</label>
-                <input type="text" id="sales-search-input" placeholder="Scrivi il nome..." onkeyup="renderSalesList(this.value)">
+                
+                <!-- TOOLBAR RICERCA, SCANNER FOTOCAMERA & STATUS PISTOLA LASER -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--p);">Listino & Prodotti</label>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <!-- Indicatore Laser Hardware Attivo -->
+                        <span id="pos-laser-status-pill" style="font-size: 10.5px; font-weight: 800; color: #10b981; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;" title="Pistola laser USB/Bluetooth sempre pronta all'uso senza click">
+                            <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+                            <span>⚡ Laser Pronto</span>
+                        </span>
+
+                        <!-- Tasto Scanner Fotocamera Continuo -->
+                        <button type="button" id="btn-toggle-pos-camera" class="btn" style="padding: 5px 10px; font-size: 11px; font-weight: 800; background: #ede9fe; color: #6d28d9; border: 1.5px solid #c4b5fd; border-radius: 8px; min-height: unset;" onclick="togglePosCameraScanner()" title="Scansiona codici a barre a raffica con la fotocamera dello smartphone">
+                            📷 Scanner Fotocamera
+                        </button>
+                    </div>
+                </div>
+
+                <!-- MIRINO FOTOCAMERA CONTINUO (HUD COMPATTO A SCOMPARSA) -->
+                <div id="pos-camera-scanner-wrapper" style="display: none; position: relative; width: 100%; height: 160px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); flex-shrink: 0;">
+                    <video id="pos-camera-scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <!-- Linea laser virtuale rossa di puntamento -->
+                    <div style="position: absolute; top: 50%; left: 8%; right: 8%; height: 2px; background: #ef4444; box-shadow: 0 0 10px #ef4444; transform: translateY(-50%);"></div>
+                    
+                    <!-- Badge di stato scansione a raffica -->
+                    <div style="position: absolute; top: 8px; left: 10px; background: rgba(15, 23, 42, 0.85); color: #f8fafc; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+                        <span>Scansione a Raffica Attiva</span>
+                    </div>
+
+                    <!-- Tasto Chiusura Fotocamera -->
+                    <button type="button" onclick="stopPosCameraScanner()" style="position: absolute; top: 8px; right: 10px; background: rgba(0,0,0,0.65); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Chiudi fotocamera">✕</button>
+                </div>
+
+                <!-- BARRA DI RICERCA MANUALE CON SUPPORTO BARCODE DIGITATO -->
+                <div style="position: relative; margin-bottom: 10px;">
+                    <input type="text" id="sales-search-input" placeholder="🔍 Cerca nome, codice o spara barcode..." onkeyup="renderSalesList(this.value)" onkeydown="handlePosManualSearchKey(event)" style="margin: 0; padding: 10px 12px; font-size: 14px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; width: 100%; box-sizing: border-box;">
+                </div>
+
+                <!-- FEEDBACK TOAST VOLANTE IN CASSA -->
+                <div id="pos-scan-feedback-toast" style="display: none; background: #064e3b; color: #a7f3d0; border: 1.5px solid #059669; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 800; margin-bottom: 8px; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: fadeInScale 0.2s ease-out;">
+                    <span id="pos-scan-feedback-text">Articolo aggiunto (+1)</span>
+                    <span style="font-size: 14px;">✓</span>
+                </div>
+
+                <!-- GRIGLIA DEGLI ARTICOLI DEL CATALOGO -->
                 <div style="flex-grow:1; overflow-y:auto; border:1px solid #f0f0f0; border-radius:10px; padding:10px; margin-bottom: 60px;">
                     <div id="sales-items-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px;">
-                        <div style="color:#aaa; text-align:center; padding:40px; grid-column: 1 / -1;">Usa la barra sopra per cercare prodotti</div>
+                        <div style="color:#aaa; text-align:center; padding:40px; grid-column: 1 / -1;">Usa la barra sopra o spara un barcode per caricare articoli</div>
                     </div>
                 </div>
             </div>
@@ -33022,6 +33067,416 @@ window.changePage = function(page, force = false) {
 
 
 
+// =========================================================================
+// 🛒 MOTORE VENDITA BARCODE IN CASSA: LASER A ZERO CLICK & LIVE CAMERA
+// =========================================================================
+
+window._posCameraStream = null;
+window._posCameraTimer = null;
+window._posBarcodeDetector = null;
+window._lastPosScannedCode = '';
+window._lastPosScanTimestamp = 0;
+
+// 1. GESTORE CENTRALE DELLA SCANSIONE BARCODE IN CASSA
+window.handlePosBarcodeScan = async function(rawCode) {
+    if (!rawCode) return;
+    const cleanCode = String(rawCode).trim();
+    if (cleanCode.length < 3) return;
+
+    // Cooldown per evitare doppie scansioni a raffica dello stesso flacone sotto la fotocamera (< 1400ms)
+    const now = Date.now();
+    if (cleanCode === window._lastPosScannedCode && (now - window._lastPosScanTimestamp < 1400)) {
+        return;
+    }
+    window._lastPosScannedCode = cleanCode;
+    window._lastPosScanTimestamp = now;
+
+    console.log(`⚡ [POS BARCODE DETECTED]: ${cleanCode}`);
+
+    // A. Ricerca nell'inventario locale del negozio corrente
+    const inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) 
+        ? allInventory 
+        : (window.allInventory || []);
+
+    const product = inventory.find(p => p.barcode && String(p.barcode).trim() === cleanCode);
+
+    if (product) {
+        // 🌟 SCENARIO A: PRODOTTO TROVATO -> AGGIUNTA A CARRELLO A ZERO CLICK!
+        let price = parseFloat(product.price || 0);
+
+        try {
+            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: product.id });
+            if (pInfo && pInfo.price) price = parseFloat(pInfo.price);
+        } catch (e) {}
+
+        // Feedback Audio & Tattile
+        if (typeof playWarehouseAudioFeedback === 'function') {
+            playWarehouseAudioFeedback('success');
+        }
+        if (navigator.vibrate) {
+            navigator.vibrate(70);
+        }
+
+        // Verifica se è già presente nel carrello per incrementare la quantità (+1)
+        const existingCartItem = (cart || []).find(item => item.id === product.id && !item.isPackage && !item.isManual);
+
+        if (existingCartItem) {
+            existingCartItem.qty = (existingCartItem.qty || 1) + 1;
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: price,
+                qty: 1,
+                discountVal: 0,
+                discountType: 'euro'
+            });
+        }
+
+        // Segnala allerta scorta bassa senza bloccare la vendita
+        const currentStock = parseFloat(product.stock || 0);
+        const isOutOfStock = currentStock <= 0;
+
+        let toastMsg = `✓ ${product.name} aggiunto (+1)`;
+        if (isOutOfStock) {
+            toastMsg = `⚠️ ${product.name} (+1) • [Giacenza Esaurita]`;
+        }
+
+        showPosScanToast(toastMsg, !isOutOfStock);
+        renderCart();
+
+    } else {
+        // 🌟 SCENARIO B: BARCODE SCONOSCIUTO -> APRE IL FOGLIO RAPIDO A 1-CLICK
+        if (typeof playWarehouseAudioFeedback === 'function') {
+            playWarehouseAudioFeedback('new_product');
+        }
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+        }
+
+        openPosUnknownBarcodeModal(cleanCode);
+    }
+};
+
+// 2. MOSTRA TOAST TEMPORANEO DI FEEDBACK IN CASSA
+function showPosScanToast(message, isSuccess = true) {
+    const toast = document.getElementById('pos-scan-feedback-toast');
+    const textEl = document.getElementById('pos-scan-feedback-text');
+    if (!toast || !textEl) return;
+
+    textEl.innerText = message;
+    toast.style.background = isSuccess ? '#064e3b' : '#7f1d1d';
+    toast.style.color = isSuccess ? '#a7f3d0' : '#fecaca';
+    toast.style.borderColor = isSuccess ? '#059669' : '#dc2626';
+    toast.style.display = 'flex';
+
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.style.display = 'none';
+    }, 2200);
+}
+window.showPosScanToast = showPosScanToast;
+
+// 3. FOTOCAMERA CONTINUA IN CASSA (HUD STREAMING A 60 FPS)
+window.togglePosCameraScanner = async function() {
+    const wrapper = document.getElementById('pos-camera-scanner-wrapper');
+    const video = document.getElementById('pos-camera-scanner-video');
+    const btn = document.getElementById('btn-toggle-pos-camera');
+
+    if (window._posCameraStream) {
+        window.stopPosCameraScanner();
+        return;
+    }
+
+    try {
+        if (!('BarcodeDetector' in window)) {
+            return alert("La scansione con fotocamera richiede Chrome Android o Safari iOS 17+. Puoi comunque usare qualsiasi lettore laser USB o Bluetooth senza alcuna configurazione!");
+        }
+
+        window._posBarcodeDetector = new BarcodeDetector({ 
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] 
+        });
+
+        window._posCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        video.srcObject = window._posCameraStream;
+        await video.play();
+
+        if (wrapper) wrapper.style.display = 'block';
+        if (btn) {
+            btn.innerText = "🛑 Chiudi Scanner";
+            btn.style.background = '#fee2e2';
+            btn.style.color = '#dc2626';
+            btn.style.borderColor = '#fca5a5';
+        }
+
+        // Loop di rilevamento fotogrammi ad alta velocità
+        window._posCameraTimer = setInterval(async () => {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && window._posBarcodeDetector) {
+                try {
+                    const barcodes = await window._posBarcodeDetector.detect(video);
+                    if (barcodes && barcodes.length > 0) {
+                        const code = barcodes[0].rawValue;
+                        window.handlePosBarcodeScan(code);
+                    }
+                } catch (e) {}
+            }
+        }, 120);
+
+    } catch (err) {
+        console.error("Accesso fotocamera negato:", err);
+        alert("Impossibile accedere alla fotocamera. Verifica i permessi del browser.");
+        window.stopPosCameraScanner();
+    }
+};
+
+window.stopPosCameraScanner = function() {
+    if (window._posCameraTimer) {
+        clearInterval(window._posCameraTimer);
+        window._posCameraTimer = null;
+    }
+    if (window._posCameraStream) {
+        window._posCameraStream.getTracks().forEach(t => t.stop());
+        window._posCameraStream = null;
+    }
+    const wrapper = document.getElementById('pos-camera-scanner-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+
+    const btn = document.getElementById('btn-toggle-pos-camera');
+    if (btn) {
+        btn.innerText = "📷 Scanner Fotocamera";
+        btn.style.background = '#ede9fe';
+        btn.style.color = '#6d28d9';
+        btn.style.borderColor = '#c4b5fd';
+    }
+};
+
+// 4. DIGITAZIONE MANUALE O INVIO VELOCE NELLA CASELLA DI RICERCA
+window.handlePosManualSearchKey = function(e) {
+    if (e.key === 'Enter') {
+        const val = e.target.value.trim();
+        // Se è un codice numerico di barcode tipico (>= 4 cifre)
+        if (/^\d{4,14}$/.test(val)) {
+            e.preventDefault();
+            window.handlePosBarcodeScan(val);
+            e.target.value = '';
+        }
+    }
+};
+
+// 5. APERTURA MODALE RISOLUZIONE BARCODE SCONOSCIUTO
+window.openPosUnknownBarcodeModal = async function(barcode) {
+    const modal = document.getElementById('mod-pos-unknown-barcode');
+    const label = document.getElementById('pos-unknown-barcode-label');
+    const hiddenCode = document.getElementById('pos-unknown-scanned-code');
+    const createName = document.getElementById('pos-quick-create-name');
+    const createPrice = document.getElementById('pos-quick-create-price');
+    const createStock = document.getElementById('pos-quick-create-stock');
+    const lookupBadge = document.getElementById('pos-quick-lookup-badge');
+
+    if (!modal) return;
+
+    if (hiddenCode) hiddenCode.value = barcode;
+    if (label) label.innerText = `Codice Scansionato: ${barcode}`;
+    if (createName) createName.value = '';
+    if (createPrice) createPrice.value = '';
+    if (createStock) createStock.value = '1';
+    if (lookupBadge) lookupBadge.style.display = 'none';
+
+    // Popola la tendina dei prodotti esistenti
+    populatePosExistingProductSelect();
+
+    modal.classList.add('active');
+
+    // Ricerca background gratuita su Open Products / Beauty Facts per precompilare il nome
+    if (navigator.onLine) {
+        try {
+            const res = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${barcode}.json`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 1 && data.product) {
+                    const p = data.product;
+                    const brand = p.brands || '';
+                    const name = p.product_name_it || p.product_name || '';
+                    const full = brand ? `${brand} - ${name}`.trim() : name;
+                    if (full && createName) {
+                        createName.value = full;
+                        if (lookupBadge) lookupBadge.style.display = 'inline-block';
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+};
+
+window.closePosUnknownBarcodeModal = function() {
+    const modal = document.getElementById('mod-pos-unknown-barcode');
+    if (modal) modal.classList.remove('active');
+};
+
+function populatePosExistingProductSelect(filterQuery = '') {
+    const select = document.getElementById('pos-link-product-select');
+    if (!select) return;
+
+    const inventory = (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) 
+        ? allInventory 
+        : (window.allInventory || []);
+
+    const q = filterQuery.toLowerCase().trim();
+    const products = inventory.filter(p => {
+        const isProd = (p.type === 'prodotto' || !p.type);
+        const match = !q || (p.name || '').toLowerCase().includes(q) || (p.model || '').toLowerCase().includes(q);
+        return isProd && match;
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (products.length === 0) {
+        select.innerHTML = '<option value="">-- Nessun prodotto trovato --</option>';
+        return;
+    }
+
+    select.innerHTML = '<option value="">-- Seleziona un prodotto dal tuo listino --</option>' +
+        products.map(p => {
+            const price = parseFloat(p.price || 0).toFixed(2);
+            const sizeStr = p.size ? ` (${p.size})` : '';
+            return `<option value="${p.id}">${p.name}${sizeStr} • € ${price}</option>`;
+        }).join('');
+}
+
+window.filterPosExistingProductSelect = function(query) {
+    populatePosExistingProductSelect(query);
+};
+
+// 6. AZIONE 1: ASSOCIA BARCODE A PRODOTTO ESISTENTE E METTI SUBITO A CARRELLO
+window.linkBarcodeToExistingAndAddToCart = async function() {
+    const select = document.getElementById('pos-link-product-select');
+    const barcode = document.getElementById('pos-unknown-scanned-code')?.value;
+
+    if (!select || !select.value) {
+        return alert("Seleziona prima un prodotto dalla tendina.");
+    }
+    if (!barcode) return;
+
+    const productId = select.value;
+    const inventory = (typeof allInventory !== 'undefined') ? allInventory : (window.allInventory || []);
+    const product = inventory.find(p => p.id === productId);
+
+    if (!product) return alert("Prodotto non trovato.");
+
+    try {
+        // Aggiorna l'anagrafica nel database locale e cloud
+        await window.universalQuery({
+            action: 'UPDATE',
+            table: 'inventory',
+            data: { barcode: barcode, updated_at: new Date().toISOString() },
+            id: productId
+        });
+
+        product.barcode = barcode;
+        closePosUnknownBarcodeModal();
+
+        // Metti subito a carrello!
+        window.handlePosBarcodeScan(barcode);
+
+    } catch (err) {
+        console.error("Errore associazione barcode:", err);
+        alert("Errore durante l'associazione del barcode: " + err.message);
+    }
+};
+
+// 7. AZIONE 2: CREA NUOVO AL VOLO E AGGIUNGI AL CARRELLO
+window.quickCreateProductAndAddToCart = async function() {
+    const barcode = document.getElementById('pos-unknown-scanned-code')?.value;
+    const name = document.getElementById('pos-quick-create-name')?.value.trim();
+    const price = parseFloat(document.getElementById('pos-quick-create-price')?.value) || 0;
+    const stock = parseFloat(document.getElementById('pos-quick-create-stock')?.value) || 1;
+
+    if (!name) return alert("Inserisci il nome del prodotto!");
+    if (price <= 0) return alert("Inserisci un prezzo di vendita valido maggiore di zero!");
+
+    const salonId = (currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
+    const nowIso = new Date().toISOString();
+    const newId = crypto.randomUUID();
+
+    const newProductPayload = {
+        id: newId,
+        salon_id: salonId,
+        name: name,
+        type: 'prodotto',
+        price: price,
+        stock: stock,
+        min_stock: 1,
+        barcode: barcode || null,
+        unit: 'Pezzi',
+        is_consignment: false,
+        consignment_split_pct: 0,
+        discount_absorption: 'salon',
+        requires_operator: false,
+        required_workstations: [],
+        updated_at: nowIso
+    };
+
+    try {
+        // Inserimento prodotto
+        await window.universalQuery({ action: 'INSERT', table: 'inventory', data: newProductPayload });
+
+        // Inserimento storico prezzo
+        await window.universalQuery({
+            action: 'INSERT',
+            table: 'price_history',
+            data: {
+                id: crypto.randomUUID(),
+                salon_id: salonId,
+                product_id: newId,
+                cost: 0,
+                price: price,
+                date_from: nowIso,
+                date_to: null
+            }
+        });
+
+        // Creazione lotto iniziale
+        if (stock > 0) {
+            await window.universalQuery({
+                action: 'INSERT',
+                table: 'stock_lots',
+                data: {
+                    id: crypto.randomUUID(),
+                    salon_id: salonId,
+                    product_id: newId,
+                    initial_qty: stock,
+                    qty_remaining: stock,
+                    unit_cost: 0,
+                    created_at: nowIso
+                }
+            });
+        }
+
+        // Aggiungi alla cache in memoria
+        if (typeof allInventory !== 'undefined' && Array.isArray(allInventory)) {
+            allInventory.push(newProductPayload);
+        }
+
+        closePosUnknownBarcodeModal();
+
+        // Metti subito a carrello!
+        window.handlePosBarcodeScan(barcode);
+
+    } catch (err) {
+        console.error("Errore creazione rapida:", err);
+        alert("Errore durante la creazione del prodotto: " + err.message);
+    }
+};
+
+window.openIntakeFromPosUnknownModal = function() {
+    closePosUnknownBarcodeModal();
+    if (typeof openFastBarcodeScanModal === 'function') {
+        openFastBarcodeScanModal();
+    }
+};
+
+
 
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -33881,5 +34336,92 @@ window.changePage = function(page, force = false) {
 
     </div>
 </div>
+
+
+
+<!-- ======================================================== -->
+<!-- 🔍 MODALE CASSA: RISOLUZIONE BARCODE SCONOSCIUTO A 1-CLICK -->
+<!-- ======================================================== -->
+<div id="mod-pos-unknown-barcode" class="modal" onclick="if(event.target===this) closePosUnknownBarcodeModal()" style="z-index: 45000;">
+    <div class="modal-box" style="width: 540px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; padding: 22px; border-top: 6px solid #f59e0b;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">📦</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e1b4b; font-size: 17px; font-weight: 800;">Nuovo Codice a Barre Rilevato</h3>
+                    <small id="pos-unknown-barcode-label" style="color: #64748b; font-size: 12px; font-family: monospace; font-weight: bold;">Barcode: -</small>
+                </div>
+            </div>
+            <button type="button" onclick="closePosUnknownBarcodeModal()" style="border: none; background: none; font-size: 20px; font-weight: bold; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+
+        <input type="hidden" id="pos-unknown-scanned-code">
+
+        <div style="flex-grow: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px;">
+            
+            <!-- OPZIONE 1: ASSOCIA A PRODOTTO GIÀ PRESENTE A LISTINO -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 14px;">
+                <b style="font-size: 13px; color: #1e1b4b; display: block; margin-bottom: 3px;">🔗 1. Associa a un Prodotto già a Listino</b>
+                <small style="color: #64748b; font-size: 11px; display: block; margin-bottom: 10px;">Se hai già creato il trattamento o il prodotto ma non avevi memorizzato il barcode:</small>
+
+                <input type="text" id="pos-link-product-search" placeholder="🔍 Filtra nome prodotto..." onkeyup="filterPosExistingProductSelect(this.value)" style="margin: 0 0 6px 0; padding: 6px 10px; font-size: 12px; background: white;">
+                
+                <select id="pos-link-product-select" style="margin: 0 0 10px 0; background: white; font-weight: bold; font-size: 12.5px;">
+                    <!-- Popolato dinamicamente da JS -->
+                </select>
+
+                <button type="button" class="btn btn-p" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; font-weight: 800;" onclick="linkBarcodeToExistingAndAddToCart()">
+                    Associa Barcode e Aggiungi Subito al Carrello ➔
+                </button>
+            </div>
+
+            <!-- OPZIONE 2: CREA NUOVO AL VOLO E VENDI SUBITO -->
+            <div style="background: #ffffff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                    <b style="font-size: 13px; color: #581c87;">➕ 2. Crea Nuovo Articolo al Volo</b>
+                    <span id="pos-quick-lookup-badge" style="display: none; font-size: 10px; font-weight: 800; background: #ede9fe; color: #6d28d9; padding: 2px 6px; border-radius: 4px;">Trovato nel Web</span>
+                </div>
+                <small style="color: #7e22ce; font-size: 11px; display: block; margin-bottom: 10px;">Salva l'anagrafica nel tuo magazzino e mettilo subito nel carrello:</small>
+
+                <div style="margin-bottom: 8px;">
+                    <label style="margin: 0 0 3px 0; font-size: 10px; font-weight: 800;">Nome Prodotto *</label>
+                    <input type="text" id="pos-quick-create-name" placeholder="Es. Olio Protettivo Argan 100ml" style="margin: 0; background: #faf5ff; font-weight: bold; font-size: 13px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 10px; font-weight: 800; color: var(--p);">Prezzo Vendita (€) *</label>
+                        <input type="number" id="pos-quick-create-price" step="0.5" placeholder="0.00" style="margin: 0; background: white; font-weight: 900; font-size: 15px; color: #047857;">
+                    </div>
+                    <div>
+                        <label style="margin: 0 0 3px 0; font-size: 10px; font-weight: 800;">Giacenza Iniziale</label>
+                        <input type="number" id="pos-quick-create-stock" value="1" min="1" style="margin: 0; background: white; font-weight: bold; text-align: center;">
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-s" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; font-weight: 800;" onclick="quickCreateProductAndAddToCart()">
+                    ✨ Salva Anagrafica e Metti nel Carrello ➔
+                </button>
+            </div>
+
+            <!-- OPZIONE 3: CARICO MAGAZZINO COMPLETO (FIFO) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px;">
+                <small style="color: #64748b; font-size: 11.5px;">Devi prima caricare fattura, lotti FIFO e costi d'acquisto?</small>
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 11px; background: white; border: 1px solid #cbd5e1; font-weight: bold;" onclick="openIntakeFromPosUnknownModal()">
+                    📦 Carico FIFO
+                </button>
+            </div>
+
+        </div>
+
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); text-align: right; flex-shrink: 0;">
+            <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 8px 16px;" onclick="closePosUnknownBarcodeModal()">Annulla</button>
+        </div>
+
+    </div>
+</div>
+
     </body>
     </html>
