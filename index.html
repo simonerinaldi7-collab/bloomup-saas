@@ -4589,6 +4589,19 @@
 
             <!-- 📸 GESTIONE FOTO PRIMA & DOPO CON ZOOM E PAN -->
             <div id="ss-before-after-upload-box" style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: white; padding: 6px 10px; border-radius: 8px; border: 1px solid #d8b4fe; margin-bottom: 8px;">
+    <span style="font-size: 11px; font-weight: 800; color: #6b21a8;">📐 Disposizione Foto:</span>
+    <div style="display: flex; gap: 4px;">
+        <button type="button" id="btn-split-vertical" class="btn" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: unset; border-radius: 6px; background: var(--p); color: white; border: none;" onclick="setTransformationSplitLayout('vertical')">
+            ◫ Affiancate (SX / DX)
+        </button>
+        <button type="button" id="btn-split-horizontal" class="btn" style="padding: 4px 10px; font-size: 11px; font-weight: 700; min-height: unset; border-radius: 6px; background: #f8fafc; color: #475569; border: 1.5px solid #cbd5e1;" onclick="setTransformationSplitLayout('horizontal')">
+            ⬓ Sovrapposte (Sopra / Sotto)
+        </button>
+    </div>
+</div>
+                
+                
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8;">📸 Foto Confronto Schermo Intero</label>
                     <button type="button" class="btn" style="padding: 2px 8px; font-size: 10px; background: white; border: 1px solid #d8b4fe; color: #6b21a8; font-weight: bold;" onclick="resetPhotoPans()">↺ Centra & Reset Zoom</button>
@@ -28775,7 +28788,8 @@ window._socialStudioState = {
     selectedPresetId: 'current',
     salonLogoImg: null,
     qrImage: null,
-    customCheckedServiceIds: new Set()
+    customCheckedServiceIds: new Set(),
+    splitLayout: 'vertical'
 };
 
 window._socialElements = null;
@@ -29048,6 +29062,72 @@ function resetPhotoPans() {
 }
 window.resetPhotoPans = resetPhotoPans;
 
+function setTransformationSplitLayout(layout) {
+    const s = window._socialStudioState;
+    s.splitLayout = (layout === 'horizontal') ? 'horizontal' : 'vertical';
+
+    const canvas = document.getElementById('social-render-canvas');
+    const W = canvas ? canvas.width : 1080;
+    const H = canvas ? canvas.height : 1920;
+    const isStory = (s.format === 'story');
+
+    // Riposiziona automaticamente le etichette per non farle finire sopra la linea
+    if (window._socialElements) {
+        if (s.splitLayout === 'horizontal') {
+            window._socialElements.title.x = W / 2;
+            window._socialElements.title.y = isStory ? 310 : 230;
+            window._socialElements.highlight.x = W / 2;
+            window._socialElements.highlight.y = (H / 2) + (isStory ? 85 : 65);
+        } else {
+            window._socialElements.title.x = W / 4;
+            window._socialElements.title.y = isStory ? 350 : 260;
+            window._socialElements.highlight.x = (3 * W) / 4;
+            window._socialElements.highlight.y = isStory ? 350 : 260;
+        }
+    }
+
+    updateTransformationLayoutUI();
+    renderSocialCanvas();
+}
+window.setTransformationSplitLayout = setTransformationSplitLayout;
+
+function updateTransformationLayoutUI() {
+    const s = window._socialStudioState;
+    const isHorizontal = (s.splitLayout === 'horizontal');
+
+    const btnVert = document.getElementById('btn-split-vertical');
+    const btnHoriz = document.getElementById('btn-split-horizontal');
+
+    if (btnVert && btnHoriz) {
+        if (isHorizontal) {
+            btnHoriz.style.background = 'var(--p)';
+            btnHoriz.style.color = '#ffffff';
+            btnHoriz.style.border = 'none';
+            btnVert.style.background = '#f8fafc';
+            btnVert.style.color = '#475569';
+            btnVert.style.border = '1.5px solid #cbd5e1';
+        } else {
+            btnVert.style.background = 'var(--p)';
+            btnVert.style.color = '#ffffff';
+            btnVert.style.border = 'none';
+            btnHoriz.style.background = '#f8fafc';
+            btnHoriz.style.color = '#475569';
+            btnHoriz.style.border = '1.5px solid #cbd5e1';
+        }
+    }
+
+    const titleBefore = document.getElementById('ss-box-title-before');
+    const titleAfter = document.getElementById('ss-box-title-after');
+    if (titleBefore) titleBefore.innerText = isHorizontal ? 'FOTO PRIMA (SOPRA)' : 'FOTO PRIMA (SX)';
+    if (titleAfter) titleAfter.innerText = isHorizontal ? 'FOTO DOPO (SOTTO)' : 'FOTO DOPO (DX)';
+
+    const labelTitle = document.getElementById('ss-label-title');
+    const labelHighlight = document.getElementById('ss-label-highlight');
+    if (labelTitle) labelTitle.innerText = isHorizontal ? 'Etichetta Sopra (Foto Prima)' : 'Etichetta Sinistra (Foto Prima)';
+    if (labelHighlight) labelHighlight.innerText = isHorizontal ? 'Etichetta Sotto (Foto Dopo)' : 'Etichetta Destra (Foto Dopo)';
+}
+window.updateTransformationLayoutUI = updateTransformationLayoutUI;
+
 function stepPhotoZoom(which, step) {
     const s = window._socialStudioState;
     if (which === 'before') {
@@ -29071,132 +29151,261 @@ window.updatePhotoZoomUI = updatePhotoZoomUI;
 
 // 6. DISEGNO FOTO TRASFORMAZIONE SCHERMO INTERO CON PAN ATTIVO
 function drawTransformationFullScreen(ctx, s, W, H, isStory, activePreset, accentColor) {
-    const splitX = W / 2;
+    const isHorizontal = (s.splitLayout === 'horizontal');
 
-    // Metà Sinistra: Foto PRIMA
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, splitX, H);
-    ctx.clip();
+    if (isHorizontal) {
+        // ==========================================
+        // ⬓ MODALITÀ ORIZZONTALE (PRIMA SOPRA, DOPO SOTTO)
+        // ==========================================
+        const splitY = H / 2;
 
-    if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
-        const img = s.beforeImg;
-        const zoom = s.beforeZoom || 1.0;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
-        const drawW = img.naturalWidth * ratio;
-        const drawH = img.naturalHeight * ratio;
-        const baseX = (splitX - drawW) / 2 + (s.beforePanX || 0);
-        const baseY = (H - drawH) / 2 + (s.beforePanY || 0);
+        // FOTO PRIMA: Metà Superiore (0, 0, W, splitY)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, W, splitY);
+        ctx.clip();
 
-        ctx.drawImage(img, baseX, baseY, drawW, drawH);
+        if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
+            const img = s.beforeImg;
+            const zoom = s.beforeZoom || 1.0;
+            const ratio = Math.max(W / img.naturalWidth, splitY / img.naturalHeight) * zoom;
+            const drawW = img.naturalWidth * ratio;
+            const drawH = img.naturalHeight * ratio;
+            const baseX = (W - drawW) / 2 + (s.beforePanX || 0);
+            const baseY = (splitY - drawH) / 2 + (s.beforePanY || 0);
 
-        const gradL = ctx.createLinearGradient(0, 0, 0, H);
-        gradL.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
-        gradL.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
-        gradL.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
-        gradL.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
-        ctx.fillStyle = gradL;
-        ctx.fillRect(0, 0, splitX, H);
-    } else {
-        const gradPlaceL = ctx.createLinearGradient(0, 0, splitX, H);
-        gradPlaceL.addColorStop(0, '#1E293B');
-        gradPlaceL.addColorStop(1, '#0F172A');
-        ctx.fillStyle = gradPlaceL;
-        ctx.fillRect(0, 0, splitX, H);
+            ctx.drawImage(img, baseX, baseY, drawW, drawH);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.font = 'bold 28px sans-serif';
+            const gradTop = ctx.createLinearGradient(0, 0, 0, splitY);
+            gradTop.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+            gradTop.addColorStop(0.35, 'rgba(0, 0, 0, 0.08)');
+            gradTop.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+            gradTop.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+            ctx.fillStyle = gradTop;
+            ctx.fillRect(0, 0, W, splitY);
+        } else {
+            const gradPlaceTop = ctx.createLinearGradient(0, 0, W, splitY);
+            gradPlaceTop.addColorStop(0, '#1E293B');
+            gradPlaceTop.addColorStop(1, '#0F172A');
+            ctx.fillStyle = gradPlaceTop;
+            ctx.fillRect(0, 0, W, splitY);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('📷 Carica Foto PRIMA', W / 2, splitY / 2 - 20);
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', W / 2, splitY / 2 + 20);
+        }
+        ctx.restore();
+
+        // FOTO DOPO: Metà Inferiore (0, splitY, W, splitY)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, splitY, W, splitY);
+        ctx.clip();
+
+        if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
+            const img = s.afterImg;
+            const zoom = s.afterZoom || 1.0;
+            const ratio = Math.max(W / img.naturalWidth, splitY / img.naturalHeight) * zoom;
+            const drawW = img.naturalWidth * ratio;
+            const drawH = img.naturalHeight * ratio;
+            const baseX = (W - drawW) / 2 + (s.afterPanX || 0);
+            const baseY = splitY + (splitY - drawH) / 2 + (s.afterPanY || 0);
+
+            ctx.drawImage(img, baseX, baseY, drawW, drawH);
+
+            const gradBtm = ctx.createLinearGradient(0, splitY, 0, H);
+            gradBtm.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+            gradBtm.addColorStop(0.35, 'rgba(0, 0, 0, 0.08)');
+            gradBtm.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+            gradBtm.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+            ctx.fillStyle = gradBtm;
+            ctx.fillRect(0, splitY, W, splitY);
+        } else {
+            const gradPlaceBtm = ctx.createLinearGradient(0, splitY, W, H);
+            gradPlaceBtm.addColorStop(0, '#2E1022');
+            gradPlaceBtm.addColorStop(1, '#12050E');
+            ctx.fillStyle = gradPlaceBtm;
+            ctx.fillRect(0, splitY, W, splitY);
+
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✨ Carica Foto DOPO', W / 2, splitY + splitY / 2 - 20);
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', W / 2, splitY + splitY / 2 + 20);
+        }
+        ctx.restore();
+
+        // LINEA SEPARATORE ORIZZONTALE & MANIGLIA CENTRALE
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, splitY);
+        ctx.lineTo(W, splitY);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+
+        const handleX = W / 2;
+        ctx.beginPath();
+        ctx.arc(handleX, splitY, 30, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = accentColor;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0F172A';
+        ctx.font = '900 15px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX / 2, H / 2 + 20);
-    }
-    ctx.restore();
+        ctx.fillText('▲ ✦ ▼', handleX, splitY);
+        ctx.restore();
 
-    // Metà Destra: Foto DOPO
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(splitX, 0, splitX, H);
-    ctx.clip();
-
-    if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
-        const img = s.afterImg;
-        const zoom = s.afterZoom || 1.0;
-        const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
-        const drawW = img.naturalWidth * ratio;
-        const drawH = img.naturalHeight * ratio;
-        const baseX = splitX + (splitX - drawW) / 2 + (s.afterPanX || 0);
-        const baseY = (H - drawH) / 2 + (s.afterPanY || 0);
-
-        ctx.drawImage(img, baseX, baseY, drawW, drawH);
-
-        const gradR = ctx.createLinearGradient(0, 0, 0, H);
-        gradR.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
-        gradR.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
-        gradR.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
-        gradR.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
-        ctx.fillStyle = gradR;
-        ctx.fillRect(splitX, 0, splitX, H);
     } else {
-        const gradPlaceR = ctx.createLinearGradient(splitX, 0, W, H);
-        gradPlaceR.addColorStop(0, '#2E1022');
-        gradPlaceR.addColorStop(1, '#12050E');
-        ctx.fillStyle = gradPlaceR;
-        ctx.fillRect(splitX, 0, splitX, H);
+        // ==========================================
+        // ◫ MODALITÀ VERTICALE (PRIMA SX, DOPO DX)
+        // ==========================================
+        const splitX = W / 2;
 
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
-        ctx.font = 'bold 28px sans-serif';
+        // Foto PRIMA (SX)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, splitX, H);
+        ctx.clip();
+
+        if (s.beforeImg && s.beforeImg.complete && s.beforeImg.naturalWidth > 0) {
+            const img = s.beforeImg;
+            const zoom = s.beforeZoom || 1.0;
+            const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
+            const drawW = img.naturalWidth * ratio;
+            const drawH = img.naturalHeight * ratio;
+            const baseX = (splitX - drawW) / 2 + (s.beforePanX || 0);
+            const baseY = (H - drawH) / 2 + (s.beforePanY || 0);
+
+            ctx.drawImage(img, baseX, baseY, drawW, drawH);
+
+            const gradL = ctx.createLinearGradient(0, 0, 0, H);
+            gradL.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+            gradL.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
+            gradL.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+            gradL.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+            ctx.fillStyle = gradL;
+            ctx.fillRect(0, 0, splitX, H);
+        } else {
+            const gradPlaceL = ctx.createLinearGradient(0, 0, splitX, H);
+            gradPlaceL.addColorStop(0, '#1E293B');
+            gradPlaceL.addColorStop(1, '#0F172A');
+            ctx.fillStyle = gradPlaceL;
+            ctx.fillRect(0, 0, splitX, H);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('📷 Carica Foto PRIMA', splitX / 2, H / 2 - 20);
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX / 2, H / 2 + 20);
+        }
+        ctx.restore();
+
+        // Foto DOPO (DX)
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(splitX, 0, splitX, H);
+        ctx.clip();
+
+        if (s.afterImg && s.afterImg.complete && s.afterImg.naturalWidth > 0) {
+            const img = s.afterImg;
+            const zoom = s.afterZoom || 1.0;
+            const ratio = Math.max(splitX / img.naturalWidth, H / img.naturalHeight) * zoom;
+            const drawW = img.naturalWidth * ratio;
+            const drawH = img.naturalHeight * ratio;
+            const baseX = splitX + (splitX - drawW) / 2 + (s.afterPanX || 0);
+            const baseY = (H - drawH) / 2 + (s.afterPanY || 0);
+
+            ctx.drawImage(img, baseX, baseY, drawW, drawH);
+
+            const gradR = ctx.createLinearGradient(0, 0, 0, H);
+            gradR.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
+            gradR.addColorStop(0.3, 'rgba(0, 0, 0, 0.08)');
+            gradR.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+            gradR.addColorStop(1, 'rgba(0, 0, 0, 0.70)');
+            ctx.fillStyle = gradR;
+            ctx.fillRect(splitX, 0, splitX, H);
+        } else {
+            const gradPlaceR = ctx.createLinearGradient(splitX, 0, W, H);
+            gradPlaceR.addColorStop(0, '#2E1022');
+            gradPlaceR.addColorStop(1, '#12050E');
+            ctx.fillStyle = gradPlaceR;
+            ctx.fillRect(splitX, 0, splitX, H);
+
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX + splitX / 2, H / 2 + 20);
+        }
+        ctx.restore();
+
+        // LINEA DI SEPARAZIONE VERTICALE & MANIGLIA CENTRALE
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(splitX, 0);
+        ctx.lineTo(splitX, H);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+
+        const handleY = H / 2;
+        ctx.beginPath();
+        ctx.arc(splitX, handleY, 30, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = accentColor;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0F172A';
+        ctx.font = '900 15px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('✨ Carica Foto DOPO', splitX + splitX / 2, H / 2 - 20);
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.fillText('(Pinch/Rotellina per zoomare • Trascina)', splitX + splitX / 2, H / 2 + 20);
+        ctx.fillText('◀ ✦ ▶', splitX, handleY);
+        ctx.restore();
     }
-    ctx.restore();
-
-    // Separatore e Maniglia Centrale
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(splitX, 0);
-    ctx.lineTo(splitX, H);
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    ctx.shadowBlur = 10;
-    ctx.stroke();
-
-    const handleY = H / 2;
-    ctx.beginPath();
-    ctx.arc(splitX, handleY, 30, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 12;
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = accentColor;
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#0F172A';
-    ctx.font = '900 15px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('◀ ✦ ▶', splitX, handleY);
-    ctx.restore();
 }
 
 // 7. SOVRIMPRESSIONI PRIMA & DOPO E BANNER TRATTAMENTO
 function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
-    // 1. BANNER DESCRIZIONE TRATTAMENTO IN ALTO
+    const isHorizontal = (s.splitLayout === 'horizontal');
+
+    // 1. BANNER DESCRIZIONE TRATTAMENTO
     const elTreat = elems.treatment;
     if (elTreat && s.treatmentText && s.treatmentText.trim() !== '') {
         ctx.save();
         const scale = (Number.isFinite(elTreat.scale) && elTreat.scale > 0.1) ? elTreat.scale : 1.0;
         const x = Number.isFinite(elTreat.x) ? elTreat.x : W / 2;
-        const y = Number.isFinite(elTreat.y) ? elTreat.y : (isStory ? 245 : 185);
+        const y = Number.isFinite(elTreat.y) ? elTreat.y : (isStory ? (isHorizontal ? 210 : 245) : (isHorizontal ? 160 : 185));
 
         ctx.font = `800 ${Math.round(23 * scale)}px sans-serif`;
         const text = s.treatmentText.trim();
@@ -29225,13 +29434,16 @@ function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
         ctx.restore();
     }
 
-    // 2. ETICHETTA PRIMA (SX)
+    // 2. ETICHETTA PRIMA (SX O SOPRA)
     const elBefore = elems.title;
     if (s.title && s.title.trim() !== '') {
         ctx.save();
         const scale = (Number.isFinite(elBefore.scale) && elBefore.scale > 0.1) ? elBefore.scale : 1.0;
-        const x = Number.isFinite(elBefore.x) ? elBefore.x : W / 4;
-        const y = Number.isFinite(elBefore.y) ? elBefore.y : (isStory ? 350 : 260);
+        const defaultBeforeX = isHorizontal ? (W / 2) : (W / 4);
+        const defaultBeforeY = isHorizontal ? (isStory ? 310 : 230) : (isStory ? 350 : 260);
+
+        const x = Number.isFinite(elBefore.x) ? elBefore.x : defaultBeforeX;
+        const y = Number.isFinite(elBefore.y) ? elBefore.y : defaultBeforeY;
 
         ctx.font = `900 ${Math.round(24 * scale)}px sans-serif`;
         const text = s.title.trim();
@@ -29256,13 +29468,16 @@ function drawTransformationLabels(ctx, s, elems, W, H, isStory, accentColor) {
         ctx.restore();
     }
 
-    // 3. ETICHETTA DOPO (DX)
+    // 3. ETICHETTA DOPO (DX O SOTTO)
     const elAfter = elems.highlight;
     if (s.highlightText && s.highlightText.trim() !== '') {
         ctx.save();
         const scale = (Number.isFinite(elAfter.scale) && elAfter.scale > 0.1) ? elAfter.scale : 1.0;
-        const x = Number.isFinite(elAfter.x) ? elAfter.x : (3 * W) / 4;
-        const y = Number.isFinite(elAfter.y) ? elAfter.y : (isStory ? 350 : 260);
+        const defaultAfterX = isHorizontal ? (W / 2) : ((3 * W) / 4);
+        const defaultAfterY = isHorizontal ? ((H / 2) + (isStory ? 85 : 65)) : (isStory ? 350 : 260);
+
+        const x = Number.isFinite(elAfter.x) ? elAfter.x : defaultAfterX;
+        const y = Number.isFinite(elAfter.y) ? elAfter.y : defaultAfterY;
 
         ctx.font = `900 ${Math.round(24 * scale)}px sans-serif`;
         const text = s.highlightText.trim();
@@ -30036,6 +30251,7 @@ function attachCanvasTouchGestures() {
     // Touch Event Handlers (Smartphone)
     canvas.addEventListener('touchstart', (e) => {
         const s = window._socialStudioState;
+        const isHorizontal = (s.template === 'transformation' && s.splitLayout === 'horizontal');
 
         if (e.touches.length === 1) {
             const coords = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
@@ -30051,7 +30267,11 @@ function attachCanvasTouchGestures() {
                 initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
                 initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
             } else if (s.template === 'transformation') {
-                activePanTarget = coords.x < (canvas.width / 2) ? 'before' : 'after';
+                if (isHorizontal) {
+                    activePanTarget = (coords.y < canvas.height / 2) ? 'before' : 'after';
+                } else {
+                    activePanTarget = (coords.x < canvas.width / 2) ? 'before' : 'after';
+                }
                 isTouchDragging = true;
                 touchDragStartX = coords.x;
                 touchDragStartY = coords.y;
@@ -30071,9 +30291,17 @@ function attachCanvasTouchGestures() {
             if (s.template === 'transformation' && !window._activeSocialElemId) {
                 const c1 = getCanvasCoords(t1.clientX, t1.clientY);
                 const c2 = getCanvasCoords(t2.clientX, t2.clientY);
-                const midX = (c1.x + c2.x) / 2;
 
-                if (midX < canvas.width / 2) {
+                let isBefore = false;
+                if (isHorizontal) {
+                    const midY = (c1.y + c2.y) / 2;
+                    isBefore = (midY < canvas.height / 2);
+                } else {
+                    const midX = (c1.x + c2.x) / 2;
+                    isBefore = (midX < canvas.width / 2);
+                }
+
+                if (isBefore) {
                     pinchTarget = 'before';
                     initialPinchScale = s.beforeZoom || 1.0;
                 } else {
@@ -30151,6 +30379,7 @@ function attachCanvasTouchGestures() {
     canvas.addEventListener('mousedown', (e) => {
         const coords = getCanvasCoords(e.clientX, e.clientY);
         const s = window._socialStudioState;
+        const isHorizontal = (s.template === 'transformation' && s.splitLayout === 'horizontal');
         const hitId = hitTestElement(coords.x, coords.y);
 
         if (hitId) {
@@ -30163,7 +30392,11 @@ function attachCanvasTouchGestures() {
             initialElemX = Number.isFinite(el.x) ? el.x : canvas.width / 2;
             initialElemY = Number.isFinite(el.y) ? el.y : canvas.height / 2;
         } else if (s.template === 'transformation') {
-            activePanTarget = coords.x < (canvas.width / 2) ? 'before' : 'after';
+            if (isHorizontal) {
+                activePanTarget = (coords.y < canvas.height / 2) ? 'before' : 'after';
+            } else {
+                activePanTarget = (coords.x < canvas.width / 2) ? 'before' : 'after';
+            }
             isMouseDown = true;
             touchDragStartX = coords.x;
             touchDragStartY = coords.y;
@@ -30204,17 +30437,24 @@ function attachCanvasTouchGestures() {
         activePanTarget = null;
     });
 
-    // 🖱️ ROTELLINA DEL MOUSE (ZOOM FOTO SUL DESKTOP)
+    // 🖱️ ROTELLINA DEL MOUSE SUL CANVAS (ZOOM IN / OUT)
     canvas.addEventListener('wheel', (e) => {
         const s = window._socialStudioState;
 
         if (s.template === 'transformation' && !window._activeSocialElemId) {
             e.preventDefault();
             const coords = getCanvasCoords(e.clientX, e.clientY);
-            const isLeft = coords.x < (canvas.width / 2);
+            let isBefore = false;
+
+            if (s.splitLayout === 'horizontal') {
+                isBefore = (coords.y < canvas.height / 2);
+            } else {
+                isBefore = (coords.x < canvas.width / 2);
+            }
+
             const delta = e.deltaY < 0 ? 0.08 : -0.08;
 
-            if (isLeft) {
+            if (isBefore) {
                 s.beforeZoom = Math.min(Math.max((s.beforeZoom || 1.0) + delta, 0.4), 4.0);
                 updatePhotoZoomUI('before');
             } else {
