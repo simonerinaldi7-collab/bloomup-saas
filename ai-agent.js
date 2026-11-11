@@ -187,6 +187,10 @@ async function resolveAndLoadAiKey() {
 /**
  * Pipeline di Intelligenza Artificiale Duale: Supporta Google Gemini nativo (AIza...) e OpenRouter (Bearer)
  */
+/**
+ * Pipeline di Intelligenza Artificiale Duale con Failover Automatico a Catena
+ * Supporta Google Gemini nativo (AIza...) e OpenRouter (sk-...) con failover multi-modello
+ */
 async function callAiModelWithFallback(systemPrompt, userQuery) {
     const apiKey = await resolveAndLoadAiKey();
 
@@ -196,74 +200,118 @@ async function callAiModelWithFallback(systemPrompt, userQuery) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
-    // CASO A: Endpoint Google Gemini 2.0 Flash Nativo
+    // =========================================================================
+    // CASO A: Endpoint Google Gemini Nativo (AIza...)
+    // =========================================================================
     if (isGoogleKey) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ parts: [{ text: userQuery }] }],
-                generationConfig: {
-                    temperature: 0.1,
-                    maxOutputTokens: 800,
-                    responseMimeType: "application/json"
+        const geminiCandidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+
+        for (const gModel of geminiCandidateModels) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${gModel}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        system_instruction: { parts: [{ text: systemPrompt }] },
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        generationConfig: {
+                            temperature: 0.1,
+                            maxOutputTokens: 800,
+                            responseMimeType: "application/json"
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
                 }
+            } catch (gErr) {
+                console.warn(`Tentativo Gemini ${gModel} fallito:`, gErr.message);
+            }
+        }
+        throw new Error("Tutti i modelli Google Gemini nativi hanno risposto con errore.");
+    }
+
+    // =========================================================================
+    // CASO B: Endpoint OpenRouter con Catena di Modelli Attivi e Failover
+    // =========================================================================
+    const openRouterModels = [
+        "google/gemini-2.5-flash",
+        "google/gemini-flash-latest",
+        "meta-llama/llama-3.3-70b-instruct",
+        "deepseek/deepseek-chat",
+        "openrouter/auto"
+    ];
+
+    // 1. Primo tentativo con l'array nativo di failover di OpenRouter
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'VaiMUp Agent Core'
+            },
+            body: JSON.stringify({
+                model: openRouterModels[0],
+                models: openRouterModels, // Array di fallback automatico lato server OpenRouter
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userQuery }
+                ],
+                temperature: 0.1,
+                max_tokens: 800
             })
         });
 
-        if (!response.ok) {
-            // Fallback trasparente su gemini-1.5-flash in caso di saturazione temporanea
-            const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            const fbRes = await fetch(fallbackUrl, {
+        if (response.ok) {
+            const data = await response.json();
+            return data.choices?.[0]?.message?.content || "";
+        }
+
+        console.warn(`⚠️ [OpenRouter Status ${response.status}] Failover client-side sequenziale in corso...`);
+    } catch (e) {
+        console.warn("Avviso connessione OpenRouter primario:", e.message);
+    }
+
+    // 2. Failover sequenziale client-side sui modelli di riserva attivi
+    for (let i = 1; i < openRouterModels.length; i++) {
+        const candidateModel = openRouterModels[i];
+        try {
+            console.log(`🔄 [OpenRouter Retry] Tentativo con: ${candidateModel}...`);
+            const retryRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'VaiMUp Agent Core'
+                },
                 body: JSON.stringify({
-                    system_instruction: { parts: [{ text: systemPrompt }] },
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 800, responseMimeType: "application/json" }
+                    model: candidateModel,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userQuery }
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 800
                 })
             });
 
-            if (!fbRes.ok) {
-                const errText = await fbRes.text();
-                throw new Error(`Gemini HTTP Error: ${errText}`);
+            if (retryRes.ok) {
+                const fbData = await retryRes.json();
+                console.log(`✅ [OpenRouter Success] Risposta ricevuta da: ${candidateModel}`);
+                return fbData.choices?.[0]?.message?.content || "";
             }
-            const fbData = await fbRes.json();
-            return fbData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } catch (retryErr) {
+            console.warn(`Tentativo con ${candidateModel} fallito:`, retryErr.message);
         }
-
-        const data = await response.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
 
-    // CASO B: Endpoint OpenRouter Multi-Provider
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': window.location.origin,
-            'X-Title': 'VaiMUp Agent Core'
-        },
-        body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001",
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userQuery }
-            ],
-            temperature: 0.1,
-            max_tokens: 800
-        })
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`OpenRouter HTTP Error ${response.status}: ${errText}`);
-    }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "";
+    throw new Error("Tutti i provider OpenRouter della catena di fallback sono momentaneamente non disponibili.");
 }
 /**
  * Salvataggio manuale istantaneo della chiave API su Supabase Cloud e Dexie
