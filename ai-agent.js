@@ -3,6 +3,7 @@
 // Local-First Dexie.js + Supabase Multi-Tenant Architecture
 // =========================================================================
 
+// Inizializzazione sicura del contesto agente
 if (!window._aiAgentContext) {
     window._aiAgentContext = {
         lastCustomer: null,
@@ -130,7 +131,6 @@ async function callAgentBrain(messages) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
-    // Endpoint Google Gemini Nativo
     if (isGoogleKey) {
         const geminiModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const gModel of geminiModels) {
@@ -160,7 +160,6 @@ async function callAgentBrain(messages) {
         throw new Error("Errore comunicazione Gemini nativo.");
     }
 
-    // Endpoint OpenRouter
     const candidateModels = [
         "meta-llama/llama-3.3-70b-instruct",
         "openrouter/auto",
@@ -210,7 +209,7 @@ function sanitizeJson(raw) {
 window.sanitizeJson = sanitizeJson;
 
 // -------------------------------------------------------------------------
-// 4. RISOLUTORI NATURALI DETERMINISTICI (TEMPORAL & PARSING)
+// 4. RISOLUTORE TEMPORALE CORRETTO (DOPODOMANI HA PRECEDENZA SU DOMANI)
 // -------------------------------------------------------------------------
 function resolveNaturalDate(dateInput) {
     if (!dateInput) return new Date().toISOString().split('T')[0];
@@ -219,17 +218,18 @@ function resolveNaturalDate(dateInput) {
     const pad = (n) => String(n).padStart(2, '0');
     const toYmd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    if (clean === 'domani' || clean.includes('domani')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 1);
-        return toYmd(d);
-    }
-    if (clean === 'dopodomani' || clean.includes('dopodomani')) {
+    // 🛑 "DOPODOMANI" DEVE ESSERE CONTROLLATO TASSATIVAMENTE PRIMA DI "DOMANI"!
+    if (clean.includes('dopodomani') || clean.includes('dopo domani')) {
         const d = new Date(now);
         d.setDate(d.getDate() + 2);
         return toYmd(d);
     }
-    if (clean === 'oggi' || clean.includes('oggi')) {
+    if (clean.includes('domani')) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + 1);
+        return toYmd(d);
+    }
+    if (clean.includes('oggi') || clean.includes('stasera')) {
         return toYmd(now);
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
@@ -329,7 +329,7 @@ async function tool_query_db(rawParams = {}) {
 
     let results = records;
 
-    // 🛑 1. FILTRO FONDAMENTALE SULL'AGENDA: ESCLUDE TASSATIVAMENTE LE PAUSE E LE FERIE
+    // 🛑 FILTRO AGENDA: ESCLUDE PAUSE PRANZO E CHIUSURE
     if (table === 'appointments') {
         results = results.filter(a => {
             const cust = (a.cust_name || '').toLowerCase();
@@ -340,7 +340,7 @@ async function tool_query_db(rawParams = {}) {
         });
     }
 
-    // 2. RICERCA TOKENIZZATA CLIENTE
+    // Ricerca Tokenizzata Cliente
     if (searchTarget) {
         const cleanSearch = String(searchTarget).toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
         const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 1);
@@ -527,13 +527,13 @@ window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
  * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL e Grounding Relazionale Completo
+ * Risolve date ("domani", "dopodomani"), mantiene durata e orario precedente se non modificati
  */
 async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
     let action = (params.action || 'INSERT').toUpperCase();
     const table = params.table || 'appointments';
     
-    // Supporta parametri piatti passati direttamente o dentro data: {}
     let data = params.data || {};
     if (params.cust_name && !data.cust_name) data.cust_name = params.cust_name;
     if (params.customer && !data.cust_name) data.cust_name = params.customer;
@@ -548,51 +548,76 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const lastApp = window._aiAgentContext.lastAppointment;
     const q = (rawUserQuery || '').toLowerCase();
 
-    // 🔍 DETERMINAZIONE RELAZIONALE PREVENTIVA DELL'APPUNTAMENTO DA MODIFICARE
+    // 🔍 DETERMINAZIONE DIRETTA DELL'APPUNTAMENTO DA MODIFICARE
     if (table === 'appointments') {
-        const queryDate = resolveNaturalDate(data.date || (q.includes('domani') ? 'domani' : (lastApp ? lastApp.date : 'oggi')));
-        const queryCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer);
-
-        const isExplicitUpdate = (action === 'UPDATE') || q.includes('durata') || q.includes('spost') || q.includes('modifica') || q.includes('cambia');
+        const isExplicitUpdate = (action === 'UPDATE') || q.includes('spost') || q.includes('durata') || q.includes('modifica') || q.includes('cambia');
 
         if (isExplicitUpdate) {
             action = 'UPDATE';
 
-            // Cerchiamo nel DB l'appuntamento reale
             const appointmentsInDb = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-            const customersInDb = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-
             let realApp = null;
+
             if (targetId) {
                 realApp = appointmentsInDb.find(a => String(a.id) === String(targetId));
-            }
-            if (!realApp && queryCust) {
-                const dayApps = appointmentsInDb.filter(a => a.date === queryDate);
-                realApp = dayApps.find(a => {
-                    const custClean = (a.cust_name || '').toLowerCase();
-                    return custClean.includes(queryCust.toLowerCase()) || queryCust.toLowerCase().includes(custClean);
-                });
             }
             if (!realApp && lastApp) {
                 realApp = appointmentsInDb.find(a => String(a.id) === String(lastApp.id)) || lastApp;
             }
+            if (!realApp) {
+                const queryCust = data.cust_name || window._aiAgentContext.lastCustomer;
+                if (queryCust) {
+                    const matched = appointmentsInDb.filter(a => (a.cust_name || '').toLowerCase().includes(queryCust.toLowerCase()));
+                    realApp = matched.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
+                }
+            }
 
-            // Se abbiamo trovato l'appuntamento reale nel DB, fondiamo i dati reali!
             if (realApp) {
                 targetId = realApp.id;
-                data.cust_name = realApp.cust_name;
-                data.date = realApp.date;
-                data.time = realApp.time;
-                data.service = realApp.service;
-                data.assigned_user = realApp.assigned_user;
+
+                // 🌟 MANTIENE I DATI REALI COME BASE, MA NON SOVRASCRIVE SE L'UTENTE HA CHIESTO UNA NUOVA DATA/ORA!
+                data.cust_name = data.cust_name || realApp.cust_name;
+                data.service = data.service || realApp.service;
+                data.assigned_user = data.assigned_user || realApp.assigned_user;
                 data.price = realApp.price;
-                data.end_time = realApp.end_time;
                 data.notes = realApp.notes;
 
-                // Aggiorniamo la memoria contestuale
-                window._aiAgentContext.lastAppointment = { ...realApp };
-                window._aiAgentContext.lastAppointmentId = realApp.id;
-                window._aiAgentContext.lastCustomer = realApp.cust_name;
+                // Calcolo durata precedente (es. 90 min)
+                let baseDurationMin = 60;
+                if (realApp.time && realApp.end_time) {
+                    const [sH_prev, sM_prev] = realApp.time.split(':').map(Number);
+                    const [eH_prev, eM_prev] = realApp.end_time.split(':').map(Number);
+                    const diff = (eH_prev * 60 + eM_prev) - (sH_prev * 60 + sM_prev);
+                    if (diff > 0) baseDurationMin = diff;
+                }
+
+                // 🌟 GESTIONE DATA: Se l'utente ha chiesto esplicitamente una data (es. "dopodomani", "venerdì", "domani")
+                if (q.includes('dopodomani') || q.includes('dopo domani')) {
+                    data.date = resolveNaturalDate('dopodomani');
+                } else if (q.includes('domani')) {
+                    data.date = resolveNaturalDate('domani');
+                } else if (params.date || data.date) {
+                    data.date = resolveNaturalDate(params.date || data.date);
+                } else {
+                    data.date = realApp.date; // Mantiene la data precedente
+                }
+
+                // 🌟 GESTIONE ORARIO: Se chiede "stesso orario", mantiene l'ora precedente!
+                if (q.includes('stesso orario') || q.includes('stessa ora') || (!params.time && !data.time)) {
+                    data.time = realApp.time;
+                } else {
+                    data.time = resolveNaturalTime(params.time || data.time);
+                }
+
+                // 🌟 GESTIONE DURATA: Se chiede una nuova durata, la imposta; altrimenti MANTIENE LA DURATA PRECEDENTE!
+                const extractedDuration = parseDurationMinutesFromText(q) || parseDurationMinutesFromText(params.duration);
+                const finalDuration = extractedDuration ? extractedDuration : baseDurationMin;
+
+                // Ricalcolo orario di fine matematico a partire dall'ora d'inizio
+                const [sH, sM] = data.time.split(':').map(Number);
+                const endTotal = (sH * 60 + sM) + finalDuration;
+                data.end_time = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
+                data.calculated_duration = finalDuration;
             }
         }
     }
@@ -600,80 +625,43 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     let warnings = [];
     let summaryText = "";
 
-    // GESTIONE DATI APPUNTAMENTO
+    // NORMALIZZAZIONE FINALE APPUNTAMENTO
     if (table === 'appointments') {
         const rawCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer) || 'Cliente';
-        const rawDate = data.date || (lastApp ? lastApp.date : 'oggi');
-        const rawTime = data.time || (lastApp ? lastApp.time : '09:00');
+        const rawDate = resolveNaturalDate(data.date || (lastApp ? lastApp.date : 'oggi'));
+        const rawTime = resolveNaturalTime(data.time || (lastApp ? lastApp.time : '09:00'));
         const rawService = data.service || (lastApp ? lastApp.service : 'Trattamento');
         const rawOperator = data.assigned_user || (lastApp ? lastApp.assigned_user : (currentUser ? currentUser.username : 'admin'));
 
-        const resolvedDate = resolveNaturalDate(rawDate);
-        const resolvedTime = resolveNaturalTime(rawTime);
-
-        // Risoluzione Servizio da Magazzino
-        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-        const cleanSrvQuery = String(rawService).toLowerCase().trim();
-
-        let matchedService = inventory.find(i => i.type === 'servizio' && (
-            i.name.toLowerCase() === cleanSrvQuery ||
-            i.name.toLowerCase().includes(cleanSrvQuery) ||
-            cleanSrvQuery.includes(i.name.toLowerCase())
-        ));
-
-        if (!matchedService && cleanSrvQuery.includes('pied')) {
-            matchedService = inventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes('pedicure') || i.name.toLowerCase().includes('pied')));
-        } else if (!matchedService && (cleanSrvQuery.includes('man') || cleanSrvQuery.includes('ungh'))) {
-            matchedService = inventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes('manicure') || i.name.toLowerCase().includes('semipermanente')));
+        let durationMin = data.calculated_duration || 60;
+        if (!data.calculated_duration) {
+            const extractedDur = parseDurationMinutesFromText(q);
+            if (extractedDur) durationMin = extractedDur;
         }
 
-        const serviceFinalName = matchedService ? matchedService.name : rawService;
-        let durationMin = matchedService && matchedService.duration_minutes ? parseInt(matchedService.duration_minutes, 10) : 60;
-
-        // Calcolo della durata richiesta dall'utente (es. "aumenta la durata a 1 ora e mezza" = 90 min)
-        const extractedDuration = parseDurationMinutesFromText(q) || parseDurationMinutesFromText(data.duration);
-        if (extractedDuration) {
-            durationMin = extractedDuration;
-        } else if (action === 'UPDATE' && data.end_time && data.time) {
-            const [sH_prev, sM_prev] = data.time.split(':').map(Number);
-            const [eH_prev, eM_prev] = data.end_time.split(':').map(Number);
-            const prevDur = (eH_prev * 60 + eM_prev) - (sH_prev * 60 + sM_prev);
-            if (prevDur > 0) durationMin = prevDur;
-        }
-
-        // Calcolo nuovo orario di fine
-        const [sH, sM] = resolvedTime.split(':').map(Number);
+        const [sH, sM] = rawTime.split(':').map(Number);
         const endTotal = (sH * 60 + sM) + durationMin;
-        const resolvedEndTime = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
-
-        // Calcolo prezzo
-        let finalPrice = 0;
-        if (matchedService) {
-            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: matchedService.id });
-            finalPrice = pInfo ? (parseFloat(pInfo.price) || 0) : (parseFloat(matchedService.price) || 0);
-        } else if (data.price) {
-            finalPrice = parseFloat(data.price) || 0;
-        }
+        const resolvedEndTime = data.end_time || `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
 
         // Convalida turni operatore
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-        const dateObj = new Date(resolvedDate + 'T00:00:00');
+        const dateObj = new Date(rawDate + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
         const sched = schedules.find(s => (s.username || '').toLowerCase() === rawOperator.toLowerCase() && Number(s.day_of_week) === dayOfWeek);
 
         if (!sched || Number(sched.is_working) !== 1) {
-            warnings.push(`⚠️ L'operatore <b>${rawOperator}</b> risulta a riposo in data ${resolvedDate}.`);
+            warnings.push(`⚠️ L'operatore <b>${rawOperator}</b> risulta a riposo in data ${rawDate}.`);
         }
 
         // Convalida sovrapposizioni agenda
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const conflict = existingApps.find(a => {
             if (targetId && String(a.id) === String(targetId)) return false;
-            if (a.date !== resolvedDate) return false;
+            if (a.date !== rawDate) return false;
             if ((a.assigned_user || 'admin').toLowerCase() !== rawOperator.toLowerCase()) return false;
             const aStart = (a.time || '00:00').substring(0, 5);
             const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
-            return resolvedTime < aEnd && resolvedEndTime > aStart;
+            return rawTime < aEnd && resolvedEndTime > aStart;
         });
 
         if (conflict) {
@@ -682,19 +670,19 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 
         data = {
             cust_name: rawCust,
-            date: resolvedDate,
-            time: resolvedTime,
+            date: rawDate,
+            time: rawTime,
             end_time: resolvedEndTime,
-            service: serviceFinalName,
-            price: finalPrice,
+            service: rawService,
+            price: data.price || 0,
             assigned_user: rawOperator,
             notes: data.notes || (action === 'UPDATE' ? 'Modificato tramite Assistente IA' : 'Creato tramite Assistente IA (HITL Confermato)')
         };
 
         if (action === 'UPDATE') {
-            summaryText = `Modifica appuntamento di **${data.cust_name}** del **${data.date}**: nuova durata di ${durationMin} min (dalle **${data.time}** alle **${data.end_time}**)`;
+            summaryText = `Spostamento/Modifica appuntamento di **${data.cust_name}**: data **${data.date}**, orario **${data.time} - ${data.end_time}** (durata: ${durationMin} min)`;
         } else {
-            summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user}, Prezzo: € ${data.price.toFixed(2)})`;
+            summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user})`;
         }
     } 
     else if (table === 'expenses') {
@@ -809,9 +797,9 @@ async function processAiAgentQuery(userQuery) {
         if (isStrictApproval) return await confirmAiPendingAction();
         if (isStrictCancel) return cancelAiPendingAction();
 
-        // Se l'utente scrive "No, modifica...", "Aumenta...", non è una revoca ma una variazione dei parametri!
-        if (q.startsWith('no ') || q.includes('invece') || q.includes('durata') || q.includes('spost')) {
-            window._aiAgentContext.pendingAction = null; // Rilascia per formulare la nuova proposta corretta
+        // Se l'utente scrive "spostalo", "cambia", "dopodomani", aggiorna direttamente l'azione
+        if (q.includes('spost') || q.includes('durata') || q.includes('dopodomani') || q.includes('domani') || q.includes('invece')) {
+            window._aiAgentContext.pendingAction = null;
         } else {
             return `⚠️ C'è un'operazione in attesa di conferma:\n*${window._aiAgentContext.pendingAction.summary}*\n\nRispondi **"Conferma"** per procedere oppure tocca i pulsanti a schermo.`;
         }
@@ -858,10 +846,10 @@ HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${VAIMUP_APP_MANUAL}
 
-ISTRUZIONI SEVERISSIME PER MODIFICHE E DURATA ("aumenta la durata...", "spostalo...", "cambialo...", "modifica l'appuntamento..."):
-- NON USARE MAI stringhe segnaposto come "Cliente", "Servizio esistente" o "Utente assegnato".
-- Se l'utente chiede di modificare la durata o spostare l'appuntamento creato o citato in memoria, chiama "propose_write" impostando action="UPDATE", table="appointments", id="${lastApp?.id || ''}".
-- Eredita cliente ("${lastApp?.cust_name || ''}"), data ("${lastApp?.date || ''}"), ora inizio ("${lastApp?.time || ''}") e servizio ("${lastApp?.service || ''}").
+ISTRUZIONI SEVERISSIME PER SPOSTAMENTI E MODIFICHE ("spostalo a dopodomani", "aumenta durata..."):
+- Se l'utente dice "spostalo a dopodomani stesso orario", chiama "propose_write" con:
+  action="UPDATE", table="appointments", id="${lastApp?.id || ''}", data: { date: "dopodomani", time: "${lastApp?.time || '15:00'}" }
+- Mantieni sempre l'orario e la durata precedente se non diversamente specificato.
 
 FORMATO RISPOSTA (SOLO JSON):
 Per usare un tool:
@@ -874,7 +862,7 @@ Per usare un tool:
 Per risposta diretta:
 {
   "thought": "Risposta diretta",
-  "answer": "Testo risposta in italiano professionale rivolto al gestore del salone..."
+  "answer": "Testo risposta in italiano professionale..."
 }`;
 
     // 4. FASE 1: RAGIONAMENTO E TOOL SELECTION
@@ -910,7 +898,6 @@ Per risposta diretta:
 
         const toolResult = await executeAgentToolCall(firstDecision, rawQuery);
 
-        // Se è una proposta di scrittura con conferma HITL
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
             const details = sim.payload_details || {};
@@ -932,7 +919,6 @@ Per risposta diretta:
                 `</div>`;
         }
 
-        // Sintesi finale per query di lettura
         const synthesisPrompt = `Hai interrogato il database locale con il tool "${firstDecision.tool}".
 Risultati reali estratti dal database:
 ${JSON.stringify(toolResult, null, 2)}
@@ -942,8 +928,8 @@ Cliente di riferimento in memoria: "${window._aiAgentContext.lastCustomer || 'Ne
 
 ISTRUZIONI PER LA RISPOSTA FINALE:
 - Ti stai rivolgendo al TITOLARE o allo STAFF del salone (NON al cliente finale!). Usa un tono da copilota aziendale.
-- Se cercavi appuntamenti futuri e non ce ne sono (future_appointments_count = 0), ma ci sono appuntamenti passati (past_appointments_count > 0), fallo presente indicando la data dell'ultimo completato!
-- Se chiedeva appuntamenti passati, elenca con chiarezza quelli trovati (data, orario, trattamento, operatore).
+- Se cercavi appuntamenti futuri e non ce ne sono, ma ci sono appuntamenti passati, indicalo con precisione!
+- Se chiedeva appuntamenti passati, elenca con chiarezza quelli trovati.
 - Se chiedeva gli appuntamenti del mese scorso, elenca quelli trovati per quel periodo.
 - Se è una simulazione What-If, spiega con precisione il servizio identificato, l'aumento proposto e il guadagno stimato.
 - Non inventare mai dati non presenti nei risultati.`;
