@@ -171,13 +171,24 @@ function resolveItalianNaturalDate(queryStr, referenceDate = new Date()) {
 }
 
 /**
+ * Risoluzione e recupero proattivo della chiave API con supporto Gemini nativo & OpenRouter
+ */
+async function resolveAndLoadAiKey() {
+    if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
+        return window._runtimeAiKey;
+    }
+    if (typeof loadSecureAiKey === 'function') {
+        const key = await loadSecureAiKey();
+        if (key) return key;
+    }
+    return null;
+}
+
+/**
  * Pipeline di Intelligenza Artificiale Duale: Supporta Google Gemini nativo (AIza...) e OpenRouter (Bearer)
  */
 async function callAiModelWithFallback(systemPrompt, userQuery) {
-    if (!window._runtimeAiKey && typeof loadSecureAiKey === 'function') {
-        await loadSecureAiKey();
-    }
-    const apiKey = window._runtimeAiKey || (window.AI_SECRET_CONFIG && window.AI_SECRET_CONFIG.geminiKey);
+    const apiKey = await resolveAndLoadAiKey();
 
     if (!apiKey || apiKey.includes("INSERISCI")) {
         throw new Error("API_KEY_MISSING");
@@ -203,9 +214,26 @@ async function callAiModelWithFallback(systemPrompt, userQuery) {
         });
 
         if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Gemini HTTP Error ${response.status}: ${errText}`);
+            // Fallback trasparente su gemini-1.5-flash in caso di saturazione temporanea
+            const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const fbRes = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    generationConfig: { temperature: 0.1, maxOutputTokens: 800, responseMimeType: "application/json" }
+                })
+            });
+
+            if (!fbRes.ok) {
+                const errText = await fbRes.text();
+                throw new Error(`Gemini HTTP Error: ${errText}`);
+            }
+            const fbData = await fbRes.json();
+            return fbData.candidates?.[0]?.content?.parts?.[0]?.text || "";
         }
+
         const data = await response.json();
         return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
@@ -237,6 +265,84 @@ async function callAiModelWithFallback(systemPrompt, userQuery) {
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
 }
+/**
+ * Salvataggio manuale istantaneo della chiave API su Supabase Cloud e Dexie
+ */
+async function saveAiApiKey(newKey) {
+    if (!newKey || newKey.trim().length < 15) {
+        alert("Inserisci una chiave API valida (es. Google Gemini che inizia per 'AIza...' o OpenRouter che inizia per 'sk-or-...')");
+        return false;
+    }
+    const cleanKey = newKey.trim();
+    const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id)
+        ? currentUser.salon_id
+        : 'SALON_001';
+
+    window._runtimeAiKey = cleanKey;
+    localStorage.setItem('vaimup_ai_runtime_key', cleanKey);
+    localStorage.setItem(`vaimup_ai_key_${currentSalon.toLowerCase()}`, cleanKey);
+
+    if (typeof sysSettings !== 'undefined') {
+        sysSettings['gemini_api_key'] = cleanKey;
+    }
+
+    // 1. Salvataggio locale in Dexie
+    if (typeof localDb !== 'undefined' && localDb && localDb.settings) {
+        await localDb.settings.put({
+            key: 'gemini_api_key',
+            value: cleanKey,
+            salon_id: currentSalon,
+            updated_at: new Date().toISOString()
+        });
+    }
+
+    // 2. Salvataggio su Supabase Cloud
+    const supUrl = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url) || 'https://uartaeqbcfxxsyksbnty.supabase.co';
+    const supKey = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.key) || 'sb_publishable_Yc8oSL4T29eecI39CLxiOg_3W1sbyYz';
+
+    if (navigator.onLine && supUrl && supKey) {
+        try {
+            await fetch(`${supUrl}/rest/v1/settings?on_conflict=key,salon_id`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supKey,
+                    'Authorization': 'Bearer ' + supKey,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                    key: 'gemini_api_key',
+                    value: cleanKey,
+                    salon_id: currentSalon,
+                    updated_at: new Date().toISOString()
+                })
+            });
+            console.log("☁️ [AI KEY SYNC] Chiave sincronizzata con successo su Supabase.");
+        } catch (e) {
+            console.warn("Avviso sincronizzazione cloud chiave IA:", e);
+        }
+    }
+    return true;
+}
+window.saveAiApiKey = saveAiApiKey;
+
+/**
+ * Prompt interattivo per inserire la chiave API direttamente dalla chat
+ */
+window.promptConfigureAiKey = async function() {
+    const key = prompt("Incolla qui la tua chiave API (Google Gemini 'AIza...' o OpenRouter 'sk-...'):");
+    if (!key) return;
+
+    const ok = await saveAiApiKey(key);
+    if (ok) {
+        alert("✅ Chiave API memorizzata con successo!\nOra l'Assistente IA di VaiMUp è attivo e pronto a rispondere.");
+        if (typeof sendAIQuery === 'function') {
+            const input = document.getElementById('ai-user-input');
+            if (input && !input.value) input.value = "Chi ho in agenda per oggi?";
+            sendAIQuery();
+        }
+    }
+};
 
 /**
  * Gestore principale delle query utente per VaiMUp Agent Core
@@ -310,15 +416,18 @@ Servizi noti: ${JSON.stringify(services.map(s => s.name).slice(0, 30))}.
 Prodotti noti: ${JSON.stringify(products.map(p => p.name).slice(0, 30))}.
 Operatori disponibili: ${JSON.stringify(operatorNames)}.`;
 
-    let parsed = null;
+   let parsed = null;
     try {
         const rawResponse = await callAiModelWithFallback(systemPrompt, rawQuery);
         parsed = extractAndSanitizeJson(rawResponse);
     } catch (err) {
+        if (err.message === "API_KEY_MISSING") {
+            // Risposta formale e pulita: nessun input o chiave mostrata a video
+            return "🤖 Il servizio di intelligenza artificiale non è al momento abilitato per questa postazione. Contatta l'amministratore del sistema per l'attivazione.";
+        }
         console.warn("⚠️ [AI Pipeline Warning] Fallback locale attivato:", err.message);
         parsed = fallbackHeuristicIntentClassifier(q, todayStr);
     }
-
     if (!parsed) {
         parsed = fallbackHeuristicIntentClassifier(q, todayStr);
     }

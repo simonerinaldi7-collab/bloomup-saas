@@ -134,54 +134,115 @@ function startBackgroundMultiOperatorSync() {
     });
 }
 
+// =========================================================================
+// 🔒 RECUPERO CHIAVE IA SILENZIOSO DAL DATABASE (ZERO ESPOSIZIONE UI)
+// =========================================================================
+
 window._runtimeAiKey = null;
 
 async function loadSecureAiKey() {
     try {
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
-        if (!salonId) return;
-
-        let apiKeyVal = null;
-
-        // 1. Lettura locale su Dexie (Tabella settings)
-        if (localDb && localDb.settings) {
-            const localSetting = await localDb.settings.get('gemini_api_key');
-            if (localSetting && localSetting.value) {
-                apiKeyVal = localSetting.value;
-            }
+        // 1. Se già caricata nella memoria volatile RAM, usala all'istante
+        if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
+            return window._runtimeAiKey;
         }
 
-        // 2. Se assente e online, recupera da Supabase Cloud
-        if (!apiKeyVal && navigator.onLine && typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+        const currentSalon = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id)
+            ? String(currentUser.salon_id).trim()
+            : 'SALON_001';
+        const currentSalonLower = currentSalon.toLowerCase();
+
+        // 2. Verifica in Dexie locale (Tabella settings)
+        if (localDb && localDb.settings) {
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.gemini_api_key&salon_id=eq.${salonId}&select=value`, {
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY
-                    }
-                });
-                if (res.ok) {
-                    const rows = await res.json();
-                    if (rows && rows.length > 0 && rows[0].value) {
-                        apiKeyVal = rows[0].value;
-                        if (localDb && localDb.settings) {
-                            await localDb.settings.put({ key: 'gemini_api_key', value: apiKeyVal, salon_id: salonId });
-                        }
+                const localSettings = await localDb.settings.toArray();
+                for (const s of localSettings) {
+                    const k = (s.key || '').toLowerCase();
+                    const v = s.value;
+                    const isSalonMatch = !s.salon_id || String(s.salon_id).trim().toLowerCase() === currentSalonLower;
+                    if (isSalonMatch && typeof v === 'string' && (k.includes('gemini') || k.includes('openrouter') || k.includes('ai') || k.includes('api_key')) && v.length > 15 && !v.includes("INSERISCI")) {
+                        window._runtimeAiKey = v.trim();
+                        return window._runtimeAiKey;
                     }
                 }
-            } catch (cloudErr) {
-                console.warn("Impossibile recuperare la chiave IA dal cloud:", cloudErr);
+            } catch (dexErr) {
+                console.warn("Avviso lettura locale settings:", dexErr);
             }
         }
 
-        if (apiKeyVal) {
-            window._runtimeAiKey = apiKeyVal;
-            console.log("✅ [AI KEY] Chiave di sicurezza caricata in memoria.");
+        // 3. Interrogazione Silenziosa su Supabase Cloud (Tabella settings)
+        const supUrl = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : (window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : null);
+        const supKey = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : (window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.key : null);
+
+        if (navigator.onLine && supUrl && supKey) {
+            // Scarica tutte le righe di impostazione per intercettare qualsiasi denominazione o salon_id (anche NULL/Globale)
+            const res = await fetch(`${supUrl}/rest/v1/settings?select=key,value,salon_id`, {
+                headers: {
+                    'apikey': supKey,
+                    'Authorization': 'Bearer ' + supKey,
+                    'Cache-Control': 'no-cache'
+                }
+            });
+
+            if (res.ok) {
+                const rows = await res.json();
+                if (Array.isArray(rows) && rows.length > 0) {
+                    let detectedKey = null;
+
+                    // Priorità 1: Cerca corrispondenza esatta per il salone corrente
+                    for (const r of rows) {
+                        const rSalon = r.salon_id ? String(r.salon_id).trim().toLowerCase() : '';
+                        const k = (r.key || '').toLowerCase();
+                        const v = r.value;
+
+                        if (rSalon === currentSalonLower && typeof v === 'string' && (k.includes('gemini') || k.includes('openrouter') || k.includes('ai') || k.includes('api_key')) && v.length > 15 && !v.includes("INSERISCI")) {
+                            detectedKey = v.trim();
+                            break;
+                        }
+                    }
+
+                    // Priorità 2: Cerca impostazione globale (salon_id nullo o vuoto) o prefisso noto (AIza... o sk-...)
+                    if (!detectedKey) {
+                        for (const r of rows) {
+                            const k = (r.key || '').toLowerCase();
+                            const v = r.value;
+                            if (typeof v === 'string' && v.length > 15 && !v.includes("INSERISCI")) {
+                                const isAiName = k.includes('gemini') || k.includes('openrouter') || k.includes('ai_key') || k.includes('api_key');
+                                const isAiPrefix = v.startsWith('AIza') || v.startsWith('sk-');
+                                if (isAiName || isAiPrefix) {
+                                    detectedKey = v.trim();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (detectedKey) {
+                        window._runtimeAiKey = detectedKey;
+
+                        // Salva silenziosamente in Dexie per renderlo disponibile offline
+                        if (localDb && localDb.settings) {
+                            await localDb.settings.put({
+                                key: 'gemini_api_key',
+                                value: detectedKey,
+                                salon_id: currentSalon,
+                                updated_at: new Date().toISOString()
+                            }).catch(() => {});
+                        }
+
+                        console.log("✅ [SECURE AI ENGINE] Chiave IA caricata con successo dal database in memoria volatile.");
+                        return window._runtimeAiKey;
+                    }
+                }
+            }
         }
     } catch (e) {
-        console.error("Errore critico in loadSecureAiKey:", e);
+        console.warn("Avviso recupero chiave IA dal database:", e);
     }
+
+    return window._runtimeAiKey;
 }
+window.loadSecureAiKey = loadSecureAiKey;
 
 // 👥 Estrae i clienti del salone corrente + i clienti dei pacchetti condivisi
 async function getVisibleCustomersForSalon(salonId) {
