@@ -11,7 +11,8 @@ if (!window._aiAgentContext) {
         lastProduct: null,
         lastDate: null,
         lastAppointmentId: null,
-        pendingAction: null // Human-In-The-Loop safety gate state
+        lastAppointment: null, // Oggetto completo dell'ultimo appuntamento gestito
+        pendingAction: null    // Human-In-The-Loop safety gate state
     };
 }
 
@@ -133,7 +134,6 @@ async function callAgentBrain(messages) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
-    // Endpoint Google Gemini Nativo
     if (isGoogleKey) {
         const geminiModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const gModel of geminiModels) {
@@ -241,7 +241,6 @@ function resolveNaturalDate(dateInput) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
         return clean;
     }
-    // Formato GG/MM o GG-MM
     const match = clean.match(/(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?/);
     if (match) {
         const day = parseInt(match[1], 10);
@@ -256,7 +255,6 @@ function resolveNaturalDate(dateInput) {
 function resolveNaturalTime(timeInput) {
     if (!timeInput) return "09:00";
     let clean = String(timeInput).toLowerCase().trim();
-    // Se è solo un numero (es. "15" -> "15:00")
     if (/^\d{1,2}$/.test(clean)) {
         const h = parseInt(clean, 10);
         return `${String(h).padStart(2, '0')}:00`;
@@ -515,42 +513,67 @@ window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
  * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL
- * Normalizza automaticamente date colloquiali, durata, orario di fine, operatore e prezzi
+ * Con scudo contestuale anti-placeholder (eredita automaticamente i dati dell'ultimo appuntamento gestito)
  */
-async function tool_propose_write(rawParams = {}) {
+async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
-    const action = params.action || 'INSERT';
+    let action = (params.action || 'INSERT').toUpperCase();
     const table = params.table || 'appointments';
     let data = params.data || {};
-    const id = params.id || null;
+    let targetId = params.id || null;
 
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
+    const lastApp = window._aiAgentContext.lastAppointment;
+    const q = (rawUserQuery || '').toLowerCase();
+
+    // 🛡️ SCUDO ANTI-PLACEHOLDER CONTESTUALE:
+    // Se l'utente sta modificando un appuntamento appena creato o discusso, o se l'LLM ha generato segnaposto ("Cliente", "Servizio esistente", "Utente assegnato")
+    const isFollowUpModification = (action === 'UPDATE') || 
+        Boolean(lastApp && (
+            q.includes('durata') || q.includes('spost') || q.includes('modifica') || q.includes('cambia') ||
+            !data.cust_name || data.cust_name === 'Cliente' ||
+            !data.service || data.service === 'Servizio esistente' ||
+            !data.assigned_user || data.assigned_user === 'Utente assegnato'
+        ));
+
+    if (isFollowUpModification && lastApp) {
+        action = 'UPDATE';
+        targetId = lastApp.id;
+
+        // Eredita tutti i dati reali dell'appuntamento attivo
+        if (!data.cust_name || data.cust_name === 'Cliente') data.cust_name = lastApp.cust_name;
+        if (!data.date || data.date === new Date().toISOString().split('T')[0]) data.date = lastApp.date;
+        if (!data.time) data.time = lastApp.time;
+        if (!data.service || data.service === 'Servizio esistente') data.service = lastApp.service;
+        if (!data.assigned_user || data.assigned_user === 'Utente assegnato') data.assigned_user = lastApp.assigned_user;
+        if (!data.price) data.price = lastApp.price;
+        if (!data.end_time) data.end_time = lastApp.end_time;
+    }
 
     let warnings = [];
     let summaryText = "";
 
     // NORMALIZZAZIONE APPROFONDITA PER GLI APPUNTAMENTI
     if (table === 'appointments') {
-        const rawCust = data.cust_name || data.customer || data.customerName || window._aiAgentContext.lastCustomer || 'Cliente';
-        const rawDate = data.date || data.data || 'oggi';
-        const rawTime = data.time || data.ora || data.orario || '09:00';
-        const rawService = data.service || data.servizio || 'Trattamento';
-        const rawOperator = data.assigned_user || data.operator || (currentUser ? currentUser.username : 'admin');
+        const rawCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer) || 'Cliente';
+        const rawDate = data.date || (lastApp ? lastApp.date : 'oggi');
+        const rawTime = data.time || (lastApp ? lastApp.time : '09:00');
+        const rawService = data.service || (lastApp ? lastApp.service : 'Trattamento');
+        const rawOperator = data.assigned_user || (lastApp ? lastApp.assigned_user : (currentUser ? currentUser.username : 'admin'));
 
         const resolvedDate = resolveNaturalDate(rawDate);
         const resolvedTime = resolveNaturalTime(rawTime);
 
-        // Risoluzione intelligente del servizio in magazzino (es. "piedi" -> "Pedicure")
+        // Risoluzione servizio da magazzino
         const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
         const cleanSrvQuery = String(rawService).toLowerCase().trim();
-        
+
         let matchedService = inventory.find(i => i.type === 'servizio' && (
             i.name.toLowerCase() === cleanSrvQuery ||
             i.name.toLowerCase().includes(cleanSrvQuery) ||
             cleanSrvQuery.includes(i.name.toLowerCase())
         ));
 
-        // Se cerca parole generiche legate all'estetica (es. "piedi", "mani", "unghie")
         if (!matchedService && cleanSrvQuery.includes('pied')) {
             matchedService = inventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes('pedicure') || i.name.toLowerCase().includes('pied')));
         } else if (!matchedService && (cleanSrvQuery.includes('man') || cleanSrvQuery.includes('ungh'))) {
@@ -558,14 +581,28 @@ async function tool_propose_write(rawParams = {}) {
         }
 
         const serviceFinalName = matchedService ? matchedService.name : rawService;
-        const durationMin = matchedService && matchedService.duration_minutes ? parseInt(matchedService.duration_minutes, 10) : 60;
+        let durationMin = matchedService && matchedService.duration_minutes ? parseInt(matchedService.duration_minutes, 10) : 60;
 
-        // Calcolo orario di fine
+        // ⏱️ CALCOLO RIGOROSO DELLA DURATA: Se l'utente specifica o modifica la durata
+        const parsedNatural = parseNaturalTimeAndDuration(q);
+        if (q.includes('durata') || q.includes('ora') || q.includes('minut')) {
+            if (parsedNatural.durationMinutes && parsedNatural.durationMinutes !== 60) {
+                durationMin = parsedNatural.durationMinutes;
+            } else if (q.includes("un'ora e mezza") || q.includes("1 ora e mezza") || q.includes("90 minuti")) {
+                durationMin = 90;
+            } else if (q.includes("mezz'ora") || q.includes("30 minuti")) {
+                durationMin = 30;
+            } else if (q.includes("due ore") || q.includes("2 ore") || q.includes("120 minuti")) {
+                durationMin = 120;
+            }
+        }
+
+        // Calcolo orario di fine esatto a partire dall'ora d'inizio
         const [sH, sM] = resolvedTime.split(':').map(Number);
         const endTotal = (sH * 60 + sM) + durationMin;
         const resolvedEndTime = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
 
-        // Calcolo prezzo reale da listino
+        // Calcolo prezzo
         let finalPrice = 0;
         if (matchedService) {
             const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: matchedService.id });
@@ -574,7 +611,7 @@ async function tool_propose_write(rawParams = {}) {
             finalPrice = parseFloat(data.price) || 0;
         }
 
-        // Verifica orari e turni dell'operatore
+        // Verifica orari operatore
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const dateObj = new Date(resolvedDate + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
@@ -587,7 +624,7 @@ async function tool_propose_write(rawParams = {}) {
         // Verifica sovrapposizioni
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const conflict = existingApps.find(a => {
-            if (id && a.id === id) return false;
+            if (targetId && String(a.id) === String(targetId)) return false;
             if (a.date !== resolvedDate) return false;
             if ((a.assigned_user || 'admin').toLowerCase() !== rawOperator.toLowerCase()) return false;
             const aStart = (a.time || '00:00').substring(0, 5);
@@ -607,28 +644,28 @@ async function tool_propose_write(rawParams = {}) {
             service: serviceFinalName,
             price: finalPrice,
             assigned_user: rawOperator,
-            notes: data.notes || "Creato tramite Assistente IA (HITL Confermato)"
+            notes: data.notes || (action === 'UPDATE' ? (lastApp ? lastApp.notes : 'Modificato tramite Assistente IA') : 'Creato tramite Assistente IA (HITL Confermato)')
         };
 
-        summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user}, Prezzo: € ${data.price.toFixed(2)})`;
+        if (action === 'UPDATE') {
+            summaryText = `Modifica appuntamento di **${data.cust_name}**: nuova durata di ${durationMin} min (dalle **${data.time}** alle **${data.end_time}** in data ${data.date})`;
+        } else {
+            summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user}, Prezzo: € ${data.price.toFixed(2)})`;
+        }
     } 
     else if (table === 'expenses') {
         const amt = parseFloat(data.amount || data.importo) || 0;
         const desc = data.description || data.descrizione || 'Spesa gestionale';
         const expDate = resolveNaturalDate(data.date);
 
-        data = {
-            date: expDate,
-            description: desc,
-            amount: amt
-        };
+        data = { date: expDate, description: desc, amount: amt };
         summaryText = `Registrazione spesa "${desc}" di € ${amt.toFixed(2)} in data ${expDate}`;
     } else {
         summaryText = `${action} sulla tabella ${table}`;
     }
 
     const payload = {
-        id: id || crypto.randomUUID(),
+        id: targetId || crypto.randomUUID(),
         salon_id: salonId,
         ...data
     };
@@ -637,12 +674,13 @@ async function tool_propose_write(rawParams = {}) {
         action: action,
         table: table,
         payload: payload,
-        id: id,
+        id: targetId,
         summary: summaryText
     };
 
     return {
         simulation_status: "ARMED_FOR_CONFIRMATION",
+        action: action,
         warnings: warnings,
         summary: summaryText,
         payload_details: payload
@@ -653,7 +691,7 @@ window.tool_propose_write = tool_propose_write;
 // -------------------------------------------------------------------------
 // 8. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
-async function executeAgentToolCall(toolCall) {
+async function executeAgentToolCall(toolCall, rawQuery = '') {
     const { tool, params } = toolCall;
     console.log(`⚡ [AGENT REASONING] Esecuzione Tool: ${tool}`, params);
 
@@ -661,7 +699,7 @@ async function executeAgentToolCall(toolCall) {
         if (tool === 'query_db') return await tool_query_db(params);
         if (tool === 'get_analytics') return await tool_get_analytics(params);
         if (tool === 'simulate_what_if') return await tool_simulate_what_if(params);
-        if (tool === 'propose_write') return await tool_propose_write(params);
+        if (tool === 'propose_write') return await tool_propose_write(params, rawQuery);
     } catch (err) {
         console.error(`Errore tool ${tool}:`, err);
         return { error: err.message };
@@ -741,29 +779,42 @@ async function processAiAgentQuery(userQuery) {
         return directGuide;
     }
 
+    const lastApp = window._aiAgentContext.lastAppointment;
+    const lastAppInfo = lastApp ? `
+- ULTIMO APPUNTAMENTO ATTIVO GESTITO:
+  * ID: "${lastApp.id}"
+  * Cliente: "${lastApp.cust_name}"
+  * Data: "${lastApp.date}"
+  * Orario: "${lastApp.time} - ${lastApp.end_time || ''}"
+  * Servizio: "${lastApp.service}"
+  * Operatore: "${lastApp.assigned_user || 'admin'}"
+  * Prezzo: € ${lastApp.price || 0}
+` : '- Nessun appuntamento attivo recente in memoria';
+
     // 3. Prompt di Sistema per l'Agente
     const systemPrompt = `Sei l'Agente Intelligente e Copilota Gestionale di "VaiMUp", utilizzato dallo STAFF E DAL TITOLARE del salone.
 NON SEI un call center per clienti esterni: parli con il gestore del negozio. NON rivolgerti all'utente chiamandolo "Gentile cliente".
 Oggi è ${dayOfWeek}, ${todayStr} (Orario attuale: ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}).
 Salone ID attivo: "${salonId}".
-Memoria attiva: UltimoCliente="${window._aiAgentContext.lastCustomer || 'Nessuno'}".
+Memoria attiva contesto:
+- Ultimo Cliente: "${window._aiAgentContext.lastCustomer || 'Nessuno'}"
+${lastAppInfo}
 
 HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
 1. "query_db": cerca nel database.
    Parametri: table ("appointments"|"customers"|"inventory"|"sales"|"expenses"), customer (nome cliente), date (YYYY-MM-DD), timeline ("future"|"past"|"all"), month ("last_month"|"this_month"|"YYYY-MM"), date_from, date_to.
 2. "get_analytics": calcola margini reali, volumi e spese fisse.
 3. "simulate_what_if": simula scenari (target="highest_margin"|"highest_volume"|"specific_service", value=5, unit="euro"|"percent").
-4. "propose_write": prepara inserimenti/spostamenti con conferma HITL.
-   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), data: { cust_name, date, time, service, assigned_user, price, amount, description }
+4. "propose_write": prepara inserimenti o modifiche di appuntamenti/spese con conferma HITL.
+   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), id (se modifica/update), data: { cust_name, date, time, service, assigned_user, price, end_time }
 
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${VAIMUP_APP_MANUAL}
 
-ISTRUZIONI DI RAGIONAMENTO:
-- Se l'utente ti chiede "COME FARE" qualcosa (es: come fare uno storno, come caricare merce, come funziona il coworking), rispondi direttamente usando il manuale SENZA chiamare tool.
-- Se l'utente vuole CREARE, FISSARE, SPOSTARE o CANCELLARE un appuntamento, chiama SUBITO "propose_write" passando i campi necessari in data (cust_name, date, time, service).
-- Se l'utente chiede appuntamenti di una persona, chiama "query_db" impostando customer e timeline ("future"|"past"|"all").
-- Se l'utente chiede "che succede se aumento di 5 euro il servizio a più alta marginalità?", chiama "simulate_what_if" con target="highest_margin", value=5, unit="euro".
+ISTRUZIONI SEVERISSIME PER FOLLOW-UP E MODIFICHE ("aumenta la durata...", "spostalo...", "cambialo...", "modifica l'appuntamento..."):
+- NON USARE MAI stringhe segnaposto come "Cliente", "Servizio esistente" o "Utente assegnato".
+- Se l'utente chiede di modificare la durata o spostare l'appuntamento appena creato o citato in memoria, chiama "propose_write" impostando action="UPDATE", table="appointments", id="${lastApp?.id || ''}".
+- Eredita cliente ("${lastApp?.cust_name || ''}"), data ("${lastApp?.date || ''}"), ora inizio ("${lastApp?.time || ''}") e servizio ("${lastApp?.service || ''}").
 
 FORMATO RISPOSTA (SOLO JSON):
 Per usare un tool:
@@ -803,20 +854,22 @@ Per risposta diretta:
     if (firstDecision && firstDecision.tool) {
         if (!firstDecision.params) firstDecision.params = {};
 
-        // Pronomi o contesto sul cliente precedente
+        // Riconciliazione pronomi sul cliente precedente
         if (!firstDecision.params.customer && !firstDecision.params.search && window._aiAgentContext.lastCustomer) {
             if (q.includes('suoi') || q.includes('completat') || q.includes('passat') || q.includes('lui') || q.includes('lei') || q.includes('tutti')) {
                 firstDecision.params.customer = window._aiAgentContext.lastCustomer;
             }
         }
 
-        const toolResult = await executeAgentToolCall(firstDecision);
+        const toolResult = await executeAgentToolCall(firstDecision, rawQuery);
 
         // Se è una proposta di scrittura con conferma HITL
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
             const details = sim.payload_details || {};
             let warnText = (sim.warnings && sim.warnings.length > 0) ? `<br><br>${sim.warnings.join('<br>')}` : '';
+
+            const isUpdate = (sim.action === 'UPDATE');
 
             return `📋 **Proposta Operativa (In attesa di tua conferma):**\n\n` +
                 `• **Operazione:** ${sim.summary || 'Salvataggio dati'}\n` +
@@ -826,7 +879,7 @@ Per risposta diretta:
                 (details.service ? `• **Servizio:** ${details.service} (Prezzo: € ${parseFloat(details.price || 0).toFixed(2)})\n` : '') +
                 (details.assigned_user ? `• **Operatore:** ${details.assigned_user}\n` : '') +
                 warnText +
-                `\n❓ Vuoi procedere con il salvataggio? Rispondi **"Conferma"** oppure tocca il pulsante:\n` +
+                `\n❓ Vuoi procedere con ${isUpdate ? "la modifica" : "il salvataggio"}? Rispondi **"Conferma"** oppure tocca il pulsante:\n` +
                 `<div class="ai-hitl-actions" style="display:flex; gap:8px; margin-top:10px;">` +
                 `<button type="button" class="btn btn-s" style="padding:8px 16px; font-size:12px; font-weight:800; cursor:pointer;" onclick="window.confirmAiPendingAction(this)">✓ Conferma ed Esegui</button>` +
                 `<button type="button" class="btn btn-d" style="padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;" onclick="window.cancelAiPendingAction(this)">✕ Annulla</button>` +
@@ -886,7 +939,6 @@ async function confirmAiPendingAction(btnElement = null) {
         return msg;
     }
 
-    // Se cliccato da bottone, disabilita subito l'interfaccia
     if (btnElement) {
         const container = btnElement.closest('.ai-hitl-actions');
         if (container) {
@@ -898,23 +950,43 @@ async function confirmAiPendingAction(btnElement = null) {
 
     try {
         const { action, table, payload, id } = pending;
+        const targetId = id || payload.id;
 
         if (action === 'INSERT') {
-            await window.universalQuery({ action: 'INSERT', table: table, data: payload });
+            const res = await window.universalQuery({ action: 'INSERT', table: table, data: payload });
+            const savedId = res?.lastInsertRowid || res?.id || targetId;
+            payload.id = savedId;
+
+            // Aggiorna la memoria dell'ultimo appuntamento gestito
+            if (table === 'appointments') {
+                window._aiAgentContext.lastAppointment = { ...payload };
+                window._aiAgentContext.lastAppointmentId = savedId;
+                window._aiAgentContext.lastCustomer = payload.cust_name;
+                window._aiAgentContext.lastDate = payload.date;
+            }
         } else if (action === 'UPDATE') {
-            await window.universalQuery({ action: 'UPDATE', table: table, data: payload, id: id });
+            await window.universalQuery({ action: 'UPDATE', table: table, data: payload, id: targetId });
+
+            if (table === 'appointments') {
+                window._aiAgentContext.lastAppointment = { ...payload, id: targetId };
+                window._aiAgentContext.lastAppointmentId = targetId;
+                window._aiAgentContext.lastCustomer = payload.cust_name;
+                window._aiAgentContext.lastDate = payload.date;
+            }
         } else if (action === 'DELETE') {
-            await window.universalQuery({ action: 'DELETE', table: table, id: id });
+            await window.universalQuery({ action: 'DELETE', table: table, id: targetId });
+            if (table === 'appointments') {
+                window._aiAgentContext.lastAppointment = null;
+                window._aiAgentContext.lastAppointmentId = null;
+            }
         }
 
-        // Aggiorna istantaneamente l'interfaccia utente (agenda, dashboard)
         if (typeof refreshAllData === 'function') await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
         if (typeof loadBalance === 'function') loadBalance();
 
         const successText = `✅ **Operazione completata con successo!**\n${pending.summary} registrato nel database.`;
 
-        // Se invocato direttamente dal click sul pulsante HTML, stampa subito il messaggio nella chat
         if (btnElement) {
             appendAgentMessage(successText, false);
             speakAiResponse(successText);
