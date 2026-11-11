@@ -15,34 +15,33 @@ if (!window._aiAgentContext) {
 }
 
 // -------------------------------------------------------------------------
-// 1. KNOWLEDGE BASE APPLICATIVA (MANUALE OPERATIVO PER RISPOSTE "COME FARE")
+// 1. KNOWLEDGE BASE APPLICATIVA (MANUALE OPERATIVO GESTIONALE)
 // -------------------------------------------------------------------------
 const VAIMUP_APP_MANUAL = `
-MANUALE FUNZIONALITÀ GESTIONALE VAIMUP:
+MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE:
 1. STORNO DI CASSA:
    - Si effettua da "📈 Report Vendite" nel menu laterale (sezione Gestione & Analisi).
-   - Si individua la transazione usando i filtri e si clicca sul pulsante rosso "Storna" a destra.
-   - Effetti automatici: le giacenze e i lotti FIFO di magazzino (prodotti e consumabili dei servizi) vengono ripristinati e l'incasso viene stornato dal bilancio.
+   - Si individua la vendita da annullare tramite i filtri e si clicca sul pulsante rosso "Storna" a destra.
+   - Effetti automatici: le giacenze e i lotti FIFO di magazzino vengono ripristinati e l'incasso viene stornato dal bilancio.
 2. CARICO MAGAZZINO & LOTTI FIFO:
    - Si effettua da "📦 Magazzino Prodotti".
    - Per carico veloce: pulsante "⚡ Scan & Carico" in alto con pistola laser o fotocamera.
    - Per carico manuale: icona "📦" nella riga del prodotto.
-   - Crea un lotto FIFO con data, ora e costo unitario d'acquisto, registrando la spesa a bilancio se prodotto di proprietà.
+   - Crea un lotto FIFO con costo d'acquisto storico e registra la spesa a bilancio se prodotto di proprietà.
 3. PACCHETTI & CARNET:
-   - Configurazione: da "🎁 Pacchetti & Carnet" -> "+ Nuovo Pacchetto". Si definisce prezzo e sedute incluse.
-   - Vendita: in "🛒 Cassa & POS", selezionando il cliente e il pacchetto (anche a rate).
-   - Riscatto: in Agenda, selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
+   - Configurazione da "🎁 Pacchetti & Carnet" -> "+ Nuovo Pacchetto".
+   - Vendita in "🛒 Cassa & POS".
+   - Riscatto in Agenda: selezionando il cliente il sistema scala la seduta a € 0.00.
 4. COWORKING & POSTAZIONI FISICHE:
-   - Si gestiscono da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking.
-   - Gli altri saloni vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione bloccata tutelando la privacy GDPR.
 5. STAMPA LISTINI:
-   - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster Maxi 50x70 con drag & drop di loghi e testi.
+   - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
 6. BOOKING ONLINE (SELF-BOOKING):
    - I clienti prenotano 24/7 dal link o QR code senza installare app.
 `;
 
 // -------------------------------------------------------------------------
-// 2. RISOLUZIONE CHIAVE IA DA SUPABASE (SILENZIOSA, ZERO UI)
+// 2. RISOLUZIONE CHIAVE IA DA SUPABASE (SILENZIOSA, ZERO ESPOSIZIONE UI)
 // -------------------------------------------------------------------------
 async function getOrLoadAiApiKey() {
     if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
@@ -101,7 +100,7 @@ async function callAgentBrain(messages) {
         throw new Error("Errore comunicazione Gemini nativo.");
     }
 
-    // Endpoint OpenRouter con modelli verificati
+    // Endpoint OpenRouter
     const candidateModels = [
         "meta-llama/llama-3.3-70b-instruct",
         "openrouter/auto",
@@ -152,69 +151,152 @@ function sanitizeJson(raw) {
 }
 
 // -------------------------------------------------------------------------
-// 5. REGISTRY DEI TOOL UNIVERSALI (FUNZIONI ESEGUITE IN LOCALE SU DEXIE/SUPABASE)
+// 5. REGISTRY DEI TOOL UNIVERSALI (ESECUZIONE DETERMINISTICA LOCALE DEXIE)
 // -------------------------------------------------------------------------
 
 /**
  * TOOL 1: Ricerca Universale sul Database Locale (Dexie)
+ * Include: normalizzazione dei parametri, filtro date avanzato e rimozione blocchi tecnici
  */
-async function tool_query_db({ table, search, filterField, filterValue, timeline }) {
+async function tool_query_db(rawParams = {}) {
+    const params = rawParams || {};
+    const table = params.table || 'appointments';
+
+    // Riconciliazione universale di qualsiasi nome parametro emesso dall'LLM
+    const searchTarget = params.customer || params.customerName || params.cust_name || params.client || params.search || params.query || '';
+    const timeline = params.timeline || (params.past ? 'past' : (params.future ? 'future' : 'all'));
+    const specificDate = params.date || '';
+    let dateFrom = params.date_from || params.startDate || '';
+    let dateTo = params.date_to || params.endDate || '';
+    const month = params.month || '';
+
     const todayStr = new Date().toISOString().split('T')[0];
     const nowTimeStr = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+
+    // Risoluzione automatica di "mese scorso" o "mese corrente"
+    if (month === 'last_month' || params.period === 'last_month') {
+        const d = new Date();
+        const prevMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+        const lastDay = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+        const pad = (n) => String(n).padStart(2, '0');
+        dateFrom = `${prevMonth.getFullYear()}-${pad(prevMonth.getMonth() + 1)}-01`;
+        dateTo = `${prevMonth.getFullYear()}-${pad(prevMonth.getMonth() + 1)}-${pad(lastDay)}`;
+    } else if (month === 'this_month' || params.period === 'this_month') {
+        const d = new Date();
+        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        const pad = (n) => String(n).padStart(2, '0');
+        dateFrom = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+        dateTo = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`;
+    } else if (/^\d{4}-\d{2}$/.test(month)) {
+        const parts = month.split('-');
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const lastDay = new Date(y, m, 0).getDate();
+        const pad = (n) => String(n).padStart(2, '0');
+        dateFrom = `${y}-${pad(m)}-01`;
+        dateTo = `${y}-${pad(m)}-${pad(lastDay)}`;
+    }
 
     const records = await window.universalQuery({ action: 'GET_ALL', table: table }) || [];
     const customers = (table !== 'customers') ? (await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || []) : [];
 
     let results = records;
 
-    // Ricerca testuale tokenizzata intelligente (Nome e Cognome invertiti, frammenti)
-    if (search) {
-        const cleanSearch = String(search).toLowerCase().trim();
-        const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 1);
-
-        results = results.filter(row => {
-            const rowText = JSON.stringify(row).toLowerCase();
-            if (rowText.includes(cleanSearch)) return true;
-            if (tokens.length > 0 && tokens.every(tok => rowText.includes(tok))) return true;
-
-            // Se stiamo cercando appuntamenti di un cliente, incrocia con l'anagrafica clienti
-            if (table === 'appointments' && customers.length > 0) {
-                const appCustName = (row.cust_name || '').toLowerCase();
-                const matchedCust = customers.find(c => {
-                    const fn = (c.first_name || '').toLowerCase();
-                    const ln = (c.last_name || '').toLowerCase();
-                    return `${fn} ${ln}`.includes(cleanSearch) || `${ln} ${fn}`.includes(cleanSearch) || (fn && ln && cleanSearch.includes(fn) && cleanSearch.includes(ln));
-                });
-                if (matchedCust) {
-                    if (row.cust_id && String(row.cust_id).trim() === String(matchedCust.id).trim()) return true;
-                    if (appCustName.includes((matchedCust.first_name || '').toLowerCase())) return true;
-                }
-            }
-            return false;
+    // 🛑 1. FILTRO FONDAMENTALE SULL'AGENDA: ESCLUDE TASSATIVAMENTE I BLOCCHI TECNICI
+    if (table === 'appointments') {
+        results = results.filter(a => {
+            const cust = (a.cust_name || '').toLowerCase();
+            const srv = (a.service || '').toLowerCase();
+            const isPausa = cust.includes('pausa') || cust.includes('pranzo') || srv.includes('pausa') || srv.includes('pranzo');
+            const isChiusura = cust.includes('chiusura') || cust.includes('ferie') || srv.includes('chiusura') || srv.includes('ferie');
+            return !isPausa && !isChiusura;
         });
     }
 
-    // Filtro campo/valore esatto
-    if (filterField && filterValue !== undefined) {
-        results = results.filter(row => String(row[filterField]).toLowerCase() === String(filterValue).toLowerCase());
+    // 2. RICERCA TOKENIZZATA CLIENTE (Cognome Nome, Nome Cognome, Frammenti, o ID relazionale)
+    if (searchTarget) {
+        const cleanSearch = String(searchTarget).toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
+        const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 1);
+
+        results = results.filter(row => {
+            if (table === 'customers') {
+                const fn = (row.first_name || '').toLowerCase();
+                const ln = (row.last_name || '').toLowerCase();
+                const full1 = `${fn} ${ln}`;
+                const full2 = `${ln} ${fn}`;
+                if (full1.includes(cleanSearch) || full2.includes(cleanSearch)) return true;
+                if (tokens.length > 0 && tokens.every(tok => full1.includes(tok) || full2.includes(tok))) return true;
+                return false;
+            }
+
+            if (table === 'appointments') {
+                const appCust = (row.cust_name || '').toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
+
+                // Match diretto su cust_name
+                if (appCust.includes(cleanSearch) || cleanSearch.includes(appCust)) return true;
+                if (tokens.length > 0 && tokens.every(tok => appCust.includes(tok))) return true;
+
+                // Match relazionale tramite tabella customers
+                if (customers.length > 0) {
+                    const matchedCustomer = customers.find(c => {
+                        const fn = (c.first_name || '').toLowerCase();
+                        const ln = (c.last_name || '').toLowerCase();
+                        const full1 = `${fn} ${ln}`;
+                        const full2 = `${ln} ${fn}`;
+                        return full1 === cleanSearch || full2 === cleanSearch || (fn && ln && cleanSearch.includes(fn) && cleanSearch.includes(ln));
+                    });
+                    if (matchedCustomer) {
+                        if (row.cust_id && String(row.cust_id).trim() === String(matchedCustomer.id).trim()) return true;
+                        const fn = (matchedCustomer.first_name || '').toLowerCase();
+                        const ln = (matchedCustomer.last_name || '').toLowerCase();
+                        if (fn && ln && appCust.includes(fn) && appCust.includes(ln)) return true;
+                    }
+                }
+                return false;
+            }
+
+            // Ricerca generica su altri tipi di tabella
+            const rowText = JSON.stringify(row).toLowerCase();
+            return rowText.includes(cleanSearch);
+        });
     }
 
-    // Filtro temporale per appuntamenti (future | past | all)
-    if (table === 'appointments' && timeline) {
-        if (timeline === 'future') {
-            results = results.filter(a => a.date > todayStr || (a.date === todayStr && (a.time || '') >= nowTimeStr));
-            results.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-        } else if (timeline === 'past') {
-            results = results.filter(a => a.date < todayStr || (a.date === todayStr && (a.time || '') < nowTimeStr));
-            results.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-        } else {
-            results.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-        }
+    // 3. FILTRO DATA SPECIFICA O RANGE DI DATE
+    if (specificDate) {
+        results = results.filter(r => (r.date || '').substring(0, 10) === specificDate);
+    }
+    if (dateFrom) {
+        results = results.filter(r => (r.date || '').substring(0, 10) >= dateFrom);
+    }
+    if (dateTo) {
+        results = results.filter(r => (r.date || '').substring(0, 10) <= dateTo);
+    }
+
+    // 4. PARTIZIONAMENTO TEMPORALE RIGIDO PER APPUNTAMENTI
+    if (table === 'appointments') {
+        const past = results.filter(a => a.date < todayStr || (a.date === todayStr && (a.time || '') < nowTimeStr))
+            .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+
+        const future = results.filter(a => a.date > todayStr || (a.date === todayStr && (a.time || '') >= nowTimeStr))
+            .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+
+        return {
+            query_table: "appointments",
+            customer_searched: searchTarget,
+            filter_date_range: (dateFrom && dateTo) ? `${dateFrom} -> ${dateTo}` : (specificDate || "Nessun vincolo data"),
+            total_real_client_appointments: results.length,
+            future_appointments_count: future.length,
+            future_appointments: future.slice(0, 10),
+            past_appointments_count: past.length,
+            past_appointments: past.slice(0, 10),
+            most_recent_past_appointment: past[0] || null
+        };
     }
 
     return {
+        query_table: table,
         total_found: results.length,
-        items: results.slice(0, 15) // Max 15 elementi per non sovraccaricare il prompt
+        items: results.slice(0, 15)
     };
 }
 
@@ -233,7 +315,6 @@ async function tool_get_analytics({ type }) {
     const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
     const services = inventory.filter(i => i.type === 'servizio');
 
-    // Servizi ordinati per margine totale reale
     const rankedServices = marginInsights.filter(m => services.some(s => s.name.toLowerCase() === m.item_name.toLowerCase()));
 
     const totalRevenue = marginInsights.reduce((sum, i) => sum + (parseFloat(i.total_revenue) || 0), 0);
@@ -267,7 +348,7 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
         const srvVols = marginInsights.filter(m => services.some(s => s.name.toLowerCase() === m.item_name.toLowerCase()))
             .sort((a, b) => b.total_sold - a.total_sold);
         matchedService = srvVols[0] || null;
-    } else if (category) {
+    } else if (category && category !== 'margine') {
         matchedService = marginInsights.find(m => m.item_name.toLowerCase().includes(category.toLowerCase())) || null;
     }
 
@@ -298,7 +379,6 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
     const newPrice = currentPrice + unitGain;
     const pctIncrease = (unitGain / currentPrice) * 100;
 
-    // Volume mensile modellato con ritenzione del 96%
     const monthlyVolBase = Math.max(Math.round(historicalSold / 3), 1);
     const retentionRate = Math.max(1 - ((pctIncrease / 100) * 0.25), 0.90);
     const simulatedMonthlyVol = Math.round(monthlyVolBase * retentionRate);
@@ -326,7 +406,6 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
 async function tool_propose_write({ action, table, data, id, summary }) {
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
 
-    // Convalida turni operatore se appuntamento
     let warnings = [];
     if (table === 'appointments' && data.date && data.assigned_user) {
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
@@ -374,27 +453,19 @@ async function tool_propose_write({ action, table, data, id, summary }) {
 }
 
 // -------------------------------------------------------------------------
-// 6. DISPATCHER ESECUTIVO DEI TOOL CHIAMATI DALL'AI
+// 6. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
 async function executeAgentToolCall(toolCall) {
     const { tool, params } = toolCall;
     console.log(`⚡ [AGENT REASONING] Esecuzione Tool: ${tool}`, params);
 
     try {
-        if (tool === 'query_db') {
-            return await tool_query_db(params);
-        }
-        if (tool === 'get_analytics') {
-            return await tool_get_analytics(params);
-        }
-        if (tool === 'simulate_what_if') {
-            return await tool_simulate_what_if(params);
-        }
-        if (tool === 'propose_write') {
-            return await tool_propose_write(params);
-        }
+        if (tool === 'query_db') return await tool_query_db(params);
+        if (tool === 'get_analytics') return await tool_get_analytics(params);
+        if (tool === 'simulate_what_if') return await tool_simulate_what_if(params);
+        if (tool === 'propose_write') return await tool_propose_write(params);
     } catch (err) {
-        console.error(`Errore esecuzione tool ${tool}:`, err);
+        console.error(`Errore tool ${tool}:`, err);
         return { error: err.message };
     }
 
@@ -414,7 +485,7 @@ async function processAiAgentQuery(userQuery) {
 
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
 
-    // 1. Gating Human-In-The-Loop: Risposta a conferma in corso
+    // 1. Controllo Human-In-The-Loop per conferme
     if (window._aiAgentContext.pendingAction) {
         const isYes = q === 'sì' || q === 'si' || q.includes('conferma') || q.includes('procedi') || q.includes('esegui') || q.includes('ok');
         const isNo = q === 'no' || q.includes('annulla') || q.includes('cancella') || q.includes('lascia stare');
@@ -425,42 +496,53 @@ async function processAiAgentQuery(userQuery) {
         return `⚠️ C'è un'operazione in attesa di conferma:\n*${window._aiAgentContext.pendingAction.summary}*\n\nRispondi **"Conferma"** per procedere oppure **"Annulla"**.`;
     }
 
-    // 2. Prompt di Sistema Autonomo con Tool Registry & App Knowledge
-    const systemPrompt = `Sei l'Agente Autonomo Intelligente di "VaiMUp", gestionale B2B per retail, saloni di bellezza e coworking.
-Oggi è ${dayOfWeek}, ${todayStr} (Orario: ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}).
-Salone ID attivo: "${salonId}".
-Memoria Conversazione: UltimoCliente="${window._aiAgentContext.lastCustomer || 'Nessuno'}".
+    // 2. Intercettazione diretta delle domande procedurali (Zero Latenza)
+    const directGuide = getDeterministicAppGuide(q);
+    if (directGuide) {
+        return directGuide;
+    }
 
-HAI A DISPOSIZIONE QUESTI 4 TOOL OPERATIVI:
-1. "query_db": cerca in qualsiasi tabella locale (es: table="appointments", customer="Nome", timeline="future"|"past"|"all").
-2. "get_analytics": calcola margini reali, volumi, spese fisse e classifica servizi dal database.
-3. "simulate_what_if": simula scenari (es: target="highest_margin"|"highest_volume"|"specific_service", value=5, unit="euro"|"percent").
-4. "propose_write": prepara un inserimento, modifica o cancellazione con verifica preventiva dei turni e conferma HITL.
+    // 3. Prompt di Sistema Autonomo (Definizione Ruolo: Copilota Gestionale per lo Staff)
+    const systemPrompt = `Sei l'Agente Intelligente e Copilota Gestionale di "VaiMUp", utilizzato dallo STAFF E DAL TITOLARE del salone.
+NON SEI un call center per clienti esterni: parli con il gestore del negozio. NON rivolgerti all'utente chiamandolo "Gentile cliente".
+Oggi è ${dayOfWeek}, ${todayStr} (Orario attuale: ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}).
+Salone ID attivo: "${salonId}".
+Memoria attiva: UltimoCliente="${window._aiAgentContext.lastCustomer || 'Nessuno'}".
+
+HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
+1. "query_db": cerca nel database.
+   Parametri: table ("appointments"|"customers"|"inventory"|"sales"|"expenses"), customer (nome cliente), date (YYYY-MM-DD), timeline ("future"|"past"|"all"), month ("last_month"|"this_month"|"YYYY-MM"), date_from, date_to.
+2. "get_analytics": calcola margini reali, volumi e spese fisse.
+3. "simulate_what_if": simula scenari (target="highest_margin"|"highest_volume"|"specific_service", value=5, unit="euro"|"percent").
+4. "propose_write": prepara inserimenti/spostamenti con conferma HITL.
 
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${VAIMUP_APP_MANUAL}
 
 ISTRUZIONI DI RAGIONAMENTO:
-- Se l'utente ti chiede "COME FARE" qualcosa (es: come fare uno storno, come caricare merce, come funziona il coworking), rispondi direttamente usando il manuale, SENZA chiamare tool.
-- Se l'utente chiede dati (es: "i prossimi appuntamenti", "quelli completati", "tutti gli appuntamenti", "chi ho oggi"), risolvi i pronomi e chiama "query_db".
+- Se l'utente ti chiede "COME FARE" qualcosa (es: come fare uno storno, come caricare merce, come funziona il coworking), rispondi direttamente usando il manuale SENZA chiamare tool.
+- Se l'utente chiede appuntamenti di una persona (es. "prossimi appuntamenti", "quelli completati", "tutti gli appuntamenti", "quelli del mese scorso"), chiama "query_db".
+  * Se chiede i completati/passati: timeline="past"
+  * Se chiede tutti: timeline="all"
+  * Se chiede il mese scorso: month="last_month"
 - Se l'utente chiede "che succede se aumento di 5 euro il servizio a più alta marginalità?", chiama "simulate_what_if" con target="highest_margin", value=5, unit="euro".
 - Se l'utente vuole inserire o spostare qualcosa, chiama "propose_write".
 
-FORMATO RISPOSTA:
-Se devi usare un tool, rispondi con un oggetto JSON:
+FORMATO RISPOSTA (SOLO JSON):
+Per usare un tool:
 {
   "thought": "Cosa devo fare",
   "tool": "query_db" | "get_analytics" | "simulate_what_if" | "propose_write",
-  "params": { ...parametri del tool... }
+  "params": { ...parametri... }
 }
 
-Se NON serve un tool (es. guida, spiegazione o chiarimento), rispondi con:
+Per risposta diretta:
 {
-  "thought": "Spiegazione diretta da manuale",
-  "answer": "Testo della risposta in italiano pulito..."
+  "thought": "Risposta diretta",
+  "answer": "Testo risposta in italiano professionale rivolto al gestore del salone..."
 }`;
 
-    // 3. FASE 1: L'AI RAGIONA E DECIDE SE CHIAMARE UN TOOL O RISPONDERE DIRETTAMENTE
+    // 4. FASE 1: RAGIONAMENTO E TOOL SELECTION
     let firstTurnRaw = "";
     try {
         firstTurnRaw = await callAgentBrain([
@@ -476,17 +558,21 @@ Se NON serve un tool (es. guida, spiegazione o chiarimento), rispondi con:
 
     const firstDecision = sanitizeJson(firstTurnRaw);
 
-    // Se l'AI ha già una risposta diretta (es. guida su come fare uno storno)
     if (firstDecision && firstDecision.answer) {
         return firstDecision.answer;
     }
 
-    // Se l'AI ha deciso di chiamare un Tool
+    // 5. FASE 2: ESECUZIONE TOOL E SINTESI DATI
     if (firstDecision && firstDecision.tool) {
-        // Eseguiamo il Tool in locale sul browser (< 5ms)
+        // Se l'utente si riferisce con un pronome al cliente precedente
+        if (!firstDecision.params.customer && !firstDecision.params.search && window._aiAgentContext.lastCustomer) {
+            if (q.includes('suoi') || q.includes('completat') || q.includes('passat') || q.includes('lui') || q.includes('lei') || q.includes('tutti')) {
+                firstDecision.params.customer = window._aiAgentContext.lastCustomer;
+            }
+        }
+
         const toolResult = await executeAgentToolCall(firstDecision);
 
-        // Se era un'azione di scrittura, restituisce la simulazione e i pulsanti di conferma HITL
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
             let warnText = (sim.warnings && sim.warnings.length > 0) ? `\n${sim.warnings.join('\n')}\n` : '';
@@ -501,40 +587,41 @@ Se NON serve un tool (es. guida, spiegazione o chiarimento), rispondi con:
                 `</div>`;
         }
 
-        // 4. FASE 2: PASSIAMO I DATI ESTRATTI ALL'AI PER LA SINTESI FINALE
+        // Sintesi finale con i dati estratti
         const synthesisPrompt = `Hai interrogato il database locale con il tool "${firstDecision.tool}".
-Risultati estratti in tempo reale dal database:
+Risultati reali estratti dal database (i blocchi tecnici di pausa pranzo e chiusure sono già stati scartati):
 ${JSON.stringify(toolResult, null, 2)}
 
-Domanda originale dell'utente: "${rawQuery}"
-Ultimo cliente in memoria: "${window._aiAgentContext.lastCustomer || 'Nessuno'}"
+Richiesta dell'utente (membro dello staff del salone): "${rawQuery}"
+Cliente di riferimento in memoria: "${window._aiAgentContext.lastCustomer || 'Nessuno'}"
 
 ISTRUZIONI PER LA RISPOSTA FINALE:
-- Rispondi in italiano con tono professionale, caloroso e formale.
-- Se cercavi appuntamenti futuri e non ce ne sono, ma ci sono appuntamenti passati nello storico, evidenzialo chiaramente indicando l'ultimo completato!
-- Se è una simulazione What-If, spiega chiaramente l'aumento, l'impatto mensile e annuale.
-- Non inventare dati che non sono presenti nei risultati del tool.`;
+- Ti stai rivolgendo al TITOLARE o allo STAFF del salone (NON al cliente finale!). Usa un tono da collega o copilota aziendale.
+- Se cercavi appuntamenti futuri e non ce ne sono (future_appointments_count = 0), ma ci sono appuntamenti passati (past_appointments_count > 0), fallo presente con precisione indicando la data dell'ultimo completato!
+- Se chiedeva appuntamenti passati, elenca con chiarezza quelli trovati (data, orario, trattamento, operatore).
+- Se chiedeva gli appuntamenti del mese scorso, elenca quelli trovati per quel periodo.
+- Se è una simulazione What-If, spiega con precisione il servizio identificato, l'aumento proposto e il guadagno stimato.
+- Non inventare mai dati non presenti nei risultati.`;
 
         try {
             const finalReply = await callAgentBrain([
-                { role: "system", content: "Sei l'assistente ufficiale di VaiMUp. Sintetizza i risultati con precisione." },
+                { role: "system", content: "Sei il copilota gestionale di VaiMUp per il titolare del salone." },
                 { role: "user", content: synthesisPrompt }
             ]);
 
-            // Se la risposta è ancora JSON per errore, estrai il campo testo
             const parsedFinal = sanitizeJson(finalReply);
             const textToReturn = (parsedFinal && (parsedFinal.answer || parsedFinal.message)) ? (parsedFinal.answer || parsedFinal.message) : finalReply;
 
-            // Aggiorna l'ultimo cliente se menzionato nei parametri
-            if (firstDecision.params?.customer) {
-                window._aiAgentContext.lastCustomer = firstDecision.params.customer;
+            const detectedCust = firstDecision.params?.customer || firstDecision.params?.search;
+            if (detectedCust && detectedCust !== 'all') {
+                window._aiAgentContext.lastCustomer = detectedCust;
             }
 
             return textToReturn;
 
         } catch (synthErr) {
             console.error("Errore sintesi finale agente:", synthErr);
-            return `📊 Risultati estratti (${toolResult.total_found || 0} record trovati). Controlla la tabella corrispondente.`;
+            return `📊 Risultati estratti (${toolResult.total_found || toolResult.total_real_client_appointments || 0} record trovati). Controlla la tabella corrispondente.`;
         }
     }
 
@@ -579,7 +666,7 @@ function cancelAiPendingAction() {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 9. SPEECH SYNTHESIS & PUSH-TO-TALK PULITO
+// 9. SPEECH SYNTHESIS & PUSH-TO-TALK
 // -------------------------------------------------------------------------
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window) || !text) return;
