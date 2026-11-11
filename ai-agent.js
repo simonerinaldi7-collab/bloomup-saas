@@ -131,7 +131,6 @@ async function callAgentBrain(messages) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
-    // Endpoint Google Gemini Nativo
     if (isGoogleKey) {
         const geminiModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const gModel of geminiModels) {
@@ -161,7 +160,6 @@ async function callAgentBrain(messages) {
         throw new Error("Errore comunicazione Gemini nativo.");
     }
 
-    // Endpoint OpenRouter
     const candidateModels = [
         "meta-llama/llama-3.3-70b-instruct",
         "openrouter/auto",
@@ -220,7 +218,7 @@ function resolveNaturalDate(dateInput) {
     const pad = (n) => String(n).padStart(2, '0');
     const toYmd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    // 🛑 "DOPODOMANI" HA LA PRECEDENZA ASSOLUTA SU "DOMANI"!
+    // 🛑 "DOPODOMANI" HA PRECEDENZA SU "DOMANI"!
     if (clean.includes('dopodomani') || clean.includes('dopo domani')) {
         const d = new Date(now);
         d.setDate(d.getDate() + 2);
@@ -528,8 +526,75 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
 window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
- * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL e Grounding Relazionale Completo
- * Supporta chiaramente e in modo differenziato INSERT, UPDATE e DELETE!
+ * CONVALIDA APPROFONDITA DEI VINCOLI DI ORARIO, FASCE DI TURNO E CONFLITTI STAFF
+ */
+async function validateAppointmentStaffConstraints(dateStr, startTimeStr, endTimeStr, operatorName, excludeAppId = null) {
+    const warnings = [];
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayOfWeek = dateObj.getDay();
+
+    // 1. Lettura Schedulazione Operatore
+    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+    const sched = schedules.find(s => (s.username || '').toLowerCase() === operatorName.toLowerCase() && Number(s.day_of_week) === dayOfWeek);
+
+    if (!sched || Number(sched.is_working) !== 1) {
+        warnings.push(`⚠️ L'operatore <b>${operatorName}</b> risulta a riposo in data ${dateStr}.`);
+    } else {
+        // 2. Controllo Fasce Orarie Effettive di Turno (Mattina / Pomeriggio)
+        const shifts = [];
+        if (sched.start_time_1 && sched.end_time_1) {
+            shifts.push({ start: sched.start_time_1.substring(0, 5), end: sched.end_time_1.substring(0, 5) });
+        }
+        if (sched.start_time_2 && sched.end_time_2) {
+            shifts.push({ start: sched.start_time_2.substring(0, 5), end: sched.end_time_2.substring(0, 5) });
+        }
+
+        if (shifts.length > 0) {
+            const [sH, sM] = startTimeStr.split(':').map(Number);
+            const [eH, eM] = endTimeStr.split(':').map(Number);
+            const appStartMin = sH * 60 + sM;
+            const appEndMin = eH * 60 + eM;
+
+            let fitsInShift = false;
+            for (let sh of shifts) {
+                const [shStartH, shStartM] = sh.start.split(':').map(Number);
+                const [shEndH, shEndM] = sh.end.split(':').map(Number);
+                const shiftStartMin = shStartH * 60 + shStartM;
+                const shiftEndMin = shEndH * 60 + shEndM;
+
+                if (appStartMin >= shiftStartMin && appEndMin <= shiftEndMin) {
+                    fitsInShift = true;
+                    break;
+                }
+            }
+
+            if (!fitsInShift) {
+                const shiftDesc = shifts.map(sh => `${sh.start} - ${sh.end}`).join(' e ');
+                warnings.push(`⚠️ Fuori turno: l'orario <b>${startTimeStr} - ${endTimeStr}</b> non rientra nelle fasce lavorative di ${operatorName} (${shiftDesc}).`);
+            }
+        }
+    }
+
+    // 3. Controllo Sovrapposizione Agenda con altri Clienti
+    const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+    const conflict = existingApps.find(a => {
+        if (excludeAppId && String(a.id) === String(excludeAppId)) return false;
+        if (a.date !== dateStr) return false;
+        if ((a.assigned_user || 'admin').toLowerCase() !== operatorName.toLowerCase()) return false;
+        const aStart = (a.time || '00:00').substring(0, 5);
+        const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
+        return startTimeStr < aEnd && endTimeStr > aStart;
+    });
+
+    if (conflict) {
+        warnings.push(`⚠️ Conflitto agenda: l'operatore <b>${operatorName}</b> ha già un appuntamento con <b>${conflict.cust_name}</b> (${conflict.time} - ${conflict.end_time || ''}).`);
+    }
+
+    return warnings;
+}
+
+/**
+ * TOOL 4: Proposta di Scrittura con Gating HITL, Preservazione Prezzo e Convalida Fasce Orarie
  */
 async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
@@ -545,7 +610,6 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     if (params.assigned_user && !data.assigned_user) data.assigned_user = params.assigned_user;
 
     let targetId = params.id || null;
-
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
     const lastApp = window._aiAgentContext.lastAppointment;
     const q = (rawUserQuery || '').toLowerCase();
@@ -556,7 +620,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         action = 'DELETE';
     }
 
-    // 🔍 DETERMINAZIONE DIRETTA DELL'APPUNTAMENTO DA MODIFICARE O CANCELLARE
+    // 🔍 DETERMINAZIONE RELAZIONALE DELL'APPUNTAMENTO DA MODIFICARE O CANCELLARE
     if (table === 'appointments') {
         const isModifyOrDelete = (action === 'UPDATE' || action === 'DELETE') || q.includes('spost') || q.includes('durata') || q.includes('modifica') || q.includes('cambia');
 
@@ -584,10 +648,14 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
                 data.cust_name = data.cust_name || realApp.cust_name;
                 data.service = data.service || realApp.service;
                 data.assigned_user = data.assigned_user || realApp.assigned_user;
-                data.price = realApp.price;
                 data.notes = realApp.notes;
 
-                // Calcolo durata precedente
+                // 🌟 PRESERVAZIONE RIGOROSA DEL PREZZO: Mantiene il prezzo reale precedente!
+                if (realApp.price !== undefined && realApp.price !== null && parseFloat(realApp.price) > 0) {
+                    data.price = parseFloat(realApp.price);
+                }
+
+                // Calcolo durata dell'appuntamento esistente
                 let baseDurationMin = 60;
                 if (realApp.time && realApp.end_time) {
                     const [sH_prev, sM_prev] = realApp.time.split(':').map(Number);
@@ -597,13 +665,12 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
                 }
 
                 if (action === 'DELETE') {
-                    // Mantiene esattamente la data e l'ora dell'appuntamento da cancellare
                     data.date = realApp.date;
                     data.time = realApp.time;
                     data.end_time = realApp.end_time;
                     data.calculated_duration = baseDurationMin;
                 } else {
-                    // GESTIONE DATA PER MODIFICHE
+                    // Risoluzione Data per Modifiche
                     if (q.includes('dopodomani') || q.includes('dopo domani')) {
                         data.date = resolveNaturalDate('dopodomani');
                     } else if (q.includes('domani')) {
@@ -614,14 +681,14 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
                         data.date = realApp.date;
                     }
 
-                    // GESTIONE ORARIO
+                    // Risoluzione Orario: se non specificato un orario diverso, preserva l'orario esistente!
                     if (q.includes('stesso orario') || q.includes('stessa ora') || (!params.time && !data.time)) {
                         data.time = realApp.time;
                     } else {
                         data.time = resolveNaturalTime(params.time || data.time);
                     }
 
-                    // GESTIONE DURATA
+                    // Risoluzione Durata: se l'utente la modifica la calcola, altrimenti mantiene la durata esistente!
                     const extractedDuration = parseDurationMinutesFromText(q) || parseDurationMinutesFromText(params.duration);
                     const finalDuration = extractedDuration ? extractedDuration : baseDurationMin;
 
@@ -634,10 +701,9 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         }
     }
 
-    let warnings = [];
     let summaryText = "";
 
-    // COMPILAZIONE FINALE RIEPILOGO E CONVALIDA TURNI
+    // NORMALIZZAZIONE FINALE APPUNTAMENTO E PREZZO REALE
     if (table === 'appointments') {
         const rawCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer) || 'Cliente';
         const rawDate = resolveNaturalDate(data.date || (lastApp ? lastApp.date : 'oggi'));
@@ -655,31 +721,43 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         const endTotal = (sH * 60 + sM) + durationMin;
         const resolvedEndTime = data.end_time || `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
 
+        // 🌟 RISOLUZIONE PREZZO REALE (NON SARÀ MAI ZERO SE ESISTE IN ANAGRAFICA O NEL PRECEDENTE)
+        let resolvedFinalPrice = 0;
+        if (data.price !== undefined && data.price !== null && parseFloat(data.price) > 0) {
+            resolvedFinalPrice = parseFloat(data.price);
+        }
+
+        const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
+        const cleanSrvQuery = String(rawService).toLowerCase().trim();
+
+        let matchedService = inventory.find(i => i.type === 'servizio' && (
+            i.name.toLowerCase() === cleanSrvQuery ||
+            i.name.toLowerCase().includes(cleanSrvQuery) ||
+            cleanSrvQuery.includes(i.name.toLowerCase())
+        ));
+
+        if (!matchedService && cleanSrvQuery.includes('pied')) {
+            matchedService = inventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes('pedicure') || i.name.toLowerCase().includes('pied')));
+        } else if (!matchedService && (cleanSrvQuery.includes('man') || cleanSrvQuery.includes('ungh'))) {
+            matchedService = inventory.find(i => i.type === 'servizio' && (i.name.toLowerCase().includes('manicure') || i.name.toLowerCase().includes('semipermanente')));
+        }
+
+        const serviceFinalName = matchedService ? matchedService.name : rawService;
+
+        if (resolvedFinalPrice <= 0 && matchedService) {
+            const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: matchedService.id });
+            if (pInfo && pInfo.price > 0) resolvedFinalPrice = parseFloat(pInfo.price);
+            else if (matchedService.price > 0) resolvedFinalPrice = parseFloat(matchedService.price);
+        }
+
+        if (resolvedFinalPrice <= 0 && lastApp && lastApp.price > 0) {
+            resolvedFinalPrice = parseFloat(lastApp.price);
+        }
+
+        // 🛡️ CONVALIDA COMPLETA VINCOLI STAFF, FASCE DI TURNO E CONFLITTI
+        let warnings = [];
         if (action !== 'DELETE') {
-            // Convalida turni operatore
-            const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-            const dateObj = new Date(rawDate + 'T00:00:00');
-            const dayOfWeek = dateObj.getDay();
-            const sched = schedules.find(s => (s.username || '').toLowerCase() === rawOperator.toLowerCase() && Number(s.day_of_week) === dayOfWeek);
-
-            if (!sched || Number(sched.is_working) !== 1) {
-                warnings.push(`⚠️ L'operatore <b>${rawOperator}</b> risulta a riposo in data ${rawDate}.`);
-            }
-
-            // Convalida sovrapposizioni agenda
-            const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-            const conflict = existingApps.find(a => {
-                if (targetId && String(a.id) === String(targetId)) return false;
-                if (a.date !== rawDate) return false;
-                if ((a.assigned_user || 'admin').toLowerCase() !== rawOperator.toLowerCase()) return false;
-                const aStart = (a.time || '00:00').substring(0, 5);
-                const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
-                return rawTime < aEnd && resolvedEndTime > aStart;
-            });
-
-            if (conflict) {
-                warnings.push(`⚠️ Conflitto d'orario: <b>${rawOperator}</b> ha già un impegno con <b>${conflict.cust_name}</b> (${conflict.time} - ${conflict.end_time || ''}).`);
-            }
+            warnings = await validateAppointmentStaffConstraints(rawDate, rawTime, resolvedEndTime, rawOperator, targetId);
         }
 
         data = {
@@ -687,13 +765,12 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             date: rawDate,
             time: rawTime,
             end_time: resolvedEndTime,
-            service: rawService,
-            price: data.price || 0,
+            service: serviceFinalName,
+            price: resolvedFinalPrice,
             assigned_user: rawOperator,
             notes: data.notes || (action === 'DELETE' ? 'Cancellato da Assistente IA' : (action === 'UPDATE' ? 'Modificato tramite Assistente IA' : 'Creato tramite Assistente IA'))
         };
 
-        // 🌟 SUMMARY SPECIFICO E NON PIÙ GENERICO
         if (action === 'DELETE') {
             summaryText = `Cancellazione definitiva appuntamento di **${data.cust_name}** del **${data.date}** alle ore **${data.time} - ${data.end_time}** (*${data.service}*)`;
         } else if (action === 'UPDATE') {
@@ -701,37 +778,45 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         } else {
             summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user})`;
         }
-    } 
-    else if (table === 'expenses') {
+
+        const payload = {
+            id: targetId || crypto.randomUUID(),
+            salon_id: salonId,
+            ...data
+        };
+
+        window._aiAgentContext.pendingAction = {
+            action: action,
+            table: table,
+            payload: payload,
+            id: targetId,
+            summary: summaryText
+        };
+
+        return {
+            simulation_status: "ARMED_FOR_CONFIRMATION",
+            action: action,
+            warnings: warnings,
+            summary: summaryText,
+            payload_details: payload
+        };
+    }
+
+    if (table === 'expenses') {
         const amt = parseFloat(data.amount || data.importo) || 0;
         const desc = data.description || data.descrizione || 'Spesa gestionale';
         const expDate = resolveNaturalDate(data.date);
 
         data = { date: expDate, description: desc, amount: amt };
         summaryText = `Registrazione spesa "${desc}" di € ${amt.toFixed(2)} in data ${expDate}`;
+
+        const payload = { id: targetId || crypto.randomUUID(), salon_id: salonId, ...data };
+        window._aiAgentContext.pendingAction = { action: action, table: table, payload: payload, id: targetId, summary: summaryText };
+
+        return { simulation_status: "ARMED_FOR_CONFIRMATION", action: action, warnings: [], summary: summaryText, payload_details: payload };
     }
 
-    const payload = {
-        id: targetId || crypto.randomUUID(),
-        salon_id: salonId,
-        ...data
-    };
-
-    window._aiAgentContext.pendingAction = {
-        action: action,
-        table: table,
-        payload: payload,
-        id: targetId,
-        summary: summaryText
-    };
-
-    return {
-        simulation_status: "ARMED_FOR_CONFIRMATION",
-        action: action,
-        warnings: warnings,
-        summary: summaryText,
-        payload_details: payload
-    };
+    return { simulation_status: "ERROR", error: "Tabella non supportata." };
 }
 window.tool_propose_write = tool_propose_write;
 
@@ -814,7 +899,6 @@ async function processAiAgentQuery(userQuery) {
         if (isStrictApproval) return await confirmAiPendingAction();
         if (isStrictCancel) return cancelAiPendingAction();
 
-        // Se l'utente scrive "spostalo", "eliminalo", "cambia", "dopodomani", aggiorna direttamente l'azione
         if (q.includes('spost') || q.includes('durata') || q.includes('elimina') || q.includes('cancella') || q.includes('dopodomani') || q.includes('domani') || q.includes('invece')) {
             window._aiAgentContext.pendingAction = null;
         } else {
@@ -857,15 +941,15 @@ HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
    Parametri: table ("appointments"|"customers"|"inventory"|"sales"|"expenses"), customer (nome cliente), date (YYYY-MM-DD), timeline ("future"|"past"|"all"), month ("last_month"|"this_month"|"YYYY-MM"), date_from, date_to.
 2. "get_analytics": calcola margini reali, volumi e spese fisse.
 3. "simulate_what_if": simula scenari (target="highest_margin"|"highest_volume"|"specific_service", value=5, unit="euro"|"percent").
-4. "propose_write": prepara inserimenti, modifiche o CANCELLAZIONI di appuntamenti con conferma HITL.
-   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), id (se modifica/update/delete), data: { cust_name, date, time, service, assigned_user, price, end_time, duration }
+4. "propose_write": prepara inserimenti, modifiche o cancellazioni di appuntamenti con conferma HITL.
+   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), id (se modifica/delete), data: { cust_name, date, time, service, assigned_user, price, end_time, duration }
 
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${VAIMUP_APP_MANUAL}
 
 ISTRUZIONI SEVERISSIME PER AZIONI:
-- Se l'utente dice "eliminalo", "cancellalo", "rimuovilo", chiama "propose_write" con: action="DELETE", table="appointments", id="${lastApp?.id || ''}".
-- Se l'utente dice "spostalo a dopodomani stesso orario", chiama "propose_write" con: action="UPDATE", table="appointments", id="${lastApp?.id || ''}", data: { date: "dopodomani", time: "${lastApp?.time || '15:00'}" }.
+- Se l'utente chiede di spostare o modificare un orario o data, chiama "propose_write" con action="UPDATE", table="appointments", id="${lastApp?.id || ''}".
+- Se chiede di eliminare, chiama "propose_write" con action="DELETE", table="appointments", id="${lastApp?.id || ''}".
 
 FORMATO RISPOSTA (SOLO JSON):
 Per usare un tool:
@@ -918,7 +1002,18 @@ Per risposta diretta:
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
             const details = sim.payload_details || {};
-            let warnText = (sim.warnings && sim.warnings.length > 0) ? `<br><br>${sim.warnings.join('<br>')}` : '';
+            
+            // Format dei warning sui vincoli di orario e turni staff
+            let warnHtml = '';
+            if (sim.warnings && sim.warnings.length > 0) {
+                warnHtml = `
+                    <div style="background: #fff1f0; border: 1.5px solid #ffa39e; border-radius: 8px; padding: 10px 12px; margin: 10px 0; color: #cf1322; font-size: 12px; line-height: 1.45;">
+                        <strong style="text-transform: uppercase;">⚠️ Vincoli Orari e Turni Staff:</strong><br>
+                        ${sim.warnings.join('<br>')}
+                    </div>
+                `;
+            }
+
             const actionType = sim.action; // 'INSERT' | 'UPDATE' | 'DELETE'
 
             let confirmQuestion = "❓ Vuoi procedere con il salvataggio?";
@@ -946,7 +1041,7 @@ Per risposta diretta:
                 (details.time ? `• **Orario:** ${details.time} - ${details.end_time || ''}\n` : '') +
                 (details.service ? `• **Servizio:** ${details.service} (Prezzo: € ${parseFloat(details.price || 0).toFixed(2)})\n` : '') +
                 (details.assigned_user ? `• **Operatore:** ${details.assigned_user}\n` : '') +
-                warnText +
+                warnHtml +
                 `\n${confirmQuestion} Rispondi **"Conferma"** oppure tocca il pulsante:\n` +
                 `<div class="ai-hitl-actions" style="display:flex; gap:8px; margin-top:10px;">` +
                 `<button type="button" class="btn ${confirmBtnClass}" style="padding:8px 16px; font-size:12px; font-weight:800; cursor:pointer;" onclick="window.confirmAiPendingAction(this)">${confirmBtnLabel}</button>` +
