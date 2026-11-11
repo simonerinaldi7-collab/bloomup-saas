@@ -3,6 +3,7 @@
 // Local-First Dexie.js + Supabase Multi-Tenant Architecture
 // =========================================================================
 
+// Inizializzazione sicura del contesto agente
 if (!window._aiAgentContext) {
     window._aiAgentContext = {
         lastCustomer: null,
@@ -10,30 +11,30 @@ if (!window._aiAgentContext) {
         lastProduct: null,
         lastDate: null,
         lastAppointmentId: null,
-        pendingAction: null // Human-In-The-Loop confirmation state
+        pendingAction: null // Human-In-The-Loop safety gate state
     };
 }
 
 // -------------------------------------------------------------------------
-// 1. KNOWLEDGE BASE APPLICATIVA (MANUALE OPERATIVO GESTIONALE)
+// 1. KNOWLEDGE BASE OPERATIVA DI SISTEMA (MANUALE FUNZIONALITÀ GESTIONALE)
 // -------------------------------------------------------------------------
 const VAIMUP_APP_MANUAL = `
-MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE:
+MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
 1. STORNO DI CASSA:
    - Si effettua da "📈 Report Vendite" nel menu laterale (sezione Gestione & Analisi).
-   - Si individua la vendita da annullare tramite i filtri e si clicca sul pulsante rosso "Storna" a destra.
-   - Effetti automatici: le giacenze e i lotti FIFO di magazzino vengono ripristinati e l'incasso viene stornato dal bilancio.
+   - Si individua la vendita da annullare tramite i filtri (data, cliente o operatore) e si clicca sul pulsante rosso "Storna" a destra.
+   - Effetti automatici: le giacenze e i lotti FIFO di magazzino vengono ripristinati e l'incasso viene stornato dal bilancio del salone.
 2. CARICO MAGAZZINO & LOTTI FIFO:
    - Si effettua da "📦 Magazzino Prodotti".
-   - Per carico veloce: pulsante "⚡ Scan & Carico" in alto con pistola laser o fotocamera.
-   - Per carico manuale: icona "📦" nella riga del prodotto.
+   - Per carico veloce con barcode: pulsante "⚡ Scan & Carico" in alto con pistola laser o fotocamera.
+   - Per carico manuale da tabella: icona "📦" nella riga del prodotto.
    - Crea un lotto FIFO con costo d'acquisto storico e registra la spesa a bilancio se prodotto di proprietà.
 3. PACCHETTI & CARNET:
    - Configurazione da "🎁 Pacchetti & Carnet" -> "+ Nuovo Pacchetto".
-   - Vendita in "🛒 Cassa & POS".
-   - Riscatto in Agenda: selezionando il cliente il sistema scala la seduta a € 0.00.
+   - Vendita in "🛒 Cassa & POS" selezionando il cliente e il pacchetto.
+   - Riscatto in Agenda: selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
 4. COWORKING & POSTAZIONI FISICHE:
-   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione bloccata tutelando la privacy GDPR.
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
 5. STAMPA LISTINI:
    - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
 6. BOOKING ONLINE (SELF-BOOKING):
@@ -41,7 +42,68 @@ MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE:
 `;
 
 // -------------------------------------------------------------------------
-// 2. RISOLUZIONE CHIAVE IA DA SUPABASE (SILENZIOSA, ZERO ESPOSIZIONE UI)
+// 2. GUIDA PROCEDURALE DETERMINISTICA (DEFINITA IN CIMA E LEGATA A WINDOW)
+// -------------------------------------------------------------------------
+function getDeterministicAppGuide(query) {
+    const q = (query || '').toLowerCase().trim();
+
+    if (q.includes('storno') || q.includes('stornare') || (q.includes('annulla') && q.includes('vendita')) || (q.includes('cancella') && q.includes('scontrino'))) {
+        return `🛒 **Guida Ufficiale: Come Effettuare uno Storno di Cassa**\n\n` +
+            `In VaiMUp lo storno è una procedura guidata con **effetto retroattivo automatico e completo**:\n\n` +
+            `1. **Apri il Report**: Nel menu laterale clicca su **"📈 Report Vendite"** (sezione *Gestione & Analisi*).\n` +
+            `2. **Individua la Vendita**: Cerca la transazione da annullare usando i filtri in alto (per Data, Cliente o Operatore).\n` +
+            `3. **Premi "Storna"**: All'estrema destra della riga, clicca sul pulsante rosso **"Storna"**.\n` +
+            `4. **Conferma l'Avviso**: Premi **"OK"** nella finestra di dialogo.\n\n` +
+            `✨ **Cosa fa automaticamente il sistema in background:**\n` +
+            `- **Magazzino & Lotti FIFO**: I prodotti fisici e i materiali consumabili dei servizi venduti vengono ripristinati istantaneamente nelle giacenze reali.\n` +
+            `- **Bilancio & Incassi**: L'importo viene cancellato dal fatturato e i margini operativi netti vengono ricalcolati senza lasciare alcun disallineamento contabile.`;
+    }
+
+    if (q.includes('carico') && (q.includes('magazzino') || q.includes('merce') || q.includes('fifo') || q.includes('prodotto'))) {
+        return `📦 **Guida Ufficiale: Carico Merce con Tracciamento Lotti FIFO**\n\n` +
+            `In VaiMUp ogni carico genera un lotto di costo storico reale (First-In, First-Out):\n\n` +
+            `1. **Vai al Magazzino**: Dal menu laterale apri **"📦 Magazzino Prodotti"**.\n` +
+            `2. **Modalità Rapida con Barcode**:\n` +
+            `   - Clicca sul pulsante verde in alto **"⚡ Scan & Carico"**.\n` +
+            `   - Spara il codice a barre con il lettore laser o usa la fotocamera 📷 dello smartphone.\n` +
+            `   - Inserisci la quantità ricevuta e il costo d'acquisto totale della fornitura.\n` +
+            `3. **Carico da Tabella**:\n` +
+            `   - Nella riga del prodotto clicca sull'icona **"📦" (Carico Merce)**.\n` +
+            `   - Indica la quantità arrivata e la spesa complessiva.\n` +
+            `4. **Conferma**: Premi **"Conferma e Registra Carico"**.\n\n` +
+            `✨ **Cosa accade nel sistema:**\n` +
+            `- Viene creato un lotto FIFO con data, ora e costo unitario d'acquisto esatto.\n` +
+            `- Se il prodotto è di proprietà, il sistema genera in automatico la spesa a bilancio per coprire il costo fornitore.`;
+    }
+
+    if ((q.includes('pacchetto') || q.includes('carnet') || q.includes('sedute')) && (q.includes('come') || q.includes('funziona') || q.includes('creare') || q.includes('vendere'))) {
+        return `🎁 **Guida Ufficiale: Gestione Pacchetti e Carnet Prepagati**\n\n` +
+            `1. **Configurazione Pacchetto**: Vai in **"🎁 Pacchetti & Carnet"** ➔ Clicca **"+ Nuovo Pacchetto"**, assegna un prezzo totale e aggiungi i servizi inclusi con il numero di sedute.\n` +
+            `2. **Vendita in Cassa**: In **"🛒 Cassa & POS"**, seleziona il cliente, tocca il pacchetto dal catalogo e registra l'incasso (anche parziale con rata).\n` +
+            `3. **Riscatto in Agenda**: Quando fissi l'appuntamento per quel cliente, il sistema rileva in automatico il carnet attivo e ti propone di scalare 1 seduta a **€ 0.00**!`;
+    }
+
+    if ((q.includes('postazion') || q.includes('coworking') || q.includes('cabina') || q.includes('poltrona')) && (q.includes('come') || q.includes('funziona'))) {
+        return `🏢 **Guida Ufficiale: Spazi & Coworking Multi-Tenant**\n\n` +
+            `1. **Configura lo Spazio**: Vai in **"🏢 Spazi & Coworking"** ➔ Clicca **"+"** per creare cabine o poltrone e impostare i negozi partner abilitati.\n` +
+            `2. **Blocco Automatico**: Quando inserisci un appuntamento che richiede una postazione specifica, il sistema riserva lo slot in modo atomico.\n` +
+            `3. **Tutela della Privacy**: Gli altri saloni vedranno lo spazio occupato come *"Bloccato da Altro Salone"*, senza poter leggere i dati anagrafici del cliente finale.`;
+    }
+
+    if ((q.includes('stampa') || q.includes('listino')) && (q.includes('come') || q.includes('formato') || q.includes('pdf'))) {
+        return `🖨️ **Guida Ufficiale: Print Studio & Cartelli Vetrina**\n\n` +
+            `1. Dal menu laterale apri **"🖨️ Stampa & Listini"**.\n` +
+            `2. Scegli la modalità: **Listino Trattamenti** oppure **Cartello QR Booking** per vetrine.\n` +
+            `3. Seleziona il formato carta (A4, A5 compatto, A3 o Poster Maxi 50x70) e il tema grafico d'autore.\n` +
+            `4. Puoi trascinare direttamente con il mouse il logo o le intestazioni per adattarli al millimetro prima di stampare o salvare in PDF!`;
+    }
+
+    return null;
+}
+window.getDeterministicAppGuide = getDeterministicAppGuide;
+
+// -------------------------------------------------------------------------
+// 3. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO ESPOSIZIONE UI)
 // -------------------------------------------------------------------------
 async function getOrLoadAiApiKey() {
     if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
@@ -58,9 +120,10 @@ async function getOrLoadAiApiKey() {
     }
     return null;
 }
+window.getOrLoadAiApiKey = getOrLoadAiApiKey;
 
 // -------------------------------------------------------------------------
-// 3. PIPELINE DI CHIAMATA LLM RESILIENTE
+// 4. PIPELINE DI CHIAMATA LLM RESILIENTE
 // -------------------------------------------------------------------------
 async function callAgentBrain(messages) {
     const apiKey = await getOrLoadAiApiKey();
@@ -133,9 +196,10 @@ async function callAgentBrain(messages) {
 
     throw new Error("Tutti i provider OpenRouter hanno risposto con errore.");
 }
+window.callAgentBrain = callAgentBrain;
 
 // -------------------------------------------------------------------------
-// 4. PARSER E SANITIZZATORE JSON RESILIENTE
+// 5. PARSER E SANITIZZATORE JSON RESILIENTE
 // -------------------------------------------------------------------------
 function sanitizeJson(raw) {
     if (!raw) return null;
@@ -149,9 +213,10 @@ function sanitizeJson(raw) {
         return null;
     }
 }
+window.sanitizeJson = sanitizeJson;
 
 // -------------------------------------------------------------------------
-// 5. REGISTRY DEI TOOL UNIVERSALI (ESECUZIONE DETERMINISTICA LOCALE DEXIE)
+// 6. REGISTRY DEI TOOL UNIVERSALI (ESECUZIONE DETERMINISTICA LOCALE DEXIE)
 // -------------------------------------------------------------------------
 
 /**
@@ -232,11 +297,9 @@ async function tool_query_db(rawParams = {}) {
             if (table === 'appointments') {
                 const appCust = (row.cust_name || '').toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
 
-                // Match diretto su cust_name
                 if (appCust.includes(cleanSearch) || cleanSearch.includes(appCust)) return true;
                 if (tokens.length > 0 && tokens.every(tok => appCust.includes(tok))) return true;
 
-                // Match relazionale tramite tabella customers
                 if (customers.length > 0) {
                     const matchedCustomer = customers.find(c => {
                         const fn = (c.first_name || '').toLowerCase();
@@ -255,7 +318,6 @@ async function tool_query_db(rawParams = {}) {
                 return false;
             }
 
-            // Ricerca generica su altri tipi di tabella
             const rowText = JSON.stringify(row).toLowerCase();
             return rowText.includes(cleanSearch);
         });
@@ -299,6 +361,7 @@ async function tool_query_db(rawParams = {}) {
         items: results.slice(0, 15)
     };
 }
+window.tool_query_db = tool_query_db;
 
 /**
  * TOOL 2: Calcolo Deterministico dei Margini di Competenza Reale
@@ -330,6 +393,7 @@ async function tool_get_analytics({ type }) {
         top_services_by_volume: [...rankedServices].sort((a, b) => b.total_sold - a.total_sold).slice(0, 5)
     };
 }
+window.tool_get_analytics = tool_get_analytics;
 
 /**
  * TOOL 3: Simulatore Matematico "What-If"
@@ -399,6 +463,7 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
         retention_rate_pct: Math.round(retentionRate * 100)
     };
 }
+window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
  * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL
@@ -451,9 +516,10 @@ async function tool_propose_write({ action, table, data, id, summary }) {
         payload_details: payload
     };
 }
+window.tool_propose_write = tool_propose_write;
 
 // -------------------------------------------------------------------------
-// 6. DISPATCHER DEI TOOL
+// 7. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
 async function executeAgentToolCall(toolCall) {
     const { tool, params } = toolCall;
@@ -471,9 +537,10 @@ async function executeAgentToolCall(toolCall) {
 
     return { error: `Tool ${tool} non riconosciuto.` };
 }
+window.executeAgentToolCall = executeAgentToolCall;
 
 // -------------------------------------------------------------------------
-// 7. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
+// 8. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
 // -------------------------------------------------------------------------
 async function processAiAgentQuery(userQuery) {
     const rawQuery = (userQuery || '').trim();
@@ -496,8 +563,11 @@ async function processAiAgentQuery(userQuery) {
         return `⚠️ C'è un'operazione in attesa di conferma:\n*${window._aiAgentContext.pendingAction.summary}*\n\nRispondi **"Conferma"** per procedere oppure **"Annulla"**.`;
     }
 
-    // 2. Intercettazione diretta delle domande procedurali (Zero Latenza)
-    const directGuide = getDeterministicAppGuide(q);
+    // 2. Intercettazione diretta delle domande procedurali (Invocazione sicura via window)
+    const directGuide = (typeof window.getDeterministicAppGuide === 'function')
+        ? window.getDeterministicAppGuide(q)
+        : getDeterministicAppGuide(q);
+
     if (directGuide) {
         return directGuide;
     }
@@ -564,6 +634,8 @@ Per risposta diretta:
 
     // 5. FASE 2: ESECUZIONE TOOL E SINTESI DATI
     if (firstDecision && firstDecision.tool) {
+        if (!firstDecision.params) firstDecision.params = {};
+
         // Se l'utente si riferisce con un pronome al cliente precedente
         if (!firstDecision.params.customer && !firstDecision.params.search && window._aiAgentContext.lastCustomer) {
             if (q.includes('suoi') || q.includes('completat') || q.includes('passat') || q.includes('lui') || q.includes('lei') || q.includes('tutti')) {
@@ -627,9 +699,10 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
 
     return firstTurnRaw || "🤖 Ho elaborato la richiesta. Come posso esserti utile?";
 }
+window.processAiAgentQuery = processAiAgentQuery;
 
 // -------------------------------------------------------------------------
-// 8. ESECUZIONE FASE 2 (CONFERMA ED ESECUZIONE SCRITTURA HUMAN-IN-THE-LOOP)
+// 9. ESECUZIONE FASE 2 (CONFERMA ED ESECUZIONE SCRITTURA HUMAN-IN-THE-LOOP)
 // -------------------------------------------------------------------------
 async function confirmAiPendingAction() {
     const pending = window._aiAgentContext.pendingAction;
@@ -666,7 +739,7 @@ function cancelAiPendingAction() {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 9. SPEECH SYNTHESIS & PUSH-TO-TALK
+// 10. SPEECH SYNTHESIS & PUSH-TO-TALK
 // -------------------------------------------------------------------------
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window) || !text) return;
@@ -714,6 +787,86 @@ function sendQuickAiPromptDrawer(text) {
 }
 window.sendQuickAiPromptDrawer = sendQuickAiPromptDrawer;
 
-// Esportazioni globali
-window.processAiAgentQuery = processAiAgentQuery;
-window.executeAgentToolCall = executeAgentToolCall;
+let pttSpeechRecognizer = null;
+let isPttListening = false;
+
+function togglePushToTalkVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        return alert("Il tuo browser non supporta il riconoscimento vocale nativo. Consigliamo l'uso di Google Chrome o Microsoft Edge.");
+    }
+
+    const micBtn = document.getElementById('ai-mic-btn');
+
+    if (isPttListening) {
+        if (pttSpeechRecognizer) {
+            try { pttSpeechRecognizer.stop(); } catch (e) {}
+        }
+        if (micBtn) {
+            micBtn.style.background = '#f1f5f9';
+            micBtn.style.color = '#475569';
+            micBtn.innerText = '🎙️';
+        }
+        isPttListening = false;
+        return;
+    }
+
+    try {
+        pttSpeechRecognizer = new SpeechRecognition();
+        pttSpeechRecognizer.lang = 'it-IT';
+        pttSpeechRecognizer.interimResults = false;
+        pttSpeechRecognizer.maxAlternatives = 1;
+
+        pttSpeechRecognizer.onstart = () => {
+            isPttListening = true;
+            if (micBtn) {
+                micBtn.style.background = '#fee2e2';
+                micBtn.style.color = '#dc2626';
+                micBtn.innerText = '🔴 In ascolto...';
+            }
+        };
+
+        pttSpeechRecognizer.onresult = (event) => {
+            const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
+            if (micBtn) {
+                micBtn.style.background = '#f1f5f9';
+                micBtn.style.color = '#475569';
+                micBtn.innerText = '🎙️';
+            }
+            isPttListening = false;
+
+            if (transcript.length > 1) {
+                const inputField = document.getElementById('ai-user-input');
+                const drawerInput = document.getElementById('ai-drawer-input');
+                if (inputField) inputField.value = transcript;
+                if (drawerInput) drawerInput.value = transcript;
+
+                if (typeof sendAIQuery === 'function') sendAIQuery();
+            }
+        };
+
+        pttSpeechRecognizer.onerror = () => {
+            if (micBtn) {
+                micBtn.style.background = '#f1f5f9';
+                micBtn.style.color = '#475569';
+                micBtn.innerText = '🎙️';
+            }
+            isPttListening = false;
+        };
+
+        pttSpeechRecognizer.onend = () => {
+            if (micBtn) {
+                micBtn.style.background = '#f1f5f9';
+                micBtn.style.color = '#475569';
+                micBtn.innerText = '🎙️';
+            }
+            isPttListening = false;
+        };
+
+        pttSpeechRecognizer.start();
+
+    } catch (err) {
+        console.error("Errore avvio Push-To-Talk:", err);
+    }
+}
+window.togglePushToTalkVoice = togglePushToTalkVoice;
