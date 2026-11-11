@@ -1,9 +1,8 @@
 // =========================================================================
-// 🤖 VAIMUP AUTONOMOUS AGENT CORE - UNIVERSAL TOOL-CALLING & REACT ENGINE
+// 🤖 VAIMUP AUTONOMOUS AGENT CORE - REASONING & DETERMINISTIC ENGINE
 // Local-First Dexie.js + Supabase Multi-Tenant Architecture
 // =========================================================================
 
-// Inizializzazione sicura del contesto agente
 if (!window._aiAgentContext) {
     window._aiAgentContext = {
         lastCustomer: null,
@@ -11,13 +10,13 @@ if (!window._aiAgentContext) {
         lastProduct: null,
         lastDate: null,
         lastAppointmentId: null,
-        lastAppointment: null, // Oggetto completo dell'ultimo appuntamento gestito
+        lastAppointment: null, // Memorizza l'oggetto reale dell'ultimo appuntamento
         pendingAction: null    // Human-In-The-Loop safety gate state
     };
 }
 
 // -------------------------------------------------------------------------
-// 1. KNOWLEDGE BASE OPERATIVA DI SISTEMA (MANUALE FUNZIONALITÀ GESTIONALE)
+// 1. KNOWLEDGE BASE OPERATIVA DI SISTEMA (GUIDE FUNZIONALITÀ GESTIONALE)
 // -------------------------------------------------------------------------
 const VAIMUP_APP_MANUAL = `
 MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
@@ -35,16 +34,13 @@ MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
    - Vendita in "🛒 Cassa & POS" selezionando il cliente e il pacchetto.
    - Riscatto in Agenda: selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
 4. COWORKING & POSTAZIONI FISICHE:
-   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri saloni vedono la postazione occupata senza poter leggere i dati del cliente finale (privacy GDPR).
 5. STAMPA LISTINI:
    - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
 6. BOOKING ONLINE (SELF-BOOKING):
    - I clienti prenotano 24/7 dal link o QR code senza installare app.
 `;
 
-// -------------------------------------------------------------------------
-// 2. GUIDA PROCEDURALE DETERMINISTICA
-// -------------------------------------------------------------------------
 function getDeterministicAppGuide(query) {
     const q = (query || '').toLowerCase().trim();
 
@@ -104,7 +100,7 @@ function getDeterministicAppGuide(query) {
 window.getDeterministicAppGuide = getDeterministicAppGuide;
 
 // -------------------------------------------------------------------------
-// 3. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO ESPOSIZIONE UI)
+// 2. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO ESPOSIZIONE UI)
 // -------------------------------------------------------------------------
 async function getOrLoadAiApiKey() {
     if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
@@ -124,7 +120,7 @@ async function getOrLoadAiApiKey() {
 window.getOrLoadAiApiKey = getOrLoadAiApiKey;
 
 // -------------------------------------------------------------------------
-// 4. PIPELINE DI CHIAMATA LLM RESILIENTE
+// 3. PIPELINE DI CHIAMATA LLM RESILIENTE
 // -------------------------------------------------------------------------
 async function callAgentBrain(messages) {
     const apiKey = await getOrLoadAiApiKey();
@@ -134,6 +130,7 @@ async function callAgentBrain(messages) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
+    // Endpoint Google Gemini Nativo
     if (isGoogleKey) {
         const geminiModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const gModel of geminiModels) {
@@ -198,9 +195,6 @@ async function callAgentBrain(messages) {
 }
 window.callAgentBrain = callAgentBrain;
 
-// -------------------------------------------------------------------------
-// 5. PARSER E SANITIZZATORE JSON RESILIENTE
-// -------------------------------------------------------------------------
 function sanitizeJson(raw) {
     if (!raw) return null;
     try {
@@ -216,7 +210,7 @@ function sanitizeJson(raw) {
 window.sanitizeJson = sanitizeJson;
 
 // -------------------------------------------------------------------------
-// 6. RISOLUTORE DETERMINISTICO DI DATE ED ORARI
+// 4. RISOLUTORI NATURALI DETERMINISTICI (TEMPORAL & PARSING)
 // -------------------------------------------------------------------------
 function resolveNaturalDate(dateInput) {
     if (!dateInput) return new Date().toISOString().split('T')[0];
@@ -266,8 +260,36 @@ function resolveNaturalTime(timeInput) {
     return "09:00";
 }
 
+function parseDurationMinutesFromText(text) {
+    if (!text) return null;
+    const q = String(text).toLowerCase();
+
+    if (q.includes("un'ora e mezza") || q.includes("1 ora e mezza") || q.includes("90 minuti") || q.includes("90 min") || q.includes("un ora e mezza")) {
+        return 90;
+    }
+    if (q.includes("mezz'ora") || q.includes("mezza ora") || q.includes("30 minuti") || q.includes("30 min")) {
+        return 30;
+    }
+    if (q.includes("due ore") || q.includes("2 ore") || q.includes("120 minuti") || q.includes("120 min")) {
+        return 120;
+    }
+    if (q.includes("due ore e mezza") || q.includes("150 minuti")) {
+        return 150;
+    }
+    if (q.includes("un'ora") || q.includes("1 ora") || q.includes("60 minuti") || q.includes("60 min") || q.includes("un ora")) {
+        return 60;
+    }
+    const match = q.match(/(\d+)\s*(?:minut|min|ora|ore)/i);
+    if (match) {
+        const val = parseInt(match[1], 10);
+        if (q.includes('ora') || q.includes('ore')) return val * 60;
+        return val;
+    }
+    return null;
+}
+
 // -------------------------------------------------------------------------
-// 7. REGISTRY DEI TOOL UNIVERSALI (ESECUZIONE DETERMINISTICA LOCALE DEXIE)
+// 5. REGISTRY DEI TOOL UNIVERSALI (DETERMINISTICO SUL DATABASE)
 // -------------------------------------------------------------------------
 
 /**
@@ -279,7 +301,7 @@ async function tool_query_db(rawParams = {}) {
 
     const searchTarget = params.customer || params.customerName || params.cust_name || params.client || params.search || params.query || '';
     const timeline = params.timeline || (params.past ? 'past' : (params.future ? 'future' : 'all'));
-    const specificDate = params.date || '';
+    const specificDate = params.date ? resolveNaturalDate(params.date) : '';
     let dateFrom = params.date_from || params.startDate || '';
     let dateTo = params.date_to || params.endDate || '';
     const month = params.month || '';
@@ -300,14 +322,6 @@ async function tool_query_db(rawParams = {}) {
         const pad = (n) => String(n).padStart(2, '0');
         dateFrom = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
         dateTo = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`;
-    } else if (/^\d{4}-\d{2}$/.test(month)) {
-        const parts = month.split('-');
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const lastDay = new Date(y, m, 0).getDate();
-        const pad = (n) => String(n).padStart(2, '0');
-        dateFrom = `${y}-${pad(m)}-01`;
-        dateTo = `${y}-${pad(m)}-${pad(lastDay)}`;
     }
 
     const records = await window.universalQuery({ action: 'GET_ALL', table: table }) || [];
@@ -315,7 +329,7 @@ async function tool_query_db(rawParams = {}) {
 
     let results = records;
 
-    // 🛑 1. FILTRO SULL'AGENDA: ESCLUDE TASSATIVAMENTE LE PAUSE E LE FERIE
+    // 🛑 1. FILTRO FONDAMENTALE SULL'AGENDA: ESCLUDE TASSATIVAMENTE LE PAUSE E LE FERIE
     if (table === 'appointments') {
         results = results.filter(a => {
             const cust = (a.cust_name || '').toLowerCase();
@@ -326,7 +340,7 @@ async function tool_query_db(rawParams = {}) {
         });
     }
 
-    // 2. RICERCA TOKENIZZATA CLIENTE (Cognome Nome, Nome Cognome, Frammenti, o ID relazionale)
+    // 2. RICERCA TOKENIZZATA CLIENTE
     if (searchTarget) {
         const cleanSearch = String(searchTarget).toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
         const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 1);
@@ -512,48 +526,81 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
 window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
- * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL
- * Con scudo contestuale anti-placeholder (eredita automaticamente i dati dell'ultimo appuntamento gestito)
+ * TOOL 4: Simulazione e Proposta di Scrittura con Gating HITL e Grounding Relazionale Completo
  */
 async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
     let action = (params.action || 'INSERT').toUpperCase();
     const table = params.table || 'appointments';
+    
+    // Supporta parametri piatti passati direttamente o dentro data: {}
     let data = params.data || {};
+    if (params.cust_name && !data.cust_name) data.cust_name = params.cust_name;
+    if (params.customer && !data.cust_name) data.cust_name = params.customer;
+    if (params.date && !data.date) data.date = params.date;
+    if (params.time && !data.time) data.time = params.time;
+    if (params.service && !data.service) data.service = params.service;
+    if (params.assigned_user && !data.assigned_user) data.assigned_user = params.assigned_user;
+
     let targetId = params.id || null;
 
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
     const lastApp = window._aiAgentContext.lastAppointment;
     const q = (rawUserQuery || '').toLowerCase();
 
-    // 🛡️ SCUDO ANTI-PLACEHOLDER CONTESTUALE:
-    // Se l'utente sta modificando un appuntamento appena creato o discusso, o se l'LLM ha generato segnaposto ("Cliente", "Servizio esistente", "Utente assegnato")
-    const isFollowUpModification = (action === 'UPDATE') || 
-        Boolean(lastApp && (
-            q.includes('durata') || q.includes('spost') || q.includes('modifica') || q.includes('cambia') ||
-            !data.cust_name || data.cust_name === 'Cliente' ||
-            !data.service || data.service === 'Servizio esistente' ||
-            !data.assigned_user || data.assigned_user === 'Utente assegnato'
-        ));
+    // 🔍 DETERMINAZIONE RELAZIONALE PREVENTIVA DELL'APPUNTAMENTO DA MODIFICARE
+    if (table === 'appointments') {
+        const queryDate = resolveNaturalDate(data.date || (q.includes('domani') ? 'domani' : (lastApp ? lastApp.date : 'oggi')));
+        const queryCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer);
 
-    if (isFollowUpModification && lastApp) {
-        action = 'UPDATE';
-        targetId = lastApp.id;
+        const isExplicitUpdate = (action === 'UPDATE') || q.includes('durata') || q.includes('spost') || q.includes('modifica') || q.includes('cambia');
 
-        // Eredita tutti i dati reali dell'appuntamento attivo
-        if (!data.cust_name || data.cust_name === 'Cliente') data.cust_name = lastApp.cust_name;
-        if (!data.date || data.date === new Date().toISOString().split('T')[0]) data.date = lastApp.date;
-        if (!data.time) data.time = lastApp.time;
-        if (!data.service || data.service === 'Servizio esistente') data.service = lastApp.service;
-        if (!data.assigned_user || data.assigned_user === 'Utente assegnato') data.assigned_user = lastApp.assigned_user;
-        if (!data.price) data.price = lastApp.price;
-        if (!data.end_time) data.end_time = lastApp.end_time;
+        if (isExplicitUpdate) {
+            action = 'UPDATE';
+
+            // Cerchiamo nel DB l'appuntamento reale
+            const appointmentsInDb = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+            const customersInDb = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
+
+            let realApp = null;
+            if (targetId) {
+                realApp = appointmentsInDb.find(a => String(a.id) === String(targetId));
+            }
+            if (!realApp && queryCust) {
+                const dayApps = appointmentsInDb.filter(a => a.date === queryDate);
+                realApp = dayApps.find(a => {
+                    const custClean = (a.cust_name || '').toLowerCase();
+                    return custClean.includes(queryCust.toLowerCase()) || queryCust.toLowerCase().includes(custClean);
+                });
+            }
+            if (!realApp && lastApp) {
+                realApp = appointmentsInDb.find(a => String(a.id) === String(lastApp.id)) || lastApp;
+            }
+
+            // Se abbiamo trovato l'appuntamento reale nel DB, fondiamo i dati reali!
+            if (realApp) {
+                targetId = realApp.id;
+                data.cust_name = realApp.cust_name;
+                data.date = realApp.date;
+                data.time = realApp.time;
+                data.service = realApp.service;
+                data.assigned_user = realApp.assigned_user;
+                data.price = realApp.price;
+                data.end_time = realApp.end_time;
+                data.notes = realApp.notes;
+
+                // Aggiorniamo la memoria contestuale
+                window._aiAgentContext.lastAppointment = { ...realApp };
+                window._aiAgentContext.lastAppointmentId = realApp.id;
+                window._aiAgentContext.lastCustomer = realApp.cust_name;
+            }
+        }
     }
 
     let warnings = [];
     let summaryText = "";
 
-    // NORMALIZZAZIONE APPROFONDITA PER GLI APPUNTAMENTI
+    // GESTIONE DATI APPUNTAMENTO
     if (table === 'appointments') {
         const rawCust = data.cust_name || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer) || 'Cliente';
         const rawDate = data.date || (lastApp ? lastApp.date : 'oggi');
@@ -564,7 +611,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         const resolvedDate = resolveNaturalDate(rawDate);
         const resolvedTime = resolveNaturalTime(rawTime);
 
-        // Risoluzione servizio da magazzino
+        // Risoluzione Servizio da Magazzino
         const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
         const cleanSrvQuery = String(rawService).toLowerCase().trim();
 
@@ -583,21 +630,18 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         const serviceFinalName = matchedService ? matchedService.name : rawService;
         let durationMin = matchedService && matchedService.duration_minutes ? parseInt(matchedService.duration_minutes, 10) : 60;
 
-        // ⏱️ CALCOLO RIGOROSO DELLA DURATA: Se l'utente specifica o modifica la durata
-        const parsedNatural = parseNaturalTimeAndDuration(q);
-        if (q.includes('durata') || q.includes('ora') || q.includes('minut')) {
-            if (parsedNatural.durationMinutes && parsedNatural.durationMinutes !== 60) {
-                durationMin = parsedNatural.durationMinutes;
-            } else if (q.includes("un'ora e mezza") || q.includes("1 ora e mezza") || q.includes("90 minuti")) {
-                durationMin = 90;
-            } else if (q.includes("mezz'ora") || q.includes("30 minuti")) {
-                durationMin = 30;
-            } else if (q.includes("due ore") || q.includes("2 ore") || q.includes("120 minuti")) {
-                durationMin = 120;
-            }
+        // Calcolo della durata richiesta dall'utente (es. "aumenta la durata a 1 ora e mezza" = 90 min)
+        const extractedDuration = parseDurationMinutesFromText(q) || parseDurationMinutesFromText(data.duration);
+        if (extractedDuration) {
+            durationMin = extractedDuration;
+        } else if (action === 'UPDATE' && data.end_time && data.time) {
+            const [sH_prev, sM_prev] = data.time.split(':').map(Number);
+            const [eH_prev, eM_prev] = data.end_time.split(':').map(Number);
+            const prevDur = (eH_prev * 60 + eM_prev) - (sH_prev * 60 + sM_prev);
+            if (prevDur > 0) durationMin = prevDur;
         }
 
-        // Calcolo orario di fine esatto a partire dall'ora d'inizio
+        // Calcolo nuovo orario di fine
         const [sH, sM] = resolvedTime.split(':').map(Number);
         const endTotal = (sH * 60 + sM) + durationMin;
         const resolvedEndTime = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
@@ -611,7 +655,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             finalPrice = parseFloat(data.price) || 0;
         }
 
-        // Verifica orari operatore
+        // Convalida turni operatore
         const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const dateObj = new Date(resolvedDate + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
@@ -621,7 +665,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             warnings.push(`⚠️ L'operatore <b>${rawOperator}</b> risulta a riposo in data ${resolvedDate}.`);
         }
 
-        // Verifica sovrapposizioni
+        // Convalida sovrapposizioni agenda
         const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
         const conflict = existingApps.find(a => {
             if (targetId && String(a.id) === String(targetId)) return false;
@@ -644,11 +688,11 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             service: serviceFinalName,
             price: finalPrice,
             assigned_user: rawOperator,
-            notes: data.notes || (action === 'UPDATE' ? (lastApp ? lastApp.notes : 'Modificato tramite Assistente IA') : 'Creato tramite Assistente IA (HITL Confermato)')
+            notes: data.notes || (action === 'UPDATE' ? 'Modificato tramite Assistente IA' : 'Creato tramite Assistente IA (HITL Confermato)')
         };
 
         if (action === 'UPDATE') {
-            summaryText = `Modifica appuntamento di **${data.cust_name}**: nuova durata di ${durationMin} min (dalle **${data.time}** alle **${data.end_time}** in data ${data.date})`;
+            summaryText = `Modifica appuntamento di **${data.cust_name}** del **${data.date}**: nuova durata di ${durationMin} min (dalle **${data.time}** alle **${data.end_time}**)`;
         } else {
             summaryText = `Creazione appuntamento per **${data.cust_name}** il **${data.date}** alle **${data.time} - ${data.end_time}** (*${data.service}*, Op: ${data.assigned_user}, Prezzo: € ${data.price.toFixed(2)})`;
         }
@@ -660,8 +704,6 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 
         data = { date: expDate, description: desc, amount: amt };
         summaryText = `Registrazione spesa "${desc}" di € ${amt.toFixed(2)} in data ${expDate}`;
-    } else {
-        summaryText = `${action} sulla tabella ${table}`;
     }
 
     const payload = {
@@ -689,7 +731,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 window.tool_propose_write = tool_propose_write;
 
 // -------------------------------------------------------------------------
-// 8. DISPATCHER DEI TOOL
+// 6. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
 async function executeAgentToolCall(toolCall, rawQuery = '') {
     const { tool, params } = toolCall;
@@ -710,7 +752,7 @@ async function executeAgentToolCall(toolCall, rawQuery = '') {
 window.executeAgentToolCall = executeAgentToolCall;
 
 // -------------------------------------------------------------------------
-// 9. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
+// 7. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
 // -------------------------------------------------------------------------
 function appendAgentMessage(content, isUser = false) {
     const chatBox = document.getElementById('ai-chat-messages');
@@ -747,7 +789,7 @@ function appendAgentMessage(content, isUser = false) {
 window.appendAgentMessage = appendAgentMessage;
 
 // -------------------------------------------------------------------------
-// 10. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
+// 8. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
 // -------------------------------------------------------------------------
 async function processAiAgentQuery(userQuery) {
     const rawQuery = (userQuery || '').trim();
@@ -759,18 +801,23 @@ async function processAiAgentQuery(userQuery) {
 
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
 
-    // 1. Controllo Human-In-The-Loop per conferme testuali ("Sì", "Conferma")
+    // 1. Controllo Human-In-The-Loop per conferme testuali esplicite
     if (window._aiAgentContext.pendingAction) {
-        const isYes = q === 'sì' || q === 'si' || q.includes('conferma') || q.includes('procedi') || q.includes('esegui') || q.includes('ok');
-        const isNo = q === 'no' || q.includes('annulla') || q.includes('cancella') || q.includes('lascia stare');
+        const isStrictApproval = q === 'sì' || q === 'si' || q === 'conferma' || q === 'procedi' || q === 'esegui' || q === 'ok';
+        const isStrictCancel = q === 'no' || q === 'annulla' || q === 'cancella' || q === 'lascia stare';
 
-        if (isYes) return await confirmAiPendingAction();
-        if (isNo) return cancelAiPendingAction();
+        if (isStrictApproval) return await confirmAiPendingAction();
+        if (isStrictCancel) return cancelAiPendingAction();
 
-        return `⚠️ C'è un'operazione in attesa di conferma:\n*${window._aiAgentContext.pendingAction.summary}*\n\nRispondi **"Conferma"** per procedere oppure **"Annulla"**.`;
+        // Se l'utente scrive "No, modifica...", "Aumenta...", non è una revoca ma una variazione dei parametri!
+        if (q.startsWith('no ') || q.includes('invece') || q.includes('durata') || q.includes('spost')) {
+            window._aiAgentContext.pendingAction = null; // Rilascia per formulare la nuova proposta corretta
+        } else {
+            return `⚠️ C'è un'operazione in attesa di conferma:\n*${window._aiAgentContext.pendingAction.summary}*\n\nRispondi **"Conferma"** per procedere oppure tocca i pulsanti a schermo.`;
+        }
     }
 
-    // 2. Intercettazione diretta delle domande procedurali
+    // 2. Intercettazione diretta delle guide procedurali
     const directGuide = (typeof window.getDeterministicAppGuide === 'function')
         ? window.getDeterministicAppGuide(q)
         : getDeterministicAppGuide(q);
@@ -805,15 +852,15 @@ HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
    Parametri: table ("appointments"|"customers"|"inventory"|"sales"|"expenses"), customer (nome cliente), date (YYYY-MM-DD), timeline ("future"|"past"|"all"), month ("last_month"|"this_month"|"YYYY-MM"), date_from, date_to.
 2. "get_analytics": calcola margini reali, volumi e spese fisse.
 3. "simulate_what_if": simula scenari (target="highest_margin"|"highest_volume"|"specific_service", value=5, unit="euro"|"percent").
-4. "propose_write": prepara inserimenti o modifiche di appuntamenti/spese con conferma HITL.
-   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), id (se modifica/update), data: { cust_name, date, time, service, assigned_user, price, end_time }
+4. "propose_write": prepara inserimenti o modifiche di appuntamenti con conferma HITL.
+   Parametri: action ("INSERT"|"UPDATE"|"DELETE"), table ("appointments"|"expenses"|"customers"), id (se modifica/update), data: { cust_name, date, time, service, assigned_user, price, end_time, duration }
 
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${VAIMUP_APP_MANUAL}
 
-ISTRUZIONI SEVERISSIME PER FOLLOW-UP E MODIFICHE ("aumenta la durata...", "spostalo...", "cambialo...", "modifica l'appuntamento..."):
+ISTRUZIONI SEVERISSIME PER MODIFICHE E DURATA ("aumenta la durata...", "spostalo...", "cambialo...", "modifica l'appuntamento..."):
 - NON USARE MAI stringhe segnaposto come "Cliente", "Servizio esistente" o "Utente assegnato".
-- Se l'utente chiede di modificare la durata o spostare l'appuntamento appena creato o citato in memoria, chiama "propose_write" impostando action="UPDATE", table="appointments", id="${lastApp?.id || ''}".
+- Se l'utente chiede di modificare la durata o spostare l'appuntamento creato o citato in memoria, chiama "propose_write" impostando action="UPDATE", table="appointments", id="${lastApp?.id || ''}".
 - Eredita cliente ("${lastApp?.cust_name || ''}"), data ("${lastApp?.date || ''}"), ora inizio ("${lastApp?.time || ''}") e servizio ("${lastApp?.service || ''}").
 
 FORMATO RISPOSTA (SOLO JSON):
@@ -868,11 +915,10 @@ Per risposta diretta:
             const sim = toolResult;
             const details = sim.payload_details || {};
             let warnText = (sim.warnings && sim.warnings.length > 0) ? `<br><br>${sim.warnings.join('<br>')}` : '';
-
             const isUpdate = (sim.action === 'UPDATE');
 
             return `📋 **Proposta Operativa (In attesa di tua conferma):**\n\n` +
-                `• **Operazione:** ${sim.summary || 'Salvataggio dati'}\n` +
+                `• **Operazione:** ${sim.summary || (isUpdate ? 'Modifica appuntamento' : 'Creazione appuntamento')}\n` +
                 (details.cust_name ? `• **Cliente:** ${details.cust_name}\n` : '') +
                 (details.date ? `• **Data:** ${details.date}\n` : '') +
                 (details.time ? `• **Orario:** ${details.time} - ${details.end_time || ''}\n` : '') +
@@ -886,7 +932,7 @@ Per risposta diretta:
                 `</div>`;
         }
 
-        // Sintesi finale con i dati estratti per le letture (READ)
+        // Sintesi finale per query di lettura
         const synthesisPrompt = `Hai interrogato il database locale con il tool "${firstDecision.tool}".
 Risultati reali estratti dal database:
 ${JSON.stringify(toolResult, null, 2)}
@@ -896,7 +942,7 @@ Cliente di riferimento in memoria: "${window._aiAgentContext.lastCustomer || 'Ne
 
 ISTRUZIONI PER LA RISPOSTA FINALE:
 - Ti stai rivolgendo al TITOLARE o allo STAFF del salone (NON al cliente finale!). Usa un tono da copilota aziendale.
-- Se cercavi appuntamenti futuri e non ce ne sono (future_appointments_count = 0), ma ci sono appuntamenti passati (past_appointments_count > 0), fallo presente con precisione indicando la data dell'ultimo completato!
+- Se cercavi appuntamenti futuri e non ce ne sono (future_appointments_count = 0), ma ci sono appuntamenti passati (past_appointments_count > 0), fallo presente indicando la data dell'ultimo completato!
 - Se chiedeva appuntamenti passati, elenca con chiarezza quelli trovati (data, orario, trattamento, operatore).
 - Se chiedeva gli appuntamenti del mese scorso, elenca quelli trovati per quel periodo.
 - Se è una simulazione What-If, spiega con precisione il servizio identificato, l'aumento proposto e il guadagno stimato.
@@ -929,7 +975,7 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
 window.processAiAgentQuery = processAiAgentQuery;
 
 // -------------------------------------------------------------------------
-// 11. ESECUZIONE FASE 2: GESTIONE CLICK E CONFERMA HUMAN-IN-THE-LOOP
+// 9. ESECUZIONE FASE 2: CONFERMA E APPLICAZIONE HUMAN-IN-THE-LOOP
 // -------------------------------------------------------------------------
 async function confirmAiPendingAction(btnElement = null) {
     const pending = window._aiAgentContext.pendingAction;
@@ -957,7 +1003,6 @@ async function confirmAiPendingAction(btnElement = null) {
             const savedId = res?.lastInsertRowid || res?.id || targetId;
             payload.id = savedId;
 
-            // Aggiorna la memoria dell'ultimo appuntamento gestito
             if (table === 'appointments') {
                 window._aiAgentContext.lastAppointment = { ...payload };
                 window._aiAgentContext.lastAppointmentId = savedId;
@@ -1022,7 +1067,7 @@ function cancelAiPendingAction(btnElement = null) {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 12. SPEECH SYNTHESIS & PUSH-TO-TALK
+// 10. SPEECH SYNTHESIS & PUSH-TO-TALK
 // -------------------------------------------------------------------------
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window) || !text) return;
