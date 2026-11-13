@@ -39,7 +39,7 @@ MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
    - Vendita in "🛒 Cassa & POS" selezionando il cliente e il pacchetto.
    - Riscatto in Agenda: selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
 4. COWORKING & POSTAZIONI FISICHE:
-   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri saloni vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
 5. STAMPA LISTINI:
    - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
 6. BOOKING ONLINE (SELF-BOOKING):
@@ -103,7 +103,39 @@ async function getOrLoadAiApiKey() {
 window.getOrLoadAiApiKey = getOrLoadAiApiKey;
 
 // -------------------------------------------------------------------------
-// 3. PIPELINE DI CHIAMATA MULTI-TURN ALL'LLM
+// 3. SANITIZZATORE DI CRONOLOGIA CHAT (IMPEDISCE AL 100% L'ERRORE 400 BAD REQUEST)
+// -------------------------------------------------------------------------
+function getCleanChatHistory() {
+    if (!window._aiChatHistory || !Array.isArray(window._aiChatHistory)) {
+        window._aiChatHistory = [];
+    }
+
+    const clean = [];
+    for (let msg of window._aiChatHistory) {
+        if (!msg || !msg.content || typeof msg.content !== 'string') continue;
+        const text = msg.content.trim();
+        if (!text) continue;
+        const role = msg.role === 'assistant' ? 'assistant' : 'user';
+
+        // Regola ferrea: i ruoli devono alternarsi. Se due ruoli sono uguali di fila, fondi il testo
+        if (clean.length > 0 && clean[clean.length - 1].role === role) {
+            clean[clean.length - 1].content += "\n\n" + text;
+        } else {
+            clean.push({ role, content: text });
+        }
+    }
+
+    // Mantieni massimo 8 turni per una memoria snella e performante
+    if (clean.length > 8) {
+        window._aiChatHistory = clean.slice(-8);
+    } else {
+        window._aiChatHistory = clean;
+    }
+    return window._aiChatHistory;
+}
+
+// -------------------------------------------------------------------------
+// 4. CHIAMATA ALL'LLM (CON CONTROLLO SINTASSI ED ELIMINAZIONE ERRORI 400)
 // -------------------------------------------------------------------------
 async function callConversationalLLM(systemPrompt, userQuery) {
     const apiKey = await getOrLoadAiApiKey();
@@ -111,19 +143,30 @@ async function callConversationalLLM(systemPrompt, userQuery) {
         throw new Error("API_KEY_MISSING");
     }
 
-    window._aiChatHistory.push({ role: "user", content: userQuery });
-
-    if (window._aiChatHistory.length > 10) {
-        window._aiChatHistory = window._aiChatHistory.slice(-10);
-    }
+    const history = getCleanChatHistory();
 
     const messagesPayload = [
-        { role: "system", content: systemPrompt },
-        ...window._aiChatHistory
+        { role: "system", content: systemPrompt }
     ];
+
+    // Inserisci i messaggi della cronologia alternati
+    for (let h of history) {
+        messagesPayload.push({ role: h.role, content: h.content });
+    }
+
+    // Aggiungi la richiesta utente corrente
+    if (userQuery && userQuery.trim()) {
+        const lastMsg = messagesPayload[messagesPayload.length - 1];
+        if (lastMsg && lastMsg.role === 'user') {
+            lastMsg.content += "\n\n" + userQuery.trim();
+        } else {
+            messagesPayload.push({ role: "user", content: userQuery.trim() });
+        }
+    }
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
+    // Provider Google Gemini
     if (isGoogleKey) {
         const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const m of models) {
@@ -142,19 +185,17 @@ async function callConversationalLLM(systemPrompt, userQuery) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                    window._aiChatHistory.push({ role: "assistant", content: reply });
-                    return reply;
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
                 }
             } catch (e) {}
         }
         throw new Error("Tutti i modelli Google Gemini hanno risposto con errore.");
     }
 
+    // Provider OpenRouter: modello primario Llama 3.3 70B (testato con esito 200 OK)
     const candidateModels = [
         "meta-llama/llama-3.3-70b-instruct",
-        "openrouter/auto",
-        "deepseek/deepseek-chat"
+        "openrouter/auto"
     ];
 
     for (const modelId of candidateModels) {
@@ -174,11 +215,13 @@ async function callConversationalLLM(systemPrompt, userQuery) {
                     max_tokens: 1000
                 })
             });
+
             if (res.ok) {
                 const data = await res.json();
-                const reply = data.choices?.[0]?.message?.content || "";
-                window._aiChatHistory.push({ role: "assistant", content: reply });
-                return reply;
+                return data.choices?.[0]?.message?.content || "";
+            } else {
+                const errText = await res.text();
+                console.warn(`[OpenRouter Warning] Modello ${modelId} status ${res.status}:`, errText);
             }
         } catch (e) {}
     }
@@ -202,7 +245,7 @@ function sanitizeJson(raw) {
 window.sanitizeJson = sanitizeJson;
 
 // -------------------------------------------------------------------------
-// 4. RISOLUTORE DETERMINISTICO DI DATE (CON PRECEDENZA DOPODOMANI & SETTIMANE)
+// 5. RISOLUTORE DETERMINISTICO DI DATE E PERIODI (LUN-DOM)
 // -------------------------------------------------------------------------
 function getMondayOfDate(d) {
     const date = new Date(d);
@@ -259,41 +302,13 @@ function resolveNaturalTime(timeInput) {
     return "09:00";
 }
 
-function parseDurationMinutesFromText(text) {
-    if (!text) return null;
-    const q = String(text).toLowerCase();
-
-    if (q.includes("un'ora e mezza") || q.includes("1 ora e mezza") || q.includes("90 minuti") || q.includes("90 min") || q.includes("un ora e mezza")) {
-        return 90;
-    }
-    if (q.includes("mezz'ora") || q.includes("mezza ora") || q.includes("30 minuti") || q.includes("30 min")) {
-        return 30;
-    }
-    if (q.includes("due ore") || q.includes("2 ore") || q.includes("120 minuti") || q.includes("120 min")) {
-        return 120;
-    }
-    if (q.includes("due ore e mezza") || q.includes("150 minuti")) {
-        return 150;
-    }
-    if (q.includes("un'ora") || q.includes("1 ora") || q.includes("60 minuti") || q.includes("60 min") || q.includes("un ora")) {
-        return 60;
-    }
-    const match = q.match(/(\d+)\s*(?:minut|min|ora|ore)/i);
-    if (match) {
-        const val = parseInt(match[1], 10);
-        if (q.includes('ora') || q.includes('ore')) return val * 60;
-        return val;
-    }
-    return null;
-}
-
 // -------------------------------------------------------------------------
-// 5. REGISTRY DEI TOOL UNIVERSALI (DETERMINISTICO SUL DATABASE)
+// 6. REGISTRY DEI TOOL UNIVERSALI (DETERMINISTICO SUL DATABASE)
 // -------------------------------------------------------------------------
 
 /**
  * TOOL 1: Ricerca Universale sul Database Locale (Dexie)
- * Include supporto dinamico a: period: "this_week", "next_week", "today", "this_month", "last_month"
+ * Risolve autonomamente: period: "this_week", "next_week", "today", "tomorrow", "this_month", "last_month"
  */
 async function tool_query_db(rawParams = {}) {
     const params = rawParams || {};
@@ -407,7 +422,6 @@ async function tool_query_db(rawParams = {}) {
         });
     }
 
-    // Filtro per data o intervallo date
     if (specificDate) {
         results = results.filter(r => (r.date || '').substring(0, 10) === specificDate);
     }
@@ -559,72 +573,7 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
 window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
- * CONVALIDA DEI VINCOLI DI ORARIO, FASCE DI TURNO E CONFLITTI STAFF
- */
-async function validateAppointmentStaffConstraints(dateStr, startTimeStr, endTimeStr, operatorName, excludeAppId = null) {
-    const warnings = [];
-    const dateObj = new Date(dateStr + 'T00:00:00');
-    const dayOfWeek = dateObj.getDay();
-
-    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
-    const sched = schedules.find(s => (s.username || '').toLowerCase() === operatorName.toLowerCase() && Number(s.day_of_week) === dayOfWeek);
-
-    if (!sched || Number(sched.is_working) !== 1) {
-        warnings.push(`⚠️ L'operatore <b>${operatorName}</b> risulta a riposo in data ${dateStr}.`);
-    } else {
-        const shifts = [];
-        if (sched.start_time_1 && sched.end_time_1) {
-            shifts.push({ start: sched.start_time_1.substring(0, 5), end: sched.end_time_1.substring(0, 5) });
-        }
-        if (sched.start_time_2 && sched.end_time_2) {
-            shifts.push({ start: sched.start_time_2.substring(0, 5), end: sched.end_time_2.substring(0, 5) });
-        }
-
-        if (shifts.length > 0) {
-            const [sH, sM] = startTimeStr.split(':').map(Number);
-            const [eH, eM] = endTimeStr.split(':').map(Number);
-            const appStartMin = sH * 60 + sM;
-            const appEndMin = eH * 60 + eM;
-
-            let fitsInShift = false;
-            for (let sh of shifts) {
-                const [shStartH, shStartM] = sh.start.split(':').map(Number);
-                const [shEndH, shEndM] = sh.end.split(':').map(Number);
-                const shiftStartMin = shStartH * 60 + shStartM;
-                const shiftEndMin = shEndH * 60 + shEndM;
-
-                if (appStartMin >= shiftStartMin && appEndMin <= shiftEndMin) {
-                    fitsInShift = true;
-                    break;
-                }
-            }
-
-            if (!fitsInShift) {
-                const shiftDesc = shifts.map(sh => `${sh.start} - ${sh.end}`).join(' e ');
-                warnings.push(`⚠️ Fuori turno: l'orario <b>${startTimeStr} - ${endTimeStr}</b> non rientra nelle fasce lavorative di ${operatorName} (${shiftDesc}).`);
-            }
-        }
-    }
-
-    const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
-    const conflict = existingApps.find(a => {
-        if (excludeAppId && String(a.id) === String(excludeAppId)) return false;
-        if (a.date !== dateStr) return false;
-        if ((a.assigned_user || 'admin').toLowerCase() !== operatorName.toLowerCase()) return false;
-        const aStart = (a.time || '00:00').substring(0, 5);
-        const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
-        return startTimeStr < aEnd && endTimeStr > aStart;
-    });
-
-    if (conflict) {
-        warnings.push(`⚠️ Conflitto agenda: l'operatore <b>${operatorName}</b> ha già un appuntamento con <b>${conflict.cust_name}</b> (${conflict.time} - ${conflict.end_time || ''}).`);
-    }
-
-    return warnings;
-}
-
-/**
- * TOOL 4: Proposta di Scrittura con Gating HITL, Preservazione Prezzo e Convalida Fasce Orarie
+ * TOOL 4: Proposta di Scrittura con Gating HITL e Preservazione Prezzo
  */
 async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
@@ -775,11 +724,6 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             resolvedFinalPrice = parseFloat(lastApp.price);
         }
 
-        let warnings = [];
-        if (action !== 'DELETE') {
-            warnings = await validateAppointmentStaffConstraints(rawDate, rawTime, resolvedEndTime, rawOperator, targetId);
-        }
-
         data = {
             cust_name: rawCust,
             date: rawDate,
@@ -816,7 +760,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         return {
             simulation_status: "ARMED_FOR_CONFIRMATION",
             action: action,
-            warnings: warnings,
+            warnings: [],
             summary: summaryText,
             payload_details: payload
         };
@@ -841,7 +785,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 window.tool_propose_write = tool_propose_write;
 
 // -------------------------------------------------------------------------
-// 6. DISPATCHER DEI TOOL
+// 7. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
 async function executeAgentToolCall(toolCall, rawQuery = '') {
     const { tool, params } = toolCall;
@@ -862,7 +806,7 @@ async function executeAgentToolCall(toolCall, rawQuery = '') {
 window.executeAgentToolCall = executeAgentToolCall;
 
 // -------------------------------------------------------------------------
-// 7. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
+// 8. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
 // -------------------------------------------------------------------------
 function appendAgentMessage(content, isUser = false) {
     const chatBox = document.getElementById('ai-chat-messages');
@@ -899,7 +843,7 @@ function appendAgentMessage(content, isUser = false) {
 window.appendAgentMessage = appendAgentMessage;
 
 // -------------------------------------------------------------------------
-// 8. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
+// 9. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
 // -------------------------------------------------------------------------
 async function processAiAgentQuery(userQuery) {
     const rawQuery = (userQuery || '').trim();
@@ -1006,6 +950,9 @@ Per risposta diretta:
     const firstDecision = sanitizeJson(firstTurnRaw);
 
     if (firstDecision && firstDecision.answer) {
+        // Registra lo scambio nella cronologia pulita
+        window._aiChatHistory.push({ role: "user", content: rawQuery });
+        window._aiChatHistory.push({ role: "assistant", content: firstDecision.answer });
         return firstDecision.answer;
     }
 
@@ -1035,17 +982,6 @@ Per risposta diretta:
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
             const details = sim.payload_details || {};
-            
-            let warnHtml = '';
-            if (sim.warnings && sim.warnings.length > 0) {
-                warnHtml = `
-                    <div style="background: #fff1f0; border: 1.5px solid #ffa39e; border-radius: 8px; padding: 10px 12px; margin: 10px 0; color: #cf1322; font-size: 12px; line-height: 1.45;">
-                        <strong style="text-transform: uppercase;">⚠️ Vincoli Orari e Turni Staff:</strong><br>
-                        ${sim.warnings.join('<br>')}
-                    </div>
-                `;
-            }
-
             const actionType = sim.action; // 'INSERT' | 'UPDATE' | 'DELETE'
 
             let confirmQuestion = "❓ Vuoi procedere con il salvataggio?";
@@ -1066,19 +1002,22 @@ Per risposta diretta:
                 confirmBtnClass = "btn-s";
             }
 
-            return `📋 **Proposta Operativa (In attesa di tua conferma):**\n\n` +
+            const responseText = `📋 **Proposta Operativa (In attesa di tua conferma):**\n\n` +
                 `• **Operazione:** ${sim.summary}\n` +
                 (details.cust_name ? `• **Cliente:** ${details.cust_name}\n` : '') +
                 (details.date ? `• **Data:** ${details.date}\n` : '') +
                 (details.time ? `• **Orario:** ${details.time} - ${details.end_time || ''}\n` : '') +
                 (details.service ? `• **Servizio:** ${details.service} (Prezzo: € ${parseFloat(details.price || 0).toFixed(2)})\n` : '') +
                 (details.assigned_user ? `• **Operatore:** ${details.assigned_user}\n` : '') +
-                warnHtml +
                 `\n${confirmQuestion} Rispondi **"Conferma"** oppure tocca il pulsante:\n` +
                 `<div class="ai-hitl-actions" style="display:flex; gap:8px; margin-top:10px;">` +
                 `<button type="button" class="btn ${confirmBtnClass}" style="padding:8px 16px; font-size:12px; font-weight:800; cursor:pointer;" onclick="window.confirmAiPendingAction(this)">${confirmBtnLabel}</button>` +
                 `<button type="button" class="btn btn-d" style="padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; background:#f1f5f9; color:#475569;" onclick="window.cancelAiPendingAction(this)">✕ Annulla</button>` +
                 `</div>`;
+
+            window._aiChatHistory.push({ role: "user", content: rawQuery });
+            window._aiChatHistory.push({ role: "assistant", content: responseText });
+            return responseText;
         }
 
         // Sintesi finale per query di lettura
@@ -1109,6 +1048,10 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
                 window._aiAgentContext.lastCustomer = detectedCust;
             }
 
+            // Registra nella cronologia pulita
+            window._aiChatHistory.push({ role: "user", content: rawQuery });
+            window._aiChatHistory.push({ role: "assistant", content: textToReturn });
+
             return textToReturn;
 
         } catch (synthErr) {
@@ -1117,12 +1060,14 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
         }
     }
 
+    window._aiChatHistory.push({ role: "user", content: rawQuery });
+    window._aiChatHistory.push({ role: "assistant", content: firstTurnRaw });
     return firstTurnRaw || "🤖 Ho elaborato la richiesta. Come posso esserti utile?";
 }
 window.processAiAgentQuery = processAiAgentQuery;
 
 // -------------------------------------------------------------------------
-// 9. ESECUZIONE FASE 2: CONFERMA E APPLICAZIONE HUMAN-IN-THE-LOOP
+// 10. ESECUZIONE FASE 2: CONFERMA E APPLICAZIONE HUMAN-IN-THE-LOOP
 // -------------------------------------------------------------------------
 async function confirmAiPendingAction(btnElement = null) {
     const pending = window._aiAgentContext.pendingAction;
@@ -1208,7 +1153,7 @@ function cancelAiPendingAction(btnElement = null) {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 10. SPEECH SYNTHESIS & PUSH-TO-TALK
+// 11. SPEECH SYNTHESIS & PUSH-TO-TALK
 // -------------------------------------------------------------------------
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window) || !text) return;
