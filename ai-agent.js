@@ -39,7 +39,7 @@ MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
    - Vendita in "🛒 Cassa & POS" selezionando il cliente e il pacchetto.
    - Riscatto in Agenda: selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
 4. COWORKING & POSTAZIONI FISICHE:
-   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri saloni vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
 5. STAMPA LISTINI:
    - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
 6. BOOKING ONLINE (SELF-BOOKING):
@@ -83,7 +83,106 @@ function getDeterministicAppGuide(query) {
 window.getDeterministicAppGuide = getDeterministicAppGuide;
 
 // -------------------------------------------------------------------------
-// 2. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO INTERFACCIA)
+// 2. HELPER DI PARSING E RISOLUZIONE DETERMINISTICA (SUBITO DISPONIBILI)
+// -------------------------------------------------------------------------
+function parseDurationMinutesFromText(text) {
+    if (!text) return null;
+    const q = String(text).toLowerCase();
+
+    if (q.includes("un'ora e mezza") || q.includes("1 ora e mezza") || q.includes("90 minuti") || q.includes("90 min") || q.includes("un ora e mezza")) {
+        return 90;
+    }
+    if (q.includes("mezz'ora") || q.includes("mezza ora") || q.includes("30 minuti") || q.includes("30 min")) {
+        return 30;
+    }
+    if (q.includes("due ore") || q.includes("2 ore") || q.includes("120 minuti") || q.includes("120 min")) {
+        return 120;
+    }
+    if (q.includes("due ore e mezza") || q.includes("150 minuti")) {
+        return 150;
+    }
+    if (q.includes("un'ora") || q.includes("1 ora") || q.includes("60 minuti") || q.includes("60 min") || q.includes("un ora")) {
+        return 60;
+    }
+    const match = q.match(/(\d+)\s*(?:minut|min|ora|ore)/i);
+    if (match) {
+        const val = parseInt(match[1], 10);
+        if (q.includes('ora') || q.includes('ore')) return val * 60;
+        return val;
+    }
+    return null;
+}
+window.parseDurationMinutesFromText = parseDurationMinutesFromText;
+
+function getMondayOfDate(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+}
+window.getMondayOfDate = getMondayOfDate;
+
+function resolveNaturalDate(dateInput) {
+    if (!dateInput) return new Date().toISOString().split('T')[0];
+    const clean = String(dateInput).toLowerCase().trim();
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const toYmd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    // 🛑 "DOPODOMANI" HA PRECEDENZA ASSOLUTA SU "DOMANI"!
+    if (clean.includes('dopodomani') || clean.includes('dopo domani')) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + 2);
+        return toYmd(d);
+    }
+    if (clean.includes('domani')) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + 1);
+        return toYmd(d);
+    }
+    if (clean.includes('oggi') || clean.includes('stasera')) {
+        return toYmd(now);
+    }
+    // Riconoscimento "del 14", "il 14", "del 12" riferito al mese corrente
+    const singleDayMatch = clean.match(/(?:del|il|al)\s*(\d{1,2})(?!\d)/i);
+    if (singleDayMatch) {
+        const day = parseInt(singleDayMatch[1], 10);
+        if (day >= 1 && day <= 31) {
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(day)}`;
+        }
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+        return clean;
+    }
+    const match = clean.match(/(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?/);
+    if (match) {
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10);
+        let year = match[3] ? parseInt(match[3], 10) : now.getFullYear();
+        if (year < 100) year += 2000;
+        return `${year}-${pad(month)}-${pad(day)}`;
+    }
+    return toYmd(now);
+}
+window.resolveNaturalDate = resolveNaturalDate;
+
+function resolveNaturalTime(timeInput) {
+    if (!timeInput) return "09:00";
+    let clean = String(timeInput).toLowerCase().trim();
+    if (/^\d{1,2}$/.test(clean)) {
+        const h = parseInt(clean, 10);
+        return `${String(h).padStart(2, '0')}:00`;
+    }
+    const match = clean.match(/([0-1]?[0-9]|2[0-3])[:.]([0-5][0-9])/);
+    if (match) {
+        return `${String(parseInt(match[1], 10)).padStart(2, '0')}:${match[2]}`;
+    }
+    return "09:00";
+}
+window.resolveNaturalTime = resolveNaturalTime;
+
+// -------------------------------------------------------------------------
+// 3. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO INTERFACCIA)
 // -------------------------------------------------------------------------
 async function getOrLoadAiApiKey() {
     if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
@@ -103,7 +202,7 @@ async function getOrLoadAiApiKey() {
 window.getOrLoadAiApiKey = getOrLoadAiApiKey;
 
 // -------------------------------------------------------------------------
-// 3. SANITIZZATORE DI CRONOLOGIA CHAT (IMPEDISCE AL 100% L'ERRORE 400 BAD REQUEST)
+// 4. SANITIZZATORE E CHIAMATA LLM CON MEMORIA MULTI-TURN
 // -------------------------------------------------------------------------
 function getCleanChatHistory() {
     if (!window._aiChatHistory || !Array.isArray(window._aiChatHistory)) {
@@ -117,7 +216,6 @@ function getCleanChatHistory() {
         if (!text) continue;
         const role = msg.role === 'assistant' ? 'assistant' : 'user';
 
-        // Regola ferrea: i ruoli devono alternarsi. Se due ruoli sono uguali di fila, fondi il testo
         if (clean.length > 0 && clean[clean.length - 1].role === role) {
             clean[clean.length - 1].content += "\n\n" + text;
         } else {
@@ -125,7 +223,6 @@ function getCleanChatHistory() {
         }
     }
 
-    // Mantieni massimo 8 turni per una memoria snella e performante
     if (clean.length > 8) {
         window._aiChatHistory = clean.slice(-8);
     } else {
@@ -134,9 +231,6 @@ function getCleanChatHistory() {
     return window._aiChatHistory;
 }
 
-// -------------------------------------------------------------------------
-// 4. CHIAMATA ALL'LLM (CON CONTROLLO SINTASSI ED ELIMINAZIONE ERRORI 400)
-// -------------------------------------------------------------------------
 async function callConversationalLLM(systemPrompt, userQuery) {
     const apiKey = await getOrLoadAiApiKey();
     if (!apiKey || apiKey.includes("INSERISCI")) {
@@ -149,12 +243,10 @@ async function callConversationalLLM(systemPrompt, userQuery) {
         { role: "system", content: systemPrompt }
     ];
 
-    // Inserisci i messaggi della cronologia alternati
     for (let h of history) {
         messagesPayload.push({ role: h.role, content: h.content });
     }
 
-    // Aggiungi la richiesta utente corrente
     if (userQuery && userQuery.trim()) {
         const lastMsg = messagesPayload[messagesPayload.length - 1];
         if (lastMsg && lastMsg.role === 'user') {
@@ -166,7 +258,6 @@ async function callConversationalLLM(systemPrompt, userQuery) {
 
     const isGoogleKey = apiKey.startsWith("AIza");
 
-    // Provider Google Gemini
     if (isGoogleKey) {
         const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
         for (const m of models) {
@@ -192,7 +283,7 @@ async function callConversationalLLM(systemPrompt, userQuery) {
         throw new Error("Tutti i modelli Google Gemini hanno risposto con errore.");
     }
 
-    // Provider OpenRouter: modello primario Llama 3.3 70B (testato con esito 200 OK)
+    // Provider OpenRouter: Modello Llama 3.3 70B verificato ed economico
     const candidateModels = [
         "meta-llama/llama-3.3-70b-instruct",
         "openrouter/auto"
@@ -245,70 +336,11 @@ function sanitizeJson(raw) {
 window.sanitizeJson = sanitizeJson;
 
 // -------------------------------------------------------------------------
-// 5. RISOLUTORE DETERMINISTICO DI DATE E PERIODI (LUN-DOM)
-// -------------------------------------------------------------------------
-function getMondayOfDate(d) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(date.setDate(diff));
-}
-
-function resolveNaturalDate(dateInput) {
-    if (!dateInput) return new Date().toISOString().split('T')[0];
-    const clean = String(dateInput).toLowerCase().trim();
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const toYmd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-    if (clean.includes('dopodomani') || clean.includes('dopo domani')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 2);
-        return toYmd(d);
-    }
-    if (clean.includes('domani')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 1);
-        return toYmd(d);
-    }
-    if (clean.includes('oggi') || clean.includes('stasera')) {
-        return toYmd(now);
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-        return clean;
-    }
-    const match = clean.match(/(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?/);
-    if (match) {
-        const day = parseInt(match[1], 10);
-        const month = parseInt(match[2], 10);
-        let year = match[3] ? parseInt(match[3], 10) : now.getFullYear();
-        if (year < 100) year += 2000;
-        return `${year}-${pad(month)}-${pad(day)}`;
-    }
-    return toYmd(now);
-}
-
-function resolveNaturalTime(timeInput) {
-    if (!timeInput) return "09:00";
-    let clean = String(timeInput).toLowerCase().trim();
-    if (/^\d{1,2}$/.test(clean)) {
-        const h = parseInt(clean, 10);
-        return `${String(h).padStart(2, '0')}:00`;
-    }
-    const match = clean.match(/([0-1]?[0-9]|2[0-3])[:.]([0-5][0-9])/);
-    if (match) {
-        return `${String(parseInt(match[1], 10)).padStart(2, '0')}:${match[2]}`;
-    }
-    return "09:00";
-}
-
-// -------------------------------------------------------------------------
-// 6. REGISTRY DEI TOOL UNIVERSALI (DETERMINISTICO SUL DATABASE)
+// 5. REGISTRY DEI TOOL UNIVERSALI SUL DATABASE
 // -------------------------------------------------------------------------
 
 /**
  * TOOL 1: Ricerca Universale sul Database Locale (Dexie)
- * Risolve autonomamente: period: "this_week", "next_week", "today", "tomorrow", "this_month", "last_month"
  */
 async function tool_query_db(rawParams = {}) {
     const params = rawParams || {};
@@ -328,7 +360,6 @@ async function tool_query_db(rawParams = {}) {
     const todayStr = toYmd(now);
     const nowTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-    // 🌟 RISOLUZIONE DETERMINISTICA DEI PERIODI TEMPORALI
     if (period === 'this_week' || period === 'week' || period === 'settimana') {
         const mon = getMondayOfDate(now);
         const sun = new Date(mon);
@@ -366,7 +397,7 @@ async function tool_query_db(rawParams = {}) {
 
     let results = records;
 
-    // 🛑 FILTRO AGENDA: ESCLUDE TASSATIVAMENTE LE PAUSE PRANZO E LE CHIUSURE
+    // 🛑 FILTRO AGENDA: ESCLUDE TASSATIVAMENTE LE PAUSE E LE FERIE
     if (table === 'appointments') {
         results = results.filter(a => {
             const cust = (a.cust_name || '').toLowerCase();
@@ -377,7 +408,6 @@ async function tool_query_db(rawParams = {}) {
         });
     }
 
-    // Ricerca Tokenizzata Cliente
     if (searchTarget) {
         const cleanSearch = String(searchTarget).toLowerCase().replace(/⭐\s*\[preview\]/gi, '').trim();
         const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 1);
@@ -573,7 +603,73 @@ async function tool_simulate_what_if({ target, value, unit, category }) {
 window.tool_simulate_what_if = tool_simulate_what_if;
 
 /**
- * TOOL 4: Proposta di Scrittura con Gating HITL e Preservazione Prezzo
+ * CONVALIDA DEI VINCOLI DI ORARIO, FASCE DI TURNO E CONFLITTI STAFF
+ */
+async function validateAppointmentStaffConstraints(dateStr, startTimeStr, endTimeStr, operatorName, excludeAppId = null) {
+    const warnings = [];
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const dayOfWeek = dateObj.getDay();
+
+    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+    const sched = schedules.find(s => (s.username || '').toLowerCase() === operatorName.toLowerCase() && Number(s.day_of_week) === dayOfWeek);
+
+    if (!sched || Number(sched.is_working) !== 1) {
+        warnings.push(`⚠️ L'operatore <b>${operatorName}</b> risulta a riposo in data ${dateStr}.`);
+    } else {
+        const shifts = [];
+        if (sched.start_time_1 && sched.end_time_1) {
+            shifts.push({ start: sched.start_time_1.substring(0, 5), end: sched.end_time_1.substring(0, 5) });
+        }
+        if (sched.start_time_2 && sched.end_time_2) {
+            shifts.push({ start: sched.start_time_2.substring(0, 5), end: sched.end_time_2.substring(0, 5) });
+        }
+
+        if (shifts.length > 0) {
+            const [sH, sM] = startTimeStr.split(':').map(Number);
+            const [eH, eM] = endTimeStr.split(':').map(Number);
+            const appStartMin = sH * 60 + sM;
+            const appEndMin = eH * 60 + eM;
+
+            let fitsInShift = false;
+            for (let sh of shifts) {
+                const [shStartH, shStartM] = sh.start.split(':').map(Number);
+                const [shEndH, shEndM] = sh.end.split(':').map(Number);
+                const shiftStartMin = shStartH * 60 + shStartM;
+                const shiftEndMin = shEndH * 60 + shEndM;
+
+                if (appStartMin >= shiftStartMin && appEndMin <= shiftEndMin) {
+                    fitsInShift = true;
+                    break;
+                }
+            }
+
+            if (!fitsInShift) {
+                const shiftDesc = shifts.map(sh => `${sh.start} - ${sh.end}`).join(' e ');
+                warnings.push(`⚠️ Fuori turno: l'orario <b>${startTimeStr} - ${endTimeStr}</b> non rientra nelle fasce lavorative di ${operatorName} (${shiftDesc}).`);
+            }
+        }
+    }
+
+    const existingApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
+    const conflict = existingApps.find(a => {
+        if (excludeAppId && String(a.id) === String(excludeAppId)) return false;
+        if (a.date !== dateStr) return false;
+        if ((a.assigned_user || 'admin').toLowerCase() !== operatorName.toLowerCase()) return false;
+        const aStart = (a.time || '00:00').substring(0, 5);
+        const aEnd = a.end_time ? a.end_time.substring(0, 5) : '23:59';
+        return startTimeStr < aEnd && endTimeStr > aStart;
+    });
+
+    if (conflict) {
+        warnings.push(`⚠️ Conflitto agenda: l'operatore <b>${operatorName}</b> ha già un appuntamento con <b>${conflict.cust_name}</b> (${conflict.time} - ${conflict.end_time || ''}).`);
+    }
+
+    return warnings;
+}
+window.validateAppointmentStaffConstraints = validateAppointmentStaffConstraints;
+
+/**
+ * TOOL 4: Proposta di Scrittura con Gating HITL, Preservazione Prezzo e Risoluzione Precisa dell'Appuntamento
  */
 async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     const params = rawParams || {};
@@ -588,7 +684,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
     if (params.service && !data.service) data.service = params.service;
     if (params.assigned_user && !data.assigned_user) data.assigned_user = params.assigned_user;
 
-    let targetId = params.id || null;
+    let targetId = params.id || params.appointment_id || null;
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
     const lastApp = window._aiAgentContext.lastAppointment;
     const q = (rawUserQuery || '').toLowerCase();
@@ -605,18 +701,31 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
             const appointmentsInDb = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
             let realApp = null;
 
+            // Riconoscimento data specifica nella frase dell'utente (es. "del 14", "il 14", "14/11")
+            let explicitTargetDate = null;
+            const matchDay = q.match(/(?:del|il|al)\s*(\d{1,2})(?!\d)/i);
+            if (matchDay) {
+                explicitTargetDate = resolveNaturalDate(`il ${matchDay[1]}`);
+            }
+
             if (targetId) {
                 realApp = appointmentsInDb.find(a => String(a.id) === String(targetId));
             }
+
+            // Se l'utente specifica "quello del 14", cerca l'appuntamento del cliente in quella data specifica!
+            const queryCust = data.cust_name || window._aiAgentContext.lastCustomer;
+            if (!realApp && queryCust) {
+                const clientApps = appointmentsInDb.filter(a => (a.cust_name || '').toLowerCase().includes(queryCust.toLowerCase()));
+                if (explicitTargetDate) {
+                    realApp = clientApps.find(a => a.date === explicitTargetDate);
+                }
+                if (!realApp) {
+                    realApp = clientApps.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
+                }
+            }
+
             if (!realApp && lastApp) {
                 realApp = appointmentsInDb.find(a => String(a.id) === String(lastApp.id)) || lastApp;
-            }
-            if (!realApp) {
-                const queryCust = data.cust_name || window._aiAgentContext.lastCustomer;
-                if (queryCust) {
-                    const matched = appointmentsInDb.filter(a => (a.cust_name || '').toLowerCase().includes(queryCust.toLowerCase()));
-                    realApp = matched.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
-                }
             }
 
             if (realApp) {
@@ -627,10 +736,12 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
                 data.assigned_user = data.assigned_user || realApp.assigned_user;
                 data.notes = realApp.notes;
 
+                // Preservazione del prezzo reale dell'appuntamento esistente
                 if (realApp.price !== undefined && realApp.price !== null && parseFloat(realApp.price) > 0) {
                     data.price = parseFloat(realApp.price);
                 }
 
+                // Calcolo durata dell'appuntamento esistente
                 let baseDurationMin = 60;
                 if (realApp.time && realApp.end_time) {
                     const [sH_prev, sM_prev] = realApp.time.split(':').map(Number);
@@ -645,22 +756,31 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
                     data.end_time = realApp.end_time;
                     data.calculated_duration = baseDurationMin;
                 } else {
+                    // Risoluzione Data per Modifiche
                     if (q.includes('dopodomani') || q.includes('dopo domani')) {
                         data.date = resolveNaturalDate('dopodomani');
                     } else if (q.includes('domani')) {
                         data.date = resolveNaturalDate('domani');
-                    } else if (params.date || data.date) {
-                        data.date = resolveNaturalDate(params.date || data.date);
+                    } else if (params.new_date) {
+                        data.date = resolveNaturalDate(params.new_date);
+                    } else if (params.date && !explicitTargetDate) {
+                        data.date = resolveNaturalDate(params.date);
                     } else {
                         data.date = realApp.date;
                     }
 
-                    if (q.includes('stesso orario') || q.includes('stessa ora') || (!params.time && !data.time)) {
-                        data.time = realApp.time;
+                    // Risoluzione Orario: se non specificato un orario diverso, preserva l'orario esistente!
+                    if (params.new_start_time || params.new_time) {
+                        data.time = resolveNaturalTime(params.new_start_time || params.new_time);
+                    } else if (q.includes('alle 17') || q.includes('ore 17') || q.includes('alle ore 17')) {
+                        data.time = "17:00";
+                    } else if (params.time && !q.includes('stesso orario')) {
+                        data.time = resolveNaturalTime(params.time);
                     } else {
-                        data.time = resolveNaturalTime(params.time || data.time);
+                        data.time = realApp.time;
                     }
 
+                    // Risoluzione Durata
                     const extractedDuration = parseDurationMinutesFromText(q) || parseDurationMinutesFromText(params.duration);
                     const finalDuration = extractedDuration ? extractedDuration : baseDurationMin;
 
@@ -692,6 +812,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         const endTotal = (sH * 60 + sM) + durationMin;
         const resolvedEndTime = data.end_time || `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
 
+        // Risoluzione Prezzo Reale
         let resolvedFinalPrice = 0;
         if (data.price !== undefined && data.price !== null && parseFloat(data.price) > 0) {
             resolvedFinalPrice = parseFloat(data.price);
@@ -722,6 +843,11 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 
         if (resolvedFinalPrice <= 0 && lastApp && lastApp.price > 0) {
             resolvedFinalPrice = parseFloat(lastApp.price);
+        }
+
+        let warnings = [];
+        if (action !== 'DELETE') {
+            warnings = await validateAppointmentStaffConstraints(rawDate, rawTime, resolvedEndTime, rawOperator, targetId);
         }
 
         data = {
@@ -760,7 +886,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
         return {
             simulation_status: "ARMED_FOR_CONFIRMATION",
             action: action,
-            warnings: [],
+            warnings: warnings,
             summary: summaryText,
             payload_details: payload
         };
@@ -785,7 +911,7 @@ async function tool_propose_write(rawParams = {}, rawUserQuery = '') {
 window.tool_propose_write = tool_propose_write;
 
 // -------------------------------------------------------------------------
-// 7. DISPATCHER DEI TOOL
+// 6. DISPATCHER DEI TOOL
 // -------------------------------------------------------------------------
 async function executeAgentToolCall(toolCall, rawQuery = '') {
     const { tool, params } = toolCall;
@@ -806,7 +932,7 @@ async function executeAgentToolCall(toolCall, rawQuery = '') {
 window.executeAgentToolCall = executeAgentToolCall;
 
 // -------------------------------------------------------------------------
-// 8. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
+// 7. HELPER DI STAMPA MESSAGGI SUL DOM DELLA CHAT E DEL DRAWER
 // -------------------------------------------------------------------------
 function appendAgentMessage(content, isUser = false) {
     const chatBox = document.getElementById('ai-chat-messages');
@@ -843,7 +969,7 @@ function appendAgentMessage(content, isUser = false) {
 window.appendAgentMessage = appendAgentMessage;
 
 // -------------------------------------------------------------------------
-// 9. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
+// 8. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
 // -------------------------------------------------------------------------
 async function processAiAgentQuery(userQuery) {
     const rawQuery = (userQuery || '').trim();
@@ -915,12 +1041,10 @@ HAI A DISPOSIZIONE QUESTI TOOL OPERATIVI:
 MANUALE DIRETTO FUNZIONALITÀ APP:
 ${window.VAIMUP_APP_MANUAL || ''}
 
-ISTRUZIONI DI RAGIONAMENTO:
+ISTRUZIONI SEVERISSIME:
+- Se l'utente chiede di spostare un appuntamento specifico (es: "spostami quello del 14 alle 17"), chiama "propose_write" impostando:
+  action="UPDATE", table="appointments", data: { customer: "${window._aiAgentContext.lastCustomer || 'Simone Rinaldi'}", date: "2026-11-14", time: "17:00" }
 - Se l'utente chiede gli appuntamenti di questa settimana, chiama "query_db" con: table="appointments", period="this_week".
-- Se l'utente chiede chi ha oggi o domani, chiama "query_db" con: table="appointments", period="today" o "tomorrow".
-- Se l'utente chiede gli appuntamenti di un cliente, chiama "query_db" con: table="appointments", customer="Nome", timeline="all"|"future"|"past".
-- Se l'utente chiede spiegazioni d'uso (es. "Come faccio uno storno?"), rispondi usando il manuale senza chiamare tool.
-- Se l'utente vuole spostare, cambiare durata o cancellare un appuntamento, chiama "propose_write".
 
 FORMATO RISPOSTA (SOLO JSON):
 Per usare un tool:
@@ -950,7 +1074,6 @@ Per risposta diretta:
     const firstDecision = sanitizeJson(firstTurnRaw);
 
     if (firstDecision && firstDecision.answer) {
-        // Registra lo scambio nella cronologia pulita
         window._aiChatHistory.push({ role: "user", content: rawQuery });
         window._aiChatHistory.push({ role: "assistant", content: firstDecision.answer });
         return firstDecision.answer;
@@ -960,7 +1083,6 @@ Per risposta diretta:
     if (firstDecision && firstDecision.tool) {
         if (!firstDecision.params) firstDecision.params = {};
 
-        // Riconciliazione automatica di periodo se l'utente chiede "questa settimana" o "oggi"
         if (!firstDecision.params.period) {
             if (q.includes('questa settimana') || q.includes('settimana')) firstDecision.params.period = 'this_week';
             else if (q.includes('oggi') || q.includes('stasera')) firstDecision.params.period = 'today';
@@ -969,9 +1091,8 @@ Per risposta diretta:
             else if (q.includes('questo mese')) firstDecision.params.period = 'this_month';
         }
 
-        // Riconciliazione pronomi sul cliente precedente
         if (!firstDecision.params.customer && !firstDecision.params.search && window._aiAgentContext.lastCustomer) {
-            if (q.includes('suoi') || q.includes('completat') || q.includes('passat') || q.includes('lui') || q.includes('lei') || q.includes('tutti')) {
+            if (q.includes('suoi') || q.includes('completat') || q.includes('passat') || q.includes('lui') || q.includes('lei') || q.includes('tutti') || q.includes('quello')) {
                 firstDecision.params.customer = window._aiAgentContext.lastCustomer;
             }
         }
@@ -981,8 +1102,13 @@ Per risposta diretta:
         // Se è una proposta di scrittura con conferma HITL
         if (firstDecision.tool === 'propose_write') {
             const sim = toolResult;
+
+            if (sim.simulation_status === "ERROR" || sim.error) {
+                return `⚠️ Non è stato possibile elaborare la richiesta: ${sim.error || 'Dati non validi'}`;
+            }
+
             const details = sim.payload_details || {};
-            const actionType = sim.action; // 'INSERT' | 'UPDATE' | 'DELETE'
+            const actionType = sim.action;
 
             let confirmQuestion = "❓ Vuoi procedere con il salvataggio?";
             let confirmBtnLabel = "✓ Conferma ed Esegui";
@@ -1048,7 +1174,6 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
                 window._aiAgentContext.lastCustomer = detectedCust;
             }
 
-            // Registra nella cronologia pulita
             window._aiChatHistory.push({ role: "user", content: rawQuery });
             window._aiChatHistory.push({ role: "assistant", content: textToReturn });
 
@@ -1067,7 +1192,7 @@ ISTRUZIONI PER LA RISPOSTA FINALE:
 window.processAiAgentQuery = processAiAgentQuery;
 
 // -------------------------------------------------------------------------
-// 10. ESECUZIONE FASE 2: CONFERMA E APPLICAZIONE HUMAN-IN-THE-LOOP
+// 9. ESECUZIONE FASE 2: CONFERMA E APPLICAZIONE HUMAN-IN-THE-LOOP
 // -------------------------------------------------------------------------
 async function confirmAiPendingAction(btnElement = null) {
     const pending = window._aiAgentContext.pendingAction;
@@ -1153,11 +1278,13 @@ function cancelAiPendingAction(btnElement = null) {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 11. SPEECH SYNTHESIS & PUSH-TO-TALK
+// 10. SPEECH SYNTHESIS & PUSH-TO-TALK
 // -------------------------------------------------------------------------
 function speakAiResponse(text) {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
+
+    if (!text) return;
 
     let clean = text
         .replace(/<[^>]*>/g, ' ')
