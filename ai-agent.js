@@ -3,19 +3,51 @@
 // Architettura Multi-Turn con Memoria Contestuale e Zero Hardcoding
 // =========================================================================
 
-// Buffer persistente della conversazione attiva (lo stesso principio di ChatGPT/Claude)
+// Inizializzazione sicura dello stato globale di memoria su window
 if (!window._aiChatHistory) {
     window._aiChatHistory = [];
 }
 
 if (!window._aiAgentContext) {
     window._aiAgentContext = {
+        lastCustomer: null,
+        lastCustomerId: null,
+        lastProduct: null,
+        lastDate: null,
+        lastAppointmentId: null,
+        lastAppointment: null,
         pendingAction: null
     };
 }
 
 // -------------------------------------------------------------------------
-// 1. GESTIONE CHIAVE API DA SUPABASE (SILENZIOSA, ZERO INTERFACCIA)
+// 1. KNOWLEDGE BASE OPERATIVA REGISTRATA SU WINDOW (ZERO REFERENCE ERROR)
+// -------------------------------------------------------------------------
+window.VAIMUP_APP_MANUAL = `
+MANUALE OPERATIVO GESTIONALE VAIMUP PER IL PERSONALE E IL TITOLARE:
+1. STORNO DI CASSA:
+   - Si effettua da "📈 Report Vendite" nel menu laterale (sezione Gestione & Analisi).
+   - Si individua la vendita da annullare tramite i filtri (data, cliente o operatore) e si clicca sul pulsante rosso "Storna" a destra.
+   - Effetti automatici: le giacenze e i lotti FIFO di magazzino vengono ripristinati e l'incasso viene stornato dal bilancio del salone.
+2. CARICO MAGAZZINO & LOTTI FIFO:
+   - Si effettua da "📦 Magazzino Prodotti".
+   - Per carico veloce con barcode: pulsante "⚡ Scan & Carico" in alto con pistola laser o fotocamera.
+   - Per carico manuale da tabella: icona "📦" nella riga del prodotto.
+   - Crea un lotto FIFO con costo d'acquisto storico e registra la spesa a bilancio se prodotto di proprietà.
+3. PACCHETTI & CARNET:
+   - Configurazione da "🎁 Pacchetti & Carnet" -> "+ Nuovo Pacchetto".
+   - Vendita in "🛒 Cassa & POS" selezionando il cliente e il pacchetto.
+   - Riscatto in Agenda: selezionando il cliente il sistema propone di scalare la seduta a € 0.00.
+4. COWORKING & POSTAZIONI FISICHE:
+   - Da "🏢 Spazi & Coworking" con blocco atomico anti-overbooking. Gli altri negozi vedono la postazione occupata senza poter leggere i dati anagrafici del cliente finale (privacy GDPR).
+5. STAMPA LISTINI:
+   - Da "🖨️ Stampa & Listini", formati A4, A5, A3 e Poster 50x70.
+6. BOOKING ONLINE (SELF-BOOKING):
+   - I clienti prenotano 24/7 dal link o QR code senza installare app.
+`;
+
+// -------------------------------------------------------------------------
+// 2. RECUPERO CHIAVE IA DA SUPABASE (SILENZIOSO, ZERO INTERFACCIA)
 // -------------------------------------------------------------------------
 async function getOrLoadAiApiKey() {
     if (window._runtimeAiKey && window._runtimeAiKey.length > 15 && !window._runtimeAiKey.includes("INSERISCI")) {
@@ -32,9 +64,10 @@ async function getOrLoadAiApiKey() {
     }
     return null;
 }
+window.getOrLoadAiApiKey = getOrLoadAiApiKey;
 
 // -------------------------------------------------------------------------
-// 2. CHIAMATA MULTI-TURN ALL'LLM (INVIA TUTTA LA STORIA DELLA CHAT)
+// 3. CHIAMATA MULTI-TURN ALL'LLM (INVIA TUTTA LA CRONOLOGIA DELLA CHAT)
 // -------------------------------------------------------------------------
 async function callConversationalLLM(systemPrompt, userQuery) {
     const apiKey = await getOrLoadAiApiKey();
@@ -42,10 +75,10 @@ async function callConversationalLLM(systemPrompt, userQuery) {
         throw new Error("API_KEY_MISSING");
     }
 
-    // Aggiunge la richiesta dell'utente alla cronologia
+    // Aggiunge la richiesta dell'utente alla cronologia attiva
     window._aiChatHistory.push({ role: "user", content: userQuery });
 
-    // Mantiene massimo gli ultimi 10 turni per preservare la finestra di contesto
+    // Mantiene gli ultimi 10 messaggi per garantire memoria perfetta
     if (window._aiChatHistory.length > 10) {
         window._aiChatHistory = window._aiChatHistory.slice(-10);
     }
@@ -85,11 +118,11 @@ async function callConversationalLLM(systemPrompt, userQuery) {
         throw new Error("Tutti i modelli Google Gemini hanno risposto con errore.");
     }
 
-    // Provider OpenRouter con modelli di punta
+    // Provider OpenRouter con modelli verificati
     const candidateModels = [
-        "anthropic/claude-3.5-sonnet", // Se disponibile sul tuo account OpenRouter
         "meta-llama/llama-3.3-70b-instruct",
-        "openrouter/auto"
+        "openrouter/auto",
+        "deepseek/deepseek-chat"
     ];
 
     for (const modelId of candidateModels) {
@@ -120,43 +153,59 @@ async function callConversationalLLM(systemPrompt, userQuery) {
 
     throw new Error("Errore durante la chiamata ai provider IA.");
 }
+window.callConversationalLLM = callConversationalLLM;
 
 // -------------------------------------------------------------------------
-// 3. ESECUTORE DELLE AZIONI DETERMINISTICHE NEL GESTIONALE
+// 4. ESECUTORE DELLE AZIONI DETERMINISTICHE NEL GESTIONALE
 // -------------------------------------------------------------------------
-async function executeDatabaseAction(actionType, params) {
+async function executeDatabaseAction(actionType, rawParams = {}) {
+    const params = rawParams || {};
     const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id)
         ? currentUser.salon_id
         : 'SALON_001';
 
     const appointments = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
     const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
-    const customers = await window.universalQuery({ action: 'GET_ALL', table: 'customers' }) || [];
-    const schedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
+    const lastApp = window._aiAgentContext.lastAppointment;
+
+    // Normalizzazione parametri in ingresso
+    const custName = params.customer || params.cust_name || params.customerName || (lastApp ? lastApp.cust_name : window._aiAgentContext.lastCustomer) || 'Cliente';
+    const dateVal = params.new_date || params.date || (lastApp ? lastApp.date : new Date().toISOString().split('T')[0]);
+    const timeVal = params.new_start_time || params.start_time || params.new_time || params.time || (lastApp ? lastApp.time : '09:00');
+    let endTimeVal = params.new_end_time || params.end_time || params.new_endTime || params.endTime || '';
+    const serviceVal = params.new_service || params.service || params.serviceName || (lastApp ? lastApp.service : 'Trattamento');
+    const operatorVal = params.new_operator || params.operator || params.assigned_user || (lastApp ? lastApp.assigned_user : (currentUser ? currentUser.username : 'admin'));
+    let priceVal = parseFloat(params.price) || 0;
 
     // A. CREAZIONE APPUNTAMENTO
     if (actionType === 'CREATE_APPOINTMENT') {
-        const rawSrv = params.service || 'Trattamento';
         const matchedServ = inventory.find(i => i.type === 'servizio' && (
-            i.name.toLowerCase().includes(rawSrv.toLowerCase()) || rawSrv.toLowerCase().includes(i.name.toLowerCase())
+            i.name.toLowerCase().includes(serviceVal.toLowerCase()) || serviceVal.toLowerCase().includes(i.name.toLowerCase())
         ));
 
-        let price = parseFloat(params.price) || 0;
-        if (price <= 0 && matchedServ) {
+        let durationMin = (matchedServ && matchedServ.duration_minutes) ? parseInt(matchedServ.duration_minutes, 10) : 60;
+
+        if (priceVal <= 0 && matchedServ) {
             const pInfo = await window.universalQuery({ action: 'GET_CURRENT_PRICE', id: matchedServ.id });
-            price = pInfo ? (parseFloat(pInfo.price) || 0) : (parseFloat(matchedServ.price) || 0);
+            priceVal = pInfo ? (parseFloat(pInfo.price) || 0) : (parseFloat(matchedServ.price) || 0);
+        }
+
+        if (!endTimeVal && timeVal) {
+            const [sH, sM] = timeVal.split(':').map(Number);
+            const endTotal = (sH * 60 + sM) + durationMin;
+            endTimeVal = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
         }
 
         const appPayload = {
             id: crypto.randomUUID(),
             salon_id: salonId,
-            cust_name: params.customer,
-            date: params.date,
-            time: params.start_time,
-            end_time: params.end_time,
-            service: matchedServ ? matchedServ.name : rawSrv,
-            price: price,
-            assigned_user: params.operator || (currentUser ? currentUser.username : 'admin'),
+            cust_name: custName,
+            date: dateVal,
+            time: timeVal,
+            end_time: endTimeVal,
+            service: matchedServ ? matchedServ.name : serviceVal,
+            price: priceVal,
+            assigned_user: operatorVal,
             notes: 'Creato tramite Assistente IA'
         };
 
@@ -164,7 +213,7 @@ async function executeDatabaseAction(actionType, params) {
             action: 'INSERT',
             table: 'appointments',
             payload: appPayload,
-            summary: `Creazione appuntamento per **${appPayload.cust_name}** il **${appPayload.date}** alle **${appPayload.time} - ${appPayload.end_time}** (*${appPayload.service}*, Op: ${appPayload.assigned_user})`
+            summary: `Creazione appuntamento per **${appPayload.cust_name}** il **${appPayload.date}** alle **${appPayload.time} - ${appPayload.end_time}** (*${appPayload.service}*, Op: ${appPayload.assigned_user}, Prezzo: € ${appPayload.price.toFixed(2)})`
         };
 
         return {
@@ -177,30 +226,54 @@ async function executeDatabaseAction(actionType, params) {
 
     // B. MODIFICA O SPOSTAMENTO APPUNTAMENTO
     if (actionType === 'MODIFY_APPOINTMENT') {
-        // Cerca l'appuntamento reale nel DB da modificare
         let realApp = null;
-        if (params.appointment_id) {
-            realApp = appointments.find(a => String(a.id) === String(params.appointment_id));
+        const targetId = params.appointment_id || params.id;
+
+        if (targetId) {
+            realApp = appointments.find(a => String(a.id) === String(targetId));
         }
-        if (!realApp && params.customer) {
-            const clientApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(params.customer.toLowerCase()));
+        if (!realApp && lastApp) {
+            realApp = appointments.find(a => String(a.id) === String(lastApp.id)) || lastApp;
+        }
+        if (!realApp && custName) {
+            const clientApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(custName.toLowerCase()));
             realApp = clientApps.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
         }
 
         if (!realApp) {
-            return { status: "ERROR", message: `Non ho trovato l'appuntamento da modificare per ${params.customer || 'questo cliente'}.` };
+            return { status: "ERROR", message: `Non ho trovato l'appuntamento da modificare per ${custName}.` };
+        }
+
+        // Calcola o preserva la durata reale precedente
+        let baseDurationMin = 60;
+        if (realApp.time && realApp.end_time) {
+            const [sH_prev, sM_prev] = realApp.time.split(':').map(Number);
+            const [eH_prev, eM_prev] = realApp.end_time.split(':').map(Number);
+            const diff = (eH_prev * 60 + eM_prev) - (sH_prev * 60 + sM_prev);
+            if (diff > 0) baseDurationMin = diff;
+        }
+
+        if (!endTimeVal && timeVal) {
+            const [sH, sM] = timeVal.split(':').map(Number);
+            const endTotal = (sH * 60 + sM) + baseDurationMin;
+            endTimeVal = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
+        }
+
+        // Preserva il prezzo dell'appuntamento esistente
+        if (priceVal <= 0 && realApp.price !== undefined && realApp.price !== null) {
+            priceVal = parseFloat(realApp.price);
         }
 
         const updatePayload = {
             id: realApp.id,
             salon_id: salonId,
             cust_name: realApp.cust_name,
-            date: params.new_date || realApp.date,
-            time: params.new_start_time || realApp.time,
-            end_time: params.new_end_time || realApp.end_time,
-            service: params.new_service || realApp.service,
-            price: realApp.price,
-            assigned_user: params.new_operator || realApp.assigned_user,
+            date: dateVal,
+            time: timeVal,
+            end_time: endTimeVal,
+            service: serviceVal !== 'Trattamento' ? serviceVal : realApp.service,
+            price: priceVal,
+            assigned_user: operatorVal,
             notes: realApp.notes || 'Modificato tramite Assistente IA'
         };
 
@@ -224,16 +297,21 @@ async function executeDatabaseAction(actionType, params) {
     // C. CANCELLAZIONE APPUNTAMENTO
     if (actionType === 'DELETE_APPOINTMENT') {
         let realApp = null;
-        if (params.appointment_id) {
-            realApp = appointments.find(a => String(a.id) === String(params.appointment_id));
+        const targetId = params.appointment_id || params.id;
+
+        if (targetId) {
+            realApp = appointments.find(a => String(a.id) === String(targetId));
         }
-        if (!realApp && params.customer) {
-            const clientApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(params.customer.toLowerCase()));
+        if (!realApp && lastApp) {
+            realApp = appointments.find(a => String(a.id) === String(lastApp.id)) || lastApp;
+        }
+        if (!realApp && custName) {
+            const clientApps = appointments.filter(a => (a.cust_name || '').toLowerCase().includes(custName.toLowerCase()));
             realApp = clientApps.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0];
         }
 
         if (!realApp) {
-            return { status: "ERROR", message: `Non ho trovato alcun appuntamento da eliminare per ${params.customer || 'questo cliente'}.` };
+            return { status: "ERROR", message: `Non ho trovato alcun appuntamento da eliminare per ${custName}.` };
         }
 
         window._aiAgentContext.pendingAction = {
@@ -241,7 +319,7 @@ async function executeDatabaseAction(actionType, params) {
             table: 'appointments',
             id: realApp.id,
             payload: realApp,
-            summary: `Cancellazione definitiva appuntamento di **${realApp.cust_name}** del **${realApp.date}** alle ore **${realApp.time}** (*${realApp.service}*)`
+            summary: `Cancellazione definitiva appuntamento di **${realApp.cust_name}** del **${realApp.date}** alle ore **${realApp.time} - ${realApp.end_time || ''}** (*${realApp.service}*)`
         };
 
         return {
@@ -254,9 +332,10 @@ async function executeDatabaseAction(actionType, params) {
 
     return null;
 }
+window.executeDatabaseAction = executeDatabaseAction;
 
 // -------------------------------------------------------------------------
-// 4. CONTROLLER PRINCIPALE DIALOGICO CON RAGIONAMENTO NATURALE
+// 5. CONTROLLER DIALOGICO MULTI-TURN AUTONOMO (REACT LOOP)
 // -------------------------------------------------------------------------
 async function processAiAgentQuery(userQuery) {
     const rawQuery = (userQuery || '').trim();
@@ -278,7 +357,7 @@ async function processAiAgentQuery(userQuery) {
         if (isStrictApproval) return await confirmAiPendingAction();
         if (isStrictCancel) return cancelAiPendingAction();
 
-        // Se l'utente scrive un nuovo comando correttivo
+        // Se l'utente scrive un nuovo comando correttivo rilascia l'azione pendente
         window._aiAgentContext.pendingAction = null;
     }
 
@@ -293,6 +372,9 @@ async function processAiAgentQuery(userQuery) {
     const inventory = await window.universalQuery({ action: 'GET_ALL', table: 'inventory' }) || [];
     const services = inventory.filter(i => i.type === 'servizio');
 
+    // Risoluzione sicura del manuale da window (ZERO REFERENCE ERROR)
+    const manualDocumentation = window.VAIMUP_APP_MANUAL || '';
+
     // 3. System Prompt con istruzioni complete, data reale e contesto del database
     const systemPrompt = `Sei l'assistente IA ufficiale di VaiMUp, suite gestionale per saloni beauty/retail.
 Stai parlando direttamente con il TITOLARE o lo STAFF del salone (NON con il cliente finale).
@@ -303,10 +385,10 @@ SERVIZI REGISTRATI A LISTINO:
 ${JSON.stringify(services.map(s => ({ nome: s.name, prezzo: s.price, durata: s.duration_minutes })))}
 
 APPUNTAMENTI REALI PRESENTI NEL DATABASE:
-${JSON.stringify(validApps.slice(-20).map(a => ({ id: a.id, cliente: a.cust_name, data: a.date, orario: `${a.time}-${a.end_time}`, servizio: a.service, operatore: a.assigned_user, prezzo: a.price })))}
+${JSON.stringify(validApps.slice(-25).map(a => ({ id: a.id, cliente: a.cust_name, data: a.date, orario: `${a.time}-${a.end_time}`, servizio: a.service, operatore: a.assigned_user, prezzo: a.price })))}
 
 MANUALE DIRETTO FUNZIONALITÀ VAIMUP:
-${VAIMUP_APP_MANUAL}
+${manualDocumentation}
 
 ISTRUZIONI OPERATIVE:
 - Mantieni la continuità con i messaggi precedenti della chat: quando l'utente usa pronomi ("spostalo", "eliminalo", "aumenta la durata"), fai SEMPRE riferimento all'ultimo appuntamento o cliente discusso nella cronologia.
@@ -319,13 +401,13 @@ ISTRUZIONI OPERATIVE:
   "action": "CREATE_APPOINTMENT" | "MODIFY_APPOINTMENT" | "DELETE_APPOINTMENT",
   "params": {
     "customer": "Nome Cliente",
-    "appointment_id": "ID dell'appuntamento reale se modifica o eliminazione",
+    "appointment_id": "ID reale dell'appuntamento se modifica o eliminazione",
     "date": "YYYY-MM-DD",
     "start_time": "HH:MM",
     "end_time": "HH:MM",
-    "new_date": "YYYY-MM-DD (se spostamento)",
+    "new_date": "YYYY-MM-DD (se spostamento data)",
     "new_start_time": "HH:MM (se cambio orario)",
-    "new_end_time": "HH:MM (calcolato in base alla nuova durata)",
+    "new_end_time": "HH:MM (calcolato in base alla durata)",
     "service": "Nome servizio"
   }
 }
@@ -387,7 +469,7 @@ ISTRUZIONI OPERATIVE:
 window.processAiAgentQuery = processAiAgentQuery;
 
 // -------------------------------------------------------------------------
-// 5. CONFERMA ED ESECUZIONE FASE 2 HUMAN-IN-THE-LOOP
+// 6. CONFERMA ED ESECUZIONE FASE 2 HUMAN-IN-THE-LOOP
 // -------------------------------------------------------------------------
 async function confirmAiPendingAction(btnElement = null) {
     const pending = window._aiAgentContext.pendingAction;
@@ -413,12 +495,24 @@ async function confirmAiPendingAction(btnElement = null) {
 
         if (action === 'DELETE') {
             await window.universalQuery({ action: 'DELETE', table: table, id: targetId });
+            window._aiAgentContext.lastAppointment = null;
+            window._aiAgentContext.lastAppointmentId = null;
             successText = `🗑️ **Appuntamento eliminato con successo!**\nL'appuntamento è stato rimosso dall'agenda.`;
         } else if (action === 'UPDATE') {
             await window.universalQuery({ action: 'UPDATE', table: table, data: payload, id: targetId });
+            window._aiAgentContext.lastAppointment = { ...payload, id: targetId };
+            window._aiAgentContext.lastAppointmentId = targetId;
+            window._aiAgentContext.lastCustomer = payload.cust_name;
+            window._aiAgentContext.lastDate = payload.date;
             successText = `✅ **Appuntamento modificato con successo!**\n${pending.summary}.`;
         } else if (action === 'INSERT') {
-            await window.universalQuery({ action: 'INSERT', table: table, data: payload });
+            const res = await window.universalQuery({ action: 'INSERT', table: table, data: payload });
+            const savedId = res?.lastInsertRowid || res?.id || targetId;
+            payload.id = savedId;
+            window._aiAgentContext.lastAppointment = { ...payload };
+            window._aiAgentContext.lastAppointmentId = savedId;
+            window._aiAgentContext.lastCustomer = payload.cust_name;
+            window._aiAgentContext.lastDate = payload.date;
             successText = `✅ **Appuntamento registrato con successo!**\n${pending.summary}.`;
         }
 
@@ -461,7 +555,7 @@ function cancelAiPendingAction(btnElement = null) {
 window.cancelAiPendingAction = cancelAiPendingAction;
 
 // -------------------------------------------------------------------------
-// 6. HELPER DOM E SPEECH SYNTHESIS
+// 7. HELPER DOM E SPEECH SYNTHESIS
 // -------------------------------------------------------------------------
 function appendAgentMessage(content, isUser = false) {
     const chatBox = document.getElementById('ai-chat-messages');
