@@ -15741,6 +15741,13 @@ function toggleClosureMode(isClosure) {
     startProfessionalOperatorAlertSystem();
     autoRegisterPushOnLogin();
     resetLogoutTimer();
+
+    // Aggiungere al termine di loginSuccess():
+if (allUsers && allUsers.length > 0) {
+    for (let u of allUsers) {
+        if (u.username) generateBreakAppointments(u.username);
+    }
+}
 }
 
 // --- 📱 GESTIONE SWIPE ORIZZONTALE PER CAMBIO SETTIMANA / GIORNO (CORRETTO E ANTI-SALTO) ---
