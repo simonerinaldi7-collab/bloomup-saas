@@ -7295,31 +7295,31 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
 
     async function saveOperatorSchedules() {
         const username = document.getElementById('sch-user-select').value;
-        if(!username) return alert("Seleziona prima un operatore!");
+        if (!username) return alert("Seleziona prima un operatore!");
 
         const cleanUsername = username.trim().toLowerCase();
-        const salonId = currentUser ? currentUser.salon_id : 'SALON_001';
+        const salonId = (typeof currentUser !== 'undefined' && currentUser && currentUser.salon_id) ? currentUser.salon_id : 'SALON_001';
 
-        // 1. Recuperiamo lo stato precedente dei turni per quest'operatore
+        // 1. Recupera gli orari attuali salvati nel DB
         const previousSchedules = await window.universalQuery({ action: 'GET_ALL', table: 'operator_schedules' }) || [];
         const prevUserScheds = previousSchedules.filter(s => (s.username || '').trim().toLowerCase() === cleanUsername);
 
-        // Teniamo traccia dei giorni in cui la pausa pranzo viene rimossa
-        const daysWithRemovedBreak = [];
-        const daysWithPreservedBreak = [];
+        const daysWithNoBreakNow = [];
+        const daysWithBreakNow = [];
 
-        // 2. Salva le nuove impostazioni dei turni e rileva la rimozione della pausa
+        // 2. Salva e sovrascrive i turni per tutti i 7 giorni
         for (let day = 0; day <= 6; day++) {
             const isWorking = document.getElementById(`sch-work-${day}`).checked ? 1 : 0;
-            const start1 = document.getElementById(`sch-s1-${day}`).value;
-            const end1 = document.getElementById(`sch-e1-${day}`).value;
-            const start2 = document.getElementById(`sch-s2-${day}`).value;
-            const end2 = document.getElementById(`sch-e2-${day}`).value;
+            const start1 = document.getElementById(`sch-s1-${day}`).value.trim();
+            const end1 = document.getElementById(`sch-e1-${day}`).value.trim();
+            const start2 = document.getElementById(`sch-s2-${day}`).value.trim();
+            const end2 = document.getElementById(`sch-e2-${day}`).value.trim();
 
-            // Se il giorno è lavorativo e ha sia l'inizio che la fine pausa
-            const hasBreak = (isWorking && end1 && start2) ? 1 : 0;
+            // C'è pausa SOLO se è lavorativo E ci sono sia inizio che fine pausa (orario spezzato)
+            const hasBreak = (isWorking && end1 !== "" && start2 !== "") ? 1 : 0;
 
             const scheduleData = {
+                salon_id: salonId,
                 username: username,
                 day_of_week: day,
                 is_working: isWorking,
@@ -7327,20 +7327,17 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
                 end_time_1: end1 || null,
                 start_time_2: start2 || null,
                 end_time_2: end2 || null,
-                has_break: hasBreak
+                has_break: hasBreak,
+                updated_at: new Date().toISOString()
             };
 
-            // Controlliamo se prima c'era una pausa e ora non c'è più
-            const prevDayConfig = prevUserScheds.find(s => Number(s.day_of_week) === day);
-            const hadBreakBefore = prevDayConfig && (prevDayConfig.has_break === 1 || prevDayConfig.has_break === true || (prevDayConfig.end_time_1 && prevDayConfig.start_time_2));
-
-            if (hadBreakBefore && !hasBreak) {
-                daysWithRemovedBreak.push(day);
-            } else if (hasBreak) {
-                daysWithPreservedBreak.push(day);
+            if (!hasBreak) {
+                daysWithNoBreakNow.push(day);
+            } else {
+                daysWithBreakNow.push(day);
             }
 
-            const existing = prevDayConfig;
+            const existing = prevUserScheds.find(s => Number(s.day_of_week) === day);
             if (existing) {
                 await window.universalQuery({ action: 'UPDATE', table: 'operator_schedules', data: scheduleData, id: existing.id });
             } else {
@@ -7348,14 +7345,14 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
             }
         }
 
-        // 3. SE È STATA RIMOSSA LA PAUSA PRANZO IN ALMENO UN GIORNO:
-        if (daysWithRemovedBreak.length > 0) {
+        // 3. SE NEI NUOVI TURNI CI SONO GIORNI SENZA PAUSA PRANZO:
+        if (daysWithNoBreakNow.length > 0) {
             const dayNamesIt = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
-            const removedDayNames = daysWithRemovedBreak.map(d => dayNamesIt[d]).join(', ');
+            const noBreakDaysLabels = daysWithNoBreakNow.map(d => dayNamesIt[d]).join(', ');
 
             const confirmDelete = confirm(
-                `⚠️ HAI RIMOSSO LA PAUSA PRANZO per ${username} nei seguenti giorni:\n${removedDayNames}\n\n` +
-                `Vuoi eliminare definitivamente gli appuntamenti di "Pausa Pranzo" già presenti in agenda da OGGI in poi per questi giorni?`
+                `⚠️ HAI IMPOSTATO UN TURNO CONTINUO (SENZA PAUSA) per ${username} nei seguenti giorni:\n${noBreakDaysLabels}\n\n` +
+                `Vuoi eliminare definitivamente tutti gli appuntamenti di "Pausa Pranzo" già presenti in agenda da OGGI in poi per questi giorni?`
             );
 
             if (confirmDelete) {
@@ -7363,7 +7360,7 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
                     const todayStr = new Date().toLocaleDateString('en-CA');
                     const allApps = await window.universalQuery({ action: 'GET_ALL', table: 'appointments' }) || [];
 
-                    // Filtriamo le pause pranzo future di questo operatore nei giorni modificati
+                    // Trova tutte le pause future per i giorni modificati
                     const breaksToDelete = allApps.filter(a => {
                         if (!a.date || a.date < todayStr) return false;
                         if ((a.assigned_user || 'admin').trim().toLowerCase() !== cleanUsername) return false;
@@ -7373,30 +7370,54 @@ async function populateSingleServiceSupplierSelect(selectedId = null) {
                         const isPausa = srv.includes('pausa') || srv.includes('pranzo') || cust.includes('pausa') || cust.includes('pranzo');
                         if (!isPausa) return false;
 
-                        const appDayOfWeek = new Date(a.date + 'T00:00:00').getDay();
-                        return daysWithRemovedBreak.includes(appDayOfWeek);
+                        const appDateObj = new Date(a.date + 'T00:00:00');
+                        const appDayOfWeek = appDateObj.getDay();
+                        return daysWithNoBreakNow.includes(appDayOfWeek);
                     });
 
+                    console.log(`🗑️ Trovate ${breaksToDelete.length} pause pranzo da eliminare.`);
+
                     if (breaksToDelete.length > 0) {
-                        for (let b of breaksToDelete) {
-                            await window.universalQuery({ action: 'DELETE', table: 'appointments', id: b.id });
+                        const deleteIds = breaksToDelete.map(b => b.id);
+
+                        // A. Eliminazione dal database locale Dexie
+                        if (window.localDb && window.localDb.appointments) {
+                            await window.localDb.appointments.bulkDelete(deleteIds);
                         }
-                        console.log(`🗑️ [PAUSE ELIMINATE] Rimosse ${breaksToDelete.length} pause pranzo per ${username} da oggi in poi.`);
+
+                        // B. Eliminazione da Supabase Cloud
+                        if (navigator.onLine && window.SUPABASE_CONFIG) {
+                            const idsList = deleteIds.map(id => `"${id}"`).join(',');
+                            await fetch(`${window.SUPABASE_CONFIG.url}/rest/v1/appointments?id=in.(${idsList})`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'apikey': window.SUPABASE_CONFIG.key,
+                                    'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key
+                                }
+                            }).catch(e => console.warn("Errore cancellazione remota batch pause:", e));
+                        }
+
+                        // C. RIMOZIONE IMMEDIATA DALLA RAM LOCALE
+                        if (Array.isArray(window.allAppointments)) {
+                            window.allAppointments = window.allAppointments.filter(a => !deleteIds.includes(a.id));
+                        }
                     }
                 } catch (delErr) {
-                    console.error("Errore durante l'eliminazione delle vecchie pause pranzo:", delErr);
+                    console.error("Errore cancellazione vecchie pause:", delErr);
                 }
             }
         }
 
-        // 4. Rigeneriamo le pause per i giorni in cui il turno spezzato è rimasto attivo
-        await generateBreakAppointments(username);
+        // 4. Rigenera le pause SOLO se ci sono giorni in cui la pausa è ancora prevista
+        if (daysWithBreakNow.length > 0) {
+            await generateBreakAppointments(username);
+        }
 
-        // 5. Aggiorniamo agenda e interfaccia
+        // 5. Aggiorna tutto e ridisegna subito l'agenda
         await refreshAllData();
         if (typeof renderCalendar === 'function') renderCalendar();
 
-        alert("✅ Orari salvati e agenda aggiornata con successo!");
+        alert("✅ Orari aggiornati e agenda ripulita con successo!");
     }
 
 // 🕒 Generazione Incrementale e Non Distruttiva (Riempibuchi a 90 giorni)
@@ -7432,9 +7453,13 @@ async function generateBreakAppointments(username) {
 
             const dayConfig = userSchedules.find(s => Number(s.day_of_week) === dayOfWeek);
             const isWorking = dayConfig && Number(dayConfig.is_working) === 1;
-            const hasValidSplitShift = isWorking && dayConfig.start_time_1 && dayConfig.end_time_1 && dayConfig.start_time_2 && dayConfig.end_time_2;
+            const hasValidSplitShift = isWorking && 
+                                       dayConfig.end_time_1 && 
+                                       dayConfig.start_time_2 && 
+                                       String(dayConfig.end_time_1).trim() !== "" && 
+                                       String(dayConfig.start_time_2).trim() !== "" &&
+                                       (dayConfig.has_break === 1 || dayConfig.has_break === true || dayConfig.has_break === '1');
 
-            // Se il giorno non è lavorativo o non ha un turno spezzato valido, saltiamo
             if (!hasValidSplitShift) continue;
 
             // 🏖️ Verifichiamo se in questa data c'è una chiusura o ferie straordinaria
